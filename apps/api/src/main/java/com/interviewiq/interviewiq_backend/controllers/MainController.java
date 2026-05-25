@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping(value = "/api/{version}/main", version = "1")
 public class MainController {
-    @GetMapping(value = "/{version}/main/healthcheck", version = "1")
+    @GetMapping(value = "/healthcheck")
     public ResponseEntity<String> healthCheck() {
         return new ResponseEntity<>("Server Up", HttpStatus.OK);
     }
