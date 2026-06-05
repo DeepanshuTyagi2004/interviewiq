@@ -70,10 +70,16 @@ class RuleBasedProfileAssemblerTest {
         // Serialize the whole bands object and assert no forbidden comparative vocabulary.
         String json = objectMapper.writeValueAsString(bands).toLowerCase();
         assertThat(json)
+                // key-name guards (e.g. {"score":...} in serialized JSON)
                 .doesNotContain("\"score\"")
                 .doesNotContain("\"rating\"")
                 .doesNotContain("\"rank\"")
                 .doesNotContain("\"grade\"")
+                // value-text guards — unquoted so they catch comparative words inside string values too
+                .doesNotContain("score")
+                .doesNotContain("rating")
+                .doesNotContain("rank")
+                .doesNotContain("grade")
                 .doesNotContain("percentile")
                 .doesNotContain("above average")
                 .doesNotContain("better than");

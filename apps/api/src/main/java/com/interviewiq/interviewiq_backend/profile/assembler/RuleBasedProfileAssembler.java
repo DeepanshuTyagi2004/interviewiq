@@ -8,20 +8,22 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Component
 public class RuleBasedProfileAssembler implements ProfileAssembler {
 
     private final ObjectMapper objectMapper;
-    private final NumberFormat grouping = NumberFormat.getIntegerInstance(Locale.US);
 
     public RuleBasedProfileAssembler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    /** Thread-safe integer formatting with US grouping separators (e.g. 1,204). */
+    private static String formatInt(int n) {
+        return String.format("%,d", n);
     }
 
     @Override
@@ -39,7 +41,7 @@ public class RuleBasedProfileAssembler implements ProfileAssembler {
             int lastYear = g.path("contributions").path("lastYear").asInt(0);
             if (lastYear > 0) {
                 notable.add(new NotableItem(
-                        grouping.format(lastYear) + " GitHub contributions in the last year",
+                        formatInt(lastYear) + " GitHub contributions in the last year",
                         "GITHUB"));
             }
             int externalPRs = g.path("externalPRs").asInt(0);
