@@ -4,6 +4,7 @@ import com.interviewiq.interviewiq_backend.profile.model.ProfileFragment;
 import com.interviewiq.interviewiq_backend.profile.model.ProfileSource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,5 +16,6 @@ public interface ProfileFragmentRepository extends JpaRepository<ProfileFragment
 
     Optional<ProfileFragment> findByUserIdAndSource(UUID userId, ProfileSource source);
 
+    @Transactional
     void deleteByUserIdAndSource(UUID userId, ProfileSource source);
 }
