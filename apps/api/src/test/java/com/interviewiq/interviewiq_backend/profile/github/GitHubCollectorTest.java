@@ -5,9 +5,8 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,9 +22,12 @@ class GitHubCollectorTest {
         // RestClient + token cipher + repo (mapping/hashing methods don't touch them).
         collector = new GitHubCollector(null, objectMapper, null, null,
                 "https://api.github.com/graphql");
-        String json = Files.readString(
-                Path.of("src/test/resources/fixtures/github-graphql-response.json"),
-                StandardCharsets.UTF_8);
+        String json;
+        try (InputStream is = getClass().getClassLoader()
+                .getResourceAsStream("fixtures/github-graphql-response.json")) {
+            if (is == null) throw new IllegalStateException("Fixture not found on classpath");
+            json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
         fixtureRoot = objectMapper.readTree(json);
     }
 

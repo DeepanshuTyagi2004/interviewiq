@@ -125,7 +125,12 @@ public class GitHubCollector {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        return objectMapper.readTree(response);
+        JsonNode root = objectMapper.readTree(response);
+        if (root.has("errors")) {
+            throw new IllegalStateException(
+                    "GitHub GraphQL returned errors: " + root.path("errors").toString());
+        }
+        return root;
     }
 
     /**
