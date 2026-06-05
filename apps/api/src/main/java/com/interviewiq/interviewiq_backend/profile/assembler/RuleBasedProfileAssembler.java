@@ -10,6 +10,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Component
@@ -21,9 +22,12 @@ public class RuleBasedProfileAssembler implements ProfileAssembler {
         this.objectMapper = objectMapper;
     }
 
-    /** Thread-safe integer formatting with US grouping separators (e.g. 1,204). */
+    /**
+     * Thread-safe integer formatting with US grouping separators (e.g. 1,204).
+     * Locale.US is pinned so behaviour is identical regardless of JVM default locale.
+     */
     private static String formatInt(int n) {
-        return String.format("%,d", n);
+        return String.format(Locale.US, "%,d", n);
     }
 
     @Override

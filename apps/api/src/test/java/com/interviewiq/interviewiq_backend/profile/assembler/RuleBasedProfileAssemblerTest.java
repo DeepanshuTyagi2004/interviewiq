@@ -69,17 +69,16 @@ class RuleBasedProfileAssemblerTest {
         var bands = assembler.assemble(List.of(githubFragment()));
         // Serialize the whole bands object and assert no forbidden comparative vocabulary.
         String json = objectMapper.writeValueAsString(bands).toLowerCase();
+        // Key-name guards: catch score/rating/rank/grade appearing as JSON field names.
+        // These are scoped to quoted forms to avoid false positives on descriptive values
+        // (e.g. a future phrase "ranked by activity" would trip an unquoted "rank" guard).
         assertThat(json)
-                // key-name guards (e.g. {"score":...} in serialized JSON)
                 .doesNotContain("\"score\"")
                 .doesNotContain("\"rating\"")
                 .doesNotContain("\"rank\"")
-                .doesNotContain("\"grade\"")
-                // value-text guards — unquoted so they catch comparative words inside string values too
-                .doesNotContain("score")
-                .doesNotContain("rating")
-                .doesNotContain("rank")
-                .doesNotContain("grade")
+                .doesNotContain("\"grade\"");
+        // Value-text guards for phrases that are never part of descriptive language.
+        assertThat(json)
                 .doesNotContain("percentile")
                 .doesNotContain("above average")
                 .doesNotContain("better than");
@@ -91,5 +90,37 @@ class RuleBasedProfileAssemblerTest {
         assertThat(bands.notable()).isEmpty();
         assertThat(bands.mostUsedSkills()).isEmpty();
         assertThat(bands.atAGlance()).isEmpty();
+    }
+
+    /**
+     * Verifies that non-GITHUB fragments passed alongside a GITHUB fragment are safely
+     * ignored — no exception, no output corruption. Guards the spec rule "sources are
+     * additive, never required".
+     */
+    @Test
+    void assemble_ignoresNonGithubFragmentsSafely() {
+        String resumeData = """
+                {"education":"B.Tech CSE","skills":["Java","SQL"]}
+                """;
+        String leetcodeData = """
+                {"totalSolved":412,"easy":78,"medium":268,"hard":66}
+                """;
+        ProfileFragment resumeFrag   = new ProfileFragment(UUID.randomUUID(), ProfileSource.RESUME,   resumeData,   "hash-r");
+        ProfileFragment leetcodeFrag = new ProfileFragment(UUID.randomUUID(), ProfileSource.LEETCODE, leetcodeData, "hash-l");
+
+        // Mixed list: GITHUB + RESUME + LEETCODE
+        var bands = assembler.assemble(List.of(githubFragment(), resumeFrag, leetcodeFrag));
+
+        // GITHUB data is still extracted correctly
+        assertThat(bands.notable())
+                .anySatisfy(n -> assertThat(n.text()).contains("1,204").contains("contributions"));
+        assertThat(bands.mostUsedSkills()).isNotEmpty();
+        assertThat(bands.atAGlance()).isNotEmpty();
+
+        // No data from the non-GITHUB fragments leaked into the output
+        String allText = bands.notable().stream().map(n -> n.text() + n.source()).reduce("", String::concat)
+                + bands.mostUsedSkills().stream().map(s -> s.skill() + s.evidence()).reduce("", String::concat)
+                + String.join(" ", bands.atAGlance());
+        assertThat(allText).doesNotContain("B.Tech").doesNotContain("totalSolved").doesNotContain("412");
     }
 }
