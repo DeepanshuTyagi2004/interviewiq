@@ -1,4 +1,7 @@
-export default function OnboardingConnectionsPage() {
-  // TODO: connect integrations (LinkedIn, GitHub)
-  return <main className="flex-1 p-8">Onboarding · Connections</main>;
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/lib/constants/routes";
+
+/** Onboarding shares the single connections hub. */
+export default function OnboardingConnectionsRedirect() {
+  redirect(ROUTES.connections);
 }

@@ -1,4 +1,7 @@
-export default function ProfileConnectionsPage() {
-  // TODO: manage connected accounts
-  return <main className="flex-1 p-8">Profile · Connections</main>;
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/lib/constants/routes";
+
+/** The connections hub now lives at the top level. */
+export default function ProfileConnectionsRedirect() {
+  redirect(ROUTES.connections);
 }
