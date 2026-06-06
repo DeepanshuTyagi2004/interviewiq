@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function DashboardPage() {
   return (
-    <main className="flex-1 space-y-6 p-6">
+    <div className="flex-1 space-y-6 p-6">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
         <p className="text-sm text-muted-foreground">
@@ -21,6 +21,6 @@ export default function DashboardPage() {
           Head to Connections to link your GitHub account.
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

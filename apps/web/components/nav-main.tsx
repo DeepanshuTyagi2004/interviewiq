@@ -29,7 +29,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
             return (
               <SidebarMenuItem key={item.url}>
                 <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                  <Link href={item.url}>
+                  <Link href={item.url} aria-current={active ? "page" : undefined}>
                     <item.icon />
                     <span>{item.title}</span>
                   </Link>
