@@ -22,7 +22,7 @@ export function GithubStatTiles({ github }: { github: GithubFragment }) {
       {tiles.map((t) => (
         <Card key={t.label}>
           <CardContent className="flex flex-col gap-1 p-4">
-            <t.icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <t.icon className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
             <span className="font-mono text-2xl font-semibold tabular-nums">
               {t.value}
             </span>
