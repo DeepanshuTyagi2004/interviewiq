@@ -5,6 +5,7 @@ import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -22,7 +23,10 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>
-              <PostHogProvider>{children}</PostHogProvider>
+              <PostHogProvider>
+                {children}
+                <Toaster />
+              </PostHogProvider>
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>

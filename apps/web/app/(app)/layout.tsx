@@ -1,10 +1,25 @@
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // TODO: app shell (sidebar, topbar). Auth gating is client-side via RequireAuth.
   return (
     <RequireAuth>
-      <div className="flex-1 flex">{children}</div>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "16rem",
+            "--header-height": "3.5rem",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
     </RequireAuth>
   );
 }

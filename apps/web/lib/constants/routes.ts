@@ -14,6 +14,7 @@ export const ROUTES = {
   help: "/help",
   onboarding: "/onboarding",
   profile: "/profile",
+  connections: "/connections",
   jobs: "/jobs",
   loops: "/loops",
   settings: {
