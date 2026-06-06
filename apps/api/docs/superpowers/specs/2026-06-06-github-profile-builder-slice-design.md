@@ -197,7 +197,7 @@ New package: `com.interviewiq.interviewiq_backend.profile`.
 
 ```jsonc
 {
-  "user": { "name": "Aisha Verma", "headline": null },
+  "user": { "name": "Aisha Verma" },   // headline is OPTIONAL — the API omits it when null (frontend types it `headline?: string | null`)
   "sources": [
     { "source": "GITHUB", "connected": true,  "lastRefreshedAt": "ISO" },
     { "source": "RESUME", "connected": false },
