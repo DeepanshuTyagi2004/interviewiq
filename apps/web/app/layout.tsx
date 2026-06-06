@@ -4,6 +4,7 @@ import "./globals.css";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -20,7 +21,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider>
           <QueryProvider>
-            <PostHogProvider>{children}</PostHogProvider>
+            <AuthProvider>
+              <PostHogProvider>{children}</PostHogProvider>
+            </AuthProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

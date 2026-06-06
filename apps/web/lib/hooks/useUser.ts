@@ -1,12 +1,19 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
+/**
+ * Thin compatibility wrapper over useAuth.
+ *
+ * `user` is intentionally null for now — there is no /me endpoint yet (user
+ * display was deferred). When the backend exposes current-user data, fetch it
+ * here (e.g. via TanStack Query) and populate `user`.
+ */
 export function useUser() {
-  const { data, status } = useSession();
+  const { isAuthenticated, isLoading } = useAuth();
   return {
-    user: data?.user ?? null,
-    isLoading: status === "loading",
-    isAuthenticated: status === "authenticated",
+    user: null,
+    isLoading,
+    isAuthenticated,
   };
 }
