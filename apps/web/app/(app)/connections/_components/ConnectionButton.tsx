@@ -36,7 +36,7 @@ export function ConnectionButton({
 
   if (!path) {
     return (
-      <Button variant="secondary" disabled>
+      <Button variant="secondary" disabled aria-label={`${resolvedLabel} — coming soon`}>
         Coming soon
       </Button>
     );

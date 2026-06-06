@@ -20,7 +20,7 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
 
   if (isError || !data) {
     return (
-      <p className="text-sm text-destructive">
+      <p role="alert" className="text-sm text-destructive">
         Could not load your connections. Please refresh the page.
       </p>
     );

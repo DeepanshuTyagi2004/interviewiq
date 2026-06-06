@@ -17,7 +17,7 @@ export default async function ConnectionsPage({
   const errorSource = errorToSource(error);
 
   return (
-    <main className="flex-1 space-y-6 p-6">
+    <div className="flex-1 space-y-6 p-6">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Connections</h2>
         <p className="text-sm text-muted-foreground">
@@ -25,6 +25,6 @@ export default async function ConnectionsPage({
         </p>
       </div>
       <ConnectionsGrid errorSource={errorSource} />
-    </main>
+    </div>
   );
 }
