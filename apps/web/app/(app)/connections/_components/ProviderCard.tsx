@@ -61,7 +61,7 @@ export function ProviderCard(props: ProviderCardProps) {
               {provider.live ? <DisconnectDialog label={provider.label} /> : null}
             </>
           ) : (
-            <ConnectionButton source={provider.source} />
+            <ConnectionButton source={provider.source} label={provider.label} />
           )}
         </div>
       </CardContent>
