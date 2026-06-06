@@ -18,21 +18,21 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="flex-1 space-y-4 p-6">
+      <div className="flex-1 space-y-4 p-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full rounded-xl" />
         <Skeleton className="h-64 w-full rounded-xl" />
-      </main>
+      </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <main className="flex-1 p-6">
-        <p className="text-sm text-destructive">
+      <div className="flex-1 p-6">
+        <p role="alert" className="text-sm text-destructive">
           Could not load your profile. Please refresh the page.
         </p>
-      </main>
+      </div>
     );
   }
 
@@ -43,7 +43,7 @@ export default function ProfilePage() {
   );
 
   return (
-    <main className="flex-1 space-y-6 p-6">
+    <div className="flex-1 space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">
@@ -117,6 +117,6 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }
