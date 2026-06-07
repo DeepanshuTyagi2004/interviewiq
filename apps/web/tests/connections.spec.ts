@@ -22,12 +22,18 @@ test("authed: sidebar → connections → Connect navigates to authorize", async
   const connect = page.getByRole("button", { name: /connect github/i });
   await expect(connect).toBeVisible();
 
+  // The button apiFetches the authorize URL (Bearer in header), then navigates to it.
   await page.route("**/api/v1/connections/github/authorize", (route) =>
-    route.fulfill({ status: 204, body: "" }),
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url: "https://github.com/login/oauth/authorize?client_id=test&state=xyz" }),
+    }),
   );
   const [request] = await Promise.all([
     page.waitForRequest(`${API_URL}/api/v1/connections/github/authorize`),
     connect.click(),
   ]);
   expect(request.url()).toBe(`${API_URL}/api/v1/connections/github/authorize`);
+  await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
 });
