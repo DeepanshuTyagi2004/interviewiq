@@ -44,7 +44,7 @@ function CallbackSpinner() {
           className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent"
           aria-hidden
         />
-        <p className="font-mono text-xs uppercase tracking-[0.08em]">
+        <p role="status" className="font-mono text-xs uppercase tracking-[0.08em]">
           Signing you in…
         </p>
       </div>

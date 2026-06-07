@@ -12,7 +12,7 @@ export default function AuthLayout({
         <div className="mb-6 flex justify-center">
           <Link
             href={ROUTES.home}
-            className="font-semibold tracking-tight text-foreground"
+            className="rounded-sm font-semibold tracking-tight text-foreground hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             InterviewIQ
           </Link>
