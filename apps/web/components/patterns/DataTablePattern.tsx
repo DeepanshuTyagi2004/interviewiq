@@ -49,8 +49,8 @@ export function DataTablePattern<T>({
       <Table>
         <TableHeader>
           <TableRow>
-            {columns.map((col) => (
-              <TableHead key={col.header} className={col.className}>
+            {columns.map((col, colIdx) => (
+              <TableHead key={`${col.header}-${colIdx}`} className={col.className}>
                 {col.header}
               </TableHead>
             ))}
@@ -69,8 +69,11 @@ export function DataTablePattern<T>({
           ) : (
             rows.map((row) => (
               <TableRow key={rowKey(row)}>
-                {columns.map((col) => (
-                  <TableCell key={col.header} className={col.className}>
+                {columns.map((col, colIdx) => (
+                  <TableCell
+                    key={`${col.header}-${colIdx}`}
+                    className={col.className}
+                  >
                     {col.cell(row)}
                   </TableCell>
                 ))}

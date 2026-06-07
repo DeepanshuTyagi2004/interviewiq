@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils/cn";
 
 export interface FormFieldProps {
   label: string;
+  /** When provided, forwarded to the Radix Label as htmlFor. */
+  htmlFor?: string;
   hint?: string;
   error?: string;
   children: React.ReactNode;
@@ -16,6 +18,7 @@ export interface FormFieldProps {
  */
 export function FormField({
   label,
+  htmlFor,
   hint,
   error,
   children,
@@ -23,10 +26,14 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label className="text-sm font-medium">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-sm font-medium">
+        {label}
+      </Label>
       {children}
       {error ? (
-        <p className="text-xs text-destructive">{error}</p>
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
       ) : hint ? (
         <p className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
