@@ -4,6 +4,8 @@ import com.interviewiq.interviewiq_backend.profile.github.GitHubOAuthService;
 import com.interviewiq.interviewiq_backend.profile.model.GitHubConnection;
 import com.interviewiq.interviewiq_backend.profile.service.ProfileService;
 import com.interviewiq.interviewiq_backend.profile.web.dto.AuthorizeUrlResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping(value = "/api/{version}/connections/github", version = "1")
 public class GitHubConnectionController {
+
+    private static final Logger log = LoggerFactory.getLogger(GitHubConnectionController.class);
 
     private final GitHubOAuthService gitHubOAuthService;
     private final ProfileService profileService;
@@ -71,6 +75,7 @@ public class GitHubConnectionController {
             profileService.refreshGitHub(connection); // synchronous fetch on connect
             return new RedirectView(connectionsRedirect);
         } catch (RuntimeException ex) {
+            log.warn("GitHub connect callback failed", ex);
             String url = UriComponentsBuilder.fromUriString(connectionsRedirect)
                     .queryParam("error", "github_connect_failed")
                     .build().toUriString();
