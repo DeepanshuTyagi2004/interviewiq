@@ -58,7 +58,7 @@
 <div class="wrap">
 <nav>
   <h1>InterviewIQ</h1>
-  <div class="sub">Auth + Profile Builder · architecture & decisions</div>
+  <div class="sub">Auth + Profile Builder · architecture &amp; decisions</div>
   <div class="grp">Big picture</div>
   <a href="#overview">1 · System overview (HLD)</a>
   <a href="#stack">2 · Stack &amp; reality vs docs</a>
@@ -82,30 +82,29 @@
 
 <div class="mermaid">
 flowchart LR
-  subgraph B["Browser — Next.js 16 / React 19 / shadcn / Geist"]
-    FE["UI (app shell, /profile, /connections)"]
-    MEM[["access token<br/>(in memory only)"]]
-    AP["AuthProvider<br/>silent refresh"]
-    AF["apiFetch<br/>Bearer + 401 refresh"]
+  subgraph B["Browser: Next.js, React 19, shadcn, Geist"]
+    FE["UI: app shell, profile, connections"]
+    MEM["access token (in memory only)"]
+    AP["AuthProvider silent refresh"]
+    AF["apiFetch: Bearer + 401 refresh"]
   end
-  subgraph S["Spring Boot 4 · Java 25 backend"]
-    SEC["SecurityConfig<br/>oauth2Login + JWT resource server"]
-    AUTHC["AuthController<br/>/auth/refresh · /logout"]
-    GHC["GitHubConnectionController<br/>authorize · callback · disconnect"]
-    PROFC["ProfileController<br/>/profile/me"]
-    COLL["GitHubCollector (GraphQL)"]
-    ASM["ProfileAssembler<br/>(rule-based, descriptive)"]
-    SCH["@Scheduled weekly refresh"]
-    CIPH["TokenCipher (AES-256-GCM)"]
+  subgraph S["Spring Boot 4, Java 25 backend"]
+    SEC["SecurityConfig: oauth2Login + JWT resource server"]
+    AUTHC["AuthController: refresh, logout"]
+    GHC["GitHubConnectionController: authorize, callback, disconnect"]
+    PROFC["ProfileController: profile/me"]
+    COLL["GitHubCollector: GraphQL"]
+    ASM["ProfileAssembler: rule-based, descriptive"]
+    SCH["Scheduled weekly refresh"]
+    CIPH["TokenCipher: AES-256-GCM"]
   end
-  DB[("Supabase Postgres<br/>app_user · refresh_token<br/>github_connection · profile_fragment")]
-  GOOG{{"Google OAuth"}}
-  GH{{"GitHub OAuth + GraphQL API"}}
-
+  DB[("Supabase Postgres: app_user, refresh_token, github_connection, profile_fragment")]
+  GOOG["Google OAuth"]
+  GH["GitHub OAuth + GraphQL"]
   FE --> AF --> S
-  AF -. "refresh_token cookie (httpOnly)" .-> AUTHC
+  AF -->|refresh cookie httpOnly| AUTHC
   AP --> AF
-  FE -. "navigate" .-> GOOG
+  FE -->|navigate| GOOG
   SEC --> GOOG
   GHC --> GH
   COLL --> GH
@@ -114,9 +113,8 @@ flowchart LR
   GHC --> COLL --> ASM
   PROFC --> ASM
   SCH --> COLL
-  class MEM,AP,AF,GHC,PROFC,COLL,ASM accent
 </div>
-<p class="legend">Solid = request/response. Dashed = browser navigation / cookie. The access token never leaves JS memory; persistence across reloads is the httpOnly refresh cookie + a silent refresh on load.</p>
+<p class="legend">The access token never leaves JS memory; persistence across reloads is the httpOnly refresh cookie + a silent refresh on load.</p>
 
 <h2 id="stack">2 · Stack &amp; reality-vs-docs</h2>
 <p>A recurring theme: the documented plan and the actual repo diverged. We always built against <b>reality</b>.</p>
@@ -135,59 +133,59 @@ flowchart LR
 <div class="mermaid">
 sequenceDiagram
   autonumber
-  participant U as User / Browser
-  participant FE as Next.js (AuthProvider)
-  participant BE as Spring backend
+  participant U as Browser
+  participant FE as Frontend
+  participant BE as Backend
   participant G as Google
-  U->>BE: GET /oauth2/authorization/google (full navigation)
-  BE->>G: OAuth2 authorize
-  G-->>U: consent
-  U->>BE: /login/oauth2/code/google (code)
-  BE->>BE: OAuth2SuccessHandler — upsert user,<br/>mint rotating refresh token (hashed in DB)
-  BE-->>U: Set-Cookie refresh_token (httpOnly, path /api/v1/auth)<br/>302 → {frontend}/auth/callback
-  U->>FE: /auth/callback mounts
-  FE->>BE: POST /api/v1/auth/refresh (credentials: include)
-  BE-->>FE: { accessToken (15m JWT), expiresIn }
-  FE->>FE: store token in memory; schedule refresh ~60s before expiry
-  Note over FE,BE: every API call → apiFetch attaches Bearer;<br/>on 401 → silent refresh once → retry
-  FE-->>U: redirect to /dashboard
+  U->>BE: GET oauth2 authorization google
+  BE->>G: OAuth2 authorize redirect
+  G-->>U: consent screen
+  U->>BE: callback with auth code
+  BE->>BE: upsert user, mint rotating refresh token, hash in DB
+  BE-->>U: set httpOnly refresh cookie, redirect to auth callback
+  U->>FE: auth callback page mounts
+  FE->>BE: POST api v1 auth refresh, send cookie
+  BE-->>FE: access token JWT 15m plus expiresIn
+  FE->>FE: store token in memory, schedule refresh before expiry
+  Note over FE,BE: apiFetch attaches Bearer; on 401 it refreshes once then retries
+  FE-->>U: redirect to dashboard
 </div>
 
 <h2 id="gh-flow">4 · GitHub connect flow (Profile Builder)</h2>
-<p>A <b>second, separate</b> OAuth flow for <i>account linking</i> (not login). The key subtlety: the authorize step needs the user's identity, but a browser navigation can't carry the in-memory Bearer token — so we fetch the URL with the token, then navigate.</p>
+<p>A <b>second, separate</b> OAuth flow for <i>account linking</i> (not login). The key subtlety: the authorize step needs the user's identity, but a browser navigation cannot carry the in-memory Bearer token — so we fetch the URL with the token, then navigate.</p>
 <div class="mermaid">
 sequenceDiagram
   autonumber
   participant U as Browser
-  participant FE as /connections (ConnectionButton)
-  participant BE as Spring backend
+  participant FE as Connections
+  participant BE as Backend
   participant GH as GitHub
   participant DB as Postgres
-  U->>FE: click "Connect GitHub"
-  FE->>BE: apiFetch GET /api/v1/connections/github/authorize (Bearer)
-  BE->>BE: jwt.subject → userId; sign state = HMAC(userId+ts)
-  BE-->>FE: 200 { url: github.com/login/oauth/authorize?...&state }
-  FE->>U: window.location = url
-  U->>GH: consent (scope read:user)
-  GH-->>U: 302 → /api/v1/connections/github/callback?code&state
-  U->>BE: callback (no JWT — permitAll)
-  BE->>BE: verify state → userId (CSRF + identity)
-  BE->>GH: exchange code → access_token
-  BE->>GH: GET /user (login)
-  BE->>BE: TokenCipher.encrypt(token)
-  BE->>GH: GraphQL: viewer + contributions + repos(langs) + PRs
-  BE->>BE: normalize → fragment JSON; SHA-256 canonical hash
-  BE->>DB: upsert github_connection + profile_fragment (jsonb)
-  BE-->>U: 302 → {frontend}/connections
-  U->>FE: refetch GET /api/v1/profile/me → /profile renders
+  U->>FE: click Connect GitHub
+  FE->>BE: apiFetch GET authorize, Bearer header
+  BE->>BE: jwt subject to userId, sign HMAC state
+  BE-->>FE: 200 JSON with github authorize url
+  FE->>U: window location to github url
+  U->>GH: consent, scope read user
+  GH-->>U: redirect to callback with code and state
+  U->>BE: hit callback, no JWT, permitAll
+  BE->>BE: verify state to userId, CSRF plus identity
+  BE->>GH: exchange code for access token
+  BE->>GH: GET user to read login
+  BE->>BE: TokenCipher encrypt token
+  BE->>GH: GraphQL viewer, contributions, repos, PRs
+  BE->>BE: normalize fragment, SHA-256 canonical hash
+  BE->>DB: upsert github connection and profile fragment jsonb
+  BE-->>U: redirect to frontend connections
+  U->>FE: refetch profile me, render profile
 </div>
 
 <h2 id="data">5 · Data model (ERD)</h2>
 <div class="mermaid">
 erDiagram
   app_user ||--o{ refresh_token : has
-  app_user ||--o| github_connection : "links (1)"
-  app_user ||--o{ profile_fragment : "has per source"
+  app_user ||--o| github_connection : links
+  app_user ||--o{ profile_fragment : has
   app_user {
     uuid id PK
     string google_sub UK
@@ -198,26 +196,26 @@ erDiagram
   }
   refresh_token {
     uuid id PK
-    string token_hash UK "SHA-256, rotating"
+    string token_hash UK "sha256 rotating"
     uuid user_id FK
     instant expires_at
-    instant revoked_at "null = active"
+    instant revoked_at "null means active"
   }
   github_connection {
     uuid id PK
-    uuid user_id FK UK
+    uuid user_id FK "unique per user"
     string github_login
     string access_token_enc "AES-256-GCM"
-    string scope "read:user"
+    string scope "read user"
     instant connected_at
     instant last_refreshed_at
   }
   profile_fragment {
     uuid id PK
     uuid user_id FK
-    enum source "GITHUB|RESUME|LEETCODE|LINKEDIN|X"
-    jsonb data "normalized, source-agnostic"
-    string content_hash "SHA-256 of canonical JSON"
+    string source "GITHUB RESUME LEETCODE LINKEDIN X"
+    jsonb data "normalized per source"
+    string content_hash "sha256 canonical"
     int version
     instant fetched_at
   }
@@ -229,24 +227,24 @@ erDiagram
 <div class="mermaid">
 flowchart TB
   subgraph web["profile.web"]
-    GHC[GitHubConnectionController]
-    PC[ProfileController]
-    DTO["dto: ProfileResponse, SourceStatus,<br/>NotableItem, SkillItem, ProvenanceItem,<br/>AuthorizeUrlResponse"]
+    GHC["GitHubConnectionController"]
+    PC["ProfileController"]
+    DTO["DTOs: ProfileResponse, SourceStatus, NotableItem, SkillItem, ProvenanceItem, AuthorizeUrlResponse"]
   end
-  subgraph svc["profile.service / github / assembler / crypto"]
-    OS[OAuthStateService<br/>HMAC signed state]
-    GOS[GitHubOAuthService<br/>exchange + upsert]
-    GC[GitHubCollector<br/>GraphQL → fragment + hash]
-    PA["ProfileAssembler (iface)<br/>RuleBasedProfileAssembler"]
-    PS[ProfileService<br/>orchestrate read/disconnect/refresh]
-    PRS[ProfileRefreshScheduler]
-    TC[TokenCipher AES-GCM]
+  subgraph svc["service / github / assembler / crypto"]
+    OS["OAuthStateService: HMAC signed state"]
+    GOS["GitHubOAuthService: exchange + upsert"]
+    GC["GitHubCollector: GraphQL to fragment + hash"]
+    PA["ProfileAssembler iface and RuleBased impl"]
+    PS["ProfileService: orchestrate read, disconnect, refresh"]
+    PRS["ProfileRefreshScheduler"]
+    TC["TokenCipher AES-GCM"]
   end
-  subgraph data["profile.model / repository"]
-    E1[GitHubConnection]
-    E2[ProfileFragment]
-    R1[GitHubConnectionRepository]
-    R2[ProfileFragmentRepository]
+  subgraph data["model / repository"]
+    E1["GitHubConnection"]
+    E2["ProfileFragment"]
+    R1["GitHubConnectionRepository"]
+    R2["ProfileFragmentRepository"]
   end
   GHC --> GOS --> OS
   GOS --> TC
@@ -263,7 +261,7 @@ flowchart TB
 <tr><td><code>TokenCipher</code></td><td>AES-256-GCM encrypt/decrypt of the GitHub token at rest; random 12-byte IV prepended; key from <code>GITHUB_TOKEN_KEY</code>.</td></tr>
 <tr><td><code>OAuthStateService</code></td><td>Stateless CSRF: <code>state = base64(userId:ts:HMAC)</code>, 10-min expiry. Binds the user to the callback so it needs no JWT.</td></tr>
 <tr><td><code>GitHubOAuthService</code></td><td>Build authorize URL; exchange code→token; fetch login; encrypt; upsert connection.</td></tr>
-<tr><td><code>GitHubCollector</code></td><td>One GraphQL POST → normalized fragment; SHA-256 over canonical (key-sorted) JSON; upsert only when hash changes; rejects GraphQL <code>errors[]</code>.</td></tr>
+<tr><td><code>GitHubCollector</code></td><td>One GraphQL POST → normalized fragment; SHA-256 over canonical (key-sorted) JSON; upsert only when hash changes; rejects GraphQL <code>errors</code>.</td></tr>
 <tr><td><code>ProfileAssembler</code></td><td>Rule-based stand-in for the future LLM synthesis: derives <code>notable</code> / <code>mostUsedSkills</code> / <code>atAGlance</code>. <b>No scoring.</b> Isolated behind an interface so it's swappable.</td></tr>
 <tr><td><code>ProfileService</code></td><td>Build <code>ProfileResponse</code>, disconnect, refresh-for-user.</td></tr>
 </table>
@@ -271,40 +269,40 @@ flowchart TB
 <h2 id="fe-lld">7 · Frontend LLD</h2>
 <div class="mermaid">
 flowchart TB
-  RL["app/layout.tsx<br/>Geist fonts + providers + Toaster"]
+  RL["app layout: Geist fonts, providers, Toaster"]
   subgraph auth["lib/auth"]
-    TS[token-store<br/>in-memory]
-    AP2[AuthProvider<br/>silent refresh]
-    CL[client: login/refresh/logout]
+    TS["token-store in memory"]
+    AP2["AuthProvider silent refresh"]
+    CL["client: login, refresh, logout"]
   end
-  AFC["lib/api-client: apiFetch<br/>Bearer + 401 refresh-retry"]
-  RA[components/auth/RequireAuth]
-  subgraph shell["(app) shell — cherry-picked dashboard-01"]
-    SB[app-sidebar / nav-user / site-header]
+  AFC["apiFetch: Bearer + 401 refresh-retry"]
+  RA["RequireAuth guard"]
+  subgraph shell["app shell, cherry-picked dashboard-01"]
+    SB["app-sidebar, nav-user, site-header"]
   end
   subgraph prof["features/profile"]
-    HK[useProfile / useDisconnectGithub]
-    API[getMyProfile / disconnectGithub]
-    TY["types ↔ backend ProfileResponse"]
+    HK["useProfile, useDisconnectGithub"]
+    API["getMyProfile, disconnectGithub"]
+    TY["types match ProfileResponse"]
   end
-  subgraph pages["(app) routes"]
-    PR["/profile — Layout A (read-only)"]
-    CN["/connections — hub"]
+  subgraph pages["app routes"]
+    PR["profile: Layout A read-only"]
+    CN["connections: hub"]
   end
-  subgraph viz["components/visualizations"]
-    HM[ContributionHeatmap CUSTOM]
-    ST[GithubStatTiles CUSTOM]
-    LP[LanguageDistribution / LeetCode pies+bar — Recharts]
+  subgraph viz["visualizations"]
+    HM["ContributionHeatmap CUSTOM"]
+    ST["GithubStatTiles CUSTOM"]
+    LP["Language and LeetCode charts, Recharts"]
   end
   RL --> AP2 --> CL --> TS
   AFC --> TS
-  AFC -. 401 .-> CL
+  AFC -->|on 401| CL
   RA --> AP2
   shell --> RA
   PR --> HK --> API --> AFC
   CN --> HK
   PR --> viz
-  CN --> |ConnectionButton apiFetch→navigate| AFC
+  CN -->|ConnectionButton apiFetch then navigate| AFC
 </div>
 
 <h2 id="decisions">8 · Decisions &amp; the paths we did <span class="rej">not</span> take</h2>
@@ -381,29 +379,30 @@ flowchart TB
 <p class="rej"><b>Rejected:</b> a new <code>interviewiq-api</code> service; porting the older Go prototype's handlers.</p></div>
 
 <h2 id="tree">9 · Decision tree (visual)</h2>
+<p class="legend">Solid = path taken. Dotted = rejected dead-end.</p>
 <div class="mermaid">
 flowchart TD
-  Q1{Who owns Google OAuth?} -->|backend ✓| A1[Spring oauth2Login + JWT]
-  Q1 -.->|NextAuth ✗| X1[rewrite backend]
-  A1 --> Q2{Token storage?}
-  Q2 -->|in-memory ✓| A2[silent refresh]
-  Q2 -.->|localStorage ✗| X2[XSS-readable]
-  A2 --> Q3{Gate routes how?}
-  Q3 -->|client guard ✓| A3[RequireAuth]
-  Q3 -.->|middleware ✗| X3[can't see token]
-  A3 --> Q4{GitHub access?}
-  Q4 -->|per-user OAuth read:user ✓| A4[encrypted token]
-  Q4 -.->|app token ✗| X4[no private data]
-  Q4 -.->|repo scope ✗| X5[over-broad]
-  A4 --> Q5{Authorize transport?}
-  Q5 -->|JSON + apiFetch ✓| A5[Bearer in header]
-  Q5 -.->|302 navigation ✗| X6[NPE: no JWT]
-  A5 --> Q6{Persist fragment?}
-  Q6 -->|jsonb + stringtype=unspecified ✓| A6[insert works]
-  Q6 -.->|String→jsonb default ✗| X7[varchar cast error]
-  A6 --> Q7{Render strength?}
-  Q7 -->|evidence density ✓| A7[descriptive]
-  Q7 -.->|score/rank ✗| X8[violates hard rule]
+  Q1{"Who owns Google OAuth?"} -->|backend| A1["Spring oauth2Login + JWT"]
+  Q1 -.->|NextAuth| X1["rewrite backend"]
+  A1 --> Q2{"Token storage?"}
+  Q2 -->|in-memory| A2["silent refresh"]
+  Q2 -.->|localStorage| X2["XSS readable"]
+  A2 --> Q3{"Gate routes?"}
+  Q3 -->|client guard| A3["RequireAuth"]
+  Q3 -.->|middleware| X3["cannot see token"]
+  A3 --> Q4{"GitHub access?"}
+  Q4 -->|per-user OAuth read user| A4["encrypted token"]
+  Q4 -.->|app token| X4["no private data"]
+  Q4 -.->|repo scope| X5["over broad"]
+  A4 --> Q5{"Authorize transport?"}
+  Q5 -->|JSON plus apiFetch| A5["Bearer in header"]
+  Q5 -.->|302 navigation| X6["NPE no JWT"]
+  A5 --> Q6{"Persist fragment?"}
+  Q6 -->|jsonb plus stringtype| A6["insert works"]
+  Q6 -.->|default String bind| X7["varchar cast error"]
+  A6 --> Q7{"Render strength?"}
+  Q7 -->|evidence density| A7["descriptive"]
+  Q7 -.->|score or rank| X8["violates hard rule"]
 </div>
 
 <h2 id="bugs">10 · Bugs we hit &amp; the fixes</h2>
