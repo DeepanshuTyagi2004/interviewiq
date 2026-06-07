@@ -16,15 +16,19 @@ function bin(count: number, max: number): number {
   return 1;
 }
 
+/** Grayscale intensity ramp (monochrome): muted → near-foreground. */
 const BIN_CLASS = [
   "bg-muted",
-  "bg-emerald-900",
-  "bg-emerald-700",
-  "bg-emerald-500",
-  "bg-emerald-300",
+  "bg-foreground/20",
+  "bg-foreground/40",
+  "bg-foreground/65",
+  "bg-foreground/90",
 ];
 
-export function ContributionHeatmap({ weeks, totalLastYear }: ContributionHeatmapProps) {
+export function ContributionHeatmap({
+  weeks,
+  totalLastYear,
+}: ContributionHeatmapProps) {
   const max = weeks.reduce(
     (acc, w) => Math.max(acc, ...(w.length ? w : [0])),
     0,
@@ -39,7 +43,10 @@ export function ContributionHeatmap({ weeks, totalLastYear }: ContributionHeatma
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        {totalLastYear.toLocaleString()} contributions in the last year
+        <span className="font-mono tabular-nums text-foreground">
+          {totalLastYear.toLocaleString()}
+        </span>{" "}
+        contributions in the last year
       </p>
       <div
         className="flex gap-[3px] overflow-x-auto"

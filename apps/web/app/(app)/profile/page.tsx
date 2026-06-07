@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useProfile } from "@/features/profile";
 import { ROUTES } from "@/lib/constants/routes";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  PageHeader,
+  Section,
+  SectionLabel,
+  ProfileSkeleton,
+  EmptyState,
+} from "@/components/patterns";
 import { AtAGlance } from "./_components/AtAGlance";
 import { GithubStatTiles } from "@/components/visualizations/GithubStatTiles";
 import { LanguageDistribution } from "@/components/visualizations/LanguageDistribution";
@@ -17,13 +23,7 @@ export default function ProfilePage() {
   const { data, isLoading, isError } = useProfile();
 
   if (isLoading) {
-    return (
-      <div className="flex-1 space-y-4 p-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (isError || !data) {
@@ -43,20 +43,16 @@ export default function ProfilePage() {
   );
 
   return (
-    <div className="flex-1 space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
-            {data.user.name ?? "Your profile"}
-          </h2>
-          {data.user.headline ? (
-            <p className="text-sm text-muted-foreground">{data.user.headline}</p>
-          ) : null}
-        </div>
-        <Button asChild variant="outline">
-          <Link href={ROUTES.connections}>Manage connections</Link>
-        </Button>
-      </div>
+    <div className="flex-1 space-y-8 p-6">
+      <PageHeader
+        title={data.user.name ?? "Your profile"}
+        description={data.user.headline ?? undefined}
+        actions={
+          <Button asChild variant="outline">
+            <Link href={ROUTES.connections}>Manage connections</Link>
+          </Button>
+        }
+      />
 
       <AtAGlance
         atAGlance={data.atAGlance}
@@ -64,59 +60,57 @@ export default function ProfilePage() {
         mostUsedSkills={data.mostUsedSkills}
       />
 
-      {githubConnected && github ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">GitHub</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+      <Section title="GitHub">
+        {githubConnected && github ? (
+          <div className="space-y-6">
             <GithubStatTiles github={github} />
             <div className="grid gap-6 lg:grid-cols-2">
-              <div>
-                <h3 className="mb-2 text-sm font-medium">Languages</h3>
-                <LanguageDistribution languages={github.languages} />
-              </div>
-              <div>
-                <h3 className="mb-2 text-sm font-medium">Contributions</h3>
-                <ContributionHeatmap
-                  weeks={github.contributions.weeks}
-                  totalLastYear={github.contributions.lastYear}
-                />
-              </div>
+              <Card>
+                <CardContent className="space-y-3 p-6">
+                  <SectionLabel>Languages</SectionLabel>
+                  <LanguageDistribution languages={github.languages} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="space-y-3 p-6">
+                  <SectionLabel>Contributions</SectionLabel>
+                  <ContributionHeatmap
+                    weeks={github.contributions.weeks}
+                    totalLastYear={github.contributions.lastYear}
+                  />
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">GitHub</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              Connect GitHub to see your languages, repos and contributions.
-            </p>
-            <Button asChild>
-              <Link href={ROUTES.connections}>Connect</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        ) : (
+          <EmptyState
+            title="GitHub not connected"
+            hint="Connect GitHub to see your languages, repos and contributions."
+            action={
+              <Button asChild>
+                <Link href={ROUTES.connections}>Connect</Link>
+              </Button>
+            }
+          />
+        )}
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">LeetCode</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <h3 className="mb-2 text-sm font-medium">By difficulty</h3>
-            <LeetCodeDifficulty solved={leetcode?.solved} />
-          </div>
-          <div>
-            <h3 className="mb-2 text-sm font-medium">By topic</h3>
-            <LeetCodeTopics byTopic={leetcode?.byTopic} />
-          </div>
-        </CardContent>
-      </Card>
+      <Section title="LeetCode">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardContent className="space-y-3 p-6">
+              <SectionLabel>By difficulty</SectionLabel>
+              <LeetCodeDifficulty solved={leetcode?.solved} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-3 p-6">
+              <SectionLabel>By topic</SectionLabel>
+              <LeetCodeTopics byTopic={leetcode?.byTopic} />
+            </CardContent>
+          </Card>
+        </div>
+      </Section>
     </div>
   );
 }

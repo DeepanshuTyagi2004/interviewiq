@@ -1,5 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionLabel } from "@/components/patterns";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import type { NotableItem, SkillItem } from "@/features/profile";
 
 export interface AtAGlanceProps {
@@ -8,18 +9,26 @@ export interface AtAGlanceProps {
   mostUsedSkills: SkillItem[];
 }
 
-export function AtAGlance({ atAGlance, notable, mostUsedSkills }: AtAGlanceProps) {
+export function AtAGlance({
+  atAGlance,
+  notable,
+  mostUsedSkills,
+}: AtAGlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="lg:col-span-3">
-        <CardHeader>
-          <CardTitle className="text-base">At a glance</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 p-6">
+          <SectionLabel>At a glance</SectionLabel>
           {atAGlance.length ? (
-            <ul className="list-disc space-y-1 pl-5 text-sm">
+            <ul className="space-y-1.5 text-sm">
               {atAGlance.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i} className="flex gap-2">
+                  <span
+                    aria-hidden
+                    className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground"
+                  />
+                  <span>{item}</span>
+                </li>
               ))}
             </ul>
           ) : (
@@ -31,16 +40,17 @@ export function AtAGlance({ atAGlance, notable, mostUsedSkills }: AtAGlanceProps
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notable</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 p-6">
+          <SectionLabel>Notable</SectionLabel>
           {notable.length ? (
             <ul className="space-y-2 text-sm">
               {notable.map((n, i) => (
                 <li key={i} className="flex items-start justify-between gap-3">
                   <span>{n.text}</span>
-                  <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  <Badge
+                    variant="secondary"
+                    className="shrink-0 font-mono text-[10px]"
+                  >
                     {n.source}
                   </Badge>
                 </li>
@@ -53,21 +63,26 @@ export function AtAGlance({ atAGlance, notable, mostUsedSkills }: AtAGlanceProps
       </Card>
 
       <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-base">Most-used skills</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 p-6">
+          <SectionLabel>Most-used skills</SectionLabel>
           {mostUsedSkills.length ? (
             <ul className="space-y-2 text-sm">
               {mostUsedSkills.map((s, i) => (
-                <li key={i} className="flex items-center justify-between gap-3">
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-3"
+                >
                   <span className="font-medium">{s.skill}</span>
-                  <span className="text-xs text-muted-foreground">{s.evidence}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {s.evidence}
+                  </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No skills detected yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No skills detected yet.
+            </p>
           )}
         </CardContent>
       </Card>
