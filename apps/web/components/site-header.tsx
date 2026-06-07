@@ -68,9 +68,9 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium tracking-tight">
+        <span className="text-base font-medium tracking-tight">
           {titleFor(pathname)}
-        </h1>
+        </span>
         <div className="ml-auto flex items-center gap-2">{actions}</div>
       </div>
     </header>
