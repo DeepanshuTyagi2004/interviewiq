@@ -147,7 +147,7 @@ sequenceDiagram
   FE->>BE: POST api v1 auth refresh, send cookie
   BE-->>FE: access token JWT 15m plus expiresIn
   FE->>FE: store token in memory, schedule refresh before expiry
-  Note over FE,BE: apiFetch attaches Bearer; on 401 it refreshes once then retries
+  Note over FE,BE: apiFetch attaches Bearer and refreshes once on 401 then retries
   FE-->>U: redirect to dashboard
 </div>
 
