@@ -302,3 +302,15 @@ Stop and ask the human before:
 - Implementing the synthesis prompt template (this is product IP — draft first, human reviews)
 
 Everything else: proceed and document the choice in your PR description.
+---
+
+## Geist implementation (strict — this is the law)
+
+"Vercel aesthetic" is realized concretely as the **Geist Design System**. Strictly:
+
+- **Fonts:** **Geist Sans** + **Geist Mono** via the official `geist` npm package (`geist/font/sans`, `geist/font/mono`), wired in `app/layout.tsx` (`GeistSans.variable` + `GeistMono.variable` on `<html>`) and `tailwind.config.js` (`fontFamily.sans → var(--font-geist-sans)`, `fontFamily.mono → var(--font-geist-mono)`). Do NOT reintroduce Inter or any other typeface. Use `font-mono` for all numerals/code/IDs.
+- **Color tokens:** Geist's **true-neutral gray scale** (hue 0) with a **near-black primary** (black buttons), defined as HSL CSS variables in `app/globals.css` `:root`/`.dark`. shadcn baseColor is **`neutral`** (NOT slate/zinc). Don't reintroduce blue-tinted slate grays.
+- **Components:** **shadcn/ui** is the component layer (Vercel authors it; it IS Geist for React). Do NOT add the community `@geist-ui/core` / `geist-ui` library — it's an unofficial port and is forbidden here.
+- **Dark-mode first**, hairline borders, generous whitespace, small radii — per the Geist spec at vercel.com/geist.
+
+When styling anything new: use the token classes (`bg-background`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, etc.) and the Geist fonts — never hard-coded hex/raw colors.
