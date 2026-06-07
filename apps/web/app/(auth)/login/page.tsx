@@ -7,7 +7,7 @@ import { ROUTES } from "@/lib/constants/routes";
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<section className="w-full max-w-sm" />}>
+    <Suspense fallback={<section className="w-full" />}>
       <LoginContent />
     </Suspense>
   );
@@ -28,8 +28,8 @@ function LoginContent() {
   const error = params.get("error");
 
   return (
-    <section className="w-full max-w-sm">
-      <div className="rounded-lg border border-border bg-card p-8 shadow-sm">
+    <section className="w-full">
+      <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Sign in to InterviewIQ
@@ -40,7 +40,11 @@ function LoginContent() {
         </div>
 
         {error ? (
-          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+          <p className="mb-4 flex items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+            />
             Sign-in failed. Please try again.
           </p>
         ) : null}
@@ -49,9 +53,9 @@ function LoginContent() {
           type="button"
           onClick={login}
           disabled={status === "loading"}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <GoogleIcon />
+          <GoogleGlyph />
           Continue with Google
         </button>
 
@@ -63,25 +67,11 @@ function LoginContent() {
   );
 }
 
-function GoogleIcon() {
+/** Monochrome Google "G" — inherits the button's currentColor (no brand hues). */
+function GoogleGlyph() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.57c2.08-1.92 3.27-4.74 3.27-8.09Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.76c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
-      />
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden fill="currentColor">
+      <path d="M12 11v2.8h3.97c-.16 1.03-1.18 3.02-3.97 3.02-2.39 0-4.34-1.98-4.34-4.42S9.61 7.98 12 7.98c1.36 0 2.27.58 2.79 1.08l1.9-1.83C15.47 6.09 13.9 5.4 12 5.4 8.13 5.4 5 8.53 5 12.4s3.13 7 7 7c4.04 0 6.72-2.84 6.72-6.84 0-.46-.05-.81-.11-1.16H12Z" />
     </svg>
   );
 }

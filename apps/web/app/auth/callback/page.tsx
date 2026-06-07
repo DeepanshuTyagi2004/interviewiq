@@ -39,12 +39,14 @@ function AuthCallbackInner() {
 function CallbackSpinner() {
   return (
     <main className="flex min-h-[60vh] flex-1 items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="flex flex-col items-center gap-4 text-muted-foreground">
         <span
-          className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+          className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent"
           aria-hidden
         />
-        <p className="text-sm">Signing you in…</p>
+        <p className="font-mono text-xs uppercase tracking-[0.08em]">
+          Signing you in…
+        </p>
       </div>
     </main>
   );
