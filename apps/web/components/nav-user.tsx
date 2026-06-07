@@ -54,7 +54,7 @@ export function NavUser() {
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
-                <AvatarFallback className="rounded-lg">
+                <AvatarFallback className="rounded-lg font-mono text-xs">
                   {initials || <UserCircle className="h-4 w-4" />}
                 </AvatarFallback>
               </Avatar>

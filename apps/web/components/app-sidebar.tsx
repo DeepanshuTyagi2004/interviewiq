@@ -37,13 +37,18 @@ export function AppSidebar(
 ) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
+            <SidebarMenuButton
+              asChild
+              className="data-[slot=sidebar-menu-button]:!p-1.5"
+            >
               <Link href={ROUTES.dashboard}>
                 <Sparkles className="!size-5" />
-                <span className="text-base font-semibold">InterviewIQ</span>
+                <span className="text-base font-semibold tracking-tight">
+                  InterviewIQ
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -53,7 +58,7 @@ export function AppSidebar(
         <NavMain items={navMain} />
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border">
         <NavUser />
       </SidebarFooter>
     </Sidebar>
