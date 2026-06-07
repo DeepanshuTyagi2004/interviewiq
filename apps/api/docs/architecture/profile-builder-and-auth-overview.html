@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>InterviewIQ — Auth + Profile Builder: HLD / LLD / Decisions</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#111111; --panel2:#161616; --bd:#262626; --bd2:#333;
+    --tx:#ededed; --mut:#a1a1a1; --mut2:#6e6e6e; --acc:#3b82f6; --grn:#22c55e;
+    --amber:#eab308; --red:#ef4444;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans);line-height:1.6;font-size:15px}
+  .wrap{display:grid;grid-template-columns:250px 1fr;max-width:1500px;margin:0 auto}
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;border-right:1px solid var(--bd);padding:24px 18px}
+  nav h1{font-size:14px;letter-spacing:-.01em;margin:0 0 4px}
+  nav .sub{font-size:11px;color:var(--mut2);margin-bottom:18px}
+  nav a{display:block;color:var(--mut);text-decoration:none;font-size:13px;padding:5px 8px;border-radius:6px}
+  nav a:hover{color:var(--tx);background:var(--panel2)}
+  nav .grp{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut2);margin:16px 0 4px;padding:0 8px}
+  main{padding:40px 48px 120px;max-width:1100px}
+  h2{font-size:24px;letter-spacing:-.02em;margin:48px 0 8px;padding-top:12px;border-top:1px solid var(--bd)}
+  h2:first-of-type{border-top:0;margin-top:0}
+  h3{font-size:17px;margin:28px 0 6px;letter-spacing:-.01em}
+  p,li{color:#dcdcdc}
+  code{font-family:var(--mono);background:var(--panel2);border:1px solid var(--bd);border-radius:4px;padding:1px 5px;font-size:12.5px;color:#e8e8e8}
+  .lead{color:var(--mut);font-size:16px;max-width:760px}
+  .mermaid{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:18px;margin:16px 0;overflow:auto}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .adr{border-left:3px solid var(--acc)}
+  .adr h3{margin-top:0;display:flex;gap:8px;align-items:baseline}
+  .adr .tag{font-family:var(--mono);font-size:10px;color:var(--mut2);border:1px solid var(--bd2);border-radius:999px;padding:1px 7px}
+  .chosen{color:var(--grn);font-weight:600}
+  .rej{color:var(--mut)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600;color:var(--tx)}
+  td{color:#cfcfcf}
+  .pill{font-family:var(--mono);font-size:11px;border-radius:999px;padding:2px 8px;border:1px solid var(--bd2);color:var(--mut)}
+  .ok{color:var(--grn);border-color:#1f4d2e}
+  .bug{border-left:3px solid var(--red)}
+  .bug h3 .tag{border-color:#5b1f1f;color:#f08a8a}
+  .muted{color:var(--mut)}
+  .legend{font-size:12px;color:var(--mut2);margin-top:-6px}
+  a.inline{color:var(--acc);text-decoration:none}
+  a.inline:hover{text-decoration:underline}
+  .kbd{font-family:var(--mono);font-size:11px}
+  hr{border:0;border-top:1px solid var(--bd);margin:32px 0}
+  .small{font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h1>InterviewIQ</h1>
+  <div class="sub">Auth + Profile Builder · architecture & decisions</div>
+  <div class="grp">Big picture</div>
+  <a href="#overview">1 · System overview (HLD)</a>
+  <a href="#stack">2 · Stack &amp; reality vs docs</a>
+  <div class="grp">Flows</div>
+  <a href="#auth-flow">3 · Login flow (Path A)</a>
+  <a href="#gh-flow">4 · GitHub connect flow</a>
+  <a href="#data">5 · Data model (ERD)</a>
+  <div class="grp">LLD</div>
+  <a href="#be-lld">6 · Backend LLD</a>
+  <a href="#fe-lld">7 · Frontend LLD</a>
+  <div class="grp">Why</div>
+  <a href="#decisions">8 · Decisions &amp; paths not taken</a>
+  <a href="#tree">9 · Decision tree (visual)</a>
+  <a href="#bugs">10 · Bugs hit &amp; fixes</a>
+  <a href="#deferred">11 · Deferred / not built</a>
+</nav>
+<main>
+
+<h2 id="overview">1 · System overview (HLD)</h2>
+<p class="lead">Two features shipped this cycle: <b>backend-owned authentication</b> (Google login → JWT) and <b>Profile Builder — GitHub slice</b> (link GitHub, collect data, render a descriptive profile). The frontend is a thin Bearer-token client; the Spring backend owns all OAuth handshakes, persistence, and data collection.</p>
+
+<div class="mermaid">
+flowchart LR
+  subgraph B["Browser — Next.js 16 / React 19 / shadcn / Geist"]
+    FE["UI (app shell, /profile, /connections)"]
+    MEM[["access token<br/>(in memory only)"]]
+    AP["AuthProvider<br/>silent refresh"]
+    AF["apiFetch<br/>Bearer + 401 refresh"]
+  end
+  subgraph S["Spring Boot 4 · Java 25 backend"]
+    SEC["SecurityConfig<br/>oauth2Login + JWT resource server"]
+    AUTHC["AuthController<br/>/auth/refresh · /logout"]
+    GHC["GitHubConnectionController<br/>authorize · callback · disconnect"]
+    PROFC["ProfileController<br/>/profile/me"]
+    COLL["GitHubCollector (GraphQL)"]
+    ASM["ProfileAssembler<br/>(rule-based, descriptive)"]
+    SCH["@Scheduled weekly refresh"]
+    CIPH["TokenCipher (AES-256-GCM)"]
+  end
+  DB[("Supabase Postgres<br/>app_user · refresh_token<br/>github_connection · profile_fragment")]
+  GOOG{{"Google OAuth"}}
+  GH{{"GitHub OAuth + GraphQL API"}}
+
+  FE --> AF --> S
+  AF -. "refresh_token cookie (httpOnly)" .-> AUTHC
+  AP --> AF
+  FE -. "navigate" .-> GOOG
+  SEC --> GOOG
+  GHC --> GH
+  COLL --> GH
+  S --> DB
+  CIPH --- GHC
+  GHC --> COLL --> ASM
+  PROFC --> ASM
+  SCH --> COLL
+  class MEM,AP,AF,GHC,PROFC,COLL,ASM accent
+</div>
+<p class="legend">Solid = request/response. Dashed = browser navigation / cookie. The access token never leaves JS memory; persistence across reloads is the httpOnly refresh cookie + a silent refresh on load.</p>
+
+<h2 id="stack">2 · Stack &amp; reality-vs-docs</h2>
+<p>A recurring theme: the documented plan and the actual repo diverged. We always built against <b>reality</b>.</p>
+<table>
+<tr><th>Area</th><th>CLAUDE.md said</th><th>Reality we built on</th></tr>
+<tr><td>Repos</td><td>4-repo polyrepo (web / api / synthesis / infra)</td><td>2 repos: <code>interviewiq-backend</code> (Spring) + <code>interviewiq-frontend</code> (Next). No Python synthesis service exists.</td></tr>
+<tr><td>Backend</td><td>Spring Boot 3.2 / Java 21 / Flyway</td><td><b>Spring Boot 4.0.6 / Java 25 / Hibernate 7 / Jackson 3</b>; <code>ddl-auto=update</code> (no Flyway)</td></tr>
+<tr><td>Auth</td><td>NextAuth v5 (Auth.js)</td><td><b>Backend-owned</b> Google OAuth + custom JWT; NextAuth removed</td></tr>
+<tr><td>Frontend auth state</td><td>—</td><td>In-memory access token + httpOnly refresh cookie</td></tr>
+<tr><td>Components</td><td>shadcn/ui</td><td>shadcn via the <b>classic 2.10 CLI</b> (latest 4.x is Tailwind-4-centric) + <b>Geist</b> fonts/tokens</td></tr>
+<tr><td>JDK on machine</td><td>—</td><td>Default <code>java</code> is 17; JDK 25 is the Homebrew <code>openjdk@25</code> keg (the bare <code>openjdk</code> keg is broken). Every build needs <code>JAVA_HOME</code> set.</td></tr>
+</table>
+
+<h2 id="auth-flow">3 · Login flow — "Path A" (backend-owned)</h2>
+<p>Google login is run entirely by Spring. The frontend just kicks it off and later exchanges the refresh cookie for an in-memory access token.</p>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as User / Browser
+  participant FE as Next.js (AuthProvider)
+  participant BE as Spring backend
+  participant G as Google
+  U->>BE: GET /oauth2/authorization/google (full navigation)
+  BE->>G: OAuth2 authorize
+  G-->>U: consent
+  U->>BE: /login/oauth2/code/google (code)
+  BE->>BE: OAuth2SuccessHandler — upsert user,<br/>mint rotating refresh token (hashed in DB)
+  BE-->>U: Set-Cookie refresh_token (httpOnly, path /api/v1/auth)<br/>302 → {frontend}/auth/callback
+  U->>FE: /auth/callback mounts
+  FE->>BE: POST /api/v1/auth/refresh (credentials: include)
+  BE-->>FE: { accessToken (15m JWT), expiresIn }
+  FE->>FE: store token in memory; schedule refresh ~60s before expiry
+  Note over FE,BE: every API call → apiFetch attaches Bearer;<br/>on 401 → silent refresh once → retry
+  FE-->>U: redirect to /dashboard
+</div>
+
+<h2 id="gh-flow">4 · GitHub connect flow (Profile Builder)</h2>
+<p>A <b>second, separate</b> OAuth flow for <i>account linking</i> (not login). The key subtlety: the authorize step needs the user's identity, but a browser navigation can't carry the in-memory Bearer token — so we fetch the URL with the token, then navigate.</p>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as Browser
+  participant FE as /connections (ConnectionButton)
+  participant BE as Spring backend
+  participant GH as GitHub
+  participant DB as Postgres
+  U->>FE: click "Connect GitHub"
+  FE->>BE: apiFetch GET /api/v1/connections/github/authorize (Bearer)
+  BE->>BE: jwt.subject → userId; sign state = HMAC(userId+ts)
+  BE-->>FE: 200 { url: github.com/login/oauth/authorize?...&state }
+  FE->>U: window.location = url
+  U->>GH: consent (scope read:user)
+  GH-->>U: 302 → /api/v1/connections/github/callback?code&state
+  U->>BE: callback (no JWT — permitAll)
+  BE->>BE: verify state → userId (CSRF + identity)
+  BE->>GH: exchange code → access_token
+  BE->>GH: GET /user (login)
+  BE->>BE: TokenCipher.encrypt(token)
+  BE->>GH: GraphQL: viewer + contributions + repos(langs) + PRs
+  BE->>BE: normalize → fragment JSON; SHA-256 canonical hash
+  BE->>DB: upsert github_connection + profile_fragment (jsonb)
+  BE-->>U: 302 → {frontend}/connections
+  U->>FE: refetch GET /api/v1/profile/me → /profile renders
+</div>
+
+<h2 id="data">5 · Data model (ERD)</h2>
+<div class="mermaid">
+erDiagram
+  app_user ||--o{ refresh_token : has
+  app_user ||--o| github_connection : "links (1)"
+  app_user ||--o{ profile_fragment : "has per source"
+  app_user {
+    uuid id PK
+    string google_sub UK
+    string email UK
+    string name
+    instant created_at
+    instant updated_at
+  }
+  refresh_token {
+    uuid id PK
+    string token_hash UK "SHA-256, rotating"
+    uuid user_id FK
+    instant expires_at
+    instant revoked_at "null = active"
+  }
+  github_connection {
+    uuid id PK
+    uuid user_id FK UK
+    string github_login
+    string access_token_enc "AES-256-GCM"
+    string scope "read:user"
+    instant connected_at
+    instant last_refreshed_at
+  }
+  profile_fragment {
+    uuid id PK
+    uuid user_id FK
+    enum source "GITHUB|RESUME|LEETCODE|LINKEDIN|X"
+    jsonb data "normalized, source-agnostic"
+    string content_hash "SHA-256 of canonical JSON"
+    int version
+    instant fetched_at
+  }
+</div>
+<p class="legend"><code>profile_fragment</code> is deliberately source-agnostic (one row per user+source) so adding Résumé/LeetCode later is a new collector, not a schema change. <code>content_hash</code> drives idempotent re-fetch (skip write when data unchanged).</p>
+
+<h2 id="be-lld">6 · Backend LLD</h2>
+<p>One self-contained <code>profile</code> package added beside the existing auth code. Constructor injection, record DTOs, JSONB-as-String.</p>
+<div class="mermaid">
+flowchart TB
+  subgraph web["profile.web"]
+    GHC[GitHubConnectionController]
+    PC[ProfileController]
+    DTO["dto: ProfileResponse, SourceStatus,<br/>NotableItem, SkillItem, ProvenanceItem,<br/>AuthorizeUrlResponse"]
+  end
+  subgraph svc["profile.service / github / assembler / crypto"]
+    OS[OAuthStateService<br/>HMAC signed state]
+    GOS[GitHubOAuthService<br/>exchange + upsert]
+    GC[GitHubCollector<br/>GraphQL → fragment + hash]
+    PA["ProfileAssembler (iface)<br/>RuleBasedProfileAssembler"]
+    PS[ProfileService<br/>orchestrate read/disconnect/refresh]
+    PRS[ProfileRefreshScheduler]
+    TC[TokenCipher AES-GCM]
+  end
+  subgraph data["profile.model / repository"]
+    E1[GitHubConnection]
+    E2[ProfileFragment]
+    R1[GitHubConnectionRepository]
+    R2[ProfileFragmentRepository]
+  end
+  GHC --> GOS --> OS
+  GOS --> TC
+  GOS --> R1
+  GHC --> PS --> GC --> R2
+  PS --> PA
+  PC --> PS
+  PRS --> PS
+  GC --> E2
+  GOS --> E1
+</div>
+<table>
+<tr><th>Unit</th><th>Responsibility</th></tr>
+<tr><td><code>TokenCipher</code></td><td>AES-256-GCM encrypt/decrypt of the GitHub token at rest; random 12-byte IV prepended; key from <code>GITHUB_TOKEN_KEY</code>.</td></tr>
+<tr><td><code>OAuthStateService</code></td><td>Stateless CSRF: <code>state = base64(userId:ts:HMAC)</code>, 10-min expiry. Binds the user to the callback so it needs no JWT.</td></tr>
+<tr><td><code>GitHubOAuthService</code></td><td>Build authorize URL; exchange code→token; fetch login; encrypt; upsert connection.</td></tr>
+<tr><td><code>GitHubCollector</code></td><td>One GraphQL POST → normalized fragment; SHA-256 over canonical (key-sorted) JSON; upsert only when hash changes; rejects GraphQL <code>errors[]</code>.</td></tr>
+<tr><td><code>ProfileAssembler</code></td><td>Rule-based stand-in for the future LLM synthesis: derives <code>notable</code> / <code>mostUsedSkills</code> / <code>atAGlance</code>. <b>No scoring.</b> Isolated behind an interface so it's swappable.</td></tr>
+<tr><td><code>ProfileService</code></td><td>Build <code>ProfileResponse</code>, disconnect, refresh-for-user.</td></tr>
+</table>
+
+<h2 id="fe-lld">7 · Frontend LLD</h2>
+<div class="mermaid">
+flowchart TB
+  RL["app/layout.tsx<br/>Geist fonts + providers + Toaster"]
+  subgraph auth["lib/auth"]
+    TS[token-store<br/>in-memory]
+    AP2[AuthProvider<br/>silent refresh]
+    CL[client: login/refresh/logout]
+  end
+  AFC["lib/api-client: apiFetch<br/>Bearer + 401 refresh-retry"]
+  RA[components/auth/RequireAuth]
+  subgraph shell["(app) shell — cherry-picked dashboard-01"]
+    SB[app-sidebar / nav-user / site-header]
+  end
+  subgraph prof["features/profile"]
+    HK[useProfile / useDisconnectGithub]
+    API[getMyProfile / disconnectGithub]
+    TY["types ↔ backend ProfileResponse"]
+  end
+  subgraph pages["(app) routes"]
+    PR["/profile — Layout A (read-only)"]
+    CN["/connections — hub"]
+  end
+  subgraph viz["components/visualizations"]
+    HM[ContributionHeatmap CUSTOM]
+    ST[GithubStatTiles CUSTOM]
+    LP[LanguageDistribution / LeetCode pies+bar — Recharts]
+  end
+  RL --> AP2 --> CL --> TS
+  AFC --> TS
+  AFC -. 401 .-> CL
+  RA --> AP2
+  shell --> RA
+  PR --> HK --> API --> AFC
+  CN --> HK
+  PR --> viz
+  CN --> |ConnectionButton apiFetch→navigate| AFC
+</div>
+
+<h2 id="decisions">8 · Decisions &amp; the paths we did <span class="rej">not</span> take</h2>
+<p class="lead">Each card: what we chose (✓), why, and the alternatives we rejected.</p>
+
+<div class="card adr"><h3>ADR-01 · Auth ownership <span class="tag">security</span></h3>
+<p><span class="chosen">✓ Path A — backend owns the Google OAuth handshake</span>; frontend is a thin Bearer client.</p>
+<p><b>Why:</b> the Spring backend was already built &amp; committed doing exactly this; it keeps OAuth secrets server-side and gives one auth model for all clients.</p>
+<p class="rej"><b>Rejected — Path B (NextAuth/Auth.js on the frontend):</b> the scaffold assumed it, but it would mean two systems trying to own the Google handshake and rewriting the working backend. Removed NextAuth entirely.</p></div>
+
+<div class="card adr"><h3>ADR-02 · Access-token storage <span class="tag">frontend</span></h3>
+<p><span class="chosen">✓ In-memory + silent refresh</span> (token in a JS module var; refresh cookie restores it).</p>
+<p><b>Why:</b> not readable by XSS; pairs with the httpOnly refresh cookie.</p>
+<p class="rej"><b>Rejected — localStorage:</b> survives reloads but is XSS-readable.</p></div>
+
+<div class="card adr"><h3>ADR-03 · Route gating <span class="tag">frontend</span></h3>
+<p><span class="chosen">✓ Client-side <code>RequireAuth</code> guard</span> wrapping the (app) shell.</p>
+<p><b>Why:</b> the in-memory token and the path-scoped refresh cookie are invisible to Next middleware, so server-side gating can't see auth state.</p>
+<p class="rej"><b>Rejected:</b> Next middleware <code>auth()</code> (can't read the token); widening the cookie path to <code>/</code> (leaks the refresh cookie to every route).</p></div>
+
+<div class="card adr"><h3>ADR-04 · GitHub data access <span class="tag">security</span></h3>
+<p><span class="chosen">✓ Per-user GitHub OAuth</span>, scope <code>read:user</code>, token encrypted at rest.</p>
+<p><b>Why:</b> gets the contribution graph + external PRs; minimal scope = least-scary consent and smallest breach radius.</p>
+<p class="rej"><b>Rejected:</b> a single app-token + pasted username (no private data, but we chose real OAuth); <code>repo</code> scope (full private-code read — overkill); public REST only (loses the contribution graph).</p></div>
+
+<div class="card adr"><h3>ADR-05 · GitHub token at rest <span class="tag">security</span></h3>
+<p><span class="chosen">✓ AES-256-GCM, key in env (<code>GITHUB_TOKEN_KEY</code>)</span>.</p>
+<p><b>Why:</b> reversible (we must replay it to GitHub), authenticated encryption, pragmatic pre-revenue.</p>
+<p class="rej"><b>Rejected:</b> cloud KMS/Vault (infra we don't have yet — noted as the prod upgrade path); fetch-then-discard (no background refresh possible).</p></div>
+
+<div class="card adr"><h3>ADR-06 · Profile Builder scope <span class="tag">product</span></h3>
+<p><span class="chosen">✓ First slice = connect → collect → render raw, descriptively</span> (no LLM).</p>
+<p><b>Why:</b> the LLM synthesis prompt is flagged product-IP and the Python synthesis service doesn't exist; a rule-based assembler is a swappable stand-in.</p>
+<p class="rej"><b>Rejected:</b> full pipeline incl. the LLM (blocked on IP + a missing service); backend-only (no value to see).</p></div>
+
+<div class="card adr"><h3>ADR-07 · "How good an engineer" framing <span class="tag">product</span></h3>
+<p><span class="chosen">✓ Convey strength via evidence density</span> — notable highlights + cross-source skill evidence.</p>
+<p><b>Why:</b> CLAUDE.md hard rule: <b>no scoring/ranking/grades ever</b>. "412 solved (268 Medium)" not "above-average".</p>
+<p class="rej"><b>Rejected:</b> any score/rank/tier badge.</p></div>
+
+<div class="card adr"><h3>ADR-08 · Consolidated profile layout <span class="tag">UX</span></h3>
+<p><span class="chosen">✓ Layout A — highlights band + source-card grid</span> (chosen visually).</p>
+<p><b>Why:</b> a cross-source "Notable" band conveys strength; grid scales as sources are added (one card each).</p>
+<p class="rej"><b>Rejected:</b> Layout B — single narrative column (closer to the eventual LLM <code>narrative</code> field, kept in mind for later).</p></div>
+
+<div class="card adr"><h3>ADR-09 · App shell <span class="tag">frontend</span></h3>
+<p><span class="chosen">✓ Cherry-pick the <code>dashboard-01</code> shell</span> (sidebar+header+nav) into <code>(app)/layout.tsx</code>.</p>
+<p><b>Why:</b> battle-tested shell, while skipping the demo DataTable's <code>@dnd-kit</code>/<code>react-table</code> deps (CLAUDE.md "ruthless on complexity").</p>
+<p class="rej"><b>Rejected:</b> install the whole block (5 unused deps); build a sidebar from scratch.</p></div>
+
+<div class="card adr"><h3>ADR-10 · shadcn CLI version <span class="tag">tooling</span></h3>
+<p><span class="chosen">✓ Classic <code>shadcn@2.10.0</code></span> (Radix + Tailwind-3, HSL tokens).</p>
+<p><b>Why:</b> the latest <code>shadcn@4.x</code> is the new Tailwind-4-centric "platform" CLI; it would clash with this Tailwind-3 + HSL-token repo. The classic CLI added Tailwind-3 sidebar/chart tokens natively.</p>
+<p class="rej"><b>Rejected:</b> <code>shadcn@latest</code> (4.10) — risked clobbering tokens / assuming Tailwind 4.</p></div>
+
+<div class="card adr"><h3>ADR-11 · JSONB persistence <span class="tag">backend</span></h3>
+<p><span class="chosen">✓ Store fragment as a <code>String</code> in a <code>jsonb</code> column + <code>stringtype=unspecified</code></span> so Postgres casts the bind param.</p>
+<p><b>Why:</b> deterministic bytes for hashing; avoids Hibernate-7-vs-Jackson-3 JSON-mapper friction. The driver flag fixes the varchar→jsonb cast (see Bug-03).</p>
+<p class="rej"><b>Rejected:</b> <code>@JdbcTypeCode(SqlTypes.JSON)</code> on the String (risky with Jackson 3's FormatMapper); plain <code>text</code> column (loses jsonb + needs a column-type migration).</p></div>
+
+<div class="card adr"><h3>ADR-12 · GitHub authorize transport <span class="tag">bugfix</span></h3>
+<p><span class="chosen">✓ authorize returns the URL as JSON; frontend apiFetches it (Bearer) then navigates</span>.</p>
+<p><b>Why:</b> a top-level browser navigation can't carry the in-memory Bearer token (see Bug-02). Fetching keeps the token in a header and gains 401-refresh.</p>
+<p class="rej"><b>Rejected:</b> 302-redirect from authorize (the original — broke because the nav had no JWT); token in a query param (leaks into history/logs).</p></div>
+
+<div class="card adr"><h3>ADR-13 · Design system <span class="tag">UI</span></h3>
+<p><span class="chosen">✓ Geist (strict): Geist Sans/Mono fonts + neutral tokens + shadcn</span>.</p>
+<p><b>Why:</b> "Vercel aesthetic" realized concretely; shadcn IS the Geist component layer for React.</p>
+<p class="rej"><b>Rejected:</b> the community <code>@geist-ui/core</code> library (unofficial port, would rewrite everything); keeping Inter + slate.</p></div>
+
+<div class="card adr"><h3>ADR-14 · Where the slice lives <span class="tag">arch</span></h3>
+<p><span class="chosen">✓ Inside the existing single <code>interviewiq-backend</code></span>.</p>
+<p><b>Why:</b> pre-revenue discipline; the documented polyrepo split isn't realized.</p>
+<p class="rej"><b>Rejected:</b> a new <code>interviewiq-api</code> service; porting the older Go prototype's handlers.</p></div>
+
+<h2 id="tree">9 · Decision tree (visual)</h2>
+<div class="mermaid">
+flowchart TD
+  Q1{Who owns Google OAuth?} -->|backend ✓| A1[Spring oauth2Login + JWT]
+  Q1 -.->|NextAuth ✗| X1[rewrite backend]
+  A1 --> Q2{Token storage?}
+  Q2 -->|in-memory ✓| A2[silent refresh]
+  Q2 -.->|localStorage ✗| X2[XSS-readable]
+  A2 --> Q3{Gate routes how?}
+  Q3 -->|client guard ✓| A3[RequireAuth]
+  Q3 -.->|middleware ✗| X3[can't see token]
+  A3 --> Q4{GitHub access?}
+  Q4 -->|per-user OAuth read:user ✓| A4[encrypted token]
+  Q4 -.->|app token ✗| X4[no private data]
+  Q4 -.->|repo scope ✗| X5[over-broad]
+  A4 --> Q5{Authorize transport?}
+  Q5 -->|JSON + apiFetch ✓| A5[Bearer in header]
+  Q5 -.->|302 navigation ✗| X6[NPE: no JWT]
+  A5 --> Q6{Persist fragment?}
+  Q6 -->|jsonb + stringtype=unspecified ✓| A6[insert works]
+  Q6 -.->|String→jsonb default ✗| X7[varchar cast error]
+  A6 --> Q7{Render strength?}
+  Q7 -->|evidence density ✓| A7[descriptive]
+  Q7 -.->|score/rank ✗| X8[violates hard rule]
+</div>
+
+<h2 id="bugs">10 · Bugs we hit &amp; the fixes</h2>
+<div class="card bug"><h3>Bug-01 · Backend won't start <span class="tag">env</span></h3>
+<p><b>Symptom:</b> <code>SocketTimeoutException</code> → EntityManagerFactory fails at boot.</p>
+<p><b>Root cause:</b> Supabase Postgres unreachable on :5432 (project paused / port path). Not a code bug — <code>ddl-auto=update</code> needs a live DB at startup.</p>
+<p><b>Fix:</b> DB became reachable again; verified with <code>psql select 1</code>. (Also surfaced the JDK-25 <code>JAVA_HOME</code> requirement.)</p></div>
+
+<div class="card bug"><h3>Bug-02 · GitHub connect → 500 NPE <span class="tag">auth</span></h3>
+<p><b>Symptom:</b> <code>jwt.getSubject()</code> NPE in <code>authorize()</code>.</p>
+<p><b>Root cause:</b> "Connect" did a full-page <code>window.location</code> nav to <code>/authorize</code>, which can't carry the in-memory Bearer token → no JWT principal (it only reached the controller because a leftover oauth2Login session was an <code>OAuth2User</code>, not a <code>Jwt</code>).</p>
+<p><b>Fix:</b> authorize returns JSON; frontend <code>apiFetch</code>es it (Bearer header) then navigates (ADR-12) + null-guards the principal (401).</p></div>
+
+<div class="card bug"><h3>Bug-03 · Connect fails silently <span class="tag">db</span></h3>
+<p><b>Symptom:</b> <code>?error=github_connect_failed</code>; the callback <b>swallowed</b> the exception (no log).</p>
+<p><b>Root cause:</b> <code>column "data" is of type jsonb but expression is of type character varying</code> — the String field bound as <code>varchar</code>; Postgres won't implicitly cast varchar→jsonb on insert.</p>
+<p><b>Fix:</b> (1) log the swallowed exception; (2) <code>stringtype=unspecified</code> so the driver lets Postgres cast String params to jsonb (ADR-11).</p></div>
+
+<h2 id="deferred">11 · Deferred / explicitly NOT built</h2>
+<table>
+<tr><th>Item</th><th>Why deferred</th></tr>
+<tr><td>LLM synthesis + Python service</td><td>Prompt is product-IP; service doesn't exist. <code>ProfileAssembler</code> is the swappable stand-in.</td></tr>
+<tr><td>Résumé / LeetCode / LinkedIn / X collectors</td><td>V1 is GitHub-only; UI shows "Connect" placeholders. Source-agnostic schema makes them additive.</td></tr>
+<tr><td>Tutorial-repo detection heuristic</td><td>Flagged product-IP needing human review of false positives.</td></tr>
+<tr><td>Background job queue (jobrunr/etc.)</td><td>Open decision; a <code>@Scheduled</code> weekly job suffices for now.</td></tr>
+<tr><td><code>/me</code> identity endpoint</td><td>Not built; nav-user reads name from <code>/profile/me</code>.</td></tr>
+<tr><td>Manual GitHub refresh endpoint</td><td>Hidden affordance; only background weekly refresh ships.</td></tr>
+<tr><td>Prod hardening</td><td>Cookie <code>secure=true</code>, KMS for the token key, CI gating on lint, push/PR.</td></tr>
+</table>
+
+<hr/>
+<p class="small muted">Generated for InterviewIQ · branches <code>feat/github-profile-builder-backend</code> &amp; <code>feat/github-profile-builder-frontend</code> (local, not pushed). Diagrams render via Mermaid (needs internet for the CDN).</p>
+
+</main>
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad:true, theme:'dark',
+    themeVariables:{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:'13px',
+      primaryColor:'#161616', primaryBorderColor:'#333', primaryTextColor:'#ededed',
+      lineColor:'#6e6e6e', secondaryColor:'#111', tertiaryColor:'#0a0a0a' }
+  });
+</script>
+</body>
+</html>
