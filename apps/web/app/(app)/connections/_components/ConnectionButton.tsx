@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { APP_CONFIG } from "@/lib/constants/config";
+import { apiFetch } from "@/lib/api-client/client";
 import type { SourceKind } from "@/features/profile";
 import { SourceIcon } from "./SourceIcon";
 
@@ -28,10 +30,21 @@ export function ConnectionButton({
 }) {
   const path = AUTHORIZE_PATH[source];
   const resolvedLabel = label ?? SOURCE_LABELS[source];
+  const [pending, setPending] = useState(false);
 
-  function connect() {
+  async function connect() {
     if (!path) return;
-    window.location.href = `${APP_CONFIG.apiUrl}${path}`;
+    setPending(true);
+    try {
+      // apiFetch sends the in-memory Bearer token (and silently refreshes on 401).
+      // A plain top-level navigation can't carry that token, so we fetch the GitHub
+      // authorize URL here, then navigate the browser to it.
+      const { url } = await apiFetch<{ url: string }>(path);
+      window.location.href = url;
+    } catch {
+      setPending(false);
+      toast.error(`Could not start the ${resolvedLabel} connection. Please try again.`);
+    }
   }
 
   if (!path) {
@@ -43,9 +56,9 @@ export function ConnectionButton({
   }
 
   return (
-    <Button onClick={connect} aria-label={`Connect ${resolvedLabel}`}>
+    <Button onClick={connect} disabled={pending} aria-label={`Connect ${resolvedLabel}`}>
       <SourceIcon source={source} className="mr-2 h-4 w-4" />
-      Connect {resolvedLabel}
+      {pending ? "Connecting…" : `Connect ${resolvedLabel}`}
     </Button>
   );
 }

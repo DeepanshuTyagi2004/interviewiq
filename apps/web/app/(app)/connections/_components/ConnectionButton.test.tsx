@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// APP_CONFIG.apiUrl reads NEXT_PUBLIC_API_URL at import time; stub the module.
-vi.mock("@/lib/constants/config", () => ({
-  APP_CONFIG: { apiUrl: "http://localhost:8080" },
+// apiFetch sends the Bearer token; stub it so the test asserts the fetch+navigate flow.
+const apiFetchMock = vi.fn();
+vi.mock("@/lib/api-client/client", () => ({
+  apiFetch: (...args: unknown[]) => apiFetchMock(...args),
 }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 import { ConnectionButton } from "./ConnectionButton";
 
 describe("ConnectionButton", () => {
   beforeEach(() => {
+    apiFetchMock.mockReset();
     // jsdom forbids assigning window.location.href directly; replace the object.
     Object.defineProperty(window, "location", {
       configurable: true,
@@ -19,12 +22,16 @@ describe("ConnectionButton", () => {
     });
   });
 
-  it("navigates to the GitHub authorize endpoint on click", async () => {
+  it("fetches the authorize URL via apiFetch then navigates to it on click", async () => {
+    const githubUrl =
+      "https://github.com/login/oauth/authorize?client_id=abc&state=xyz";
+    apiFetchMock.mockResolvedValue({ url: githubUrl });
+
     const user = userEvent.setup();
     render(<ConnectionButton source="GITHUB" />);
     await user.click(screen.getByRole("button", { name: /connect github/i }));
-    expect(window.location.href).toBe(
-      "http://localhost:8080/api/v1/connections/github/authorize",
-    );
+
+    expect(apiFetchMock).toHaveBeenCalledWith("/api/v1/connections/github/authorize");
+    await waitFor(() => expect(window.location.href).toBe(githubUrl));
   });
 });
