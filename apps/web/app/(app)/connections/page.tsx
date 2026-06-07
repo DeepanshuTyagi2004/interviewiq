@@ -1,4 +1,5 @@
 import type { SourceKind } from "@/features/profile";
+import { PageHeader } from "@/components/patterns";
 import { ConnectionsGrid } from "./_components/ConnectionsGrid";
 
 /** Map the backend's ?error= value to a source so its card shows the error. */
@@ -18,12 +19,10 @@ export default async function ConnectionsPage({
 
   return (
     <div className="flex-1 space-y-6 p-6">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Connections</h2>
-        <p className="text-sm text-muted-foreground">
-          Connect your accounts to build your profile. We only read public data.
-        </p>
-      </div>
+      <PageHeader
+        title="Connections"
+        description="Connect your accounts to build your profile. We only read public data."
+      />
       <ConnectionsGrid errorSource={errorSource} />
     </div>
   );

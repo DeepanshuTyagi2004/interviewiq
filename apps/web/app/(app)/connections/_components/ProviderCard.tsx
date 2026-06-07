@@ -1,6 +1,12 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ConnectionButton } from "./ConnectionButton";
 import { DisconnectDialog } from "./DisconnectDialog";
 import { ConnectionStatus, type ConnectionState } from "./ConnectionStatus";
@@ -28,7 +34,7 @@ export function ProviderCard(props: ProviderCardProps) {
   const state = deriveState(props);
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -39,10 +45,13 @@ export function ProviderCard(props: ProviderCardProps) {
         </div>
         <CardDescription>{provider.description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="mt-auto space-y-3">
         {connected && lastRefreshedAt ? (
           <p className="text-xs text-muted-foreground">
-            Last refreshed {new Date(lastRefreshedAt).toLocaleDateString()}
+            Last refreshed{" "}
+            <span className="font-mono tabular-nums">
+              {new Date(lastRefreshedAt).toLocaleDateString()}
+            </span>
           </p>
         ) : null}
         {errored ? (

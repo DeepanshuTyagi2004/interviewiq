@@ -1,21 +1,16 @@
 "use client";
 
+import { Link2 } from "lucide-react";
 import { ProviderCard } from "./ProviderCard";
 import { PROVIDERS } from "./providers";
 import { useProfile, type SourceKind } from "@/features/profile";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ConnectionsSkeleton, EmptyState } from "@/components/patterns";
 
 export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
   const { data, isLoading, isError } = useProfile();
 
   if (isLoading) {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {PROVIDERS.map((p) => (
-          <Skeleton key={p.source} className="h-44 w-full rounded-xl" />
-        ))}
-      </div>
-    );
+    return <ConnectionsSkeleton />;
   }
 
   if (isError || !data) {
@@ -23,6 +18,16 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
       <p role="alert" className="text-sm text-destructive">
         Could not load your connections. Please refresh the page.
       </p>
+    );
+  }
+
+  if (PROVIDERS.length === 0) {
+    return (
+      <EmptyState
+        icon={<Link2 />}
+        title="No sources available yet"
+        hint="Connectable sources will appear here."
+      />
     );
   }
 
