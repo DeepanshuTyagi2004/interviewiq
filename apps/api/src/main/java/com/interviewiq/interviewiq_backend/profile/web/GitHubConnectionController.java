@@ -3,6 +3,7 @@ package com.interviewiq.interviewiq_backend.profile.web;
 import com.interviewiq.interviewiq_backend.profile.github.GitHubOAuthService;
 import com.interviewiq.interviewiq_backend.profile.model.GitHubConnection;
 import com.interviewiq.interviewiq_backend.profile.service.ProfileService;
+import com.interviewiq.interviewiq_backend.profile.web.dto.AuthorizeUrlResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
 import java.util.UUID;
 
 @RestController
@@ -32,12 +32,22 @@ public class GitHubConnectionController {
         this.connectionsRedirect = connectionsRedirect;
     }
 
-    /** 302 -> GitHub authorize. Requires a valid Bearer JWT. */
+    /**
+     * Returns the GitHub authorize URL as JSON. Requires a valid Bearer JWT.
+     *
+     * The frontend calls this via apiFetch (which sends the in-memory access token
+     * as a Bearer header), then navigates the browser to the returned URL. We do NOT
+     * 302 directly, because a top-level browser navigation to this endpoint cannot
+     * carry the in-memory Bearer token (the user would be unauthenticated here).
+     */
     @GetMapping("/authorize")
-    public ResponseEntity<Void> authorize(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<AuthorizeUrlResponse> authorize(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         UUID userId = UUID.fromString(jwt.getSubject());
         String url = gitHubOAuthService.buildAuthorizeUrl(userId);
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+        return ResponseEntity.ok(new AuthorizeUrlResponse(url));
     }
 
     /**
