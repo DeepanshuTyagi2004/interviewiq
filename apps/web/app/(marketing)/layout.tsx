@@ -16,7 +16,7 @@ export default function MarketingLayout({
           >
             InterviewIQ
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          <nav aria-label="Main navigation" className="flex items-center gap-1 text-sm">
             <Link
               href={ROUTES.pricing}
               className="rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
@@ -44,7 +44,7 @@ export default function MarketingLayout({
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row">
           <span className="font-mono">InterviewIQ © 2026</span>
-          <nav className="flex items-center gap-4">
+          <nav aria-label="Footer navigation" className="flex items-center gap-4">
             <Link
               href={ROUTES.about}
               className="transition-colors hover:text-foreground"
