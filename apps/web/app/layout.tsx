@@ -22,7 +22,11 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      {/* suppressHydrationWarning: browser extensions (e.g. Bitdefender injects
+          bis_register / __processed_*) mutate <body> before React hydrates. This is
+          one level deep — it only ignores <body>'s own attributes, not any component
+          inside it, so real app mismatches still surface. */}
+      <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>

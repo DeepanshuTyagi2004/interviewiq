@@ -37,7 +37,7 @@ export function AppSidebar(
 ) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="h-[--header-height] justify-center border-b border-sidebar-border group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

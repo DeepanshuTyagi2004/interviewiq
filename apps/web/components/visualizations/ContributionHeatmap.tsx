@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils/cn";
-
 /** 52 weeks x 7 days of contribution counts (spec §4). */
 export interface ContributionHeatmapProps {
   weeks: number[][];
@@ -16,13 +14,16 @@ function bin(count: number, max: number): number {
   return 1;
 }
 
-/** Grayscale intensity ramp (monochrome): muted → near-foreground. */
-const BIN_CLASS = [
-  "bg-muted",
-  "bg-foreground/20",
-  "bg-foreground/40",
-  "bg-foreground/65",
-  "bg-foreground/90",
+/**
+ * GitHub-style green intensity ramp. Bin 0 is the empty (muted) cell; bins 1–4 use the
+ * `--heat-*` tokens defined in globals.css (light + dark), so no raw hex lives here.
+ */
+const BIN_COLOR = [
+  "hsl(var(--muted))",
+  "hsl(var(--heat-1))",
+  "hsl(var(--heat-2))",
+  "hsl(var(--heat-3))",
+  "hsl(var(--heat-4))",
 ];
 
 export function ContributionHeatmap({
@@ -59,10 +60,8 @@ export function ContributionHeatmap({
               <span
                 key={di}
                 title={`${count} contributions`}
-                className={cn(
-                  "h-[11px] w-[11px] rounded-[2px]",
-                  BIN_CLASS[bin(count, max)],
-                )}
+                className="h-[11px] w-[11px] rounded-[2px]"
+                style={{ backgroundColor: BIN_COLOR[bin(count, max)] }}
               />
             ))}
           </div>
@@ -70,8 +69,12 @@ export function ContributionHeatmap({
       </div>
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <span>Less</span>
-        {BIN_CLASS.map((c, i) => (
-          <span key={i} className={cn("h-[11px] w-[11px] rounded-[2px]", c)} />
+        {BIN_COLOR.map((c, i) => (
+          <span
+            key={i}
+            className="h-[11px] w-[11px] rounded-[2px]"
+            style={{ backgroundColor: c }}
+          />
         ))}
         <span>More</span>
       </div>
