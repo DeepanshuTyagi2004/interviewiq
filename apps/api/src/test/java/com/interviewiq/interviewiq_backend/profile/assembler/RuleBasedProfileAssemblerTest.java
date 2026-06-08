@@ -123,4 +123,37 @@ class RuleBasedProfileAssemblerTest {
                 + String.join(" ", bands.atAGlance());
         assertThat(allText).doesNotContain("B.Tech").doesNotContain("totalSolved").doesNotContain("412");
     }
+
+    @Test
+    void assemble_buildsDescriptiveLeetCodeBands() {
+        String data = """
+                {
+                  "username":"aakash_42","country":"India",
+                  "solved":{"easy":78,"medium":268,"hard":66,"total":412},
+                  "byTopic":[{"topic":"Array","count":90},{"topic":"String","count":60},{"topic":"Hash Table","count":55}],
+                  "contest":{"attended":12,"rating":1751,"globalRanking":50000,"totalParticipants":800000,"topPercent":6.25},
+                  "recentActivity":{"last30Days":3,"preferredLanguage":"python3"},
+                  "streak":null,"partial":false
+                }
+                """;
+        ProfileFragment frag = new ProfileFragment(UUID.randomUUID(), ProfileSource.LEETCODE, data, "hash-lc");
+
+        var bands = assembler.assemble(List.of(frag));
+
+        // solved split described against the source, never graded
+        assertThat(bands.notable()).anySatisfy(n -> {
+            assertThat(n.text()).contains("412").contains("78 Easy").contains("268 Medium").contains("66 Hard");
+            assertThat(n.source()).isEqualTo("LEETCODE");
+        });
+        // contest activity described
+        assertThat(bands.notable()).anySatisfy(n -> assertThat(n.text()).contains("12 LeetCode contests"));
+        // preferred language + top topics surface as evidence-bearing skills (CLAUDE.md hard rule)
+        assertThat(bands.mostUsedSkills()).anySatisfy(s -> {
+            assertThat(s.skill()).isEqualTo("python3");
+            assertThat(s.evidence()).contains("LeetCode");
+        });
+        assertThat(bands.mostUsedSkills()).anySatisfy(s -> assertThat(s.skill()).isEqualTo("Array"));
+        assertThat(bands.mostUsedSkills()).allSatisfy(s -> assertThat(s.evidence()).isNotBlank());
+        assertThat(String.join(" ", bands.atAGlance())).contains("412 LeetCode problems");
+    }
 }

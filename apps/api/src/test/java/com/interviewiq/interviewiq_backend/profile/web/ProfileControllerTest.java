@@ -69,13 +69,13 @@ class ProfileControllerTest {
         return new ProfileResponse(
                 new ProfileUser("Aisha Verma", null),
                 List.of(
-                        new SourceStatus("GITHUB", true, Instant.parse("2026-06-01T00:00:00Z")),
-                        new SourceStatus("RESUME", false, null),
-                        new SourceStatus("LEETCODE", false, null),
-                        new SourceStatus("LINKEDIN", false, null),
-                        new SourceStatus("X", false, null)),
+                        new SourceStatus("GITHUB", true, Instant.parse("2026-06-01T00:00:00Z"), null),
+                        new SourceStatus("RESUME", false, null, null),
+                        new SourceStatus("LEETCODE", true, Instant.parse("2026-06-02T00:00:00Z"), "SYNCED"),
+                        new SourceStatus("LINKEDIN", false, null, null),
+                        new SourceStatus("X", false, null, null)),
                 List.of(new NotableItem("1,204 GitHub contributions in the last year", "GITHUB")),
-                List.of(new SkillItem("TypeScript", "GitHub 48%")),
+                List.of(new SkillItem("TypeScript", "GitHub 48%", "GITHUB")),
                 List.of("Most active in TypeScript and Python across 38 repos"),
                 Map.of("github", om.readTree("{\"login\":\"aishav\",\"publicRepos\":38}")),
                 List.of(new ProvenanceItem("GITHUB", "sha256:abc", Instant.parse("2026-06-01T00:00:00Z"))));

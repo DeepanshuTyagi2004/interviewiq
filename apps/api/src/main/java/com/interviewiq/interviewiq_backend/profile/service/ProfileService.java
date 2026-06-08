@@ -4,9 +4,11 @@ import com.interviewiq.interviewiq_backend.models.User;
 import com.interviewiq.interviewiq_backend.profile.assembler.ProfileAssembler;
 import com.interviewiq.interviewiq_backend.profile.github.GitHubCollector;
 import com.interviewiq.interviewiq_backend.profile.model.GitHubConnection;
+import com.interviewiq.interviewiq_backend.profile.model.LeetCodeConnection;
 import com.interviewiq.interviewiq_backend.profile.model.ProfileFragment;
 import com.interviewiq.interviewiq_backend.profile.model.ProfileSource;
 import com.interviewiq.interviewiq_backend.profile.repository.GitHubConnectionRepository;
+import com.interviewiq.interviewiq_backend.profile.repository.LeetCodeConnectionRepository;
 import com.interviewiq.interviewiq_backend.profile.repository.ProfileFragmentRepository;
 import com.interviewiq.interviewiq_backend.profile.web.dto.*;
 import com.interviewiq.interviewiq_backend.services.UserService;
@@ -27,6 +29,7 @@ public class ProfileService {
 
     private final UserService userService;
     private final GitHubConnectionRepository connectionRepository;
+    private final LeetCodeConnectionRepository leetCodeConnectionRepository;
     private final ProfileFragmentRepository fragmentRepository;
     private final GitHubCollector gitHubCollector;
     private final ProfileAssembler profileAssembler;
@@ -35,12 +38,14 @@ public class ProfileService {
     public ProfileService(
             UserService userService,
             GitHubConnectionRepository connectionRepository,
+            LeetCodeConnectionRepository leetCodeConnectionRepository,
             ProfileFragmentRepository fragmentRepository,
             GitHubCollector gitHubCollector,
             ProfileAssembler profileAssembler,
             ObjectMapper objectMapper) {
         this.userService = userService;
         this.connectionRepository = connectionRepository;
+        this.leetCodeConnectionRepository = leetCodeConnectionRepository;
         this.fragmentRepository = fragmentRepository;
         this.gitHubCollector = gitHubCollector;
         this.profileAssembler = profileAssembler;
@@ -57,15 +62,22 @@ public class ProfileService {
 
         ProfileUser profileUser = new ProfileUser(user.getName(), null);
 
+        Optional<LeetCodeConnection> leetcode = leetCodeConnectionRepository.findByUserId(userId);
+
         List<SourceStatus> sources = new ArrayList<>();
         sources.add(new SourceStatus(
                 ProfileSource.GITHUB.name(),
                 github.isPresent(),
-                github.map(GitHubConnection::getLastRefreshedAt).orElse(null)));
-        sources.add(new SourceStatus(ProfileSource.RESUME.name(), false, null));
-        sources.add(new SourceStatus(ProfileSource.LEETCODE.name(), false, null));
-        sources.add(new SourceStatus(ProfileSource.LINKEDIN.name(), false, null));
-        sources.add(new SourceStatus(ProfileSource.X.name(), false, null));
+                github.map(GitHubConnection::getLastRefreshedAt).orElse(null),
+                null));
+        sources.add(new SourceStatus(ProfileSource.RESUME.name(), false, null, null));
+        sources.add(new SourceStatus(
+                ProfileSource.LEETCODE.name(),
+                leetcode.isPresent(),
+                leetcode.map(LeetCodeConnection::getLastRefreshedAt).orElse(null),
+                leetcode.map(c -> c.getStatus().name()).orElse(null)));
+        sources.add(new SourceStatus(ProfileSource.LINKEDIN.name(), false, null, null));
+        sources.add(new SourceStatus(ProfileSource.X.name(), false, null, null));
 
         ProfileAssembler.Bands bands = profileAssembler.assemble(fragments);
 
