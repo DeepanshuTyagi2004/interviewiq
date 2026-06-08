@@ -2,6 +2,7 @@
 
 import { Link2 } from "lucide-react";
 import { ProviderCard } from "./ProviderCard";
+import { LeetCodeCard } from "./LeetCodeCard";
 import { PROVIDERS } from "./providers";
 import { useProfile, type SourceKind } from "@/features/profile";
 import { ConnectionsSkeleton, EmptyState } from "@/components/patterns";
@@ -36,6 +37,17 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {PROVIDERS.map((provider) => {
+        // LeetCode has a username-input + async-sync flow of its own; the rest use the
+        // generic OAuth-style card. Both read from the same shared profile query.
+        if (provider.source === "LEETCODE") {
+          return (
+            <LeetCodeCard
+              key={provider.source}
+              provider={provider}
+              errored={errorSource === provider.source}
+            />
+          );
+        }
         const src = byKind[provider.source];
         return (
           <ProviderCard

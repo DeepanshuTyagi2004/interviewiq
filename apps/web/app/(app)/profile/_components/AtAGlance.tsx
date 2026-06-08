@@ -1,7 +1,27 @@
+import { GitBranch, Code2, FileText, Link2, AtSign, type LucideIcon } from "lucide-react";
 import { SectionLabel } from "@/components/patterns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import type { NotableItem, SkillItem } from "@/features/profile";
+import type { NotableItem, SkillItem, SourceKind } from "@/features/profile";
+
+/** Line-icon per source, shown on the right of each skill tag (matches the connections page). */
+const SOURCE_ICON: Record<SourceKind, LucideIcon> = {
+  GITHUB: GitBranch,
+  LEETCODE: Code2,
+  RESUME: FileText,
+  LINKEDIN: Link2,
+  X: AtSign,
+};
+
+function SkillTag({ skill }: { skill: SkillItem }) {
+  const Icon = SOURCE_ICON[skill.source];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
+      {skill.skill}
+      <Icon className="h-3 w-3 text-muted-foreground" aria-label={`Source: ${skill.source}`} />
+    </span>
+  );
+}
 
 export interface AtAGlanceProps {
   atAGlance: string[];
@@ -66,19 +86,11 @@ export function AtAGlance({
         <CardContent className="space-y-3 p-6">
           <SectionLabel>Most-used skills</SectionLabel>
           {mostUsedSkills.length ? (
-            <ul className="space-y-2 text-sm">
+            <div className="flex flex-wrap gap-2">
               {mostUsedSkills.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span className="font-medium">{s.skill}</span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {s.evidence}
-                  </span>
-                </li>
+                <SkillTag key={`${s.source}-${s.skill}-${i}`} skill={s} />
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               No skills detected yet.

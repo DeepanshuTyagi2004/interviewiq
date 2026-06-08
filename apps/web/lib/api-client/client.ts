@@ -6,6 +6,22 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 export type RequestOptions = RequestInit & { json?: unknown };
 
 /**
+ * Thrown on a non-2xx response. Carries the HTTP status and the backend error `code`
+ * (from the `{ code, message }` ApiError envelope) so callers can branch on it — e.g. the
+ * LeetCode card distinguishing `leetcode_user_not_found` from `leetcode_profile_private`.
+ */
+export class ApiFetchError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | undefined,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiFetchError";
+  }
+}
+
+/**
  * Authenticated fetch against the backend.
  *
  * Attaches the in-memory access token as a Bearer header. On a 401 it attempts
@@ -47,7 +63,18 @@ function doFetch(path: string, options: RequestOptions): Promise<Response> {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+    // Backend errors use the { code, message } ApiError envelope — parse it so callers
+    // can read the stable code. Fall back to a generic message for non-JSON bodies.
+    let code: string | undefined;
+    let message = `Request failed: ${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { code?: string; message?: string };
+      if (body?.code) code = body.code;
+      if (body?.message) message = body.message;
+    } catch {
+      // non-JSON error body — keep the default message
+    }
+    throw new ApiFetchError(res.status, code, message);
   }
   if (res.status === 204) {
     return undefined as T;

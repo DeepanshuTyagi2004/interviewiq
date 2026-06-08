@@ -25,7 +25,7 @@ export const PROVIDERS: ProviderMeta[] = [
     source: "LEETCODE",
     label: "LeetCode",
     description: "Solved problems by difficulty and topic.",
-    live: false,
+    live: true,
   },
   {
     source: "LINKEDIN",

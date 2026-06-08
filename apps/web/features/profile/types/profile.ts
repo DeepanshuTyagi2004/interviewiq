@@ -6,6 +6,9 @@
 
 export type SourceKind = "GITHUB" | "RESUME" | "LEETCODE" | "LINKEDIN" | "X";
 
+/** Background-collection lifecycle for sources that sync asynchronously (currently LeetCode). */
+export type SyncStatus = "SYNCING" | "SYNCED" | "FAILED" | "DEGRADED";
+
 export interface ProfileUser {
   name: string | null;
   headline?: string | null;
@@ -16,6 +19,8 @@ export interface ProfileSource {
   connected: boolean;
   /** ISO timestamp; present only when connected. */
   lastRefreshedAt?: string;
+  /** Background-sync state; present only for async sources (LeetCode). Omitted otherwise. */
+  status?: SyncStatus;
 }
 
 export interface NotableItem {
@@ -25,8 +30,10 @@ export interface NotableItem {
 
 export interface SkillItem {
   skill: string;
-  /** Cross-source attribution, e.g. "GitHub 48%". Never a score. */
+  /** Cross-source attribution, e.g. "GitHub 48%". Never a score. Not rendered in the UI. */
   evidence: string;
+  /** Originating source — drives the source icon shown on each skill tag. */
+  source: SourceKind;
 }
 
 export interface GithubLanguage {
@@ -61,14 +68,37 @@ export interface GithubFragment {
   topRepos: GithubTopRepo[];
 }
 
+export interface LeetCodeContest {
+  attended: number;
+  /** LeetCode's own contest rating — a factual source stat, never an InterviewIQ score. */
+  rating: number;
+  globalRanking: number;
+  totalParticipants: number;
+  topPercent: number;
+}
+
+export interface LeetCodeRecentActivity {
+  /** Accepted submissions in the last 30 days. */
+  last30Days: number;
+  /** Most-frequent language across recent accepted submissions; null when no recent activity. */
+  preferredLanguage: string | null;
+}
+
 /**
- * LeetCode fragment is NOT produced by this slice (no collector yet). The
- * shape is declared so the data-driven charts compile; `fragments.leetcode`
- * is undefined until the LeetCode collector ships.
+ * Normalized LeetCode fragment produced by the backend collector. `solved` + `byTopic` drive the
+ * difficulty/topic charts; the rest is descriptive context for the synthesis bands. Counts/stats
+ * only — never a score, rank, or grade. `streak` is always null (not exposed by public profiles).
  */
 export interface LeetCodeFragment {
-  solved: { easy: number; medium: number; hard: number };
+  username?: string;
+  country?: string;
+  solved: { easy: number; medium: number; hard: number; total?: number };
   byTopic: { topic: string; count: number }[];
+  contest?: LeetCodeContest | null;
+  recentActivity?: LeetCodeRecentActivity;
+  streak?: null;
+  /** True when some optional queries failed and the fragment is incomplete. */
+  partial?: boolean;
 }
 
 export interface ProfileFragments {

@@ -18,6 +18,7 @@ import { LanguageDistribution } from "@/components/visualizations/LanguageDistri
 import { ContributionHeatmap } from "@/components/visualizations/ContributionHeatmap";
 import { LeetCodeDifficulty } from "@/components/visualizations/LeetCodeDifficulty";
 import { LeetCodeTopics } from "@/components/visualizations/LeetCodeTopics";
+import { LeetCodeStatTiles } from "@/components/visualizations/LeetCodeStatTiles";
 
 export default function ProfilePage() {
   const { data, isLoading, isError } = useProfile();
@@ -96,19 +97,22 @@ export default function ProfilePage() {
       </Section>
 
       <Section title="LeetCode">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardContent className="space-y-3 p-6">
-              <SectionLabel>By difficulty</SectionLabel>
-              <LeetCodeDifficulty solved={leetcode?.solved} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-3 p-6">
-              <SectionLabel>By topic</SectionLabel>
-              <LeetCodeTopics byTopic={leetcode?.byTopic} />
-            </CardContent>
-          </Card>
+        <div className="space-y-6">
+          {leetcode ? <LeetCodeStatTiles leetcode={leetcode} /> : null}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardContent className="space-y-3 p-6">
+                <SectionLabel>By difficulty</SectionLabel>
+                <LeetCodeDifficulty solved={leetcode?.solved} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="space-y-3 p-6">
+                <SectionLabel>By topic</SectionLabel>
+                <LeetCodeTopics byTopic={leetcode?.byTopic} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </Section>
     </div>
