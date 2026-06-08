@@ -64,7 +64,7 @@
   <a href="#stack">2 · Stack &amp; reality vs docs</a>
   <div class="grp">Flows</div>
   <a href="#auth-flow">3 · Login flow (Path A)</a>
-  <a href="#gh-flow">4 · GitHub connect flow</a>
+  <a href="#gh-flow">4 · Connect flows (GitHub + LeetCode)</a>
   <a href="#data">5 · Data model (ERD)</a>
   <div class="grp">LLD</div>
   <a href="#be-lld">6 · Backend LLD</a>
@@ -78,7 +78,7 @@
 <main>
 
 <h2 id="overview">1 · System overview (HLD)</h2>
-<p class="lead">Two features shipped this cycle: <b>backend-owned authentication</b> (Google login → JWT) and <b>Profile Builder — GitHub slice</b> (link GitHub, collect data, render a descriptive profile). The frontend is a thin Bearer-token client; the Spring backend owns all OAuth handshakes, persistence, and data collection.</p>
+<p class="lead">Shipped this cycle: <b>backend-owned authentication</b> (Google login → JWT) and <b>Profile Builder</b> with two source slices — <b>GitHub</b> (OAuth, synchronous collect) and <b>LeetCode</b> (public GraphQL by username, <i>async</i> collect + poll). The frontend is a thin Bearer-token client; the Spring backend owns all OAuth handshakes, persistence, and data collection. Both sources flow through one source-agnostic <code>profile_fragment</code> + on-read <code>ProfileAssembler</code>.</p>
 
 <div class="mermaid">
 flowchart LR
@@ -92,15 +92,19 @@ flowchart LR
     SEC["SecurityConfig: oauth2Login + JWT resource server"]
     AUTHC["AuthController: refresh, logout"]
     GHC["GitHubConnectionController: authorize, callback, disconnect"]
+    LCC["LeetCodeConnectionController: connect, disconnect"]
     PROFC["ProfileController: profile/me"]
     COLL["GitHubCollector: GraphQL"]
+    LCOLL["LeetCodeCollector: 3 GraphQL queries"]
+    LCJOB["LeetCodeCollectionJob: @Async"]
     ASM["ProfileAssembler: rule-based, descriptive"]
-    SCH["Scheduled weekly refresh"]
+    SCH["Scheduled weekly refresh: GitHub + LeetCode"]
     CIPH["TokenCipher: AES-256-GCM"]
   end
-  DB[("Supabase Postgres: app_user, refresh_token, github_connection, profile_fragment")]
+  DB[("Supabase Postgres: app_user, refresh_token, github_connection, leetcode_connection, profile_fragment")]
   GOOG["Google OAuth"]
   GH["GitHub OAuth + GraphQL"]
+  LC["LeetCode public GraphQL"]
   FE --> AF --> S
   AF -->|refresh cookie httpOnly| AUTHC
   AP --> AF
@@ -108,11 +112,15 @@ flowchart LR
   SEC --> GOOG
   GHC --> GH
   COLL --> GH
+  LCC -->|validate username| LC
+  LCOLL --> LC
   S --> DB
   CIPH --- GHC
   GHC --> COLL --> ASM
+  LCC --> LCJOB --> LCOLL --> ASM
   PROFC --> ASM
   SCH --> COLL
+  SCH --> LCOLL
 </div>
 <p class="legend">The access token never leaves JS memory; persistence across reloads is the httpOnly refresh cookie + a silent refresh on load.</p>
 
@@ -126,6 +134,8 @@ flowchart LR
 <tr><td>Frontend auth state</td><td>—</td><td>In-memory access token + httpOnly refresh cookie</td></tr>
 <tr><td>Components</td><td>shadcn/ui</td><td>shadcn via the <b>classic 2.10 CLI</b> (latest 4.x is Tailwind-4-centric) + <b>Geist</b> fonts/tokens</td></tr>
 <tr><td>JDK on machine</td><td>—</td><td>Default <code>java</code> is 17; JDK 25 is the Homebrew <code>openjdk@25</code> keg (the bare <code>openjdk</code> keg is broken). Every build needs <code>JAVA_HOME</code> set.</td></tr>
+<tr><td>LeetCode sourcing</td><td>"No official API — scrape vs paste-in vs unofficial API" (open decision)</td><td><b>Public GraphQL</b> at <code>leetcode.com/graphql</code>, queried by username — no OAuth, no token (profiles are public by default).</td></tr>
+<tr><td>Profile synthesis</td><td>Python service + LLM + declarative <code>ui_components</code> array + S3 raw cache</td><td>None of that exists: in-process <b>rule-based <code>ProfileAssembler</code> on read</b>; the UI renders directly from <code>fragments.*</code>; no S3.</td></tr>
 </table>
 
 <h2 id="auth-flow">3 · Login flow — "Path A" (backend-owned)</h2>
@@ -151,7 +161,8 @@ sequenceDiagram
   FE-->>U: redirect to dashboard
 </div>
 
-<h2 id="gh-flow">4 · GitHub connect flow (Profile Builder)</h2>
+<h2 id="gh-flow">4 · Connect flows — GitHub &amp; LeetCode</h2>
+<h3>GitHub (OAuth, synchronous collect)</h3>
 <p>A <b>second, separate</b> OAuth flow for <i>account linking</i> (not login). The key subtlety: the authorize step needs the user's identity, but a browser navigation cannot carry the in-memory Bearer token — so we fetch the URL with the token, then navigate.</p>
 <div class="mermaid">
 sequenceDiagram
@@ -180,11 +191,44 @@ sequenceDiagram
   U->>FE: refetch profile me, render profile
 </div>
 
+<h3>LeetCode (no OAuth, async collect + poll)</h3>
+<p>No OAuth and no token — the user types a username. Connect <b>validates synchronously</b> (so a bad/private username fails fast with a precise error), persists the connection as <code>SYNCING</code>, and returns <code>202</code> immediately; an <code>@Async</code> job does the real fetch while the card polls <code>profile/me</code> every 5&nbsp;s.</p>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as Browser
+  participant FE as LeetCode card
+  participant BE as Backend
+  participant JOB as Async job
+  participant LC as LeetCode
+  participant DB as Postgres
+  U->>FE: type username, click Connect
+  FE->>BE: POST connections leetcode, Bearer, username
+  BE->>BE: normalize username, strip URL or at-sign
+  BE->>LC: validate, lightweight matchedUser query
+  alt username missing or profile private
+    LC-->>BE: matchedUser null or no stats
+    BE-->>FE: 404 or 422 with stable error code
+    FE->>U: inline error on the card
+  else valid
+    BE->>DB: upsert leetcode connection, status SYNCING
+    BE-->>FE: 202 Accepted, status SYNCING
+    BE->>JOB: runAsync connectionId, off the request thread
+    FE->>FE: poll profile me every 5s while SYNCING
+    JOB->>LC: 3 queries, profile and contest and recent
+    JOB->>JOB: normalize fragment, SHA-256 canonical hash
+    JOB->>DB: upsert profile fragment if hash changed, status SYNCED
+    Note over JOB,DB: null user becomes DEGRADED keep last good · failure becomes FAILED
+    FE->>BE: poll sees SYNCED, render LeetCode tiles and charts
+  end
+</div>
+
 <h2 id="data">5 · Data model (ERD)</h2>
 <div class="mermaid">
 erDiagram
   app_user ||--o{ refresh_token : has
   app_user ||--o| github_connection : links
+  app_user ||--o| leetcode_connection : links
   app_user ||--o{ profile_fragment : has
   app_user {
     uuid id PK
@@ -210,6 +254,14 @@ erDiagram
     instant connected_at
     instant last_refreshed_at
   }
+  leetcode_connection {
+    uuid id PK
+    uuid user_id FK "unique per user"
+    string username "no OAuth, no token"
+    string status "SYNCING SYNCED FAILED DEGRADED"
+    instant connected_at
+    instant last_refreshed_at
+  }
   profile_fragment {
     uuid id PK
     uuid user_id FK
@@ -220,7 +272,7 @@ erDiagram
     instant fetched_at
   }
 </div>
-<p class="legend"><code>profile_fragment</code> is deliberately source-agnostic (one row per user+source) so adding Résumé/LeetCode later is a new collector, not a schema change. <code>content_hash</code> drives idempotent re-fetch (skip write when data unchanged).</p>
+<p class="legend"><code>profile_fragment</code> is deliberately source-agnostic (one row per user+source) — LeetCode shipped as exactly that (a new collector + connection entity, no fragment-schema change), and Résumé/LinkedIn follow the same path. <code>content_hash</code> drives idempotent re-fetch (skip write when data unchanged). Each source keeps its <i>own</i> connection table (no shared <code>source_connections</code>): GitHub stores an encrypted token, LeetCode stores a username + sync status.</p>
 
 <h2 id="be-lld">6 · Backend LLD</h2>
 <p>One self-contained <code>profile</code> package added beside the existing auth code. Constructor injection, record DTOs, JSONB-as-String.</p>
@@ -228,33 +280,49 @@ erDiagram
 flowchart TB
   subgraph web["profile.web"]
     GHC["GitHubConnectionController"]
+    LCC["LeetCodeConnectionController + @ExceptionHandler"]
     PC["ProfileController"]
-    DTO["DTOs: ProfileResponse, SourceStatus, NotableItem, SkillItem, ProvenanceItem, AuthorizeUrlResponse"]
+    DTO["DTOs: ProfileResponse, SourceStatus +status, SkillItem +source, NotableItem, ProvenanceItem, AuthorizeUrlResponse, ConnectLeetCodeRequest, LeetCodeConnectResponse, ApiError"]
   end
-  subgraph svc["service / github / assembler / crypto"]
+  subgraph svc["service / github / leetcode / assembler / crypto"]
     OS["OAuthStateService: HMAC signed state"]
     GOS["GitHubOAuthService: exchange + upsert"]
     GC["GitHubCollector: GraphQL to fragment + hash"]
+    LCV["LeetCodeService: validate + upsert + enqueue"]
+    LCO["LeetCodeCollector: 3 queries to fragment + hash + retry"]
+    LJB["LeetCodeCollectionJob: @Async refresh + status"]
     PA["ProfileAssembler iface and RuleBased impl"]
-    PS["ProfileService: orchestrate read, disconnect, refresh"]
-    PRS["ProfileRefreshScheduler"]
+    PS["ProfileService: read, disconnect, refresh, source status"]
+    PRS["ProfileRefreshScheduler GitHub weekly"]
+    LRS["LeetCodeRefreshScheduler weekly"]
     TC["TokenCipher AES-GCM"]
   end
   subgraph data["model / repository"]
     E1["GitHubConnection"]
     E2["ProfileFragment"]
+    E3["LeetCodeConnection + SyncStatus enum"]
     R1["GitHubConnectionRepository"]
     R2["ProfileFragmentRepository"]
+    R3["LeetCodeConnectionRepository"]
   end
   GHC --> GOS --> OS
   GOS --> TC
   GOS --> R1
   GHC --> PS --> GC --> R2
+  LCC --> LCV
+  LCV -->|validate| LCO
+  LCV --> R3
+  LCV --> LJB --> LCO --> R2
+  LJB --> R3
   PS --> PA
   PC --> PS
+  PS --> R3
   PRS --> PS
+  LRS --> LJB
   GC --> E2
+  LCO --> E2
   GOS --> E1
+  LCV --> E3
 </div>
 <table>
 <tr><th>Unit</th><th>Responsibility</th></tr>
@@ -262,8 +330,12 @@ flowchart TB
 <tr><td><code>OAuthStateService</code></td><td>Stateless CSRF: <code>state = base64(userId:ts:HMAC)</code>, 10-min expiry. Binds the user to the callback so it needs no JWT.</td></tr>
 <tr><td><code>GitHubOAuthService</code></td><td>Build authorize URL; exchange code→token; fetch login; encrypt; upsert connection.</td></tr>
 <tr><td><code>GitHubCollector</code></td><td>One GraphQL POST → normalized fragment; SHA-256 over canonical (key-sorted) JSON; upsert only when hash changes; rejects GraphQL <code>errors</code>.</td></tr>
-<tr><td><code>ProfileAssembler</code></td><td>Rule-based stand-in for the future LLM synthesis: derives <code>notable</code> / <code>mostUsedSkills</code> / <code>atAGlance</code>. <b>No scoring.</b> Isolated behind an interface so it's swappable.</td></tr>
-<tr><td><code>ProfileService</code></td><td>Build <code>ProfileResponse</code>, disconnect, refresh-for-user.</td></tr>
+<tr><td><code>LeetCodeService</code></td><td>Normalize the username (strips a pasted URL/@), <b>validate synchronously</b> against LeetCode (throws <code>LeetCodeProfileException</code> with a stable code for not-found / private), upsert the connection as <code>SYNCING</code>, then enqueue the async job. Deliberately <b>not</b> <code>@Transactional</code> so the save commits before the job runs and no DB connection is held across the validate call.</td></tr>
+<tr><td><code>LeetCodeCollector</code></td><td>Three GraphQL queries (profile+stats+tags · contest · recent submissions) → one normalized fragment; same canonical-hash idempotent upsert as GitHub. Retries 429/5xx with exponential backoff; tolerates partial data (<code>partial:true</code>); a null <code>matchedUser</code> is reported (not thrown) so the job can mark <code>DEGRADED</code>.</td></tr>
+<tr><td><code>LeetCodeCollectionJob</code></td><td><code>@Async</code> worker (and the synchronous unit the weekly scheduler reuses). Maps the collect outcome to connection status: success → <code>SYNCED</code> + <code>lastRefreshedAt</code>; null user → <code>DEGRADED</code> (keep last-known-good fragment); any error → <code>FAILED</code>. Never throws to the caller.</td></tr>
+<tr><td><code>ProfileAssembler</code></td><td>Rule-based stand-in for the future LLM synthesis: derives <code>notable</code> / <code>mostUsedSkills</code> / <code>atAGlance</code> from <b>both</b> GitHub and LeetCode fragments. <b>No scoring.</b> Skills are relevance-filtered (GitHub language ≥ 5%, LeetCode topic ≥ 5 solves) with <b>no count cap</b>; each skill carries <code>evidence</code> + <code>source</code>.</td></tr>
+<tr><td><code>ProfileService</code></td><td>Build <code>ProfileResponse</code> (incl. per-source <code>SourceStatus</code> with LeetCode's sync <code>status</code>), GitHub disconnect, GitHub refresh-for-user.</td></tr>
+<tr><td><code>LeetCodeRefreshScheduler</code></td><td>Weekly <code>@Scheduled</code> trigger point that re-runs the collection job for every LeetCode connection (mirrors <code>ProfileRefreshScheduler</code>).</td></tr>
 </table>
 
 <h2 id="fe-lld">7 · Frontend LLD</h2>
@@ -275,24 +347,25 @@ flowchart TB
     AP2["AuthProvider silent refresh"]
     CL["client: login, refresh, logout"]
   end
-  AFC["apiFetch: Bearer + 401 refresh-retry"]
+  AFC["apiFetch: Bearer + 401 refresh-retry + ApiFetchError code"]
   RA["RequireAuth guard"]
   subgraph shell["app shell, cherry-picked dashboard-01"]
     SB["app-sidebar, nav-user, site-header"]
   end
   subgraph prof["features/profile"]
-    HK["useProfile, useDisconnectGithub"]
-    API["getMyProfile, disconnectGithub"]
-    TY["types match ProfileResponse"]
+    HK["useProfile (optional poll), useDisconnectGithub, useConnectLeetCode, useDisconnectLeetCode"]
+    API["getMyProfile, disconnectGithub, connectLeetCode, disconnectLeetCode"]
+    TY["types: +SyncStatus, SkillItem.source, LeetCode fragment fields"]
   end
   subgraph pages["app routes"]
     PR["profile: Layout A read-only"]
     CN["connections: hub"]
   end
   subgraph viz["visualizations"]
-    HM["ContributionHeatmap CUSTOM"]
-    ST["GithubStatTiles CUSTOM"]
-    LP["Language and LeetCode charts, Recharts"]
+    HM["ContributionHeatmap: green --heat ramp"]
+    ST["GithubStatTiles + LeetCodeStatTiles (contest, recent activity)"]
+    LP["LanguageDistribution multi-hue, LeetCode difficulty and topics, Recharts"]
+    TG["Most-used skills as wrapped tags + source icon"]
   end
   RL --> AP2 --> CL --> TS
   AFC --> TS
@@ -302,8 +375,10 @@ flowchart TB
   PR --> HK --> API --> AFC
   CN --> HK
   PR --> viz
-  CN -->|ConnectionButton apiFetch then navigate| AFC
+  CN -->|GitHub: ConnectionButton apiFetch then navigate| AFC
+  CN -->|LeetCode: LeetCodeCard inline username form + 5s poll| AFC
 </div>
+<p class="legend">LeetCode is a dedicated <code>LeetCodeCard</code> (username input, inline not-found/private errors via the <code>ApiFetchError</code> code, sync-status badge, 5&nbsp;s polling while <code>SYNCING</code>) — it does not reuse the OAuth-redirect <code>ConnectionButton</code>. Colors are token-driven (Geist law: no hard-coded hex): green heatmap ramp, multi-hue language pie, semantic difficulty donut; chrome stays monochrome.</p>
 
 <h2 id="decisions">8 · Decisions &amp; the paths we did <span class="rej">not</span> take</h2>
 <p class="lead">Each card: what we chose (✓), why, and the alternatives we rejected.</p>
@@ -378,6 +453,26 @@ flowchart TB
 <p><b>Why:</b> pre-revenue discipline; the documented polyrepo split isn't realized.</p>
 <p class="rej"><b>Rejected:</b> a new <code>interviewiq-api</code> service; porting the older Go prototype's handlers.</p></div>
 
+<div class="card adr"><h3>ADR-15 · LeetCode sourcing <span class="tag">product</span></h3>
+<p><span class="chosen">✓ Public GraphQL at <code>leetcode.com/graphql</code>, by username — no OAuth, no token</span>. The connection row stores just the username + sync status.</p>
+<p><b>Why:</b> LeetCode profiles are public by default and the same endpoint their own frontend uses is queryable unauthenticated; one lightweight <code>matchedUser</code> query validates existence/public-ness on connect.</p>
+<p class="rej"><b>Rejected:</b> OSS scraping (TOS + ban + brittle); paste-in JSON (manual, stale); OAuth (LeetCode exposes none). The CLAUDE.md "scrape vs paste-in vs API" open decision is resolved here.</p></div>
+
+<div class="card adr"><h3>ADR-16 · LeetCode collection = async + status + poll <span class="tag">arch</span></h3>
+<p><span class="chosen">✓ Connect validates synchronously then returns 202; an <code>@Async</code> <code>LeetCodeCollectionJob</code> collects in the background; the card polls <code>profile/me</code> every 5&nbsp;s until <code>SYNCED</code>/<code>FAILED</code></span>. A <code>SyncStatus</code> (SYNCING/SYNCED/FAILED/DEGRADED) lives on the connection; <code>connect()</code> is intentionally not <code>@Transactional</code> (commit before the job runs; don't hold a DB connection across the validate call).</p>
+<p><b>Why:</b> three GraphQL round-trips are too slow to block the connect response (GitHub collects synchronously because its OAuth callback already round-trips). A null user post-connect → <code>DEGRADED</code> keeps last-known-good data rather than dropping it.</p>
+<p class="rej"><b>Rejected:</b> synchronous collect (slow connect); a real job queue — jobrunr/Quartz/Temporal (overkill pre-revenue; <code>@Async</code> + a weekly <code>@Scheduled</code> trigger suffices, matching the open-decision lean).</p></div>
+
+<div class="card adr"><h3>ADR-17 · Most-used skills = filtered tags <span class="tag">UX</span></h3>
+<p><span class="chosen">✓ Relevance-filtered, uncapped skill tags with a source icon</span>: GitHub language ≥ 5% byte-share, LeetCode topic ≥ 5 solves; <b>no count cap</b>; rendered as wrapped chips, each with a GitHub/LeetCode glyph (no evidence text).</p>
+<p><b>Why:</b> drops "trace" skills (a repo touching 1% of a language) without an arbitrary top-N; the icon shows provenance at a glance. <code>SkillItem.evidence</code> is still produced (CLAUDE.md "every skill carries evidence") — just not rendered.</p>
+<p class="rej"><b>Rejected:</b> a top-N cap (loses real skills); showing every trace language; a two-column skill+evidence list (noisier than tags).</p></div>
+
+<div class="card adr"><h3>ADR-18 · Data-viz accent colors <span class="tag">UI</span></h3>
+<p><span class="chosen">✓ Restrained Geist accent + semantic colors, as CSS tokens</span>: green <code>--heat</code> ramp for the contribution heatmap, multi-hue categorical <code>--chart-*</code> for the language pie, green/amber/red <code>--color-lc-*</code> for difficulty, a single accent for single-series bars. Chrome stays monochrome.</p>
+<p><b>Why:</b> the frontend law is "black/white core with <i>restrained accent + semantic colors</i>, never hard-coded hex." Pure-monochrome charts made pie slices indistinguishable; this nudges the SP-0 build toward what the law actually prescribes. Any recolor is a one-line token change.</p>
+<p class="rej"><b>Rejected:</b> pure-monochrome charts (unreadable multi-series); rainbow per-language hard-coded hex (violates the token rule, too loud).</p></div>
+
 <h2 id="tree">9 · Decision tree (visual)</h2>
 <p class="legend">Solid = path taken. Dotted = rejected dead-end.</p>
 <div class="mermaid">
@@ -425,16 +520,17 @@ flowchart TD
 <table>
 <tr><th>Item</th><th>Why deferred</th></tr>
 <tr><td>LLM synthesis + Python service</td><td>Prompt is product-IP; service doesn't exist. <code>ProfileAssembler</code> is the swappable stand-in.</td></tr>
-<tr><td>Résumé / LeetCode / LinkedIn / X collectors</td><td>V1 is GitHub-only; UI shows "Connect" placeholders. Source-agnostic schema makes them additive.</td></tr>
+<tr><td>Résumé / LinkedIn / X collectors</td><td>GitHub + <b>LeetCode</b> shipped; these remain "Connect" placeholders. Source-agnostic schema makes them additive.</td></tr>
+<tr><td>LeetCode streak / premium / full submission history</td><td>Streak isn't exposed on public profiles (<code>streak</code> left null); premium-only data skipped; recent activity capped at the API's last ~20 submissions (used only to derive last-30-day count + preferred language).</td></tr>
 <tr><td>Tutorial-repo detection heuristic</td><td>Flagged product-IP needing human review of false positives.</td></tr>
-<tr><td>Background job queue (jobrunr/etc.)</td><td>Open decision; a <code>@Scheduled</code> weekly job suffices for now.</td></tr>
+<tr><td>Background job queue (jobrunr/etc.)</td><td>Still an open decision; Spring <code>@Async</code> + a weekly <code>@Scheduled</code> trigger run the LeetCode collection for now (no new dependency).</td></tr>
 <tr><td><code>/me</code> identity endpoint</td><td>Not built; nav-user reads name from <code>/profile/me</code>.</td></tr>
 <tr><td>Manual GitHub refresh endpoint</td><td>Hidden affordance; only background weekly refresh ships.</td></tr>
 <tr><td>Prod hardening</td><td>Cookie <code>secure=true</code>, KMS for the token key, CI gating on lint, push/PR.</td></tr>
 </table>
 
 <hr/>
-<p class="small muted">Generated for InterviewIQ · branches <code>feat/github-profile-builder-backend</code> &amp; <code>feat/github-profile-builder-frontend</code> (local, not pushed). Diagrams render via Mermaid (needs internet for the CDN).</p>
+<p class="small muted">Generated for InterviewIQ · branches <code>feat/github-profile-builder-backend</code> &amp; <code>feat/github-profile-builder-frontend</code> (local, not pushed). Now also covers the <b>LeetCode source slice</b> (async collect + poll) and the Geist data-viz accent colors / skill-tag changes. Diagrams render via Mermaid (needs internet for the CDN).</p>
 
 </main>
 </div>
