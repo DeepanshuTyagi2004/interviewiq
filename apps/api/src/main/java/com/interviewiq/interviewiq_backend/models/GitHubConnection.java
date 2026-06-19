@@ -39,6 +39,13 @@ public class GitHubConnection {
     @Column(name = "last_refreshed_at")
     private Instant lastRefreshedAt;
 
+    // Sync lifecycle — parity with LeetCodeConnection.status. Nullable so the column is
+    // additive under ddl-auto=update (existing rows predate it); new rows default to SYNCED
+    // on persist since the GitHub connect flow is synchronous (no async pending window).
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private SyncStatus status;
+
     public GitHubConnection(UUID userId, String githubLogin, String accessTokenEnc, String scope) {
         this.userId = userId;
         this.githubLogin = githubLogin;
@@ -49,5 +56,8 @@ public class GitHubConnection {
     @PrePersist
     void onCreate() {
         this.connectedAt = Instant.now();
+        if (this.status == null) {
+            this.status = SyncStatus.SYNCED;
+        }
     }
 }
