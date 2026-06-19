@@ -13,7 +13,7 @@
  *  4. logout() revokes the refresh token server-side and clears local state.
  */
 
-import { APP_CONFIG } from "@/lib/constants/config";
+import { APP_CONFIG, AUTH_ENDPOINTS } from "@/lib/constants/shared";
 import { clearAccessToken, setAccessToken } from "./token-store";
 
 const API_URL = APP_CONFIG.apiUrl;
@@ -37,7 +37,7 @@ type TokenResponse = {
 export async function refresh(): Promise<boolean> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+    res = await fetch(`${API_URL}${AUTH_ENDPOINTS.refresh}`, {
       method: "POST",
       credentials: "include", // send + receive the refresh_token cookie
     });
@@ -58,7 +58,7 @@ export async function refresh(): Promise<boolean> {
 /** Revoke the refresh token server-side and clear the in-memory access token. */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${API_URL}/api/v1/auth/logout`, {
+    await fetch(`${API_URL}${AUTH_ENDPOINTS.logout}`, {
       method: "POST",
       credentials: "include",
     });

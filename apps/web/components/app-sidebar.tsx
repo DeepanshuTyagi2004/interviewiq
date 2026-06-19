@@ -20,7 +20,7 @@ import {
 import { NavMain, type NavItem } from "@/components/nav-main";
 import { NavSecondary, type NavSecondaryItem } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
-import { ROUTES } from "@/lib/constants/routes";
+import { ROUTES } from "@/lib/constants/shared";
 
 const navMain: NavItem[] = [
   { title: "Dashboard", url: ROUTES.dashboard, icon: LayoutDashboard },

@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ROUTES } from "@/lib/constants/routes";
+import { ROUTES } from "@/lib/constants/shared";
 
 /**
  * OAuth landing page. The backend redirects here after setting the httpOnly

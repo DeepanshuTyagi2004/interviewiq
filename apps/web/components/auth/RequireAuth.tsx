@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ROUTES } from "@/lib/constants/routes";
+import { ROUTES } from "@/lib/constants/shared";
 
 /**
  * Client-side auth gate for protected route groups.

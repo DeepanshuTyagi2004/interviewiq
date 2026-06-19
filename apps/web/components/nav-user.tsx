@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useProfile } from "@/features/profile";
-import { ROUTES } from "@/lib/constants/routes";
+import { ROUTES } from "@/lib/constants/shared";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
