@@ -20,6 +20,7 @@ import {
   useDisconnectLeetCode,
   type SyncStatus,
 } from "@/features/profile";
+import { PROFILE_POLLING, PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { SourceIcon } from "./SourceIcon";
 import type { ProviderMeta } from "./providers";
@@ -51,10 +52,10 @@ function messageForCode(code: string | undefined): string {
 }
 
 const SYNC_BADGE: Record<SyncStatus, { label: string; variant: "secondary" | "destructive" | "outline" }> = {
-  SYNCING: { label: "Syncing…", variant: "secondary" },
-  SYNCED: { label: "Synced", variant: "secondary" },
-  FAILED: { label: "Sync failed", variant: "destructive" },
-  DEGRADED: { label: "Limited data", variant: "outline" },
+  [PROFILE_SYNC_STATUS.syncing]: { label: "Syncing…", variant: "secondary" },
+  [PROFILE_SYNC_STATUS.synced]: { label: "Synced", variant: "secondary" },
+  [PROFILE_SYNC_STATUS.failed]: { label: "Sync failed", variant: "destructive" },
+  [PROFILE_SYNC_STATUS.degraded]: { label: "Limited data", variant: "outline" },
 };
 
 export function LeetCodeCard({
@@ -70,7 +71,7 @@ export function LeetCodeCard({
   const status = source?.status;
 
   // Polls the shared profile query every 5s while syncing so the card flips to SYNCED/FAILED.
-  useProfile({ refetchInterval: status === "SYNCING" ? 5000 : false });
+  useProfile({ refetchInterval: status === PROFILE_SYNC_STATUS.syncing ? PROFILE_POLLING.syncIntervalMs : false });
 
   const profileQuery = useProfile();
   const leetcodeUsername = profileQuery.data?.fragments.leetcode?.username;
@@ -136,7 +137,7 @@ export function LeetCodeCard({
               ) : null}
             </div>
 
-            {status === "SYNCED" && source?.lastRefreshedAt ? (
+            {status === PROFILE_SYNC_STATUS.synced && source?.lastRefreshedAt ? (
               <p className="text-xs text-muted-foreground">
                 Last synced{" "}
                 <span className="font-mono tabular-nums">
@@ -144,25 +145,25 @@ export function LeetCodeCard({
                 </span>
               </p>
             ) : null}
-            {status === "SYNCING" ? (
+            {status === PROFILE_SYNC_STATUS.syncing ? (
               <p className="text-xs text-muted-foreground">
                 Importing your LeetCode data… this can take a few seconds.
               </p>
             ) : null}
-            {status === "DEGRADED" ? (
+            {status === PROFILE_SYNC_STATUS.degraded ? (
               <p className="text-xs text-muted-foreground">
                 We’re showing your last imported data — LeetCode didn’t return a public profile on the
                 latest refresh.
               </p>
             ) : null}
-            {status === "FAILED" ? (
+            {status === PROFILE_SYNC_STATUS.failed ? (
               <p role="alert" className="text-xs text-destructive">
                 The last import failed. Retry, or disconnect and reconnect.
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              {status === "FAILED" && (displayName ?? lastSubmitted) ? (
+              {status === PROFILE_SYNC_STATUS.failed && (displayName ?? lastSubmitted) ? (
                 <Button
                   variant="secondary"
                   disabled={connect.isPending}

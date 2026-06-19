@@ -5,11 +5,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-client/client";
 import type { SourceKind } from "@/features/profile";
+import { PROFILE_ENDPOINTS } from "@/lib/constants/profile";
 import { SourceIcon } from "./SourceIcon";
 
 /** Maps a source to its backend authorize endpoint. Only GitHub is live. */
 const AUTHORIZE_PATH: Partial<Record<SourceKind, string>> = {
-  GITHUB: "/api/v1/connections/github/authorize",
+  GITHUB: PROFILE_ENDPOINTS.githubAuthorize,
 };
 
 /** Human-readable label per source, used when no label prop is provided. */

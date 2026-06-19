@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { connectLeetCode } from "../api/connectLeetCode";
-import { PROFILE_QUERY_KEY } from "./useProfile";
+import { PROFILE_QUERY_KEYS } from "@/lib/constants/profile";
 
 /**
  * Connect LeetCode by username. On success the profile is invalidated so the card flips to the
@@ -13,7 +13,7 @@ export function useConnectLeetCode() {
   return useMutation({
     mutationFn: (username: string) => connectLeetCode(username),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEYS.profile });
     },
   });
 }

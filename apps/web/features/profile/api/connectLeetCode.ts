@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client/client";
+import { PROFILE_ENDPOINTS } from "@/lib/constants/profile";
 
 export interface LeetCodeConnectResponse {
   username: string;
@@ -10,7 +11,7 @@ export interface LeetCodeConnectResponse {
  * (throws ApiFetchError with a `code` for not-found / private) and starts background collection.
  */
 export function connectLeetCode(username: string): Promise<LeetCodeConnectResponse> {
-  return apiFetch<LeetCodeConnectResponse>("/api/v1/connections/leetcode", {
+  return apiFetch<LeetCodeConnectResponse>(PROFILE_ENDPOINTS.leetcodeConnection, {
     method: "POST",
     json: { username },
   });

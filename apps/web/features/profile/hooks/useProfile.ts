@@ -1,10 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { PROFILE_QUERY_KEYS } from "@/lib/constants/profile";
 import { getMyProfile } from "../api/getMyProfile";
 import type { ProfileResponse } from "../types/profile";
-
-export const PROFILE_QUERY_KEY = ["profile", "me"] as const;
 
 /**
  * @param options.refetchInterval poll the profile on this interval (ms). Used by the LeetCode card
@@ -13,7 +12,7 @@ export const PROFILE_QUERY_KEY = ["profile", "me"] as const;
  */
 export function useProfile(options?: { refetchInterval?: number | false }) {
   return useQuery<ProfileResponse>({
-    queryKey: PROFILE_QUERY_KEY,
+    queryKey: PROFILE_QUERY_KEYS.profile,
     queryFn: getMyProfile,
     refetchInterval: options?.refetchInterval ?? false,
   });

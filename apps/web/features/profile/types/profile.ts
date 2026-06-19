@@ -4,10 +4,12 @@
  * appears anywhere in this contract or its UI.
  */
 
+import { PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
+
 export type SourceKind = "GITHUB" | "RESUME" | "LEETCODE" | "LINKEDIN" | "X";
 
 /** Background-collection lifecycle for sources that sync asynchronously (currently LeetCode). */
-export type SyncStatus = "SYNCING" | "SYNCED" | "FAILED" | "DEGRADED";
+export type SyncStatus = (typeof PROFILE_SYNC_STATUS)[keyof typeof PROFILE_SYNC_STATUS];
 
 export interface ProfileUser {
   name: string | null;
