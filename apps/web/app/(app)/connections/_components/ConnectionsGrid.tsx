@@ -39,7 +39,7 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
       {PROVIDERS.map((provider) => {
         // LeetCode has a username-input + async-sync flow of its own; the rest use the
         // generic OAuth-style card. Both read from the same shared profile query.
-        if (provider.source === "LEETCODE") {
+        if (provider.source.toLowerCase() === "leetcode") {
           return (
             <LeetCodeCard
               key={provider.source}
