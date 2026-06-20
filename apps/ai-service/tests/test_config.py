@@ -13,7 +13,7 @@ def test_settings_load_groq_and_search():
     assert s.groq_model == "qwen/qwen3.6-27b"
     assert s.collect_max_results == 20
     assert s.extract_concurrency == 8
-    assert "ambitionbox.com" in s.perplexity_search_domains
+    assert s.perplexity_search_domains == []   # open web by default (no domain restriction)
 
 
 def test_search_domains_accepts_comma_string():

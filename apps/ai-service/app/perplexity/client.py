@@ -64,15 +64,18 @@ class PerplexityClient:
         max_results: int,
     ) -> list[dict]:
         """Perplexity Search API (/search). Returns deduped [{title, url, content, date}].
-        `queries` is sent as an array so several variants run in one request."""
+        `queries` is sent as an array per the API contract. `domains` narrows the search to
+        specific sites; pass an empty list to search the open web (the key is omitted)."""
         payload = {
             "query": queries,
             "max_results": max_results,
-            "search_domain_filter": domains[:20],
             "search_recency_filter": recency,
             "country": country,
             "web_search_options": {"search_context_size": context_size},
         }
+        # Open web unless explicitly narrowed — omit the key entirely when no domains given.
+        if domains:
+            payload["search_domain_filter"] = domains[:20]
         data = await self._post_with_retries(payload, label="search", url=self._search_url)
         return _parse_search_results(data)
 

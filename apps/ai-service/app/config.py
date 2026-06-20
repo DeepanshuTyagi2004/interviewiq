@@ -25,11 +25,11 @@ class Settings(BaseSettings):
     perplexity_timeout_seconds: float = Field(30.0, alias="PERPLEXITY_TIMEOUT_SECONDS")
 
     # Perplexity Search API (source collection — separate from the sonar chat model).
+    # Open web by default ([] = no domain restriction): interview experiences live anywhere,
+    # and the Groq extractor's is_interview_experience gate filters non-experiences downstream.
+    # Set PERPLEXITY_SEARCH_DOMAINS to narrow to specific sites if precision/cost demands it.
     perplexity_search_domains: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: [
-            "ambitionbox.com", "glassdoor.co.in", "geeksforgeeks.org",
-            "leetcode.com", "jointaro.com", "reddit.com", "dev.to",
-        ],
+        default_factory=list,
         alias="PERPLEXITY_SEARCH_DOMAINS",
     )
 
