@@ -40,6 +40,17 @@ class Difficulty(str, Enum):
     HARD = "hard"
 
 
+class Provenance(str, Enum):
+    EVIDENCE_BACKED = "evidence_backed"
+    INFERRED = "inferred"
+
+
+class Geo(str, Enum):
+    INDIA = "india"
+    NON_INDIA = "non-india"
+    UNKNOWN = "unknown"
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -151,3 +162,72 @@ class PerplexityBriefV2(BaseModel):
     """The JSON object Perplexity returns and we validate. Stored under the brief doc."""
     experiences: list[Experience] = Field(default_factory=list)
     consolidated_process: ConsolidatedProcess
+
+
+class RawExperience(BaseModel):
+    """One source's extracted account (Groq extractor output, one per collected source)."""
+    source: str | None = None
+    url: str | None = None
+    date: str | None = None
+    detected_role: str | None = None
+    detected_level: str | None = None
+    geo: Geo = Geo.UNKNOWN
+    rounds: list[RoundDetail] = Field(default_factory=list)
+    outcome: str | None = None
+
+    _s = field_validator(
+        "source", "url", "date", "detected_role", "detected_level", "outcome", mode="before",
+    )(_coerce_str)
+
+    @field_validator("geo", mode="before")
+    @classmethod
+    def _norm_geo(cls, v):
+        if isinstance(v, str):
+            s = v.strip().lower().replace(" ", "-")
+            if s in ("india", "in", "indian"):
+                return "india"
+            if s in {g.value for g in Geo}:
+                return s
+            return "unknown" if not s else ("non-india" if s not in ("india",) else s)
+        return v if v is not None else "unknown"
+
+
+class FinalRound(BaseModel):
+    round_number: int | None = None
+    type: RoundType | None = None
+    format: str | None = None
+    topics: list[str] = Field(default_factory=list)
+    problems: list[str] = Field(default_factory=list)
+    difficulty: Difficulty | None = None
+    provenance: Provenance = Provenance.INFERRED
+    evidence_urls: list[str] = Field(default_factory=list)
+
+    _t = field_validator("type", mode="before")(_norm_round_type)
+    _d = field_validator("difficulty", mode="before")(_norm_difficulty)
+    _s = field_validator("format", mode="before")(_coerce_str)
+    _l = field_validator("topics", "problems", "evidence_urls", mode="before")(_coerce_str_list)
+
+    @field_validator("provenance", mode="before")
+    @classmethod
+    def _norm_prov(cls, v):
+        if isinstance(v, str):
+            s = v.strip().lower().replace("-", "_")
+            return s if s in {p.value for p in Provenance} else "inferred"
+        return "inferred"
+
+
+class FinalExperience(BaseModel):
+    """The single consolidated round-by-round experience the JD page renders."""
+    rounds: list[FinalRound] = Field(default_factory=list)
+    dominant_topics: list[str] = Field(default_factory=list)
+    difficulty_calibration: str | None = None
+    interviewer_style_notes: str | None = None
+    red_flags: list[str] = Field(default_factory=list)
+    company_specific_patterns: str | None = None
+    data_confidence: DataConfidence = DataConfidence.LOW
+
+    _s = field_validator(
+        "difficulty_calibration", "interviewer_style_notes", "company_specific_patterns",
+        mode="before",
+    )(_coerce_str)
+    _l = field_validator("dominant_topics", "red_flags", mode="before")(_coerce_str_list)
