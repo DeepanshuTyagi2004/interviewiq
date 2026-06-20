@@ -123,26 +123,6 @@ class PerplexityClient:
             raise PerplexityError(f"Perplexity returned {status} for {label}")
 
 
-def _extract_citations(data: dict) -> list[str]:
-    """Perplexity returns citations either as a top-level `citations` list of URLs
-    or as `search_results` objects with a `url`. Handle both; dedupe, preserve order."""
-    urls: list[str] = []
-    for c in data.get("citations") or []:
-        if isinstance(c, str):
-            urls.append(c)
-    for sr in data.get("search_results") or []:
-        url = sr.get("url") if isinstance(sr, dict) else None
-        if url:
-            urls.append(url)
-    seen = set()
-    deduped = []
-    for u in urls:
-        if u not in seen:
-            seen.add(u)
-            deduped.append(u)
-    return deduped
-
-
 def _parse_search_results(data: dict) -> list[dict]:
     """Normalise /search results to [{title, url, content, date}], deduped by URL, order preserved.
     Prefers full `content` over `snippet`."""

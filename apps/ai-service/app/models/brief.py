@@ -125,11 +125,11 @@ class RawExperience(BaseModel):
     def _norm_geo(cls, v):
         if isinstance(v, str):
             s = v.strip().lower().replace(" ", "-")
-            if s in ("india", "in", "indian"):
-                return "india"
-            if s in {g.value for g in Geo}:
+            if s in {g.value for g in Geo}:          # exact: india / non-india / unknown
                 return s
-            return "unknown" if not s else ("non-india" if s not in ("india",) else s)
+            if s in ("in", "indian") or "india" in s:  # india aliases / "..., India"
+                return "india"
+            return "unknown"                          # ambiguous/foreign -> safe, non-discounting
         return v if v is not None else "unknown"
 
 

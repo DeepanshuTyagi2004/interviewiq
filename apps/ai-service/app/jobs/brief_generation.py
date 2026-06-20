@@ -57,6 +57,7 @@ def build_search_queries(combo: "Combination") -> list[str]:
 
 
 def count_provenance(fe: "FinalExperience") -> tuple[int, int]:
+    """Return (evidence_backed_round_count, inferred_round_count) for the final experience."""
     ev = sum(1 for r in fe.rounds if r.provenance == Provenance.EVIDENCE_BACKED)
     return ev, len(fe.rounds) - ev
 

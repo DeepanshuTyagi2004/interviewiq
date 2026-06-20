@@ -7,9 +7,10 @@ API keys must never silently fall back to a guessed default.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -24,13 +25,25 @@ class Settings(BaseSettings):
     perplexity_timeout_seconds: float = Field(30.0, alias="PERPLEXITY_TIMEOUT_SECONDS")
 
     # Perplexity Search API (source collection — separate from the sonar chat model).
-    perplexity_search_domains: list[str] = Field(
+    perplexity_search_domains: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "ambitionbox.com", "glassdoor.co.in", "geeksforgeeks.org",
             "leetcode.com", "jointaro.com", "reddit.com", "dev.to",
         ],
         alias="PERPLEXITY_SEARCH_DOMAINS",
     )
+
+    @field_validator("perplexity_search_domains", mode="before")
+    @classmethod
+    def _split_domains(cls, v):
+        # NoDecode means env values arrive as raw strings; accept comma-separated or JSON-array.
+        if isinstance(v, str):
+            s = v.strip()
+            if s.startswith("["):
+                import json
+                return json.loads(s)
+            return [d.strip() for d in s.split(",") if d.strip()]
+        return v
     perplexity_search_recency: str = Field("year", alias="PERPLEXITY_SEARCH_RECENCY")
     perplexity_search_context_size: str = Field("high", alias="PERPLEXITY_SEARCH_CONTEXT_SIZE")
     perplexity_search_country: str = Field("IN", alias="PERPLEXITY_SEARCH_COUNTRY")
