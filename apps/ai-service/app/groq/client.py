@@ -84,13 +84,16 @@ class GroqClient:
             try:
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
                     resp = await client.post(self._url, json=payload, headers=self._headers)
-            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            except httpx.TransportError as exc:
                 if attempt >= _MAX_ATTEMPTS:
                     raise GroqError(f"Groq transport error after {attempt} attempts: {exc}") from exc
                 await asyncio.sleep(_RATE_LIMIT_BACKOFF_SECONDS)
                 continue
             if resp.status_code == 200:
-                content = resp.json()["choices"][0]["message"]["content"]
+                try:
+                    content = resp.json()["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, ValueError) as exc:
+                    raise GroqError(f"Groq 200 response malformed: {resp.text[:300]}") from exc
                 return parse_json(content)
             if resp.status_code in (429, 500, 502, 503) and attempt < _MAX_ATTEMPTS:
                 logger.warning("[groq] %d (attempt %d/%d); backing off", resp.status_code, attempt, _MAX_ATTEMPTS)
