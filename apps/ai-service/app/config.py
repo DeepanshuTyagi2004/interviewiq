@@ -1,0 +1,50 @@
+"""Service configuration. Everything comes from the environment.
+
+Required vars have NO default — if any is unset the service fails fast at startup
+(pydantic raises listing exactly which are missing). Infrastructure connections and
+API keys must never silently fall back to a guessed default.
+"""
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    # --- Perplexity API (brief generation) ---
+    # Required. Never hardcoded anywhere in the codebase.
+    perplexity_api_key: str = Field(..., alias="PERPLEXITY_API_KEY")
+    perplexity_model: str = Field(..., alias="PERPLEXITY_MODEL")  # e.g. sonar, sonar-pro
+    # Vendor endpoint. Fixed by Perplexity; overridable via env but not required.
+    perplexity_base_url: str = Field("https://api.perplexity.ai", alias="PERPLEXITY_BASE_URL")
+    perplexity_timeout_seconds: float = Field(30.0, alias="PERPLEXITY_TIMEOUT_SECONDS")
+
+    # --- MongoDB ---
+    mongodb_url: str = Field(..., alias="MONGODB_URL")
+    mongodb_db: str = Field("interviewiq_intelligence", alias="MONGODB_DB")
+
+    # --- Internal service-to-service auth (shared secret with interviewiq-api) ---
+    internal_api_key: str = Field(..., alias="INTERNAL_API_KEY")
+
+    # --- interviewiq-api: source of the JD targets to generate briefs for ---
+    api_base_url: str = Field("http://interviewiq-api:8080", alias="API_BASE_URL")
+
+    # --- Brief generation schedule ---
+    scheduler_enabled: bool = Field(True, alias="SCHEDULER_ENABLED")
+    brief_refresh_interval_days: int = Field(7, alias="BRIEF_REFRESH_INTERVAL_DAYS")
+    # A brief is regenerated when older than this many days (matches the refresh cadence).
+    brief_stale_after_days: int = Field(7, alias="BRIEF_STALE_AFTER_DAYS")
+    # Delay between sequential Perplexity calls (rate-limit hygiene).
+    brief_inter_call_delay_seconds: float = Field(2.0, alias="BRIEF_INTER_CALL_DELAY_SECONDS")
+
+    # --- Logging --- set to DEBUG for the most verbose output.
+    log_level: str = Field("INFO", alias="LOG_LEVEL")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
