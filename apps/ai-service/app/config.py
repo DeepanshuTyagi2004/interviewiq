@@ -23,6 +23,27 @@ class Settings(BaseSettings):
     perplexity_base_url: str = Field("https://api.perplexity.ai", alias="PERPLEXITY_BASE_URL")
     perplexity_timeout_seconds: float = Field(30.0, alias="PERPLEXITY_TIMEOUT_SECONDS")
 
+    # Perplexity Search API (source collection — separate from the sonar chat model).
+    perplexity_search_domains: list[str] = Field(
+        default_factory=lambda: [
+            "ambitionbox.com", "glassdoor.co.in", "geeksforgeeks.org",
+            "leetcode.com", "jointaro.com", "reddit.com", "dev.to",
+        ],
+        alias="PERPLEXITY_SEARCH_DOMAINS",
+    )
+    perplexity_search_recency: str = Field("year", alias="PERPLEXITY_SEARCH_RECENCY")
+    perplexity_search_context_size: str = Field("high", alias="PERPLEXITY_SEARCH_CONTEXT_SIZE")
+    perplexity_search_country: str = Field("IN", alias="PERPLEXITY_SEARCH_COUNTRY")
+    collect_max_results: int = Field(20, alias="COLLECT_MAX_RESULTS")   # Search API hard cap is 20
+
+    # --- Groq (extract + aggregate) ---
+    groq_api_key: str = Field(..., alias="GROQ_API_KEY")
+    groq_model: str = Field("qwen/qwen3.6-27b", alias="GROQ_MODEL")
+    groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    groq_timeout_seconds: float = Field(60.0, alias="GROQ_TIMEOUT_SECONDS")
+    extract_max_sources: int = Field(40, alias="EXTRACT_MAX_SOURCES")   # cap sources sent to extractor
+    extract_concurrency: int = Field(8, alias="EXTRACT_CONCURRENCY")    # simultaneous Groq extract calls
+
     # --- MongoDB ---
     mongodb_url: str = Field(..., alias="MONGODB_URL")
     mongodb_db: str = Field("interviewiq_intelligence", alias="MONGODB_DB")
