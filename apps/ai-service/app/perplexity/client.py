@@ -46,6 +46,7 @@ class PerplexityClient:
         if not model:
             raise PerplexityConfigError("PERPLEXITY_MODEL is not set. Refusing to start.")
         self._url = base_url.rstrip("/") + "/chat/completions"
+        self._search_url = base_url.rstrip("/") + "/search"
         self._model = model
         self._timeout = timeout_seconds
         self._headers = {
@@ -104,7 +105,30 @@ class PerplexityClient:
             raise PerplexityError(f"Unexpected Perplexity response shape: {data!r}") from exc
         return text, _extract_citations(data)
 
-    async def _post_with_retries(self, payload: dict, *, label: str) -> dict:
+    async def collect_sources(
+        self,
+        queries: list[str],
+        *,
+        domains: list[str],
+        recency: str,
+        country: str,
+        context_size: str,
+        max_results: int,
+    ) -> list[dict]:
+        """Perplexity Search API (/search). Returns deduped [{title, url, content, date}].
+        `queries` is sent as an array so several variants run in one request."""
+        payload = {
+            "query": queries,
+            "max_results": max_results,
+            "search_domain_filter": domains[:20],
+            "search_recency_filter": recency,
+            "country": country,
+            "web_search_options": {"search_context_size": context_size},
+        }
+        data = await self._post_with_retries(payload, label="search", url=self._search_url)
+        return _parse_search_results(data)
+
+    async def _post_with_retries(self, payload: dict, *, label: str, url: str | None = None) -> dict:
         rate_limit_attempts = 0
         server_error_attempts = 0
         timeout_retried = False
@@ -112,7 +136,7 @@ class PerplexityClient:
         while True:
             try:
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    resp = await client.post(self._url, json=payload, headers=self._headers)
+                    resp = await client.post(url or self._url, json=payload, headers=self._headers)
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
                 if not timeout_retried:
                     timeout_retried = True
@@ -169,6 +193,27 @@ def _extract_citations(data: dict) -> list[str]:
             seen.add(u)
             deduped.append(u)
     return deduped
+
+
+def _parse_search_results(data: dict) -> list[dict]:
+    """Normalise /search results to [{title, url, content, date}], deduped by URL, order preserved.
+    Prefers full `content` over `snippet`."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for r in data.get("results") or []:
+        if not isinstance(r, dict):
+            continue
+        url = r.get("url")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        out.append({
+            "title": r.get("title"),
+            "url": url,
+            "content": (r.get("content") or r.get("snippet") or "").strip(),
+            "date": r.get("date") or r.get("last_updated"),
+        })
+    return out
 
 
 def build_perplexity_client(settings: Settings) -> PerplexityClient:
