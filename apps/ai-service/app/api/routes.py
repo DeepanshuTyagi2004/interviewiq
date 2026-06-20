@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_perplexity, require_internal_key
 from app.config import get_settings
 from app.db import mongo, repositories as repo
+from app.groq.client import build_groq_client
 from app.jobs.brief_generation import generate_one
 from app.perplexity.client import PerplexityClient, PerplexityConfigError
 from app.targets import Combination, fetch_combinations
@@ -63,7 +64,8 @@ async def refresh_brief(
         Combination(company, role, level, specialization),
     )
     try:
-        await generate_one(perplexity, combo, settings, force=True)
+        groq = build_groq_client(settings)
+        await generate_one(perplexity, groq, combo, settings, force=True)
     except PerplexityConfigError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     doc = await repo.get_brief(company, role, level, specialization)

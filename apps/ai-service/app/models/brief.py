@@ -1,8 +1,8 @@
-"""Interview brief models — the contract between the Perplexity response and MongoDB.
+"""Interview brief models — the contract for the staged collect→extract→aggregate pipeline.
 
-A FLAT list of first-hand candidate experiences (each tagged with its source + URL) plus a
-consolidated round-by-round process — both produced by Perplexity in one call. Descriptive
-only — no scores or rankings. Validators coerce the messy types small local LLMs emit (ints
+Per-source raw experiences (RawExperience[]) are extracted by Groq and then merged into one
+consolidated FinalExperience. Both are stored in the brief document. Descriptive only —
+no scores or rankings. Validators coerce the messy types small local LLMs emit (ints
 where strings are expected, a bare string where a list is expected, mixed-case enums).
 """
 from __future__ import annotations
@@ -103,65 +103,6 @@ class RoundDetail(BaseModel):
     _d = field_validator("difficulty", mode="before")(_norm_difficulty)
     _s = field_validator("format", "outcome", mode="before")(_coerce_str)
     _l = field_validator("topics", "problems", mode="before")(_coerce_str_list)
-
-
-class Experience(BaseModel):
-    """One candidate's first-hand account of the full process (any source)."""
-    source: str | None = None          # platform name (LeetCode Discuss, Glassdoor, jointaro, …)
-    source_url: str | None = None      # direct URL to the specific experience post
-    total_rounds: int | None = None
-    timeline_days: int | None = None
-    rounds: list[RoundDetail] = Field(default_factory=list)
-    overall_outcome: str | None = None
-
-    _s = field_validator("source", "source_url", "overall_outcome", mode="before")(_coerce_str)
-
-
-class ConsolidatedRound(BaseModel):
-    round_number: int | None = None
-    type: RoundType | None = None
-    consistency: str | None = None     # e.g. "appears in 4 of 5 experiences"
-    format: str | None = None          # what to expect in this round
-    dominant_topics: list[str] = Field(default_factory=list)
-    difficulty: Difficulty | None = None
-
-    _t = field_validator("type", mode="before")(_norm_round_type)
-    _d = field_validator("difficulty", mode="before")(_norm_difficulty)
-    _s = field_validator("consistency", "format", mode="before")(_coerce_str)
-    _l = field_validator("dominant_topics", mode="before")(_coerce_str_list)
-
-
-class ConsolidatedProcess(BaseModel):
-    """The synthesised process across all role-matched experiences — what the JD page renders."""
-    typical_round_count: int | None = None
-    rounds: list[ConsolidatedRound] = Field(default_factory=list)
-    dominant_topics: list[str] = Field(default_factory=list)
-    difficulty_calibration: str | None = None
-    interviewer_style_notes: str | None = None
-    red_flags: list[str] = Field(default_factory=list)
-    company_specific_patterns: str | None = None
-    data_confidence: DataConfidence = DataConfidence.LOW
-
-    _s = field_validator(
-        "difficulty_calibration", "interviewer_style_notes", "company_specific_patterns",
-        mode="before",
-    )(_coerce_str)
-    _l = field_validator("dominant_topics", "red_flags", mode="before")(_coerce_str_list)
-
-    @field_validator("data_confidence", mode="before")
-    @classmethod
-    def _norm_conf(cls, v):
-        if v is None or (isinstance(v, str) and not v.strip()):
-            return DataConfidence.LOW
-        if isinstance(v, str):
-            return v.strip().lower()
-        return v
-
-
-class PerplexityBriefV2(BaseModel):
-    """The JSON object Perplexity returns and we validate. Stored under the brief doc."""
-    experiences: list[Experience] = Field(default_factory=list)
-    consolidated_process: ConsolidatedProcess
 
 
 class RawExperience(BaseModel):

@@ -1,10 +1,10 @@
 """Perplexity API client.
 
-Perplexity is OpenAI-compatible: same chat-completions request shape, pointed at
-https://api.perplexity.ai. Its sonar models do live web search + synthesis and
-return the answer plus citation URLs. Base URL / model / key all come from config.
+Perplexity Search API (/search) is used by the collect stage to gather source URLs for
+interview experiences. Base URL / model / key all come from config.
 
-One public method: query_interview_intelligence(company, role, level) -> (text, citations).
+One public method: collect_sources(queries, *, domains, recency, country, context_size,
+max_results) -> list[dict].
 
 Failure handling (per spec):
   401            -> PerplexityConfigError, no retry (bad key)
@@ -21,7 +21,6 @@ import logging
 import httpx
 
 from app.config import Settings
-from app.prompts.brief_query import BRIEF_SYSTEM, build_brief_query
 
 logger = logging.getLogger(__name__)
 
@@ -53,57 +52,6 @@ class PerplexityClient:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
-
-    async def query_interview_intelligence(
-        self,
-        company: str,
-        role: str,
-        level: str,
-        *,
-        specialization: str | None = None,
-        title: str | None = None,
-        emphasize_json: bool = False,
-    ) -> tuple[str, str, list[str]]:
-        """Return (prompt_sent, raw_text, citation_urls). Raises PerplexityError on failure.
-        The prompt is returned so the caller can surface exactly what was asked."""
-        prompt = build_brief_query(
-            company, role, level, specialization=specialization,
-            title=title, emphasize_json=emphasize_json,
-        )
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": BRIEF_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.2,
-        }
-        data = await self._post_with_retries(payload, label=f"{company}/{role}/{level}")
-        try:
-            text = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise PerplexityError(f"Unexpected Perplexity response shape: {data!r}") from exc
-        return prompt, text, _extract_citations(data)
-
-    async def search(
-        self, system_prompt: str, user_prompt: str, *, label: str = "search"
-    ) -> tuple[str, list[str]]:
-        """Generic live-web search → (raw_text, citation_urls). Same request shape + retry
-        handling as the brief query; used for the targeted round-structure follow-up."""
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.2,
-        }
-        data = await self._post_with_retries(payload, label=label)
-        try:
-            text = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise PerplexityError(f"Unexpected Perplexity response shape: {data!r}") from exc
-        return text, _extract_citations(data)
 
     async def collect_sources(
         self,

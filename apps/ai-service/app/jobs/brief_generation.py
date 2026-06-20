@@ -1,36 +1,40 @@
-"""Brief generation job — Perplexity-driven, sequential.
+"""Brief generation job — staged collect → extract → aggregate pipeline.
 
-For each company+role+level combination (read from interviewiq-api), call Perplexity
-once, validate the JSON against the brief schema (retry once re-emphasising JSON),
-and upsert one brief document. Sequential with a delay between calls; one failure
-never aborts the run.
+For each company+role+level combination (read from interviewiq-api), the pipeline:
+  1. Collect: query Perplexity Search for N source URLs.
+  2. Extract: run each source through Groq to produce a RawExperience (parallel-capped).
+  3. Aggregate: merge all raw experiences into one FinalExperience via Groq.
+
+Both raw_experiences[] and final_experience are stored per brief document. Sequential
+across combos with a delay between calls; one failure never aborts the run.
 
 Trigger rules (skipped unless `force`): regenerate when no brief exists, the brief is
-older than the staleness window, or its query_version != current BRIEF_QUERY_VERSION.
+older than the staleness window, its query_version != PIPELINE_VERSION, or its status
+is failed/insufficient_data. Successful (success) briefs settle until stale.
 """
 from __future__ import annotations
 
 import asyncio
-import json
+import json as _json
 import logging
-import re
 from datetime import timedelta
 
 from pydantic import ValidationError
 
 from app.config import Settings
 from app.db import repositories as repo
+from app.groq.client import GroqClient, GroqError, build_groq_client, gather_capped
 from app.models.brief import (
     DataConfidence,
     FinalExperience,
     GenerationStatus,
-    PerplexityBriefV2,
     Provenance,
     RawExperience,
     utcnow,
 )
 from app.perplexity.client import PerplexityClient, PerplexityConfigError, PerplexityError
-from app.prompts.brief_query import BRIEF_QUERY_VERSION
+from app.prompts.extract_source import EXTRACT_SYSTEM, build_extract_prompt
+from app.prompts.aggregate_experience import AGGREGATE_SYSTEM, build_aggregate_prompt
 from app.jobs.run_store import RUN_STORE
 from app.targets import Combination, fetch_combinations
 
@@ -74,135 +78,96 @@ async def needs_regeneration(combo: Combination, settings: Settings) -> bool:
     existing = await repo.get_brief(combo.company, combo.role, combo.level, combo.specialization)
     if existing is None:
         return True
-    if existing.get("query_version") != BRIEF_QUERY_VERSION:
+    if existing.get("query_version") != PIPELINE_VERSION:
         return True
-    # Re-attempt weak briefs on the next MANUAL run (scheduler/startup auto-run is off, so
-    # this never auto-retries on a timer). Anything below high confidence — failed, low, or
-    # medium — gets another shot at richer data; only solid high-confidence briefs are skipped.
-    if existing.get("generation_status") == "failed":
+    if existing.get("generation_status") in ("failed", "insufficient_data"):
         return True
-    if existing.get("data_confidence") in ("low", "medium"):
-        return True
+    # 'success' briefs settle until stale; only failed/insufficient retry on a manual run.
     generated_at = existing.get("generated_at")
     if generated_at is None:
         return True
     return utcnow() - generated_at > timedelta(days=settings.brief_stale_after_days)
 
 
+async def _collect(perplexity: PerplexityClient, combo: Combination, settings: Settings) -> list[dict]:
+    queries = build_search_queries(combo)
+    sources = await perplexity.collect_sources(
+        queries,
+        domains=settings.perplexity_search_domains,
+        recency=settings.perplexity_search_recency,
+        country=settings.perplexity_search_country,
+        context_size=settings.perplexity_search_context_size,
+        max_results=settings.collect_max_results,
+    )
+    return sources[: settings.extract_max_sources]
+
+
+async def _extract_all(groq: GroqClient, combo: Combination, sources: list[dict],
+                       settings: Settings) -> list[RawExperience]:
+    label = combo.label()
+
+    async def _one(src: dict) -> RawExperience | None:
+        raw = await groq.complete_json(EXTRACT_SYSTEM, build_extract_prompt(label, src))
+        if not raw.get("is_interview_experience"):
+            return None
+        raw.setdefault("url", src.get("url"))
+        return RawExperience.model_validate(raw)
+
+    results = await gather_capped([_one(s) for s in sources], settings.extract_concurrency)
+    return [r for r in results if isinstance(r, RawExperience) and r.rounds]
+
+
+async def _aggregate(groq: GroqClient, combo: Combination,
+                     raw_experiences: list[RawExperience]) -> FinalExperience:
+    payload = _json.dumps([e.model_dump(mode="json") for e in raw_experiences])
+    raw = await groq.complete_json(AGGREGATE_SYSTEM, build_aggregate_prompt(combo.label(), payload))
+    return FinalExperience.model_validate(raw)
+
+
 async def generate_one(
     perplexity: PerplexityClient,
+    groq: GroqClient,
     combo: Combination,
     settings: Settings,
     *,
     force: bool = False,
 ) -> dict:
-    """Generate (or skip) the brief for one combination. Returns a result dict.
-    Raises PerplexityConfigError (bad key) so the caller can abort the whole job."""
+    """Generate (or skip) the brief for one combination via collect -> extract -> aggregate."""
     label = combo.label()
     if not force and not await needs_regeneration(combo, settings):
-        logger.info("[brief] %s fresh (v=%s); skipping", label, BRIEF_QUERY_VERSION)
+        logger.info("[brief] %s fresh (v=%s); skipping", label, PIPELINE_VERSION)
         RUN_STORE.record_combo(label, status="skipped")
         return {"combo": label, "status": "skipped"}
 
     RUN_STORE.record_combo(label, status="running")
     try:
-        content, citations, raw_text = await _query_and_validate(perplexity, combo)
+        sources = await _collect(perplexity, combo, settings)
+        RUN_STORE.add_combo_request(
+            label, prompt=" | ".join(build_search_queries(combo)),
+            raw_response=f"{len(sources)} sources collected", citations=[s["url"] for s in sources],
+        )
+        raw_experiences = await _extract_all(groq, combo, sources, settings)
+        final = await _aggregate(groq, combo, raw_experiences)
     except PerplexityConfigError:
-        raise  # unrecoverable — abort the job
-    except (PerplexityError, ValueError, ValidationError) as exc:
+        raise
+    except (PerplexityError, GroqError, ValueError, ValidationError) as exc:
         logger.warning("[brief] %s FAILED: %s", label, exc)
         failed = _failed_doc(combo, settings, str(exc))
         await repo.upsert_brief(failed)
         RUN_STORE.record_combo(label, status="failed", error=str(exc), stored_doc=_jsonable(failed))
         return {"combo": label, "status": "failed"}
 
-    # Perplexity gathers the experiences AND produces the consolidated round-by-round process in
-    # one call — that IS the consolidation, including a realistic best-estimate loop (kept at
-    # data_confidence=low) when real reports are sparse. Every citation is shown as a source.
-    trusted = list(dict.fromkeys(citations))
-    scored_sources = [{"url": u, "confidence": "medium"} for u in trusted]
-
-    confidence = content.consolidated_process.data_confidence
-    status = (
-        GenerationStatus.INSUFFICIENT_DATA
-        if confidence == DataConfidence.LOW
-        else GenerationStatus.SUCCESS
-    )
-    doc = _success_doc(combo, content, trusted, raw_text, settings, status,
-                       fabricated=False, scored_sources=scored_sources)
+    status, confidence = derive_status(final)
+    final.data_confidence = confidence
+    doc = _success_doc(combo, final, raw_experiences, sources, settings, status)
     await repo.upsert_brief(doc)
-    logger.info(
-        "[brief] %s OK (confidence=%s, status=%s, sources=%d)",
-        label, confidence.value, status.value, len(citations),
-    )
-    RUN_STORE.record_combo(
-        label,
-        status=status.value,
-        data_confidence=confidence.value,
-        brief=content.model_dump(mode="json"),
-        stored_doc=_jsonable(doc),
-    )
+    ev, inf = count_provenance(final)
+    logger.info("[brief] %s OK (status=%s, conf=%s, rounds=%d ev=%d inf=%d, raw=%d, sources=%d)",
+                label, status.value, confidence.value, len(final.rounds), ev, inf,
+                len(raw_experiences), len(sources))
+    RUN_STORE.record_combo(label, status=status.value, data_confidence=confidence.value,
+                           brief=final.model_dump(mode="json"), stored_doc=_jsonable(doc))
     return {"combo": label, "status": status.value, "data_confidence": confidence.value}
-
-
-_MAX_RAW_RESPONSE = 6000  # cap raw response captured for the UI (full text still hits Perplexity)
-
-
-def parse_json(content: str) -> dict:
-    """Extract JSON from Perplexity text, tolerating ```json fences / preamble (grab the
-    outermost {...}) and trailing commas before } or ]. Raises ValueError if none found."""
-    content = content.strip()
-    candidates = [content]
-    start, end = content.find("{"), content.rfind("}")
-    if start != -1 and end > start:
-        candidates.append(content[start : end + 1])
-    for cand in candidates:
-        for attempt in (cand, re.sub(r",(\s*[}\]])", r"\1", cand)):
-            try:
-                return json.loads(attempt)
-            except json.JSONDecodeError:
-                pass
-    raise ValueError(f"no valid JSON found. First 500 chars: {content[:500]!r}")
-
-
-def _try_validate(text: str) -> PerplexityBriefV2 | None:
-    """Parse + validate Perplexity's text into a brief; None on any parse/schema failure."""
-    try:
-        return PerplexityBriefV2.model_validate(parse_json(text))
-    except (ValueError, ValidationError):
-        return None
-
-
-async def _query_and_validate(
-    perplexity: PerplexityClient, combo: Combination
-) -> tuple[PerplexityBriefV2, list[str], str]:
-    label = combo.label()
-    # JD is intentionally NOT sent to Perplexity — only company/role/level (+ role descriptors)
-    # drive the interview-experience search.
-
-    # Pass 1: Perplexity → direct parse.
-    prompt, text, citations = await perplexity.query_interview_intelligence(
-        combo.company, combo.role, combo.level,
-        specialization=combo.specialization, title=combo.title,
-    )
-    RUN_STORE.add_combo_request(label, prompt=prompt, raw_response=text[:_MAX_RAW_RESPONSE], citations=citations)
-    brief = _try_validate(text)
-    if brief is not None:
-        return brief, citations, text
-
-    # Pass 2: Perplexity retry with JSON emphasis → direct parse.
-    logger.info("[brief] %s invalid JSON; retrying Perplexity with JSON emphasis", label)
-    prompt, text2, citations2 = await perplexity.query_interview_intelligence(
-        combo.company, combo.role, combo.level, specialization=combo.specialization,
-        title=combo.title, emphasize_json=True,
-    )
-    RUN_STORE.add_combo_request(label, prompt=prompt, raw_response=text2[:_MAX_RAW_RESPONSE], citations=citations2)
-    brief = _try_validate(text2)
-    if brief is not None:
-        return brief, citations2, text2
-
-    # Both passes returned unparseable JSON — fail this combo (caught by generate_one).
-    raise ValueError("Perplexity returned invalid JSON on both attempts")
 
 
 def _jsonable(doc: dict) -> dict:
@@ -214,27 +179,28 @@ def _jsonable(doc: dict) -> dict:
     return out
 
 
-def _success_doc(combo, content, sources, raw_text, settings, status,
-                 *, fabricated=False, scored_sources=None) -> dict:
+def _success_doc(combo, final, raw_experiences, sources, settings, status) -> dict:
+    ev, inf = count_provenance(final)
+    fe = final.model_dump(mode="json")
+    fe["evidence_backed_round_count"] = ev
+    fe["inferred_round_count"] = inf
     return {
         "company": combo.company,
         "role": combo.role,
         "level": combo.level,
         "specialization": combo.specialization,
         "generated_at": utcnow(),
-        "query_version": BRIEF_QUERY_VERSION,
-        "perplexity_model": settings.perplexity_model,
-        "experiences": [e.model_dump(mode="json") for e in content.experiences],
-        "consolidated_process": content.consolidated_process.model_dump(mode="json"),
-        # displayed source links = trusted (high/medium) citations only
-        "sources": sources,
-        # full scored list [{url, confidence}] for transparency (low ones dropped from `sources`)
-        "scored_sources": scored_sources or [],
-        "raw_response": raw_text,
-        # true => the round-by-round was INFERRED (expected loop), not from real reports; always low
-        "fabricated_richness": fabricated,
-        "data_confidence": content.consolidated_process.data_confidence.value,
+        "query_version": PIPELINE_VERSION,
+        "raw_experiences": [e.model_dump(mode="json") for e in raw_experiences],
+        "final_experience": fe,
+        "sources": [s["url"] for s in sources],
+        "data_confidence": final.data_confidence.value,
         "generation_status": status.value,
+        "models": {
+            "search": settings.perplexity_model,
+            "extract": settings.groq_model,
+            "aggregate": settings.groq_model,
+        },
     }
 
 
@@ -245,7 +211,7 @@ def _failed_doc(combo, settings, error: str) -> dict:
         "level": combo.level,
         "specialization": combo.specialization,
         "generated_at": utcnow(),
-        "query_version": BRIEF_QUERY_VERSION,
+        "query_version": PIPELINE_VERSION,
         "perplexity_model": settings.perplexity_model,
         "brief": None,
         "sources": [],
@@ -263,13 +229,14 @@ async def run_brief_generation(perplexity: PerplexityClient, settings: Settings)
         logger.warning("[brief] no combinations to process")
         return {"combinations": 0, **counts}
 
+    groq = build_groq_client(settings)
     processed = 0
     for i, combo in enumerate(combos, start=1):
         if RUN_STORE.is_cancelled():
             logger.info("[brief] stop requested — halting after %d/%d", processed, len(combos))
             break
         logger.info("[brief] (%d/%d) %s", i, len(combos), combo.label())
-        result = await generate_one(perplexity, combo, settings)
+        result = await generate_one(perplexity, groq, combo, settings)
         counts[result["status"]] = counts.get(result["status"], 0) + 1
         processed += 1
         if i < len(combos):
