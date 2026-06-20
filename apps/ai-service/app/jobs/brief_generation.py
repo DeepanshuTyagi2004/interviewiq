@@ -22,8 +22,11 @@ from app.config import Settings
 from app.db import repositories as repo
 from app.models.brief import (
     DataConfidence,
+    FinalExperience,
     GenerationStatus,
     PerplexityBriefV2,
+    Provenance,
+    RawExperience,
     utcnow,
 )
 from app.perplexity.client import PerplexityClient, PerplexityConfigError, PerplexityError
@@ -32,6 +35,39 @@ from app.jobs.run_store import RUN_STORE
 from app.targets import Combination, fetch_combinations
 
 logger = logging.getLogger(__name__)
+
+PIPELINE_VERSION = "v7"
+
+
+def build_search_queries(combo: "Combination") -> list[str]:
+    """India-weighted Perplexity Search query variants for one combo."""
+    role = combo.role.replace("-", " ")
+    spec = (combo.specialization or "").strip().lower()
+    spec_part = "" if spec in ("", "general") else f"{spec} "
+    base = f"{combo.company} {spec_part}{role} {combo.level}".strip()
+    return [
+        f"{base} interview experience India",
+        f"{combo.company} {role} interview rounds process India",
+        f"{base} interview questions asked India",
+    ]
+
+
+def count_provenance(fe: "FinalExperience") -> tuple[int, int]:
+    ev = sum(1 for r in fe.rounds if r.provenance == Provenance.EVIDENCE_BACKED)
+    return ev, len(fe.rounds) - ev
+
+
+def derive_status(fe: "FinalExperience") -> tuple["GenerationStatus", "DataConfidence"]:
+    """Confidence/status from the evidence-backed ratio — NOT the LLM's self-label."""
+    if not fe.rounds:
+        return GenerationStatus.INSUFFICIENT_DATA, DataConfidence.LOW
+    ev, _ = count_provenance(fe)
+    ratio = ev / len(fe.rounds)
+    if ratio >= 0.6:
+        return GenerationStatus.SUCCESS, DataConfidence.HIGH
+    if ratio >= 0.3:
+        return GenerationStatus.SUCCESS, DataConfidence.MEDIUM
+    return GenerationStatus.INSUFFICIENT_DATA, DataConfidence.LOW
 
 
 async def needs_regeneration(combo: Combination, settings: Settings) -> bool:
