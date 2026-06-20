@@ -2,7 +2,7 @@
 import os
 
 
-def test_settings_load_groq_and_search(monkeypatch=None):
+def test_settings_load_groq_and_search():
     os.environ.setdefault("PERPLEXITY_API_KEY", "x")
     os.environ.setdefault("PERPLEXITY_MODEL", "sonar")
     os.environ.setdefault("MONGODB_URL", "mongodb://localhost")
