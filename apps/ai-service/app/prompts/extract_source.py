@@ -10,7 +10,8 @@ EXTRACT_VERSION = "v1"
 EXTRACT_SYSTEM = (
     "You read ONE web page about a job interview and extract a faithful, structured account "
     "of what the candidate reported. Report what the post says; do not infer beyond it. "
-    "Respond with VALID JSON ONLY: no preamble, no markdown."
+    "Respond with VALID JSON ONLY — output a single JSON object and nothing else: no reasoning, "
+    "no thinking, no preamble, no explanation, no markdown fences, no text before or after it."
 )
 
 _SCHEMA = """
@@ -31,8 +32,10 @@ Return a JSON object with this shape (use null where the post doesn't say; do NO
       "difficulty": "easy"|"medium"|"hard"|null, "hints_given": <true|false|null>, "outcome": "<or null>" }
   ]
 }
-If is_interview_experience is false, set rounds to [] and other fields to null.
-Output ONLY the JSON object.
+If this page is NOT a genuine first-hand interview experience (prep guide, listicle, job ad,
+empty/blocked page, unrelated), return EXACTLY this and nothing else:
+{"is_interview_experience": false, "rounds": []}
+Output ONLY the JSON object — no reasoning or text around it.
 """
 
 

@@ -68,7 +68,8 @@ class GroqClient:
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     async def complete_json(self, system: str, user: str) -> dict:
-        """One chat call forcing a JSON object. Retries on 429/5xx. Raises GroqError on failure."""
+        """One chat call returning a parsed JSON object (salvaged via parse_json — no strict
+        json_object mode, see payload note). Retries on 429/5xx. Raises GroqError on failure."""
         payload = {
             "model": self._model,
             "messages": [
@@ -76,7 +77,10 @@ class GroqClient:
                 {"role": "user", "content": user},
             ],
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
+            # Intentionally NOT using response_format=json_object: with reasoning-capable models
+            # (e.g. qwen3) strict JSON mode 400s ("json_validate_failed") when the model emits a
+            # thinking preamble, silently dropping sparse sources. We let the model answer freely
+            # and salvage the object with parse_json (tolerates fences / preamble / trailing commas).
         }
         attempt = 0
         while True:
