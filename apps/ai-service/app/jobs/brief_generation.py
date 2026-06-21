@@ -49,9 +49,11 @@ def build_search_queries(combo: "Combination") -> list[str]:
     spec = (combo.specialization or "").strip().lower()
     spec_part = "" if spec in ("", "general") else f"{spec} "
     base = f"{combo.company} {spec_part}{role} {combo.level}".strip()
+    # Every variant carries the seniority+specialization so we don't collect off-level posts
+    # (e.g. SDE-2 / "4 years experience" results for a fresher query).
     return [
         f"{base} interview experience India",
-        f"{combo.company} {role} interview rounds process India",
+        f"{base} interview rounds process India",
         f"{base} interview questions asked India",
     ]
 
@@ -62,12 +64,53 @@ def count_provenance(fe: "FinalExperience") -> tuple[int, int]:
     return ev, len(fe.rounds) - ev
 
 
-def derive_status(fe: "FinalExperience") -> tuple["GenerationStatus", "DataConfidence"]:
-    """Confidence/status from the evidence-backed ratio — NOT the LLM's self-label."""
+def _level_bucket(level: str | None) -> str:
+    """Collapse a messy seniority string to a coarse family: fresher / mid / senior / unknown.
+    Used to tell whether a source's detected_level actually matches the combo we asked for."""
+    if not level:
+        return "unknown"
+    s = str(level).strip().lower()
+    if any(k in s for k in ("fresher", "intern", "new grad", "new-grad", "newgrad", "graduate",
+                            "trainee", "entry", "junior", "sde1", "sde-1", "sde 1", "associate")):
+        return "fresher"
+    if any(k in s for k in ("sde3", "sde-3", "sde 3", "senior", "staff", "lead", "principal",
+                            "sse", "architect", "4 year", "5 year", "4+ year", "6 year")):
+        return "senior"
+    if any(k in s for k in ("sde2", "sde-2", "sde 2", "mid", "swe2", "2 year", "3 year", "2-4")):
+        return "mid"
+    return "unknown"
+
+
+def _level_matches(combo_level: str | None, detected_level: str | None) -> bool:
+    """A source counts as on-level if its detected bucket equals the combo's, or is unknown
+    (benefit of the doubt — many real posts don't state seniority)."""
+    db = _level_bucket(detected_level)
+    return db == "unknown" or db == _level_bucket(combo_level)
+
+
+def count_strong_rounds(
+    fe: "FinalExperience", raw_experiences: list["RawExperience"], combo_level: str | None
+) -> int:
+    """Rounds backed by >=1 source whose detected_level actually matches the combo level.
+    Cross-level-only evidence (e.g. an SDE-2 post under a fresher combo) does NOT count."""
+    url_level = {e.url: e.detected_level for e in raw_experiences if e.url}
+    strong = 0
+    for r in fe.rounds:
+        if r.provenance != Provenance.EVIDENCE_BACKED:
+            continue
+        if any(_level_matches(combo_level, url_level.get(u)) for u in r.evidence_urls):
+            strong += 1
+    return strong
+
+
+def derive_status(
+    fe: "FinalExperience", raw_experiences: list["RawExperience"], combo_level: str | None
+) -> tuple["GenerationStatus", "DataConfidence"]:
+    """Confidence/status from the LEVEL-MATCHED evidence ratio — not the LLM's self-label, and
+    not inflated by rounds whose only evidence is off-level."""
     if not fe.rounds:
         return GenerationStatus.INSUFFICIENT_DATA, DataConfidence.LOW
-    ev, _ = count_provenance(fe)
-    ratio = ev / len(fe.rounds)
+    ratio = count_strong_rounds(fe, raw_experiences, combo_level) / len(fe.rounds)
     if ratio >= 0.6:
         return GenerationStatus.SUCCESS, DataConfidence.HIGH
     if ratio >= 0.3:
@@ -158,13 +201,14 @@ async def generate_one(
         RUN_STORE.record_combo(label, status="failed", error=str(exc), stored_doc=_jsonable(failed))
         return {"combo": label, "status": "failed"}
 
-    status, confidence = derive_status(final)
+    status, confidence = derive_status(final, raw_experiences, combo.level)
     final.data_confidence = confidence
     doc = _success_doc(combo, final, raw_experiences, sources, settings, status)
     await repo.upsert_brief(doc)
     ev, inf = count_provenance(final)
-    logger.info("[brief] %s OK (status=%s, conf=%s, rounds=%d ev=%d inf=%d, raw=%d, sources=%d)",
-                label, status.value, confidence.value, len(final.rounds), ev, inf,
+    strong = count_strong_rounds(final, raw_experiences, combo.level)
+    logger.info("[brief] %s OK (status=%s, conf=%s, rounds=%d ev=%d inf=%d strong=%d, raw=%d, sources=%d)",
+                label, status.value, confidence.value, len(final.rounds), ev, inf, strong,
                 len(raw_experiences), len(sources))
     RUN_STORE.record_combo(label, status=status.value, data_confidence=confidence.value,
                            brief=final.model_dump(mode="json"), stored_doc=_jsonable(doc))
@@ -185,6 +229,16 @@ def _success_doc(combo, final, raw_experiences, sources, settings, status) -> di
     fe = final.model_dump(mode="json")
     fe["evidence_backed_round_count"] = ev
     fe["inferred_round_count"] = inf
+    fe["level_matched_round_count"] = count_strong_rounds(final, raw_experiences, combo.level)
+    # The sources actually cited by the final experience (vs. everything collected) — powers the
+    # "chosen for the final experience" view. Cross-references each cited url back to its raw record.
+    chosen_urls = {u for r in final.rounds for u in r.evidence_urls}
+    fe["chosen_sources"] = [
+        {"url": e.url, "source": e.source, "detected_level": e.detected_level,
+         "geo": e.geo.value if hasattr(e.geo, "value") else e.geo,
+         "level_matched": _level_matches(combo.level, e.detected_level)}
+        for e in raw_experiences if e.url in chosen_urls
+    ]
     return {
         "company": combo.company,
         "role": combo.role,
