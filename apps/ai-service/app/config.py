@@ -54,8 +54,13 @@ class Settings(BaseSettings):
     groq_model: str = Field("qwen/qwen3.6-27b", alias="GROQ_MODEL")
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_timeout_seconds: float = Field(60.0, alias="GROQ_TIMEOUT_SECONDS")
+    # qwen3 is a reasoning model: "none" disables chain-of-thought so content is clean JSON and
+    # token usage stays low. Set "" to omit the param entirely (for non-reasoning models).
+    groq_reasoning_effort: str = Field("none", alias="GROQ_REASONING_EFFORT")
     extract_max_sources: int = Field(40, alias="EXTRACT_MAX_SOURCES")   # cap sources sent to extractor
-    extract_concurrency: int = Field(8, alias="EXTRACT_CONCURRENCY")    # simultaneous Groq extract calls
+    # Concurrency is bounded by Groq's tokens-per-minute tier (free/on-demand ≈ 8000 TPM). With
+    # reasoning off, extracts are small; 3 keeps us under TPM. Raise it on a higher Groq tier.
+    extract_concurrency: int = Field(3, alias="EXTRACT_CONCURRENCY")    # simultaneous Groq extract calls
 
     # --- MongoDB ---
     mongodb_url: str = Field(..., alias="MONGODB_URL")

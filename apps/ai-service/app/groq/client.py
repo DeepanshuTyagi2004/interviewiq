@@ -59,12 +59,14 @@ async def gather_capped(coros: list, limit: int) -> list:
 
 
 class GroqClient:
-    def __init__(self, *, base_url: str, api_key: str, model: str, timeout_seconds: float):
+    def __init__(self, *, base_url: str, api_key: str, model: str, timeout_seconds: float,
+                 reasoning_effort: str = ""):
         if not api_key:
             raise GroqError("GROQ_API_KEY is not set. Refusing to start.")
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._model = model
         self._timeout = timeout_seconds
+        self._reasoning_effort = reasoning_effort
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     async def complete_json(self, system: str, user: str) -> dict:
@@ -82,6 +84,10 @@ class GroqClient:
             # thinking preamble, silently dropping sparse sources. We let the model answer freely
             # and salvage the object with parse_json (tolerates fences / preamble / trailing commas).
         }
+        # Disable qwen3 chain-of-thought so `content` is clean JSON (not a <think> dump that gets
+        # truncated before the JSON) and token usage stays under the Groq TPM tier.
+        if self._reasoning_effort:
+            payload["reasoning_effort"] = self._reasoning_effort
         attempt = 0
         while True:
             attempt += 1
@@ -112,4 +118,5 @@ def build_groq_client(settings: Settings) -> GroqClient:
         api_key=settings.groq_api_key,
         model=settings.groq_model,
         timeout_seconds=settings.groq_timeout_seconds,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
