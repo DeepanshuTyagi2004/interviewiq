@@ -49,17 +49,18 @@ class Settings(BaseSettings):
     perplexity_search_country: str = Field("IN", alias="PERPLEXITY_SEARCH_COUNTRY")
     collect_max_results: int = Field(20, alias="COLLECT_MAX_RESULTS")   # Search API hard cap is 20
 
-    # --- Groq (extract + aggregate) ---
+    # --- Groq (extract + aggregate). Free-tier limits for qwen3-32b: RPM 60 · RPD 1k · TPM 6k · TPD 500k ---
     groq_api_key: str = Field(..., alias="GROQ_API_KEY")
-    groq_model: str = Field("qwen/qwen3.6-27b", alias="GROQ_MODEL")
+    groq_model: str = Field("qwen/qwen3-32b", alias="GROQ_MODEL")
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_timeout_seconds: float = Field(60.0, alias="GROQ_TIMEOUT_SECONDS")
-    # qwen3 is a reasoning model: "none" disables chain-of-thought so content is clean JSON and
-    # token usage stays low. Set "" to omit the param entirely (for non-reasoning models).
-    groq_reasoning_effort: str = Field("none", alias="GROQ_REASONING_EFFORT")
+    # qwen3 is a reasoning model: suppress chain-of-thought so content is clean JSON + low tokens.
+    # qwen3-32b -> reasoning_format="hidden"; reasoning_effort="none" is qwen3.6-27b-only (leave "").
+    groq_reasoning_format: str = Field("hidden", alias="GROQ_REASONING_FORMAT")
+    groq_reasoning_effort: str = Field("", alias="GROQ_REASONING_EFFORT")
     extract_max_sources: int = Field(40, alias="EXTRACT_MAX_SOURCES")   # cap sources sent to extractor
-    # Concurrency is bounded by Groq's tokens-per-minute tier (free/on-demand ≈ 8000 TPM). With
-    # reasoning off, extracts are small; 3 keeps us under TPM. Raise it on a higher Groq tier.
+    # Bounded by Groq's per-minute tier (TPM 6000). With reasoning hidden, extracts are small;
+    # 3 keeps bursts modest. The 429 handler honors Groq's retry-after, so brief overages self-heal.
     extract_concurrency: int = Field(3, alias="EXTRACT_CONCURRENCY")    # simultaneous Groq extract calls
 
     # --- MongoDB ---

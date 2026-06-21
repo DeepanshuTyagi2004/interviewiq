@@ -10,7 +10,7 @@ def test_settings_load_groq_and_search():
     os.environ.setdefault("GROQ_API_KEY", "g")
     from app.config import Settings
     s = Settings()
-    assert s.groq_model == "qwen/qwen3.6-27b"
+    assert s.groq_model == "qwen/qwen3-32b"
     assert s.collect_max_results == 20
     assert s.extract_concurrency == 8
     assert s.perplexity_search_domains == []   # open web by default (no domain restriction)

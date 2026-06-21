@@ -40,7 +40,7 @@ from app.targets import Combination, fetch_combinations
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_VERSION = "v7"
+PIPELINE_VERSION = "v8"
 
 
 def build_search_queries(combo: "Combination") -> list[str]:
@@ -53,7 +53,7 @@ def build_search_queries(combo: "Combination") -> list[str]:
     # (e.g. SDE-2 / "4 years experience" results for a fresher query).
     return [
         f"{base} interview experience India",
-        f"{base} interview rounds process India",
+        f"{combo.company} {role} {base} interview rounds process India",
         f"{base} interview questions asked India",
     ]
 
@@ -147,18 +147,38 @@ async def _collect(perplexity: PerplexityClient, combo: Combination, settings: S
 
 
 async def _extract_all(groq: GroqClient, combo: Combination, sources: list[dict],
-                       settings: Settings) -> list[RawExperience]:
+                       settings: Settings) -> tuple[list[RawExperience], list[dict]]:
+    """Returns (kept_experiences, dispositions). `dispositions` records EVERY collected source's
+    fate so the UI can explain why each was or wasn't used. Context passed to the extractor is
+    company+role ONLY (no level/spec) so the model detects seniority from the post, not the target."""
     label = combo.label()
+    context = f"{combo.company} {combo.role.replace('-', ' ')}"
 
-    async def _one(src: dict) -> RawExperience | None:
-        raw = await groq.complete_json(EXTRACT_SYSTEM, build_extract_prompt(label, src))
+    async def _one(src: dict) -> dict:
+        url, title = src.get("url"), src.get("title")
+        try:
+            raw = await groq.complete_json(EXTRACT_SYSTEM, build_extract_prompt(context, src), label=label)
+        except GroqError:
+            return {"url": url, "title": title, "status": "extract_failed", "exp": None}
         if not raw.get("is_interview_experience"):
-            return None
-        raw.setdefault("url", src.get("url"))
-        return RawExperience.model_validate(raw)
+            return {"url": url, "title": title, "status": "not_experience", "exp": None}
+        raw.setdefault("url", url)
+        try:
+            exp = RawExperience.model_validate(raw)
+        except ValidationError:
+            return {"url": url, "title": title, "status": "extract_failed", "exp": None}
+        if not exp.rounds:
+            return {"url": url, "title": title, "status": "no_rounds", "exp": None}
+        return {"url": url, "title": title, "status": "extracted", "exp": exp}
 
     results = await gather_capped([_one(s) for s in sources], settings.extract_concurrency)
-    return [r for r in results if isinstance(r, RawExperience) and r.rounds]
+    dispositions = [
+        r if r is not None
+        else {"url": s.get("url"), "title": s.get("title"), "status": "extract_failed", "exp": None}
+        for s, r in zip(sources, results)
+    ]
+    kept = [d["exp"] for d in dispositions if d["status"] == "extracted"]
+    return kept, dispositions
 
 
 async def _aggregate(groq: GroqClient, combo: Combination,
@@ -190,7 +210,7 @@ async def generate_one(
             label, prompt=" | ".join(build_search_queries(combo)),
             raw_response=f"{len(sources)} sources collected", citations=[s["url"] for s in sources],
         )
-        raw_experiences = await _extract_all(groq, combo, sources, settings)
+        raw_experiences, dispositions = await _extract_all(groq, combo, sources, settings)
         final = await _aggregate(groq, combo, raw_experiences)
     except PerplexityConfigError:
         raise
@@ -203,7 +223,7 @@ async def generate_one(
 
     status, confidence = derive_status(final, raw_experiences, combo.level)
     final.data_confidence = confidence
-    doc = _success_doc(combo, final, raw_experiences, sources, settings, status)
+    doc = _success_doc(combo, final, raw_experiences, sources, settings, status, dispositions)
     await repo.upsert_brief(doc)
     ev, inf = count_provenance(final)
     strong = count_strong_rounds(final, raw_experiences, combo.level)
@@ -224,7 +244,7 @@ def _jsonable(doc: dict) -> dict:
     return out
 
 
-def _success_doc(combo, final, raw_experiences, sources, settings, status) -> dict:
+def _success_doc(combo, final, raw_experiences, sources, settings, status, dispositions) -> dict:
     ev, inf = count_provenance(final)
     fe = final.model_dump(mode="json")
     fe["evidence_backed_round_count"] = ev
@@ -239,6 +259,22 @@ def _success_doc(combo, final, raw_experiences, sources, settings, status) -> di
          "level_matched": _level_matches(combo.level, e.detected_level)}
         for e in raw_experiences if e.url in chosen_urls
     ]
+    # Full funnel: EVERY collected source + why it was/wasn't used. status is one of
+    # cited | extracted_unused | not_experience | no_rounds | extract_failed.
+    source_funnel = []
+    for d in dispositions:
+        exp = d.get("exp")
+        st = ("cited" if d.get("url") in chosen_urls else "extracted_unused") if d["status"] == "extracted" else d["status"]
+        source_funnel.append({
+            "url": d.get("url"),
+            "title": d.get("title"),
+            "source": exp.source if exp else None,
+            "detected_level": exp.detected_level if exp else None,
+            "geo": (exp.geo.value if exp and hasattr(exp.geo, "value") else None),
+            "level_matched": _level_matches(combo.level, exp.detected_level) if exp else None,
+            "status": st,
+        })
+    fe["source_funnel"] = source_funnel
     return {
         "company": combo.company,
         "role": combo.role,
