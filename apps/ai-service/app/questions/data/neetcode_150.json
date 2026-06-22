@@ -1,5 +1,0 @@
-[
-  {"title": "Two Sum", "url": "https://leetcode.com/problems/two-sum/", "difficulty": "Easy", "pattern": "Arrays & Hashing"},
-  {"title": "Valid Anagram", "url": "https://leetcode.com/problems/valid-anagram/", "difficulty": "Easy", "pattern": "Arrays & Hashing"},
-  {"title": "Number of Islands", "url": "https://leetcode.com/problems/number-of-islands/", "difficulty": "Medium", "pattern": "Graphs"}
-]

@@ -17,7 +17,7 @@ def test_collect_endpoint_starts_run(monkeypatch):
             "start",
             lambda rid, trigger: captured.setdefault("rid", rid) or True,
         )
-        async def _noop_bg(settings, rid):
+        async def _noop_bg(settings, rid, *, force=False):
             pass
         monkeypatch.setattr(admin_mod, "_background_collection", _noop_bg)
         # avoid scheduling a real bg task:

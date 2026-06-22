@@ -1,3 +1,0 @@
-title,url,difficulty,acceptance,is_premium,related_topics
-Two Sum,https://leetcode.com/problems/two-sum/,Easy,49.1,False,Array;Hash Table
-Number of Islands,https://leetcode.com/problems/number-of-islands/,Medium,56.2,False,Array;DFS;BFS;Matrix
