@@ -140,7 +140,7 @@ def parse_neetcode_md_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
         if '/' not in path:
             continue  # top-level file; skip
         folder, filename = path.split('/', 1)
-        if filename.upper() == 'README.MD' or filename.lower() == 'readme.md':
+        if filename.rsplit('/', 1)[-1].lower() == 'readme.md':
             continue
         if not filename.lower().endswith('.md'):
             continue

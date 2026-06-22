@@ -147,6 +147,7 @@ NEETCODE_FILES: dict[str, bytes] = {
     "01. Arrays & Hashing/04.GroupAnagrams.md": _GROUP_ANAGRAMS_MD,
     "02. Two Pointers/03.3Sum.md": _THREE_SUM_MD,
     "README.md": b"# NeetCode 150\nThis is the top-level README.",
+    "01. Arrays & Hashing/subdir/README.md": b"# Nested README\nEasy\nsome content\n",
     ".github/FUNDING.yml": b"github: [dipjul]",
 }
 

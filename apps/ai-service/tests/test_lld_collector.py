@@ -101,12 +101,28 @@ def test_parse_machine_coding_readme_is_machine_coding_true():
 
 
 def test_parse_machine_coding_readme_slug_prefix():
-    """slug starts with 'mcq/'"""
-    from app.questions.collectors.lld import parse_machine_coding_readme, _slug
-    items = parse_machine_coding_readme(_MACHINE_CODING_README)
-    for item in items:
-        slug = f"mcq/{_slug(item['title'])}"
-        assert slug.startswith("mcq/")
+    """Records returned by _collect_machine_coding have slug starting with 'mcq/'"""
+    import asyncio
+    from unittest.mock import MagicMock
+    import app.questions.collectors.lld as lld_mod
+
+    async def run():
+        original = lld_mod.fetch_repo_files
+        async def fake_fetch(owner, repo, ref, settings):
+            return {"README.md": _MACHINE_CODING_README.encode()}
+        lld_mod.fetch_repo_files = fake_fetch
+        try:
+            s = MagicMock()
+            s.machine_coding_repo = "lavakumarThatisetti/Machine-Coding-Round"
+            s.machine_coding_ref = "master"
+            return await lld_mod._collect_machine_coding(s)
+        finally:
+            lld_mod.fetch_repo_files = original
+
+    results = asyncio.run(run())
+    assert len(results) >= 2
+    for r in results:
+        assert r.slug.startswith("mcq/"), f"Expected slug to start with 'mcq/', got: {r.slug}"
 
 
 def test_collect_machine_coding_fail_safe():
