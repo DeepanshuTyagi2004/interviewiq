@@ -34,3 +34,99 @@ def test_grokking_url_contains_filename():
     out = enumerate_grokking(files)
     assert len(out) == 1
     assert "design-a-library-management-system.md" in out[0]["url"]
+
+
+# ---------------------------------------------------------------------------
+# Machine Coding README parser
+# ---------------------------------------------------------------------------
+
+_MACHINE_CODING_README = """
+## Table of Contents
+
+### Design Elevator
+  * Problem Statement: [Problem Statement](https://github.com/lavakumarThatisetti/Machine-Coding-Round/blob/master/src/com/lavakumar/elevator/ProblemStatement.md)
+  * Code : [Github](https://github.com/lavakumarThatisetti/Machine-Coding-Round/tree/master/src/com/lavakumar/elevator)
+  * Video Tutorial: [YouTube](https://www.youtube.com/watch?v=xxx)
+
+### Snake and Ladder
+  * Problem Statement: [Problem Statement](https://github.com/lavakumarThatisetti/Machine-Coding-Round/blob/master/src/com/lavakumar/snakeandladder/ProblemStatement.md)
+  * Code : [Github](https://github.com/lavakumarThatisetti/Machine-Coding-Round/tree/master/src/com/lavakumar/snakeandladder)
+  * Video Tutorial: [YouTube](https://www.youtube.com/watch?v=yyy)
+
+### Split Wise
+  * Code : [Github](https://github.com/lavakumarThatisetti/Machine-Coding-Round/tree/master/src/com/lavakumar/splitwise)
+"""
+
+
+def test_parse_machine_coding_readme_title():
+    from app.questions.collectors.lld import parse_machine_coding_readme
+    items = parse_machine_coding_readme(_MACHINE_CODING_README)
+    titles = [i["title"] for i in items]
+    assert "Design Elevator" in titles
+    assert "Snake and Ladder" in titles
+    assert "Split Wise" in titles
+
+
+def test_parse_machine_coding_readme_prefers_tree_link():
+    """tree/ link wins over blob ProblemStatement link"""
+    from app.questions.collectors.lld import parse_machine_coding_readme
+    items = parse_machine_coding_readme(_MACHINE_CODING_README)
+    elevator = next(i for i in items if i["title"] == "Design Elevator")
+    assert "/tree/" in elevator["url"]
+    assert "/blob/" not in elevator["url"]
+
+
+def test_parse_machine_coding_readme_is_machine_coding_true():
+    """Records have is_machine_coding=True"""
+    import asyncio
+    from unittest.mock import MagicMock
+    import app.questions.collectors.lld as lld_mod
+
+    async def run():
+        original = lld_mod.fetch_repo_files
+        async def fake_fetch(owner, repo, ref, settings):
+            return {"README.md": _MACHINE_CODING_README.encode()}
+        lld_mod.fetch_repo_files = fake_fetch
+        try:
+            s = MagicMock()
+            s.machine_coding_repo = "lavakumarThatisetti/Machine-Coding-Round"
+            s.machine_coding_ref = "master"
+            return await lld_mod._collect_machine_coding(s)
+        finally:
+            lld_mod.fetch_repo_files = original
+
+    results = asyncio.run(run())
+    assert len(results) >= 2
+    assert all(r.is_machine_coding is True for r in results)
+
+
+def test_parse_machine_coding_readme_slug_prefix():
+    """slug starts with 'mcq/'"""
+    from app.questions.collectors.lld import parse_machine_coding_readme, _slug
+    items = parse_machine_coding_readme(_MACHINE_CODING_README)
+    for item in items:
+        slug = f"mcq/{_slug(item['title'])}"
+        assert slug.startswith("mcq/")
+
+
+def test_collect_machine_coding_fail_safe():
+    """GithubFetchError -> returns []"""
+    import asyncio
+    from unittest.mock import MagicMock
+    import app.questions.collectors.lld as lld_mod
+
+    async def run():
+        from app.questions.github import GithubFetchError
+        original = lld_mod.fetch_repo_files
+        async def fake_fetch(*a, **k):
+            raise GithubFetchError("404")
+        lld_mod.fetch_repo_files = fake_fetch
+        try:
+            s = MagicMock()
+            s.machine_coding_repo = "lavakumarThatisetti/Machine-Coding-Round"
+            s.machine_coding_ref = "master"
+            return await lld_mod._collect_machine_coding(s)
+        finally:
+            lld_mod.fetch_repo_files = original
+
+    assert asyncio.run(run()) == []

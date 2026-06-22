@@ -106,20 +106,83 @@ async def collect_neetcode(settings) -> list[QuestionRecord]:
     if not settings.neetcode_repo:
         return []
     try:
-        owner_repo, _, ref = settings.neetcode_repo.partition("@")
-        ref = ref or "main"
-        owner, _, repo = owner_repo.partition("/")
-        files = await fetch_repo_files(owner, repo, ref, settings)
-        # Try to find and parse the neetcode list file
-        path = settings.neetcode_path
-        if path and path in files:
-            import json
-            data = json.loads(files[path].decode("utf-8", errors="replace"))
-            return parse_neetcode(data)
-        return []
+        owner, _, repo = settings.neetcode_repo.partition("/")
+        files = await fetch_repo_files(owner, repo, settings.neetcode_ref, settings)
+        return parse_neetcode_md_tree(files)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[questions] neetcode fetch failed (%s) — skipping", exc)
         return []
+
+
+_NEETCODE_CAT_RE = re.compile(r'^\d+\.\s*')   # strips "01. " or "01." prefix
+_SLUG_CLEAN_RE   = re.compile(r'[^a-z0-9-]+')
+
+_DIFFICULTIES = {'easy', 'medium', 'hard'}
+
+
+def _neetcode_slugify(title: str) -> str:
+    """Lowercase, spaces->'-', drop chars other than [a-z0-9-]."""
+    return _SLUG_CLEAN_RE.sub('', title.lower().replace(' ', '-')).strip('-')
+
+
+def parse_neetcode_md_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
+    """Walk the NeetCode-150 tree (category folders, per-problem .md files).
+
+    Tree structure: '<NN>. Category Name/<NN>.<NN>.ProblemTitle.md'
+    Skip: README.md anywhere, anything under .github/.
+    Build one DSA QuestionRecord per problem .md.
+    """
+    out: list[QuestionRecord] = []
+    for path, content in files.items():
+        # Skip .github/ subtree and any README.md
+        if '.github/' in path or path.startswith('.github'):
+            continue
+        if '/' not in path:
+            continue  # top-level file; skip
+        folder, filename = path.split('/', 1)
+        if filename.upper() == 'README.MD' or filename.lower() == 'readme.md':
+            continue
+        if not filename.lower().endswith('.md'):
+            continue
+        # Strip numeric prefix from folder name to get category
+        category = _NEETCODE_CAT_RE.sub('', folder).strip()
+        if not category:
+            continue
+        # Parse the markdown
+        text = content.decode('utf-8', errors='replace')
+        lines = [l for l in text.splitlines() if l.strip()]
+        if not lines:
+            continue
+        # Title from H1 line
+        h1 = next((l for l in lines if l.startswith('# ')), None)
+        if not h1:
+            continue
+        raw_title = h1[2:].strip()  # strip '# '
+        # Strip leading "<number>. " from title (e.g. "1. Two Sum" -> "Two Sum")
+        title = re.sub(r'^\d+\.\s+', '', raw_title).strip()
+        if not title:
+            continue
+        # Difficulty: first non-empty line after H1 that is Easy/Medium/Hard
+        h1_idx = lines.index(h1)
+        difficulty = None
+        for line in lines[h1_idx + 1:]:
+            stripped = line.strip()
+            if stripped.lower() in _DIFFICULTIES:
+                difficulty = stripped.capitalize()
+                break
+            break  # only check the first subsequent non-empty line
+        slug = _neetcode_slugify(title)
+        url = f"https://leetcode.com/problems/{slug}/"
+        out.append(QuestionRecord(
+            slug=slug, round_type=RoundType.DSA,
+            title=title, url=url,
+            sources=["neetcode-150"],
+            difficulty=difficulty,
+            topic_tags=[category],
+            is_classic=True,
+        ))
+    logger.info("[questions] neetcode-150: %d records", len(out))
+    return out
 
 
 async def collect_kaggle(settings) -> list[QuestionRecord]:

@@ -71,12 +71,58 @@ async def _collect_lld_primer(settings) -> list[QuestionRecord]:
         return []
 
 
-# --- prasadgujar/machine-coding-questions (404 — fail-safe only) ---
+# --- lavakumarThatisetti/Machine-Coding-Round ---
+
+_MC_HEADING_RE  = re.compile(r'^### (.+)', re.MULTILINE)
+_MC_TREE_URL_RE = re.compile(r'https://github\.com/lavakumarThatisetti/Machine-Coding-Round/tree/[^\s)]+')
+_MC_BLOB_URL_RE = re.compile(r'https://github\.com/[^\s)]*blob[^\s)]*/ProblemStatement\.md')
+
+
+def parse_machine_coding_readme(text: str) -> list[dict]:
+    """Split README.md by '### ' headings; extract title + code link per section."""
+    sections = _MC_HEADING_RE.split(text)
+    # sections = [text_before_first_heading, title1, body1, title2, body2, ...]
+    out = []
+    # Walk pairs (title, body)
+    i = 1
+    while i + 1 <= len(sections) - 1:
+        title = sections[i].strip()
+        body  = sections[i + 1]
+        # Prefer "tree/" code link
+        url_m = _MC_TREE_URL_RE.search(body)
+        if not url_m:
+            # Fall back to blob ProblemStatement.md link
+            url_m = _MC_BLOB_URL_RE.search(body)
+        if url_m:
+            out.append({"title": title, "url": url_m.group(0).rstrip(')')})
+        i += 2
+    return out
+
 
 async def _collect_machine_coding(settings) -> list[QuestionRecord]:
-    # This repo is unreachable (404 on both master and main). Fail-safe: always return [].
-    logger.debug("[questions] machine-coding-questions: skipped (repo unreachable)")
-    return []
+    if not getattr(settings, 'machine_coding_repo', ''):
+        return []
+    try:
+        owner, _, repo = settings.machine_coding_repo.partition("/")
+        files = await fetch_repo_files(owner, repo, settings.machine_coding_ref, settings)
+        readme = files.get("README.md", b"").decode("utf-8", errors="replace")
+        if not readme:
+            return []
+        items = parse_machine_coding_readme(readme)
+        results = []
+        for item in items:
+            slug = f"mcq/{_slug(item['title'])}"
+            results.append(QuestionRecord(
+                slug=slug, round_type=RoundType.LLD,
+                title=item["title"], url=item["url"],
+                sources=["machine-coding"],
+                is_machine_coding=True,
+            ))
+        logger.info("[questions] machine-coding: %d records", len(results))
+        return results
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] machine-coding fetch failed (%s) — skipping", exc)
+        return []
 
 
 # --- tssovi/grokking-the-object-oriented-design-interview ---

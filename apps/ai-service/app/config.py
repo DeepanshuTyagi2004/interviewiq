@@ -129,8 +129,10 @@ class Settings(BaseSettings):
     kaggle_username: str = Field("", alias="KAGGLE_USERNAME")
     kaggle_key: str = Field("", alias="KAGGLE_KEY")
     kaggle_leetcode_dataset: str = Field("gzipchrist/leetcode-problem-dataset", alias="KAGGLE_LEETCODE_DATASET")
-    neetcode_repo: str = Field("", alias="NEETCODE_REPO")
-    neetcode_path: str = Field("", alias="NEETCODE_PATH")
+    neetcode_repo: str = Field("dipjul/NeetCode-150", alias="NEETCODE_REPO")
+    neetcode_ref: str = Field("main", alias="NEETCODE_REF")
+    machine_coding_repo: str = Field("lavakumarThatisetti/Machine-Coding-Round", alias="MACHINE_CODING_REPO")
+    machine_coding_ref: str = Field("master", alias="MACHINE_CODING_REF")
 
     # --- Logging --- set to DEBUG for the most verbose output.
     log_level: str = Field("INFO", alias="LOG_LEVEL")
