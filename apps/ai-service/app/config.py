@@ -7,10 +7,15 @@ API keys must never silently fall back to a guessed default.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+# Absolute path to the vendored seed data directory, resolved relative to this file.
+# app/config.py lives at <repo>/app/config.py → parent is <repo>/app → data is <repo>/app/questions/data.
+_DEFAULT_QUESTIONS_DATA_DIR = str(Path(__file__).resolve().parent / "questions" / "data")
 
 
 class Settings(BaseSettings):
@@ -119,7 +124,7 @@ class Settings(BaseSettings):
     # Concurrent LLM enrich calls for SD/LLD. Same RPM discipline as EXTRACT_CONCURRENCY.
     question_enrich_concurrency: int = Field(2, alias="QUESTION_ENRICH_CONCURRENCY")
     # Where the vendored seed data lives (NeetCode list, Kaggle CSV, SD/LLD seed JSON).
-    questions_data_dir: str = Field("app/questions/data", alias="QUESTIONS_DATA_DIR")
+    questions_data_dir: str = Field(_DEFAULT_QUESTIONS_DATA_DIR, alias="QUESTIONS_DATA_DIR")
 
     # --- Logging --- set to DEBUG for the most verbose output.
     log_level: str = Field("INFO", alias="LOG_LEVEL")

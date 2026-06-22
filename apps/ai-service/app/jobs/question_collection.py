@@ -64,7 +64,7 @@ async def collect_questions(settings: Settings) -> dict:
     for r in all_records:
         r.collection_version = settings.collection_version
         r.last_synced = stamp
-        await repo.upsert_question(r.model_dump())
+        await repo.upsert_question(r.model_dump(mode="json"))
         counts[r.round_type.value] = counts.get(r.round_type.value, 0) + 1
     counts["total"] = len(all_records)
     logger.info("[questions] collected %s", counts)

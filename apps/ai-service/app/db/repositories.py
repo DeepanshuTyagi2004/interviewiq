@@ -142,4 +142,7 @@ __all__ = [
     "upsert_brief",
     "get_brief",
     "list_brief_summaries",
+    "upsert_question",
+    "clear_questions",
+    "query_questions",
 ]

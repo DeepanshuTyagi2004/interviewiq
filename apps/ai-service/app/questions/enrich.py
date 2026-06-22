@@ -26,12 +26,14 @@ async def enrich_one(llm, record: QuestionRecord) -> QuestionRecord:
         logger.warning("[questions] enrich failed for %s (%s)", record.slug, exc)
         record.enrichment_status = "enrich_failed"
         return record
-    patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "")}
+    patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "", [])}
     merged = record.model_copy(update={**patch, "enrichment_status": "enriched"})
     return QuestionRecord.model_validate(merged.model_dump())  # re-run validators on patched lists
 
 
 async def enrich_all(llm, records: list[QuestionRecord], limit: int) -> list[QuestionRecord]:
+    # Re-enrichment is triggered by bumping COLLECTION_VERSION (there is no separate enrich_version stamp).
     results = await gather_capped([enrich_one(llm, r) for r in records], limit)
-    # gather_capped maps a raised coro to None; fall back to the original raw record.
+    # enrich_one catches all exceptions internally and never raises, so None from gather_capped is
+    # belt-and-suspenders; fall back to the original raw record just in case.
     return [res if res is not None else rec for res, rec in zip(results, records)]
