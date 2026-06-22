@@ -1,0 +1,10 @@
+[
+  {"slug": "design-bookmyshow", "title": "Design BookMyShow", "source": "lld-primer", "is_machine_coding": true,
+   "url": "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions/BookMyShow.md", "domain": "booking"},
+  {"slug": "design-parking-lot", "title": "Design a Parking Lot", "source": "lld-primer", "is_machine_coding": true,
+   "url": "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions/ParkingLot.md", "domain": "facility"},
+  {"slug": "design-elevator-system", "title": "Design an Elevator System", "source": "machine-coding", "is_machine_coding": true,
+   "url": "https://github.com/prasadgujar/machine-coding-questions", "domain": "facility"},
+  {"slug": "design-library-management", "title": "Design a Library Management System", "source": "grokking-ood", "is_machine_coding": false,
+   "url": "https://github.com/tssovi/grokking-the-object-oriented-design-interview", "domain": "catalog"}
+]

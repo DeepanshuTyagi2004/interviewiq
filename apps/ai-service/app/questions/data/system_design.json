@@ -1,0 +1,12 @@
+[
+  {"slug": "design-pastebin", "title": "Design Pastebin / URL Shortener", "source": "system-design-primer",
+   "url": "https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/pastebin/README.md", "category": "web-service"},
+  {"slug": "design-twitter", "title": "Design the Twitter timeline and search", "source": "system-design-primer",
+   "url": "https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/twitter/README.md", "category": "social"},
+  {"slug": "design-web-crawler", "title": "Design a web crawler", "source": "system-design-primer",
+   "url": "https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/web_crawler/README.md", "category": "infrastructure"},
+  {"slug": "design-rate-limiter", "title": "Design a rate limiter", "source": "awesome-system-design",
+   "url": "https://github.com/ashishps1/awesome-system-design-resources", "category": "infrastructure"},
+  {"slug": "design-notification-system", "title": "Design a notification system", "source": "system-design",
+   "url": "https://github.com/karanpratapsingh/system-design#notification-system", "category": "infrastructure"}
+]
