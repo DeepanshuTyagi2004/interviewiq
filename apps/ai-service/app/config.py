@@ -125,6 +125,12 @@ class Settings(BaseSettings):
     question_enrich_concurrency: int = Field(2, alias="QUESTION_ENRICH_CONCURRENCY")
     # Where the vendored seed data lives (NeetCode list, Kaggle CSV, SD/LLD seed JSON).
     questions_data_dir: str = Field(_DEFAULT_QUESTIONS_DATA_DIR, alias="QUESTIONS_DATA_DIR")
+    # --- Question bank: live sources ---
+    kaggle_username: str = Field("", alias="KAGGLE_USERNAME")
+    kaggle_key: str = Field("", alias="KAGGLE_KEY")
+    kaggle_leetcode_dataset: str = Field("gzipchrist/leetcode-problem-dataset", alias="KAGGLE_LEETCODE_DATASET")
+    neetcode_repo: str = Field("", alias="NEETCODE_REPO")
+    neetcode_path: str = Field("", alias="NEETCODE_PATH")
 
     # --- Logging --- set to DEBUG for the most verbose output.
     log_level: str = Field("INFO", alias="LOG_LEVEL")

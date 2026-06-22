@@ -51,6 +51,32 @@ def test_llm_api_keys_split_comma():
     os.environ["LLM_API_KEY"] = "g"   # restore single-key default for other tests
 
 
+def test_kaggle_username_defaults_empty():
+    _base_env()
+    os.environ["KAGGLE_USERNAME"] = ""
+    from app.config import Settings
+    s = Settings()
+    assert s.kaggle_username == ""
+    del os.environ["KAGGLE_USERNAME"]
+
+
+def test_neetcode_repo_defaults_empty():
+    _base_env()
+    os.environ["NEETCODE_REPO"] = ""
+    from app.config import Settings
+    s = Settings()
+    assert s.neetcode_repo == ""
+    del os.environ["NEETCODE_REPO"]
+
+
+def test_kaggle_leetcode_dataset_default():
+    _base_env()
+    os.environ.pop("KAGGLE_LEETCODE_DATASET", None)
+    from app.config import Settings
+    s = Settings()
+    assert s.kaggle_leetcode_dataset == "gzipchrist/leetcode-problem-dataset"
+
+
 if __name__ == "__main__":
     test_settings_load_llm_and_search()
     test_include_domains_accepts_comma_string()
