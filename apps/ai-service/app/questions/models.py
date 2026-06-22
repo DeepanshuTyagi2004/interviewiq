@@ -47,6 +47,7 @@ class QuestionRecord(BaseModel):
     collection_version: str | None = None
     last_synced: str | None = None
     enrichment_status: str = "raw"  # raw | enriched | enrich_failed
+    source_hash: str | None = None   # hash of source-derived fields; drives granular incremental skip
 
     # --- DSA extras ---
     acceptance_rate: float | None = None

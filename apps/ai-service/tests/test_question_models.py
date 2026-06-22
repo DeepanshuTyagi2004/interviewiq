@@ -24,3 +24,8 @@ def test_evaluation_mode_optional():
                        is_machine_coding=True, evaluation_mode="working-code", assess=["extensibility"])
     assert q.is_machine_coding is True
     assert q.evaluation_mode == "working-code"
+
+
+def test_source_hash_field_defaults_none():
+    q = QuestionRecord(slug="x", round_type="dsa", title="t", url="u")
+    assert q.source_hash is None

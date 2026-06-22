@@ -129,6 +129,16 @@ async def query_questions(round_type: str | None = None, company: str | None = N
     return [doc async for doc in cursor]
 
 
+async def stored_states(collection_version: str) -> dict[tuple[str, str], dict]:
+    """{(round_type, slug): {"source_hash", "enrichment_status"}} for records at this version."""
+    cur = get_db()[INTERVIEW_QUESTIONS].find(
+        {"collection_version": collection_version},
+        {"_id": 0, "round_type": 1, "slug": 1, "source_hash": 1, "enrichment_status": 1})
+    return {(d["round_type"], d["slug"]):
+            {"source_hash": d.get("source_hash"), "enrichment_status": d.get("enrichment_status")}
+            async for d in cur}
+
+
 def _with_id(doc: dict | None) -> dict:
     if doc and "_id" in doc:
         doc["id"] = str(doc.pop("_id"))
@@ -145,4 +155,5 @@ __all__ = [
     "upsert_question",
     "clear_questions",
     "query_questions",
+    "stored_states",
 ]
