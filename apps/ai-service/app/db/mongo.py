@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 EXPERIENCES = "experiences"
 INTERVIEW_BRIEFS = "interview_briefs"
+INTERVIEW_QUESTIONS = "interview_questions"
 
 _client: AsyncIOMotorClient | None = None
 _db: AsyncIOMotorDatabase | None = None
@@ -65,6 +66,16 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     )
     # For querying stale briefs (older than N days).
     await db[INTERVIEW_BRIEFS].create_index([("generated_at", ASCENDING)], name="generated_at")
+
+    # Question bank: one record per (round_type, slug); query by round + company tag.
+    await db[INTERVIEW_QUESTIONS].create_index(
+        [("round_type", ASCENDING), ("slug", ASCENDING)],
+        name="round_type_slug", unique=True,
+    )
+    await db[INTERVIEW_QUESTIONS].create_index(
+        [("round_type", ASCENDING), ("company_tags", ASCENDING)],
+        name="round_type_company_tags",
+    )
 
 
 async def ping() -> bool:

@@ -11,7 +11,7 @@ from datetime import datetime
 
 from pymongo import UpdateOne
 
-from app.db.mongo import EXPERIENCES, INTERVIEW_BRIEFS, get_db
+from app.db.mongo import EXPERIENCES, INTERVIEW_BRIEFS, INTERVIEW_QUESTIONS, get_db
 from app.models.experience import RawExperience
 
 
@@ -99,6 +99,34 @@ async def prune_briefs(valid_keys: set[tuple]) -> int:
             await coll.delete_one({"_id": d["_id"]})
             removed += 1
     return removed
+
+
+def _question_key(doc: dict) -> dict:
+    return {"round_type": doc["round_type"], "slug": doc["slug"]}
+
+
+async def upsert_question(doc: dict) -> dict:
+    """Replace the question for (round_type, slug) — idempotent re-collection."""
+    await get_db()[INTERVIEW_QUESTIONS].replace_one(_question_key(doc), doc, upsert=True)
+    return doc
+
+
+async def clear_questions() -> int:
+    res = await get_db()[INTERVIEW_QUESTIONS].delete_many({})
+    return res.deleted_count
+
+
+async def query_questions(round_type: str | None = None, company: str | None = None,
+                          difficulty: str | None = None, limit: int = 100) -> list[dict]:
+    q: dict = {}
+    if round_type:
+        q["round_type"] = round_type
+    if company:
+        q["company_tags"] = company.lower()
+    if difficulty:
+        q["difficulty"] = difficulty.lower()
+    cursor = get_db()[INTERVIEW_QUESTIONS].find(q, {"_id": 0}).limit(limit)
+    return [doc async for doc in cursor]
 
 
 def _with_id(doc: dict | None) -> dict:
