@@ -18,6 +18,7 @@ from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import repositories as repo
 from app.jobs.brief_generation import execute_tracked_run
+from app.jobs.question_collection import execute_tracked_collection
 from app.jobs.run_store import RUN_STORE, new_run_id
 from app.models.experience import Level, RawExperience, Source
 from app.exa.client import ExaClient
@@ -86,6 +87,25 @@ async def stop_run() -> dict:
 async def scrape_status(after: int = Query(0, ge=0)) -> dict:
     """Current run snapshot. Pass ?after=<last_seq> to fetch only new log lines."""
     return RUN_STORE.snapshot(after=after)
+
+
+@router.post("/questions/collect")
+async def trigger_question_collection() -> dict:
+    """Start a question-bank collection run in the background. Reuses the single run slot —
+    if a scrape or collection is already running, returns that run instead of starting a second."""
+    run_id = new_run_id()
+    if not RUN_STORE.start(run_id, trigger="questions"):
+        return {"run_id": RUN_STORE.run_id, "status": RUN_STORE.status, "already_running": True}
+    settings = get_settings()
+    asyncio.create_task(_background_collection(settings, run_id))
+    return {"run_id": run_id, "status": "running", "already_running": False}
+
+
+async def _background_collection(settings, run_id: str) -> None:
+    try:
+        await execute_tracked_collection(settings, run_id)
+    except Exception:  # noqa: BLE001 — failure already recorded in RUN_STORE
+        pass
 
 
 @router.post("/briefs/clear")

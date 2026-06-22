@@ -75,6 +75,14 @@ async def refresh_brief(
     return doc
 
 
+@router.get("/questions", dependencies=[Depends(require_internal_key)])
+async def list_questions(round_type: str | None = None, company: str | None = None,
+                         difficulty: str | None = None, limit: int = 100) -> dict:
+    """Read the collected question bank (thin metadata + url). Filter by round/company/difficulty."""
+    items = await repo.query_questions(round_type, company, difficulty, min(limit, 500))
+    return {"questions": items, "count": len(items)}
+
+
 @router.get("/experiences/{company}/{role}/{level}", dependencies=[Depends(require_internal_key)])
 async def list_experiences(
     company: str,
