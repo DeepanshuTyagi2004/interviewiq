@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import get_perplexity, require_internal_key
+from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import mongo, repositories as repo
-from app.groq.client import build_groq_client
+from app.llm.client import build_llm_client
 from app.jobs.brief_generation import generate_one
-from app.perplexity.client import PerplexityClient, PerplexityConfigError
+from app.exa.client import ExaClient, ExaConfigError
 from app.targets import Combination, fetch_combinations
 
 router = APIRouter()
@@ -52,7 +52,7 @@ async def refresh_brief(
     role: str,
     level: str,
     specialization: str,
-    perplexity: PerplexityClient = Depends(get_perplexity),
+    exa: ExaClient = Depends(get_exa),
 ) -> dict:
     """Regenerate this JD's brief immediately (synchronous) and return it.
     Uses the JD's real title/content from the catalogue when available."""
@@ -64,9 +64,9 @@ async def refresh_brief(
         Combination(company, role, level, specialization),
     )
     try:
-        groq = build_groq_client(settings)
-        await generate_one(perplexity, groq, combo, settings, force=True)
-    except PerplexityConfigError as exc:
+        async with build_llm_client(settings) as llm:
+            await generate_one(exa, llm, combo, settings, force=True)
+    except ExaConfigError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     doc = await repo.get_brief(company, role, level, specialization)
     if doc is None or doc.get("generation_status") == "failed":

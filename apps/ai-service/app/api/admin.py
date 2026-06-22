@@ -14,13 +14,13 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from app.api.deps import get_perplexity, require_internal_key
+from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import repositories as repo
 from app.jobs.brief_generation import execute_tracked_run
 from app.jobs.run_store import RUN_STORE, new_run_id
 from app.models.experience import Level, RawExperience, Source
-from app.perplexity.client import PerplexityClient
+from app.exa.client import ExaClient
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def submit_experience(req: SubmitExperienceRequest) -> dict:
 
 
 @router.post("/scrape/run")
-async def trigger_run(perplexity: PerplexityClient = Depends(get_perplexity)) -> dict:
+async def trigger_run(exa: ExaClient = Depends(get_exa)) -> dict:
     """Start a brief-generation run in the background. If one is already in progress,
     returns that run instead of starting a second (runs never overlap)."""
     run_id = new_run_id()
@@ -63,13 +63,13 @@ async def trigger_run(perplexity: PerplexityClient = Depends(get_perplexity)) ->
         return {"run_id": RUN_STORE.run_id, "status": RUN_STORE.status, "already_running": True}
 
     settings = get_settings()
-    asyncio.create_task(_background_run(perplexity, settings, run_id))
+    asyncio.create_task(_background_run(exa, settings, run_id))
     return {"run_id": run_id, "status": "running", "already_running": False}
 
 
-async def _background_run(perplexity: PerplexityClient, settings, run_id: str) -> None:
+async def _background_run(exa: ExaClient, settings, run_id: str) -> None:
     try:
-        await execute_tracked_run(perplexity, settings, run_id)
+        await execute_tracked_run(exa, settings, run_id)
     except Exception:  # noqa: BLE001 — failure already recorded in RUN_STORE
         pass
 

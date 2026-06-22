@@ -90,7 +90,7 @@ class RunStore:
             rec.update(fields)
 
     def add_combo_request(self, label: str, *, prompt: str, raw_response: str, citations: list) -> None:
-        """Append ONE Perplexity request (prompt + raw response + citations) to a
+        """Append ONE search request (prompt + raw response + citations) to a
         combination. Every request is kept — a retry adds a second entry, not overwrite."""
         with self._lock:
             if self.status != "running":

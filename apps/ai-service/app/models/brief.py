@@ -1,6 +1,6 @@
 """Interview brief models — the contract for the staged collect→extract→aggregate pipeline.
 
-Per-source raw experiences (RawExperience[]) are extracted by Groq and then merged into one
+Per-source raw experiences (RawExperience[]) are extracted by the LLM and then merged into one
 consolidated FinalExperience. Both are stored in the brief document. Descriptive only —
 no scores or rankings. Validators coerce the messy types small local LLMs emit (ints
 where strings are expected, a bare string where a list is expected, mixed-case enums).
@@ -41,8 +41,10 @@ class Difficulty(str, Enum):
 
 
 class Provenance(str, Enum):
-    EVIDENCE_BACKED = "evidence_backed"
-    INFERRED = "inferred"
+    EVIDENCE_BACKED = "evidence_backed"          # >=1 on-level FIRST-HAND account attests this round (may carry named problems)
+    PROCESS_GUIDE = "process_guide"              # >=1 on-level source describes this round but NONE first-hand (a guide/official/post): structure only, never named problems
+    INFERRED_FROM_SIMILAR = "inferred_from_similar"  # informed by level-unconfirmed real posts / similar patterns; generic
+    TEMPLATE = "template"                        # industry-standard round no source covered; generic, no company specifics
 
 
 class Geo(str, Enum):
@@ -106,13 +108,19 @@ class RoundDetail(BaseModel):
 
 
 class RawExperience(BaseModel):
-    """One source's extracted account (Groq extractor output, one per collected source)."""
+    """One source's extracted account (LLM extractor output, one per collected source).
+
+    `is_first_hand` is the trust discriminator: True = one candidate's own account (may carry lived
+    specifics — problems/difficulty). False = a guide/official page/aggregated post that describes
+    the process but reports no first-hand specifics. Defaults True for back-compat: everything
+    stored before this field existed passed the old first-hand-only gate."""
     source: str | None = None
     url: str | None = None
     date: str | None = None
     detected_role: str | None = None
     detected_level: str | None = None
     geo: Geo = Geo.UNKNOWN
+    is_first_hand: bool = True
     rounds: list[RoundDetail] = Field(default_factory=list)
     outcome: str | None = None
 
@@ -140,21 +148,31 @@ class FinalRound(BaseModel):
     topics: list[str] = Field(default_factory=list)
     problems: list[str] = Field(default_factory=list)
     difficulty: Difficulty | None = None
-    provenance: Provenance = Provenance.INFERRED
+    provenance: Provenance = Provenance.INFERRED_FROM_SIMILAR
     evidence_urls: list[str] = Field(default_factory=list)
+    # Trust metadata — set deterministically by the pipeline after aggregation, NOT by the LLM.
+    support_count: int = 0          # # of on-level (exact/adjacent) sources that attest this round
+    source_count_total: int = 0     # # of on-level sources in this brief (the "of N")
+    rare: bool = False              # reported by exactly one source out of several
+    source_sublevels: list[str] = Field(default_factory=list)  # sublevels of the attesting sources
 
     _t = field_validator("type", mode="before")(_norm_round_type)
     _d = field_validator("difficulty", mode="before")(_norm_difficulty)
     _s = field_validator("format", mode="before")(_coerce_str)
-    _l = field_validator("topics", "problems", "evidence_urls", mode="before")(_coerce_str_list)
+    _l = field_validator("topics", "problems", "evidence_urls", "source_sublevels", mode="before")(_coerce_str_list)
 
     @field_validator("provenance", mode="before")
     @classmethod
     def _norm_prov(cls, v):
         if isinstance(v, str):
-            s = v.strip().lower().replace("-", "_")
-            return s if s in {p.value for p in Provenance} else "inferred"
-        return "inferred"
+            s = v.strip().lower().replace("-", "_").replace(" ", "_")
+            if s in {p.value for p in Provenance}:
+                return s
+            if s == "inferred":                       # legacy/loose label -> the new inferred tier
+                return Provenance.INFERRED_FROM_SIMILAR.value
+            if s in ("evidence", "evidenced"):
+                return Provenance.EVIDENCE_BACKED.value
+        return Provenance.INFERRED_FROM_SIMILAR.value
 
 
 class FinalExperience(BaseModel):
@@ -166,6 +184,7 @@ class FinalExperience(BaseModel):
     red_flags: list[str] = Field(default_factory=list)
     company_specific_patterns: str | None = None
     data_confidence: DataConfidence = DataConfidence.LOW
+    template_used: bool = False     # true when one or more rounds are industry-standard templates
 
     _s = field_validator(
         "difficulty_calibration", "interviewer_style_notes", "company_specific_patterns",

@@ -24,7 +24,7 @@ class Combination:
     specialization: str = "general"  # backend/frontend/fullstack/... — the role discriminator
     title: str | None = None         # real JD title
     jd_url: str | None = None
-    description: str | None = None    # JD content, condensed then fed to Perplexity as context
+    description: str | None = None    # JD content, condensed then fed to the search/LLM as context
 
     def label(self) -> str:
         return f"{self.company}/{self.role}/{self.level}/{self.specialization}"

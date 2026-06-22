@@ -9,8 +9,22 @@ def test_raw_experience_geo_normalises():
 
 def test_final_round_defaults_inferred():
     fe = FinalExperience.model_validate({"rounds": [{"round_number": 1, "type": "dsa"}]})
-    assert fe.rounds[0].provenance == Provenance.INFERRED
+    assert fe.rounds[0].provenance == Provenance.INFERRED_FROM_SIMILAR
     assert fe.rounds[0].evidence_urls == []
+    assert fe.rounds[0].support_count == 0 and fe.rounds[0].rare is False
+
+
+def test_legacy_inferred_label_maps_to_inferred_from_similar():
+    fe = FinalExperience.model_validate({"rounds": [
+        {"round_number": 1, "type": "dsa", "provenance": "inferred"}]})
+    assert fe.rounds[0].provenance == Provenance.INFERRED_FROM_SIMILAR
+
+
+def test_template_provenance_and_flag():
+    fe = FinalExperience.model_validate({"template_used": True, "rounds": [
+        {"round_number": 1, "type": "system-design", "provenance": "template"}]})
+    assert fe.rounds[0].provenance == Provenance.TEMPLATE
+    assert fe.template_used is True
 
 
 def test_final_round_evidence_backed_with_urls():
@@ -34,6 +48,8 @@ def test_geo_fallback_and_substring():
 if __name__ == "__main__":
     test_raw_experience_geo_normalises()
     test_final_round_defaults_inferred()
+    test_legacy_inferred_label_maps_to_inferred_from_similar()
+    test_template_provenance_and_flag()
     test_final_round_evidence_backed_with_urls()
     test_geo_fallback_and_substring()
     print("ok")

@@ -1,6 +1,6 @@
 """Self-check for the JSON-extraction fallback — the one non-trivial parser in the
-hot path (Perplexity output). Run: python -m tests.test_json_parse  (or pytest)."""
-from app.groq.client import parse_json
+hot path (LLM output). Run: python -m tests.test_json_parse  (or pytest)."""
+from app.llm.client import parse_json
 
 
 def test_plain_json():

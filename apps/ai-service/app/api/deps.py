@@ -6,7 +6,7 @@ import secrets
 from fastapi import Header, HTTPException, Request, status
 
 from app.config import get_settings
-from app.perplexity.client import PerplexityClient
+from app.exa.client import ExaClient
 
 
 async def require_internal_key(x_internal_api_key: str = Header(default="")) -> None:
@@ -17,5 +17,5 @@ async def require_internal_key(x_internal_api_key: str = Header(default="")) -> 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid internal api key")
 
 
-def get_perplexity(request: Request) -> PerplexityClient:
-    return request.app.state.perplexity
+def get_exa(request: Request) -> ExaClient:
+    return request.app.state.exa
