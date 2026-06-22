@@ -70,7 +70,7 @@ def _is_all_window(path: str) -> bool:
     return "all" in path.rsplit("/", 1)[-1].lower()
 
 
-def collect_snehasishroy(files: dict[str, bytes]) -> list[QuestionRecord]:
+def parse_snehasishroy_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
     """Walk company folders; per company use the 'All'-window CSV (broadest), else any CSV."""
     by_company: dict[str, list[str]] = {}
     for path in files:
@@ -85,6 +85,52 @@ def collect_snehasishroy(files: dict[str, bytes]) -> list[QuestionRecord]:
         out.extend(parse_snehasishroy_csv(text, company))
     logger.info("[questions] snehasishroy: %d companies, %d rows", len(by_company), len(out))
     return out
+
+
+from app.questions.github import GithubFetchError, fetch_repo_files  # noqa: E402
+from app.questions.kaggle import fetch_kaggle_csv  # noqa: E402
+
+_SNEHASISHROY = ("snehasishroy", "leetcode-companywise-interview-questions", "master")
+
+
+async def collect_snehasishroy(settings) -> list[QuestionRecord]:
+    try:
+        files = await fetch_repo_files(*_SNEHASISHROY, settings)
+        return parse_snehasishroy_tree(files)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] snehasishroy fetch failed (%s) — skipping", exc)
+        return []
+
+
+async def collect_neetcode(settings) -> list[QuestionRecord]:
+    if not settings.neetcode_repo:
+        return []
+    try:
+        owner_repo, _, ref = settings.neetcode_repo.partition("@")
+        ref = ref or "main"
+        owner, _, repo = owner_repo.partition("/")
+        files = await fetch_repo_files(owner, repo, ref, settings)
+        # Try to find and parse the neetcode list file
+        path = settings.neetcode_path
+        if path and path in files:
+            import json
+            data = json.loads(files[path].decode("utf-8", errors="replace"))
+            return parse_neetcode(data)
+        return []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] neetcode fetch failed (%s) — skipping", exc)
+        return []
+
+
+async def collect_kaggle(settings) -> list[QuestionRecord]:
+    try:
+        text = await fetch_kaggle_csv(settings)
+        if text is None:
+            return []
+        return parse_kaggle(text)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] kaggle collect failed (%s) — skipping", exc)
+        return []
 
 
 def parse_neetcode(data: list[dict]) -> list[QuestionRecord]:
