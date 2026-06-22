@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     # Delay between sequential search/LLM calls per combo (rate-limit hygiene).
     brief_inter_call_delay_seconds: float = Field(2.0, alias="BRIEF_INTER_CALL_DELAY_SECONDS")
 
+    # --- Question set collection ---
+    # Bump to force re-collection of the question bank (mirrors PIPELINE_VERSION).
+    collection_version: str = Field("v1", alias="COLLECTION_VERSION")
+    # GitHub repo tarball host — one request pulls a whole repo (no per-file rate limit).
+    github_codeload_base: str = Field("https://codeload.github.com", alias="GITHUB_CODELOAD_BASE")
+    github_timeout_seconds: float = Field(60.0, alias="GITHUB_TIMEOUT_SECONDS")
+    # Concurrent LLM enrich calls for SD/LLD. Same RPM discipline as EXTRACT_CONCURRENCY.
+    question_enrich_concurrency: int = Field(2, alias="QUESTION_ENRICH_CONCURRENCY")
+    # Where the vendored seed data lives (NeetCode list, Kaggle CSV, SD/LLD seed JSON).
+    questions_data_dir: str = Field("app/questions/data", alias="QUESTIONS_DATA_DIR")
+
     # --- Logging --- set to DEBUG for the most verbose output.
     log_level: str = Field("INFO", alias="LOG_LEVEL")
 
