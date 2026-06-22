@@ -90,20 +90,21 @@ async def scrape_status(after: int = Query(0, ge=0)) -> dict:
 
 
 @router.post("/questions/collect")
-async def trigger_question_collection() -> dict:
+async def trigger_question_collection(force: bool = False) -> dict:
     """Start a question-bank collection run in the background. Reuses the single run slot —
-    if a scrape or collection is already running, returns that run instead of starting a second."""
+    if a scrape or collection is already running, returns that run instead of starting a second.
+    Pass ?force=true to re-enrich even questions that haven't changed."""
     run_id = new_run_id()
     if not RUN_STORE.start(run_id, trigger="questions"):
         return {"run_id": RUN_STORE.run_id, "status": RUN_STORE.status, "already_running": True}
     settings = get_settings()
-    asyncio.create_task(_background_collection(settings, run_id))
+    asyncio.create_task(_background_collection(settings, run_id, force=force))
     return {"run_id": run_id, "status": "running", "already_running": False}
 
 
-async def _background_collection(settings, run_id: str) -> None:
+async def _background_collection(settings, run_id: str, *, force: bool = False) -> None:
     try:
-        await execute_tracked_collection(settings, run_id)
+        await execute_tracked_collection(settings, run_id, force=force)
     except Exception:  # noqa: BLE001 — failure already recorded in RUN_STORE
         pass
 
