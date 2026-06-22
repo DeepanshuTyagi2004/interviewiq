@@ -1,11 +1,10 @@
-"""LLM enrichment for SD/LLD questions. One call per question, bounded concurrency
-(reuses gather_capped). A failure marks the record enrich_failed and keeps it raw —
-never aborts the run (mirrors the brief pipeline's per-source isolation)."""
+"""LLM enrichment for SD/LLD questions. A failure marks the record enrich_failed and
+keeps it raw — never aborts the run (mirrors the brief pipeline's per-source isolation).
+Bounded concurrency is handled in the orchestrator (question_collection.py) via gather_capped."""
 from __future__ import annotations
 
 import logging
 
-from app.llm.client import gather_capped
 from app.prompts.enrich_question import ENRICH_SYSTEM, build_enrich_prompt
 from app.questions.models import QuestionRecord
 
@@ -29,11 +28,3 @@ async def enrich_one(llm, record: QuestionRecord) -> QuestionRecord:
     patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "", [])}
     merged = record.model_copy(update={**patch, "enrichment_status": "enriched"})
     return QuestionRecord.model_validate(merged.model_dump())  # re-run validators on patched lists
-
-
-async def enrich_all(llm, records: list[QuestionRecord], limit: int) -> list[QuestionRecord]:
-    # Re-enrichment is triggered by bumping COLLECTION_VERSION (there is no separate enrich_version stamp).
-    results = await gather_capped([enrich_one(llm, r) for r in records], limit)
-    # enrich_one catches all exceptions internally and never raises, so None from gather_capped is
-    # belt-and-suspenders; fall back to the original raw record just in case.
-    return [res if res is not None else rec for res, rec in zip(results, records)]

@@ -1,40 +1,42 @@
-"""Kaggle dataset fetcher for the LeetCode problem dataset.
-# ponytail: uses the unofficial Kaggle public CSV download URL (no auth required for public
-# datasets). If Kaggle changes the URL pattern or the dataset is removed, this fails gracefully
-# and returns None — the collect_kaggle caller logs a warning and returns []."""
+"""Kaggle dataset fetch via the official REST download endpoint + HTTP basic auth
+(username:key). No `kaggle` pip dependency — httpx + stdlib zipfile. Fail-safe: any
+problem (no creds, 401, network, no CSV) returns None and the Kaggle source is skipped."""
 from __future__ import annotations
 
+import io
 import logging
+import zipfile
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-_KAGGLE_CSV_URL = "https://www.kaggle.com/datasets/{slug}/download?datasetVersionNumber=1"
-# Kaggle redirects to a GCS URL; follow_redirects required. Large file so longer timeout.
 _TIMEOUT = 60.0
 
 
+def extract_first_csv(zip_bytes: bytes) -> str | None:
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        for name in z.namelist():
+            if name.lower().endswith(".csv"):
+                return z.read(name).decode("utf-8", errors="replace")
+    return None
+
+
 async def fetch_kaggle_csv(settings) -> str | None:
-    """Download the Kaggle LeetCode dataset CSV. Returns raw CSV text or None on any failure.
+    """Download the Kaggle LeetCode dataset ZIP and return the first CSV's text, or None.
     Requires kaggle_username + kaggle_key to be set; returns None if either is empty
-    (so neetcode_repo="" config silently skips this source)."""
+    (so the Kaggle source is silently skipped when credentials are absent)."""
     if not settings.kaggle_username or not settings.kaggle_key:
         logger.debug("[questions] kaggle: credentials not set, skipping")
         return None
-    slug = settings.kaggle_leetcode_dataset
-    url = f"https://www.kaggle.com/api/v1/datasets/download/{slug}/{slug.split('/')[-1]}.csv"
+    url = f"https://www.kaggle.com/api/v1/datasets/download/{settings.kaggle_leetcode_dataset}"
     try:
-        async with httpx.AsyncClient(
-            auth=(settings.kaggle_username, settings.kaggle_key),
-            timeout=_TIMEOUT,
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(url)
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.get(url, auth=(settings.kaggle_username, settings.kaggle_key))
         if resp.status_code != 200:
-            logger.warning("[questions] kaggle: HTTP %d for %s", resp.status_code, slug)
+            logger.warning("[questions] kaggle: HTTP %d for %s", resp.status_code, settings.kaggle_leetcode_dataset)
             return None
-        return resp.text
-    except httpx.HTTPError as exc:
-        logger.warning("[questions] kaggle: fetch failed (%s)", exc)
+        return extract_first_csv(resp.content)
+    except Exception as exc:  # noqa: BLE001 — Kaggle is one optional source; any problem → None
+        logger.warning("[questions] kaggle: fetch failed (%s) — skipping", exc)
         return None

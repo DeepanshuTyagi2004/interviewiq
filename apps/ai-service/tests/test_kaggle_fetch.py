@@ -1,3 +1,5 @@
+import io
+import zipfile
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,6 +10,23 @@ def _settings(username="testuser", key="testkey", dataset="gzipchrist/leetcode-p
     s.kaggle_key = key
     s.kaggle_leetcode_dataset = dataset
     return s
+
+
+def test_extract_first_csv_from_zip():
+    from app.questions.kaggle import extract_first_csv
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("leetcode.csv", "title,url\nTwo Sum,https://leetcode.com/problems/two-sum/\n")
+    out = extract_first_csv(buf.getvalue())
+    assert "Two Sum" in out
+
+
+def test_extract_first_csv_none_when_no_csv():
+    from app.questions.kaggle import extract_first_csv
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("readme.txt", "x")
+    assert extract_first_csv(buf.getvalue()) is None
 
 
 def test_fetch_kaggle_csv_returns_none_when_no_credentials():
