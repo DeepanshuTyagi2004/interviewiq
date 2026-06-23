@@ -1,10 +1,14 @@
 import inspect
+from pathlib import Path
 
 from app.questions.collectors.system_design import (
     enumerate_donnemartin, _parse_karan_readme, _parse_ashish_readme,
+    _parse_interviewready_readme,
     collect_system_design,
 )
 import app.questions.collectors.system_design as sd_mod
+
+_FIXTURES = Path(__file__).parent / "fixtures" / "questions"
 
 
 def test_enumerate_donnemartin_finds_problems_skips_template():
@@ -58,20 +62,42 @@ def test_parse_ashish_readme_extracts_problems():
     assert any("URL Shortener" in i["title"] for i in out)
 
 
-def test_interviewready_not_in_repo_list():
-    """InterviewReady is not fetched — _collect_interviewready function is gone."""
-    # The fetcher function must not exist on the module
-    assert not hasattr(sd_mod, "_collect_interviewready"), (
-        "_collect_interviewready should be removed (video-only repo)"
+def test_interviewready_in_repo_list():
+    """InterviewReady IS fetched — _collect_interviewready function must exist on the module."""
+    assert hasattr(sd_mod, "_collect_interviewready"), (
+        "_collect_interviewready must exist (github-linked repo)"
     )
-    assert not hasattr(sd_mod, "_parse_interviewready_readme"), (
-        "_parse_interviewready_readme should be removed (video-only repo)"
+    assert hasattr(sd_mod, "_parse_interviewready_readme"), (
+        "_parse_interviewready_readme must exist"
     )
 
 
-def test_interviewready_not_in_prefix_map():
-    """interviewready key is gone from the _PREFIX slug map."""
-    assert "interviewready" not in sd_mod._PREFIX
+def test_interviewready_in_prefix_map():
+    """interviewready key is present in the _PREFIX slug map."""
+    assert "interviewready" in sd_mod._PREFIX
+    assert sd_mod._PREFIX["interviewready"] == "irsd"
+
+
+def test_parse_interviewready_readme_from_fixture():
+    """Parser produces per-problem README-anchor urls from the sd_interviewready fixture."""
+    text = (_FIXTURES / "sd_interviewready.md").read_text()
+    out = _parse_interviewready_readme(text)
+    assert len(out) >= 2, "Expected at least 2 problems from fixture"
+    for item in out:
+        assert "README.md#" in item["url"], f"Expected README anchor url, got: {item['url']}"
+        assert item["title"]
+
+
+def test_parse_interviewready_readme_anchors():
+    """URLs are fetchable GitHub content anchors, not video links."""
+    text = "## Video Processing\n\n## Rate Limiting\n"
+    out = _parse_interviewready_readme(text)
+    assert len(out) == 2
+    assert all("README.md#" in i["url"] for i in out)
+    assert all("youtube" not in i["url"] for i in out)
+    titles = {i["title"] for i in out}
+    assert "Video Processing" in titles
+    assert "Rate Limiting" in titles
 
 
 # ---------------------------------------------------------------------------
@@ -96,13 +122,34 @@ def test_parse_ashish_readme_prefers_article_over_video():
     assert "algomaster.io" in url_shortener["url"]
 
 
-def test_parse_ashish_readme_falls_back_to_video_when_only_video():
-    """When a problem has ONLY a video link, that video url is still returned (fallback)."""
+def test_parse_ashish_readme_skips_video_only_entries():
+    """When a problem has ONLY a video link, the entry is skipped entirely (not emitted)."""
     md = (
         "## 💻 System Design Interview Problems\n"
         "### Hard\n"
         "- [Design Uber](https://www.youtube.com/watch?v=umWABit-wbk)\n"
     )
     out = _parse_ashish_readme(md)
-    assert len(out) == 1
-    assert "youtube.com" in out[0]["url"]
+    assert len(out) == 0, "Video-only entries must be skipped, not emitted"
+
+
+def test_parse_ashish_readme_mixed_video_and_article():
+    """Fixture with video-only + article-only + mixed entries: only article-linked ones survive."""
+    md = (
+        "## 💻 System Design Interview Problems\n"
+        "### Easy\n"
+        "- [Design URL Shortener](https://algomaster.io/design-url-shortener) "
+        "[Watch](https://www.youtube.com/watch?v=abc123)\n"
+        "- [Design YouTube](https://www.youtube.com/watch?v=K-j8FoicR3E)\n"
+        "- [Design Twitter](https://algomaster.io/design-twitter)\n"
+    )
+    out = _parse_ashish_readme(md)
+    titles = {i["title"] for i in out}
+    assert "Design URL Shortener" in titles, "Mixed entry should survive with article url"
+    assert "Design YouTube" not in titles, "Video-only entry must be skipped"
+    assert "Design Twitter" in titles
+    assert len(out) == 2
+    # Verify no youtube urls remain in any emitted record
+    for item in out:
+        assert "youtube.com" not in item["url"]
+        assert "youtu.be" not in item["url"]

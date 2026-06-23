@@ -20,6 +20,7 @@ _PREFIX = {
     "system-design-primer": "sdp",
     "system-design": "ksd",
     "awesome-system-design": "asd",
+    "interviewready": "irsd",
 }
 
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
@@ -140,7 +141,7 @@ def _parse_ashish_readme(text: str) -> list[dict]:
             continue
         seen_titles.add(title)
         url = _best_url(links)
-        if url:
+        if url and not any(h in url for h in _VIDEO_HOSTS):
             out.append({"title": title, "url": url})
     return out
 
@@ -156,24 +157,51 @@ async def _collect_ashishps1(settings) -> list[QuestionRecord]:
         return []
 
 
+# --- InterviewReady/system-design-resources ---
+
+def _parse_interviewready_readme(text: str) -> list[dict]:
+    """Each ## Heading in the README is a design topic/problem.
+
+    Produces README anchor urls (fetchable GitHub content). Example:
+      https://github.com/InterviewReady/system-design-resources/blob/main/README.md#video-processing
+    """
+    base = "https://github.com/InterviewReady/system-design-resources/blob/main/README.md"
+    out = []
+    for m in re.finditer(r'^## (.+)$', text, re.MULTILINE):
+        title = m.group(1).strip()
+        if not title or title.lower() in ('table of contents',):
+            continue
+        anchor = '#' + re.sub(r'[^a-z0-9-]', '', title.lower().replace(' ', '-').replace('/', '').replace('(', '').replace(')', ''))
+        out.append({"title": title, "url": base + anchor})
+    return out
+
+
+async def _collect_interviewready(settings) -> list[QuestionRecord]:
+    try:
+        files = await fetch_repo_files("InterviewReady", "system-design-resources", "main", settings)
+        readme = files.get("README.md", b"").decode("utf-8", errors="replace")
+        items = _parse_interviewready_readme(readme)
+        return [_make_record(i["title"], i["url"], "interviewready") for i in items]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] interviewready fetch failed (%s) — skipping", exc)
+        return []
+
+
 # --- main collector ---
 
 async def collect_system_design(settings) -> list[QuestionRecord]:
-    """Fetch all 3 SD repos (each fail-safe). Merge and de-dupe by slug.
-
-    InterviewReady/system-design-resources was removed: it is a video-only
-    course repo whose urls were all YouTube links, not fetchable content.
-    """
+    """Fetch all 4 SD repos (each fail-safe). Merge and de-dupe by slug."""
     results: list[QuestionRecord] = []
     seen_slugs: set[str] = set()
     for sub in [
         await _collect_donnemartin(settings),
         await _collect_karanpratapsingh(settings),
         await _collect_ashishps1(settings),
+        await _collect_interviewready(settings),
     ]:
         for r in sub:
             if r.slug not in seen_slugs:
                 seen_slugs.add(r.slug)
                 results.append(r)
-    logger.info("[questions] system-design: %d records from 3 repos", len(results))
+    logger.info("[questions] system-design: %d records from 4 repos", len(results))
     return results
