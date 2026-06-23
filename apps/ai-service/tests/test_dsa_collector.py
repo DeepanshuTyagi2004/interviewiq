@@ -244,3 +244,77 @@ def test_collect_neetcode_fetch_error_returns_empty():
             dsa_mod.fetch_repo_files = original
 
     assert asyncio.run(run()) == []
+
+
+# ---------------------------------------------------------------------------
+# NeetCode-150 md-tree: markdown-link H1 (Fix 1)
+# ---------------------------------------------------------------------------
+
+# Real format seen in dipjul/NeetCode-150 Tree folder:
+# # [226. Invert Binary Tree](https://leetcode.com/problems/invert-binary-tree/)
+_INVERT_BINARY_TREE_MD = (
+    b"# [226. Invert Binary Tree](https://leetcode.com/problems/invert-binary-tree/)\n"
+    b"Given the root of a binary tree, invert the tree, and return its root.\n"
+)
+
+# Another real example with a longer slug:
+_CONSTRUCT_BINARY_TREE_MD = (
+    b"# [105. Construct Binary Tree from Preorder and Inorder Traversal]"
+    b"(https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/)\n"
+    b"Medium\n"
+    b"Given two integer arrays preorder and inorder...\n"
+)
+
+NEETCODE_FILES_WITH_MD_LINKS: dict[str, bytes] = {
+    "07. Tree/01.InvertBinaryTree.md": _INVERT_BINARY_TREE_MD,
+    "07. Tree/13.ConstructBinaryTree.md": _CONSTRUCT_BINARY_TREE_MD,
+    # Keep plain-H1 to confirm it still works alongside markdown-link H1
+    "01. Arrays & Hashing/03.TwoSum.md": _TWO_SUM_MD,
+}
+
+
+def test_parse_neetcode_md_link_h1_slug_extracted_from_url():
+    """Markdown-link H1: slug comes from the LC url, not slugified link text."""
+    recs = parse_neetcode_md_tree(NEETCODE_FILES_WITH_MD_LINKS)
+    invert = next((r for r in recs if "Invert" in r.title), None)
+    assert invert is not None, "Expected a record for Invert Binary Tree"
+    assert invert.slug == "invert-binary-tree"
+
+
+def test_parse_neetcode_md_link_h1_url_is_clean_leetcode():
+    """Markdown-link H1: url is clean https://leetcode.com/problems/<slug>/ (no mangling)."""
+    recs = parse_neetcode_md_tree(NEETCODE_FILES_WITH_MD_LINKS)
+    invert = next(r for r in recs if "Invert" in r.title)
+    assert invert.url == "https://leetcode.com/problems/invert-binary-tree/"
+    # Must NOT contain 'http' in the slug portion or any garbage
+    assert "httpsleetcode" not in invert.url
+    assert invert.url.count("leetcode.com") == 1
+
+
+def test_parse_neetcode_md_link_h1_title_strips_number():
+    """Markdown-link H1: leading '<number>. ' stripped from link text."""
+    recs = parse_neetcode_md_tree(NEETCODE_FILES_WITH_MD_LINKS)
+    invert = next(r for r in recs if "Invert" in r.title)
+    assert invert.title == "Invert Binary Tree"
+    assert not invert.title.startswith("226")
+
+
+def test_parse_neetcode_md_link_h1_long_slug():
+    """Markdown-link H1 with long slug preserves exact LC slug from url."""
+    recs = parse_neetcode_md_tree(NEETCODE_FILES_WITH_MD_LINKS)
+    construct = next((r for r in recs if "Construct" in r.title), None)
+    assert construct is not None
+    assert construct.slug == "construct-binary-tree-from-preorder-and-inorder-traversal"
+    assert construct.url == (
+        "https://leetcode.com/problems/"
+        "construct-binary-tree-from-preorder-and-inorder-traversal/"
+    )
+
+
+def test_parse_neetcode_md_link_h1_plain_h1_still_works():
+    """Plain H1 records still parse correctly alongside markdown-link H1 records."""
+    recs = parse_neetcode_md_tree(NEETCODE_FILES_WITH_MD_LINKS)
+    two_sum = next((r for r in recs if r.title == "Two Sum"), None)
+    assert two_sum is not None
+    assert two_sum.slug == "two-sum"
+    assert two_sum.url == "https://leetcode.com/problems/two-sum/"

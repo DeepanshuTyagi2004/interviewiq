@@ -13,12 +13,13 @@ from app.questions.models import QuestionRecord
 
 logger = logging.getLogger(__name__)
 
+_VIDEO_HOSTS = ('youtube.com', 'youtu.be')
+
 # Short source -> slug prefix (mirrors design.py _PREFIX)
 _PREFIX = {
     "system-design-primer": "sdp",
     "system-design": "ksd",
     "awesome-system-design": "asd",
-    "interviewready": "irsd",
 }
 
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
@@ -26,6 +27,16 @@ _SLUG_RE = re.compile(r'[^a-z0-9]+')
 
 def _slug(title: str) -> str:
     return _SLUG_RE.sub('-', title.lower()).strip('-')
+
+
+def _best_url(links: list[dict]) -> str | None:
+    """Given a list of {title, url} items, return the first non-video url.
+    Falls back to the first video url if no non-video link is available."""
+    non_video = [i["url"] for i in links if not any(h in i["url"] for h in _VIDEO_HOSTS)]
+    if non_video:
+        return non_video[0]
+    video = [i["url"] for i in links if links]
+    return video[0] if video else None
 
 
 def _humanize(name: str) -> str:
@@ -108,12 +119,30 @@ async def _collect_karanpratapsingh(settings) -> list[QuestionRecord]:
 # --- ashishps1/awesome-system-design-resources ---
 
 def _parse_ashish_readme(text: str) -> list[dict]:
-    """Extract problems from 'System Design Interview Problems' section."""
+    """Extract problems from 'System Design Interview Problems' section.
+
+    Processes each line independently so that if a line has both a video link
+    and a non-video link, the non-video link is preferred.
+    """
     m = re.search(r'## (?:💻 )?System Design Interview Problems\b(.*?)(?:\n## |\Z)', text, re.DOTALL)
     if not m:
         return []
     section = m.group(1)
-    return extract_md_problems(section)
+    out = []
+    seen_titles: set[str] = set()
+    for line in section.splitlines():
+        links = extract_md_problems(line)
+        if not links:
+            continue
+        # First link title is the problem name; pick best url across all links on this line
+        title = links[0]["title"]
+        if title in seen_titles:
+            continue
+        seen_titles.add(title)
+        url = _best_url(links)
+        if url:
+            out.append({"title": title, "url": url})
+    return out
 
 
 async def _collect_ashishps1(settings) -> list[QuestionRecord]:
@@ -127,47 +156,24 @@ async def _collect_ashishps1(settings) -> list[QuestionRecord]:
         return []
 
 
-# --- InterviewReady/system-design-resources ---
-
-def _parse_interviewready_readme(text: str) -> list[dict]:
-    """Each ## Heading in the README is a design topic/problem."""
-    base = "https://github.com/InterviewReady/system-design-resources/blob/main/README.md"
-    out = []
-    for m in re.finditer(r'^## (.+)$', text, re.MULTILINE):
-        title = m.group(1).strip()
-        if not title or title.lower() in ('table of contents',):
-            continue
-        anchor = '#' + re.sub(r'[^a-z0-9-]', '', title.lower().replace(' ', '-').replace('/', '').replace('(', '').replace(')', ''))
-        out.append({"title": title, "url": base + anchor})
-    return out
-
-
-async def _collect_interviewready(settings) -> list[QuestionRecord]:
-    try:
-        files = await fetch_repo_files("InterviewReady", "system-design-resources", "main", settings)
-        readme = files.get("README.md", b"").decode("utf-8", errors="replace")
-        items = _parse_interviewready_readme(readme)
-        return [_make_record(i["title"], i["url"], "interviewready") for i in items]
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[questions] interviewready fetch failed (%s) — skipping", exc)
-        return []
-
-
 # --- main collector ---
 
 async def collect_system_design(settings) -> list[QuestionRecord]:
-    """Fetch all 4 SD repos (each fail-safe). Merge and de-dupe by slug."""
+    """Fetch all 3 SD repos (each fail-safe). Merge and de-dupe by slug.
+
+    InterviewReady/system-design-resources was removed: it is a video-only
+    course repo whose urls were all YouTube links, not fetchable content.
+    """
     results: list[QuestionRecord] = []
     seen_slugs: set[str] = set()
     for sub in [
         await _collect_donnemartin(settings),
         await _collect_karanpratapsingh(settings),
         await _collect_ashishps1(settings),
-        await _collect_interviewready(settings),
     ]:
         for r in sub:
             if r.slug not in seen_slugs:
                 seen_slugs.add(r.slug)
                 results.append(r)
-    logger.info("[questions] system-design: %d records from 4 repos", len(results))
+    logger.info("[questions] system-design: %d records from 3 repos", len(results))
     return results

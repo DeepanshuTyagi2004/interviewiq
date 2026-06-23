@@ -7,12 +7,14 @@ import re
 
 from app.models.brief import RoundType
 from app.questions.github import fetch_repo_files
+from app.questions.parse_md import extract_md_problems
 from app.questions.models import QuestionRecord
 
 logger = logging.getLogger(__name__)
 
 _PREFIX = {"lld-primer": "lldp", "machine-coding": "mcq", "grokking-ood": "ood"}
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
+_VIDEO_HOSTS = ('youtube.com', 'youtu.be')
 
 
 def _slug(title: str) -> str:
@@ -36,13 +38,26 @@ def _make_record(title: str, url: str, source: str, is_machine_coding: bool | No
 
 # --- prasadgujar/low-level-design-primer ---
 
+def _first_non_video_link(text: str) -> str | None:
+    """Return the first non-video link found in `text`, or None if only videos."""
+    for item in extract_md_problems(text):
+        url = item["url"]
+        if not any(h in url for h in _VIDEO_HOSTS):
+            return url
+    return None
+
+
 def enumerate_prasadgujar(files: dict[str, bytes]) -> list[dict]:
-    """Parse solutions.md table: | Question | Solutions | Videos |. Returns {title, url}."""
+    """Parse solutions.md table: | Question | Solutions | Videos |.
+
+    Returns {title, url} where url is the first per-problem non-video Solution link,
+    or the index file url as fallback if no per-problem link is available.
+    """
     text = files.get("solutions.md", b"").decode("utf-8", errors="replace")
     if not text:
         return []
     out = []
-    base = "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions.md"
+    fallback_url = "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions.md"
     for line in text.splitlines():
         line = line.strip()
         if not line.startswith("|") or "Question" in line or "---" in line:
@@ -57,7 +72,10 @@ def enumerate_prasadgujar(files: dict[str, bytes]) -> list[dict]:
         title = re.sub(r'^\|?\s*', '', title).strip()
         if not title or len(title) < 3:
             continue
-        out.append({"title": title, "url": base})
+        # Parse Solutions column (index 1) for per-problem link
+        solutions_col = cols[1] if len(cols) > 1 else ""
+        url = _first_non_video_link(solutions_col) or fallback_url
+        out.append({"title": title, "url": url})
     return out
 
 

@@ -116,6 +116,7 @@ async def collect_neetcode(settings) -> list[QuestionRecord]:
 
 _NEETCODE_CAT_RE = re.compile(r'^\d+\.\s*')   # strips "01. " or "01." prefix
 _SLUG_CLEAN_RE   = re.compile(r'[^a-z0-9-]+')
+_H1_LINK_RE      = re.compile(r'^\[(.+)\]\((.+)\)$')  # [text](url) from stripped H1
 
 _DIFFICULTIES = {'easy', 'medium', 'hard'}
 
@@ -158,9 +159,26 @@ def parse_neetcode_md_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
         if not h1:
             continue
         raw_title = h1[2:].strip()  # strip '# '
-        # Strip leading "<number>. " from title (e.g. "1. Two Sum" -> "Two Sum")
-        title = re.sub(r'^\d+\.\s+', '', raw_title).strip()
-        if not title:
+        # H1 may be a markdown link: [226. Invert Binary Tree](https://leetcode.com/problems/...)
+        lm = _H1_LINK_RE.match(raw_title)
+        if lm:
+            link_text = lm.group(1).strip()
+            link_url  = lm.group(2).strip()
+            # title: strip leading "<number>. " from link text
+            title = re.sub(r'^\d+\.\s+', '', link_text).strip()
+            lc_slug = leetcode_slug(link_url)
+            if lc_slug:
+                slug = lc_slug
+                url  = f"https://leetcode.com/problems/{slug}/"
+            else:
+                slug = _neetcode_slugify(title)
+                url  = f"https://leetcode.com/problems/{slug}/"
+        else:
+            # Plain H1: strip leading "<number>. " from title (e.g. "1. Two Sum" -> "Two Sum")
+            title = re.sub(r'^\d+\.\s+', '', raw_title).strip()
+            slug = _neetcode_slugify(title)
+            url  = f"https://leetcode.com/problems/{slug}/"
+        if not title or not slug:
             continue
         # Difficulty: first non-empty line after H1 that is Easy/Medium/Hard
         h1_idx = lines.index(h1)
@@ -171,8 +189,6 @@ def parse_neetcode_md_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
                 difficulty = stripped.capitalize()
                 break
             break  # only check the first subsequent non-empty line
-        slug = _neetcode_slugify(title)
-        url = f"https://leetcode.com/problems/{slug}/"
         out.append(QuestionRecord(
             slug=slug, round_type=RoundType.DSA,
             title=title, url=url,

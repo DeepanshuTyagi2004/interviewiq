@@ -1,6 +1,10 @@
+import inspect
+
 from app.questions.collectors.system_design import (
-    enumerate_donnemartin, _parse_karan_readme, _parse_ashish_readme, _parse_interviewready_readme
+    enumerate_donnemartin, _parse_karan_readme, _parse_ashish_readme,
+    collect_system_design,
 )
+import app.questions.collectors.system_design as sd_mod
 
 
 def test_enumerate_donnemartin_finds_problems_skips_template():
@@ -54,13 +58,51 @@ def test_parse_ashish_readme_extracts_problems():
     assert any("URL Shortener" in i["title"] for i in out)
 
 
-def test_parse_interviewready_readme_extracts_headings():
-    md = """## Video Processing
-## Rate Limiting
-## Service Mesh
-"""
-    out = _parse_interviewready_readme(md)
-    titles = {i["title"] for i in out}
-    assert "Video Processing" in titles
-    assert "Rate Limiting" in titles
-    assert "Service Mesh" in titles
+def test_interviewready_not_in_repo_list():
+    """InterviewReady is not fetched — _collect_interviewready function is gone."""
+    # The fetcher function must not exist on the module
+    assert not hasattr(sd_mod, "_collect_interviewready"), (
+        "_collect_interviewready should be removed (video-only repo)"
+    )
+    assert not hasattr(sd_mod, "_parse_interviewready_readme"), (
+        "_parse_interviewready_readme should be removed (video-only repo)"
+    )
+
+
+def test_interviewready_not_in_prefix_map():
+    """interviewready key is gone from the _PREFIX slug map."""
+    assert "interviewready" not in sd_mod._PREFIX
+
+
+# ---------------------------------------------------------------------------
+# SD prefer non-video link (Fix 3b)
+# ---------------------------------------------------------------------------
+
+def test_parse_ashish_readme_prefers_article_over_video():
+    """When a problem line has both an article and a video link, article wins."""
+    md = (
+        "## 💻 System Design Interview Problems\n"
+        "### Easy\n"
+        "- [Design URL Shortener](https://algomaster.io/design-url-shortener) "
+        "[Watch](https://www.youtube.com/watch?v=abc123)\n"
+        "- [Design Uber](https://www.youtube.com/watch?v=umWABit-wbk)\n"
+    )
+    out = _parse_ashish_readme(md)
+    url_shortener = next((i for i in out if "URL Shortener" in i["title"]), None)
+    assert url_shortener is not None
+    assert "youtube.com" not in url_shortener["url"], (
+        "Expected article url to be preferred over youtube for URL Shortener"
+    )
+    assert "algomaster.io" in url_shortener["url"]
+
+
+def test_parse_ashish_readme_falls_back_to_video_when_only_video():
+    """When a problem has ONLY a video link, that video url is still returned (fallback)."""
+    md = (
+        "## 💻 System Design Interview Problems\n"
+        "### Hard\n"
+        "- [Design Uber](https://www.youtube.com/watch?v=umWABit-wbk)\n"
+    )
+    out = _parse_ashish_readme(md)
+    assert len(out) == 1
+    assert "youtube.com" in out[0]["url"]

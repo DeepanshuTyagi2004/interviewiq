@@ -1,4 +1,8 @@
+import pathlib
+
 from app.questions.collectors.lld import enumerate_prasadgujar, enumerate_grokking
+
+_FIXTURE_DIR = pathlib.Path(__file__).parent / "fixtures" / "questions"
 
 
 def test_enumerate_prasadgujar_parses_solutions_table():
@@ -146,3 +150,61 @@ def test_collect_machine_coding_fail_safe():
             lld_mod.fetch_repo_files = original
 
     assert asyncio.run(run()) == []
+
+
+# ---------------------------------------------------------------------------
+# prasadgujar per-problem URL fix (Fix 2)
+# ---------------------------------------------------------------------------
+
+def _load_lld_primer_fixture() -> dict[str, bytes]:
+    """Load trimmed real solutions.md fixture into the files dict shape."""
+    text = (_FIXTURE_DIR / "lld_primer_solutions.md").read_bytes()
+    return {"solutions.md": text}
+
+
+def test_prasadgujar_urls_are_per_problem_not_index():
+    """Every problem gets a per-problem Solution url, not the index solutions.md."""
+    files = _load_lld_primer_fixture()
+    out = enumerate_prasadgujar(files)
+    index_url = "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions.md"
+    # At least some records must have a non-index url
+    non_index = [i for i in out if i["url"] != index_url]
+    assert len(non_index) > 0, "Expected some records to have per-problem urls"
+
+
+def test_prasadgujar_distinct_problems_have_distinct_urls():
+    """Distinct problems resolve to distinct urls (not all pointing to the same index)."""
+    files = _load_lld_primer_fixture()
+    out = enumerate_prasadgujar(files)
+    assert len(out) >= 3, "Expected at least 3 problems from fixture"
+    urls = [i["url"] for i in out]
+    # There should be more than one distinct url across the problems
+    assert len(set(urls)) > 1, "All problems pointing to the same url — per-problem fix not applied"
+
+
+def test_prasadgujar_url_is_non_video():
+    """Per-problem url must be a non-video link (github, blog, etc.), not youtube."""
+    files = _load_lld_primer_fixture()
+    out = enumerate_prasadgujar(files)
+    index_url = "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions.md"
+    for item in out:
+        url = item["url"]
+        if url == index_url:
+            continue  # fallback is acceptable if no solution link at all
+        assert "youtube.com" not in url and "youtu.be" not in url, (
+            f"Problem '{item['title']}' has a video url: {url}"
+        )
+
+
+def test_prasadgujar_fallback_to_index_when_no_solution_link():
+    """If a row has no Solution link at all, url falls back to the index."""
+    no_solution_md = (
+        "Question | Solutions | Videos\n"
+        "| :---: | :-: | :-: |\n"
+        "|Design Foo | - | [Video-1](https://www.youtube.com/watch?v=xxx) |\n"
+    )
+    files = {"solutions.md": no_solution_md.encode()}
+    out = enumerate_prasadgujar(files)
+    assert len(out) == 1
+    index_url = "https://github.com/prasadgujar/low-level-design-primer/blob/master/solutions.md"
+    assert out[0]["url"] == index_url, "Expected fallback to index url when no solution link"
