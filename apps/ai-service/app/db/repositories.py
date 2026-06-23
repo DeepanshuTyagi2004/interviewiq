@@ -116,8 +116,7 @@ async def clear_questions() -> int:
     return res.deleted_count
 
 
-async def query_questions(round_type: str | None = None, company: str | None = None,
-                          difficulty: str | None = None, limit: int = 100) -> list[dict]:
+def _question_filter(round_type: str | None, company: str | None, difficulty: str | None) -> dict:
     q: dict = {}
     if round_type:
         q["round_type"] = round_type
@@ -125,8 +124,21 @@ async def query_questions(round_type: str | None = None, company: str | None = N
         q["company_tags"] = company.lower()
     if difficulty:
         q["difficulty"] = difficulty.lower()
-    cursor = get_db()[INTERVIEW_QUESTIONS].find(q, {"_id": 0}).limit(limit)
+    return q
+
+
+async def query_questions(round_type: str | None = None, company: str | None = None,
+                          difficulty: str | None = None, limit: int = 100) -> list[dict]:
+    cursor = get_db()[INTERVIEW_QUESTIONS].find(
+        _question_filter(round_type, company, difficulty), {"_id": 0}).limit(limit)
     return [doc async for doc in cursor]
+
+
+async def count_questions_matching(round_type: str | None = None, company: str | None = None,
+                                   difficulty: str | None = None) -> int:
+    """True total matching the filter, ignoring the page limit — for 'showing N of TOTAL'."""
+    return await get_db()[INTERVIEW_QUESTIONS].count_documents(
+        _question_filter(round_type, company, difficulty))
 
 
 async def stored_states(collection_version: str) -> dict[tuple[str, str], dict]:

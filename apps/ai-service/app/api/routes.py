@@ -80,7 +80,9 @@ async def list_questions(round_type: str | None = None, company: str | None = No
                          difficulty: str | None = None, limit: int = 100) -> dict:
     """Read the collected question bank (thin metadata + url). Filter by round/company/difficulty."""
     items = await repo.query_questions(round_type, company, difficulty, min(limit, 500))
-    return {"questions": items, "count": len(items)}
+    total = await repo.count_questions_matching(round_type, company, difficulty)
+    # count = TRUE total matching the filter (may exceed the returned page); returned = this page size.
+    return {"questions": items, "count": total, "returned": len(items)}
 
 
 @router.get("/experiences/{company}/{role}/{level}", dependencies=[Depends(require_internal_key)])
