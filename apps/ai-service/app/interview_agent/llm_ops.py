@@ -63,11 +63,11 @@ async def classify_turn(llm: LLMClient, settings: Settings, *, round_type, activ
 
 
 async def grade_answer(llm: LLMClient, settings: Settings, *, rubric: list[dict], question: str,
-                       answer: str) -> tuple[float, float]:
+                       answer: str, artifact=None) -> tuple[float, float]:
     """Return (competency, coherence). competency = rubric-weighted mean of per-criterion scores;
     falls back to a simple mean if weights are absent."""
     res = await complete_structured(
-        llm, grade_p.GRADE_SYSTEM, grade_p.build_grade_prompt(rubric, question, answer),
+        llm, grade_p.GRADE_SYSTEM, grade_p.build_grade_prompt(rubric, question, answer, artifact),
         _Grade, max_repairs=_scorer_max_repairs(settings), label="iv-grade")
     weights = {(c.get("criterion") or "").lower(): float(c.get("weight") or 0.0) for c in rubric}
     total_w = sum(weights.values())

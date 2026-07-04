@@ -57,15 +57,18 @@ async def _gen(llm, settings, *, action: Action, state: SessionState, extra: dic
 
 
 async def _score_last_answer(scorer, settings: Settings, state: SessionState,
-                             text: str, timing: UtteranceTiming) -> None:
+                             text: str, timing: UtteranceTiming, artifact=None) -> None:
     """Grade the candidate's answer against the active ladder's rubric + behavioral signals; update
     rolling. Grading failure is swallowed (spec §10: never block; keep last-known score)."""
     lad = state.active_ladder() or {}
     rubric = lad.get("rubric") or []
     try:
+        # Forward the artifact kwarg only when present — keeps compatibility with callers/test
+        # doubles (e.g. test_session.py's fake_grade) that stub grade_answer's pre-Task-15 signature.
+        grade_kwargs = {"artifact": artifact} if artifact is not None else {}
         competency, _coh = await llm_ops.grade_answer(
             scorer, settings, rubric=rubric,
-            question=lad.get("basePrompt") or lad.get("base_prompt") or "", answer=text)
+            question=lad.get("basePrompt") or lad.get("base_prompt") or "", answer=text, **grade_kwargs)
     except LLMError as exc:
         logger.warning("[iv] grade failed (%s) — keeping last score", exc)
         return
@@ -231,8 +234,10 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
             state.elapsed_s = timing.t_end
             state.transcript.append(Turn(speaker="candidate", text=text, t_start=timing.t_start, t_end=timing.t_end))
 
-            # Eval tail (spec §4): score the answer just given, then refresh the pacing directive.
-            await _score_last_answer(scorer, settings, state, text, timing)
+            # Eval tail (spec §4): score the answer just given (with the current code/diagram),
+            # then refresh the pacing directive.
+            artifact = await transport.current_artifact()
+            await _score_last_answer(scorer, settings, state, text, timing, artifact)
             await _update_pacing(scorer, settings, state)
 
             decision = await run_decision(state, Turn("candidate", text), deps)

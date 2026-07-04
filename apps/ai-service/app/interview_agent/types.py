@@ -65,6 +65,11 @@ class EndedReason(str, Enum):
     ABORTED_TECHNICAL = "aborted_technical"
 
 
+class ArtifactKind(str, Enum):
+    CODE = "code"
+    DIAGRAM = "diagram"
+
+
 @dataclass(frozen=True)
 class UtteranceTiming:
     t_start: float
@@ -78,6 +83,16 @@ class Turn:
     text: str
     t_start: float = 0.0
     t_end: float = 0.0
+
+
+@dataclass(frozen=True)
+class Artifact:
+    """A read-only snapshot of what the candidate produced in the in-browser tool: source code
+    (DSA/LLD) or a system-design diagram rendered to a text summary. Judged by reading — never
+    executed in MVP (spec §3.1)."""
+    kind: ArtifactKind
+    content: str
+    language: str | None = None
 
 
 @dataclass(frozen=True)
