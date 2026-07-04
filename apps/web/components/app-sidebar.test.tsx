@@ -15,6 +15,11 @@ vi.mock("@/features/profile", () => ({
 vi.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ logout: vi.fn() }),
 }));
+// AppSidebar reads useCurrentUser().isAdmin to gate admin-only nav; stub it (the real hook uses
+// TanStack Query, which would need a QueryClientProvider this test doesn't set up).
+vi.mock("@/lib/hooks/useCurrentUser", () => ({
+  useCurrentUser: () => ({ user: null, isAdmin: false, isLoading: false }),
+}));
 vi.mock("next/navigation", async () => {
   const actual = await vi.importActual<typeof import("next/navigation")>(
     "next/navigation",

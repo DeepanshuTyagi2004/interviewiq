@@ -49,11 +49,15 @@ export async function apiFetch<T = unknown>(
 function doFetch(path: string, options: RequestOptions): Promise<Response> {
   const { json, headers, ...rest } = options;
   const token = getAccessToken();
+  // For multipart/binary uploads (FormData bodies) the browser MUST set Content-Type itself so it
+  // can add the multipart boundary — so we omit the default JSON content type in that case.
+  const isFormData =
+    typeof FormData !== "undefined" && rest.body instanceof FormData;
 
   return fetch(`${BASE_URL}${path}`, {
     ...rest,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(headers ?? {}),
     },

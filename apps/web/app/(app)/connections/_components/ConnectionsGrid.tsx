@@ -3,6 +3,7 @@
 import { Link2 } from "lucide-react";
 import { ProviderCard } from "./ProviderCard";
 import { LeetCodeCard } from "./LeetCodeCard";
+import { ResumeCard } from "./ResumeCard";
 import { PROVIDERS } from "./providers";
 import { useProfile, type SourceKind } from "@/features/profile";
 import { ConnectionsSkeleton, EmptyState } from "@/components/patterns";
@@ -47,6 +48,10 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
               errored={errorSource === provider.source}
             />
           );
+        }
+        // Résumé isn't an OAuth/paste link — it's an upload+parse import with its own card.
+        if (provider.source === "RESUME") {
+          return <ResumeCard key={provider.source} provider={provider} />;
         }
         const src = byKind[provider.source];
         return (

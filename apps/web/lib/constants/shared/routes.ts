@@ -16,7 +16,10 @@ export const ROUTES = {
   profile: "/profile",
   connections: "/connections",
   jobs: "/jobs",
+  interviews: "/interviews",
   loops: "/loops",
+  intelligence: "/intelligence",
+  shareExperience: "/experiences",
   settings: {
     account: "/settings/account",
     billing: "/settings/billing",

@@ -19,6 +19,7 @@ import { ContributionHeatmap } from "@/components/visualizations/ContributionHea
 import { LeetCodeDifficulty } from "@/components/visualizations/LeetCodeDifficulty";
 import { LeetCodeTopics } from "@/components/visualizations/LeetCodeTopics";
 import { LeetCodeStatTiles } from "@/components/visualizations/LeetCodeStatTiles";
+import { CandidateDetailsSection } from "@/features/onboarding/components/CandidateDetailsSection";
 
 export default function ProfilePage() {
   const { data, isLoading, isError } = useProfile();
@@ -54,6 +55,8 @@ export default function ProfilePage() {
           </Button>
         }
       />
+
+      <CandidateDetailsSection />
 
       <AtAGlance
         atAGlance={data.atAGlance}

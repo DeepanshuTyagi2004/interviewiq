@@ -19,7 +19,7 @@ export const PROVIDERS: ProviderMeta[] = [
     source: "RESUME",
     label: "Résumé",
     description: "Work history, education, projects and achievements.",
-    live: false,
+    live: true,
   },
   {
     source: "LEETCODE",

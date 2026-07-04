@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import {
+  Activity,
+  Briefcase,
+  CalendarClock,
   LayoutDashboard,
   Link2,
   LifeBuoy,
+  Send,
   Sparkles,
   UserCircle,
 } from "lucide-react";
@@ -21,11 +25,20 @@ import { NavMain, type NavItem } from "@/components/nav-main";
 import { NavSecondary, type NavSecondaryItem } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import { ROUTES } from "@/lib/constants/shared";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 const navMain: NavItem[] = [
   { title: "Dashboard", url: ROUTES.dashboard, icon: LayoutDashboard },
   { title: "Profile", url: ROUTES.profile, icon: UserCircle },
   { title: "Connections", url: ROUTES.connections, icon: Link2 },
+  { title: "Jobs", url: ROUTES.jobs, icon: Briefcase },
+  { title: "Interviews", url: ROUTES.interviews, icon: CalendarClock },
+  { title: "Share experience", url: ROUTES.shareExperience, icon: Send },
+];
+
+/** Admin-only nav entries, appended when the current user is an admin. */
+const adminNav: NavItem[] = [
+  { title: "Intelligence", url: ROUTES.intelligence, icon: Activity },
 ];
 
 const navSecondary: NavSecondaryItem[] = [
@@ -35,6 +48,9 @@ const navSecondary: NavSecondaryItem[] = [
 export function AppSidebar(
   props: React.ComponentPropsWithoutRef<typeof Sidebar>,
 ) {
+  const { isAdmin } = useCurrentUser();
+  const items = isAdmin ? [...navMain, ...adminNav] : navMain;
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-[--header-height] justify-center border-b border-sidebar-border group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -55,7 +71,7 @@ export function AppSidebar(
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain items={items} />
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
