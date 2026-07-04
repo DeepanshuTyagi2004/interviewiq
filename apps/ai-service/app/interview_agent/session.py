@@ -22,8 +22,6 @@ from app.llm.client import LLMClient, LLMError, build_llm_client
 
 logger = logging.getLogger(__name__)
 
-_ANSWER_LIKE = ("answer",)   # turn classes whose text we grade; classify happens inside run_decision
-
 
 def _transcript_tail(state: SessionState, n: int = 4) -> list[dict]:
     return [{"speaker": t.speaker, "text": t.text} for t in state.transcript[-n:]]
@@ -46,10 +44,16 @@ async def _say(transport: Transport, state: SessionState, text: str) -> None:
 
 
 async def _gen(llm, settings, *, action: Action, state: SessionState, extra: dict) -> str:
+    """Generate a spoken line for `action`. Spec §10: never let a transient LLM failure crash the
+    interview — degrade to a safe bridging line and keep the conversation moving."""
     persona = state.plan.get("persona") or {}
-    return await llm_ops.generate_line(
-        llm, settings, action=action.value, persona=persona,
-        active_item=state.active_ladder() or {}, transcript_tail=_transcript_tail(state), extra=extra)
+    try:
+        return await llm_ops.generate_line(
+            llm, settings, action=action.value, persona=persona,
+            active_item=state.active_ladder() or {}, transcript_tail=_transcript_tail(state), extra=extra)
+    except LLMError as exc:
+        logger.warning("[iv] generate_line failed (%s) — using fallback line", exc)
+        return "Let's keep going — could you tell me a bit more about your thinking here?"
 
 
 async def _score_last_answer(scorer, settings: Settings, state: SessionState,
@@ -197,11 +201,14 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
     """Drive one live interview to completion; return the SessionOutcome. Never raises for interview
     content — technical failures resolve to EndedReason.ABORTED_TECHNICAL (spec §10)."""
     state = SessionState.from_plan(plan, bands_from_settings(settings))
-    conv_llm = build_llm_client(settings, model=settings.interview_llm_model or None)
-    scorer = build_llm_client(settings, model=settings.interview_scorer_model or None)
-    deps = GraphDeps(llm=conv_llm, settings=settings)
+    conv_llm = None
+    scorer = None
 
     try:
+        conv_llm = build_llm_client(settings, model=settings.interview_llm_model or None)
+        scorer = build_llm_client(settings, model=settings.interview_scorer_model or None)
+        deps = GraphDeps(llm=conv_llm, settings=settings)
+
         # Opening.
         await _say(transport, state, state.plan.get("persona", {}).get("opening") or
                    await _gen(conv_llm, settings, action=Action.OPEN, state=state, extra={}))
@@ -235,6 +242,9 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
         if state.ended_reason is None:
             state.ended_reason = EndedReason.NATURAL_COMPLETE
         return finalize(state, state.ended_reason)
+    except LLMError as exc:
+        logger.warning("[iv] uncaught LLMError in session driver (%s) — aborting technical", exc)
+        return finalize(state, EndedReason.ABORTED_TECHNICAL)
     finally:
         for c in (conv_llm, scorer):
             if isinstance(c, LLMClient):

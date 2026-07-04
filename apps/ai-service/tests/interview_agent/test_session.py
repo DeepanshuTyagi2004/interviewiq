@@ -5,6 +5,7 @@ import app.interview_agent.llm_ops as ops
 from app.interview_agent.transport import ScriptedTransport
 from app.interview_agent.types import EndedReason, PacingDirective, TurnClass, UtteranceTiming
 from app.config import get_settings
+from app.llm.client import LLMError
 
 
 PLAN = {
@@ -101,3 +102,19 @@ def test_silence_aborts_after_retries(monkeypatch):
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.ABORTED_TECHNICAL
     assert t.ended is True
+
+
+def test_generate_line_failure_degrades_gracefully(monkeypatch):
+    # generate_line is the most-called LLM op (opening, every ask/hint/redirect/wrap line); a
+    # transient failure there must never raise out of run_session — it should degrade to a
+    # fallback line and the session must still resolve to a SessionOutcome (spec §10).
+    _install_stubs(monkeypatch)
+
+    async def failing_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
+        raise LLMError("boom")
+    monkeypatch.setattr(ops, "generate_line", failing_generate)
+
+    t = ScriptedTransport(_script(6, gap=120.0))
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert t.ended is True
+    assert isinstance(out.ended_reason, EndedReason)
