@@ -19,6 +19,7 @@ from app.api.routes import router
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.jobs.brief_generation import any_combination_missing_brief, execute_tracked_run
+from app.jobs.pipeline_runs import PipelineRunLogHandler
 from app.jobs.run_store import RUN_STORE, RunLogHandler, new_run_id
 from app.jobs.scheduler import create_scheduler
 from app.exa.client import ExaClient, build_exa_client
@@ -40,6 +41,10 @@ async def lifespan(app: FastAPI):
     root.setLevel(settings.log_level.upper())
     if not any(isinstance(h, RunLogHandler) for h in root.handlers):
         root.addHandler(RunLogHandler())
+    # Same idea for the keyed observability consoles (résumé parse, interview-prep): routes logs
+    # to the run bound to the current task's context. No-op unless a run is bound.
+    if not any(isinstance(h, PipelineRunLogHandler) for h in root.handlers):
+        root.addHandler(PipelineRunLogHandler())
 
     await mongo.connect(settings)
     app.state.exa = build_exa_client(settings)

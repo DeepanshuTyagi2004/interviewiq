@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 EXPERIENCES = "experiences"
 INTERVIEW_BRIEFS = "interview_briefs"
 INTERVIEW_QUESTIONS = "interview_questions"
+INTERVIEW_PLANS = "interview_plans"
 
 _client: AsyncIOMotorClient | None = None
 _db: AsyncIOMotorDatabase | None = None
@@ -76,6 +77,9 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
         [("round_type", ASCENDING), ("company_tags", ASCENDING)],
         name="round_type_company_tags",
     )
+
+    # Interview plans: one plan per session (Pipeline 1). Keyed/queried by sessionId.
+    await db[INTERVIEW_PLANS].create_index([("sessionId", ASCENDING)], name="sessionId", unique=True)
 
 
 async def ping() -> bool:

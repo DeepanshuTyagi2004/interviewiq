@@ -11,19 +11,25 @@ import asyncio
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import repositories as repo
 from app.jobs.brief_generation import execute_tracked_run
+from app.jobs.pipeline_runs import RUNS
 from app.jobs.question_collection import execute_tracked_collection
 from app.jobs.run_store import RUN_STORE, new_run_id
+from app.interview_prep.schema import GenerateInterviewPlanRequest
+from app.interview_prep.tracked_pipeline import run_interview_prep, start_interview_prep_run
 from app.models.experience import Level, RawExperience, Source
+from app.resume.tracked_parse import run_resume_parse, start_resume_run
 from app.exa.client import ExaClient
 
 logger = logging.getLogger(__name__)
+
+_MAX_RESUME_BYTES = 6 * 1024 * 1024
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(require_internal_key)])
 
@@ -115,3 +121,69 @@ async def clear_briefs() -> dict:
     removed = await repo.clear_briefs()
     logger.info("[admin] cleared %d generated brief(s)", removed)
     return {"deleted": removed}
+
+
+# --- Résumé parse observability console (admin test-bench) ---------------------------------------
+# A parallel, instrumented copy of POST /resumes/parse: start a run (returns immediately, executes
+# in the background recording every step), then poll its snapshot. The production onboarding route
+# is untouched. Unlike the brief/question RUN_STORE, these are keyed (concurrent) runs.
+
+@router.post("/resume/parse/run")
+async def start_resume_parse_run(
+    request: Request, filename: str = Query("résumé.pdf")
+) -> dict:
+    """Start an instrumented résumé-parse run. Body is the raw PDF (Content-Type: application/pdf),
+    same contract as /resumes/parse. Returns the run_id to poll."""
+    pdf_bytes = await request.body()
+    if not pdf_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="empty file")
+    if len(pdf_bytes) > _MAX_RESUME_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="résumé exceeds 6 MB")
+    settings = get_settings()
+    run_id = start_resume_run(filename, len(pdf_bytes))
+    asyncio.create_task(run_resume_parse(pdf_bytes, filename, run_id, settings))
+    return {"run_id": run_id, "status": "running"}
+
+
+@router.get("/resume/parse/runs")
+async def list_resume_parse_runs() -> dict:
+    """Recent résumé-parse runs (newest first) — the monitor-later hook."""
+    return {"runs": RUNS.list_runs("resume_parse")}
+
+
+@router.get("/resume/parse/runs/{run_id}")
+async def resume_parse_run_status(run_id: str, after: int = Query(0, ge=0)) -> dict:
+    """Snapshot of one run. Pass ?after=<last_seq> to fetch only new log lines."""
+    snap = RUNS.snapshot(run_id, after=after)
+    if snap is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown run_id")
+    return snap
+
+
+# --- Interview-prep observability console (admin test-bench) ------------------------------------
+# Same request body as POST /interview-plans; runs the plan pipeline in the background with per-stage
+# instrumentation (context → cache gate → persona/ladders/probes → assemble), bypassing the cache
+# and NOT persisting the plan. The production /interview-plans route is untouched.
+
+@router.post("/interview-prep/run")
+async def start_interview_prep_run_endpoint(req: GenerateInterviewPlanRequest) -> dict:
+    """Start an instrumented interview-prep run. Returns the run_id to poll."""
+    settings = get_settings()
+    run_id = start_interview_prep_run(req)
+    asyncio.create_task(run_interview_prep(req, run_id, settings))
+    return {"run_id": run_id, "status": "running"}
+
+
+@router.get("/interview-prep/runs")
+async def list_interview_prep_runs() -> dict:
+    """Recent interview-prep runs (newest first)."""
+    return {"runs": RUNS.list_runs("interview_prep")}
+
+
+@router.get("/interview-prep/runs/{run_id}")
+async def interview_prep_run_status(run_id: str, after: int = Query(0, ge=0)) -> dict:
+    """Snapshot of one run. Pass ?after=<last_seq> to fetch only new log lines."""
+    snap = RUNS.snapshot(run_id, after=after)
+    if snap is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown run_id")
+    return snap

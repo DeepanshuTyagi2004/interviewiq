@@ -221,7 +221,16 @@ class LLMClient:
                         last_error = f"HTTP 200 but malformed body: {resp.text[:300]}"
                         cool_for = _TRANSPORT_BACKOFF_SECONDS
                     else:
-                        return parse_json(content), extract_thought(content)
+                        try:
+                            data = parse_json(content)
+                        except ValueError as exc:
+                            # 200 but no salvageable JSON (e.g. a refusal / prose-only reply). Treat
+                            # like a malformed body: cool, rotate, and ultimately raise LLMError — a
+                            # bare ValueError must never escape complete() (callers only catch LLMError).
+                            last_error = f"HTTP 200 but no salvageable JSON: {exc}"
+                            cool_for = _TRANSPORT_BACKOFF_SECONDS
+                        else:
+                            return data, extract_thought(content)
                 elif resp.status_code == 429:
                     cool_for, kind = _retry_plan(resp.text or "", resp.headers.get("retry-after"))
                     cool_for = cool_for if cool_for is not None else _RATE_LIMIT_BACKOFF_SECONDS
@@ -250,10 +259,12 @@ class LLMClient:
         logger.info("[llm] %s — retrying now", label)
 
 
-def build_llm_client(settings: Settings) -> LLMClient:
+def build_llm_client(settings: Settings, *, model: str | None = None) -> LLMClient:
+    """Build a client bound to a specific model. `model` overrides settings.llm_model — used by
+    résumé parsing (RESUME_LLM_MODEL) so it can run on a different Gemini Flash than briefs."""
     return LLMClient(
         base_url=settings.llm_base_url,
         api_keys=settings.llm_api_keys,
-        model=settings.llm_model,
+        model=model or settings.llm_model,
         timeout_seconds=settings.llm_timeout_seconds,
     )

@@ -1,0 +1,23 @@
+{
+  "source": "google-googleyness",
+  "url": "https://careers.google.com/how-we-hire/",
+  "company_tags": ["google"],
+  "category": "googleyness",
+  "questions": [
+    { "title": "Tell me about a time you worked with people from very different backgrounds or perspectives." },
+    { "title": "Describe a situation where you were comfortable with ambiguity and still made progress." },
+    { "title": "Tell me about a time you helped a teammate without being asked." },
+    { "title": "Describe a time you challenged the status quo to improve something." },
+    { "title": "Tell me about a time you had to learn something completely new very quickly." },
+    { "title": "Describe a time you dealt with a setback or failure and what you took away from it." },
+    { "title": "Tell me about a time you put the team's success ahead of your own recognition." },
+    { "title": "Describe a time you navigated a problem with no clear right answer." },
+    { "title": "Tell me about a time you gave or received difficult feedback." },
+    { "title": "Describe a time you took initiative on something outside your defined role." },
+    { "title": "Tell me about a time you had to influence others without formal authority." },
+    { "title": "Describe a time you made a decision that was unpopular but right." },
+    { "title": "Tell me about a time you balanced multiple competing priorities." },
+    { "title": "Describe a time intellectual curiosity led you to a better solution." },
+    { "title": "Tell me about a time you collaborated to resolve a disagreement on your team." }
+  ]
+}

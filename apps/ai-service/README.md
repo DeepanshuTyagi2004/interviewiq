@@ -68,8 +68,20 @@ uvicorn app.main:app --reload --port 8000
 - `GET /health` — public; reports MongoDB + LLM connectivity.
 - `GET /briefs/{company}/{role}/{level}` — internal key; the pre-generated brief, or 404.
 - `GET /experiences/{company}/{role}/{level}` — internal key; paginated raw experiences + signals.
+- `POST /interview-plans` — internal key; build (or return the cached) `InterviewPlan` for a
+  session (Interview Prep, Pipeline 1). Cache-gated on a fused input hash, so an identical
+  re-request returns the stored plan with **no LLM calls**. Body + response shapes are the
+  `GenerateInterviewPlanRequest` / `InterviewPlan` schemas in `interviewiq-infra`'s
+  `contracts/openapi.yaml`.
 
 Internal endpoints require the `X-Internal-Api-Key` header.
+
+**Interview prep** lives in `app/interview_prep/` (context → generate → pipeline), with
+`app/llm/structured.py` (an Instructor-style validate-and-repair wrapper over `LLMClient`, no new
+dependency) and `app/obs/` (an **optional** Langfuse span helper — a no-op unless `LANGFUSE_ENABLED`
+and keys are set; `langfuse` is intentionally NOT in `requirements.txt`). The three prompt modules
+in `app/interview_prep/prompts/` are **scaffolds** — the real interviewer-voice text is product IP,
+drafted by a human. Bump each `*_PROMPT_VERSION` (recorded on the stored plan) when they change.
 
 ## Swapping the LLM
 

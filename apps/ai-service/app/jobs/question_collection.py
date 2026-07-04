@@ -14,6 +14,7 @@ from app.config import Settings
 from app.db import repositories as repo
 from app.llm.client import build_llm_client, gather_capped
 from app.questions.collectors import dsa as dsa_collector
+from app.questions.collectors.behavioural import collect_behavioural
 from app.questions.collectors.lld import collect_lld
 from app.questions.collectors.system_design import collect_system_design
 from app.questions.enrich import enrich_one
@@ -37,19 +38,21 @@ async def _store(rec: QuestionRecord, settings: Settings, stamp: str) -> None:
 
 async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
     stamp = _stamp()
-    counts = {"dsa": 0, "system-design": 0, "lld": 0, "unchanged": 0,
+    counts = {"dsa": 0, "system-design": 0, "lld": 0, "behavioural": 0, "unchanged": 0,
               "enriched": 0, "enrich_failed": 0, "skipped": 0, "cancelled": 0}
     stored = await repo.stored_states(settings.collection_version)
 
-    # DSA — granular: fetch all sources (fail-safe), merge, write only new/changed items.
-    dsa = merge_dsa([
+    # DSA + behavioural — granular & enrich-free: metadata is known at collection time,
+    # so write directly, skipping only items whose source_hash is unchanged.
+    direct = merge_dsa([
         await dsa_collector.collect_snehasishroy(settings),
         await dsa_collector.collect_neetcode(settings),
         await dsa_collector.collect_kaggle(settings),
     ])
-    for r in dsa:
+    direct += await collect_behavioural(settings)
+    for r in direct:
         r.source_hash = compute_source_hash(r)
-        counts["dsa"] += 1
+        counts[r.round_type.value] += 1
         st = stored.get((r.round_type.value, r.slug))
         if not force and st and st["source_hash"] == r.source_hash:
             counts["unchanged"] += 1
@@ -73,7 +76,7 @@ async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
         if st in counts:
             counts[st] += 1
 
-    counts["total"] = counts["dsa"] + len(seeds)
+    counts["total"] = len(direct) + len(seeds)
     logger.info("[questions] collection done: %s", counts)
     return counts
 

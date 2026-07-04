@@ -11,7 +11,13 @@ from datetime import datetime
 
 from pymongo import UpdateOne
 
-from app.db.mongo import EXPERIENCES, INTERVIEW_BRIEFS, INTERVIEW_QUESTIONS, get_db
+from app.db.mongo import (
+    EXPERIENCES,
+    INTERVIEW_BRIEFS,
+    INTERVIEW_PLANS,
+    INTERVIEW_QUESTIONS,
+    get_db,
+)
 from app.models.experience import RawExperience
 
 
@@ -151,6 +157,25 @@ async def stored_states(collection_version: str) -> dict[tuple[str, str], dict]:
             async for d in cur}
 
 
+# --- interview_plans (one plan per session: Pipeline 1) --------------------------
+# Docs are the camelCase wire shape from the contract (interviewiq-infra openapi.yaml), so the
+# backend consumes them as-is. Keyed on sessionId.
+
+def _plan_key(doc: dict) -> dict:
+    return {"sessionId": doc["sessionId"]}
+
+
+async def upsert_plan(doc: dict) -> dict:
+    """Replace the plan for this session — idempotent upsert keyed on sessionId (mirrors upsert_brief)."""
+    await get_db()[INTERVIEW_PLANS].replace_one(_plan_key(doc), doc, upsert=True)
+    return doc
+
+
+async def get_plan(session_id: str) -> dict | None:
+    """The stored plan for a session (clean camelCase doc, Mongo _id projected out), or None."""
+    return await get_db()[INTERVIEW_PLANS].find_one({"sessionId": session_id}, {"_id": 0})
+
+
 def _with_id(doc: dict | None) -> dict:
     if doc and "_id" in doc:
         doc["id"] = str(doc.pop("_id"))
@@ -168,4 +193,6 @@ __all__ = [
     "clear_questions",
     "query_questions",
     "stored_states",
+    "upsert_plan",
+    "get_plan",
 ]

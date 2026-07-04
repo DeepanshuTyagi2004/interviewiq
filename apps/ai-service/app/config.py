@@ -86,6 +86,14 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(
         "https://generativelanguage.googleapis.com/v1beta/openai", alias="LLM_BASE_URL",
     )
+    # Dedicated model for résumé parsing (onboarding). Reuses the same keys/round-robin client, but
+    # lets résumé extraction run on a different Gemini Flash than briefs/questions. Empty → falls
+    # back to llm_model, so the service still starts and parses when this is unset.
+    resume_llm_model: str = Field("", alias="RESUME_LLM_MODEL")
+    # Dedicated model for interview-prep PLAN synthesis (persona / ladders / probes). Same keys and
+    # round-robin client; empty → falls back to llm_model. Scoped so plan-gen can run on a different
+    # model than brief generation / question enrichment (which stay on llm_model).
+    prep_llm_model: str = Field("", alias="PREP_LLM_MODEL")
     # 120s, not 60: Gemma 4 31B always emits a <thought> preamble, so responses are slow (seen 12-31s)
     # and the tail runs past 60s -> httpx ReadTimeout (surfaces as "transport error", not a 429).
     llm_timeout_seconds: float = Field(120.0, alias="LLM_TIMEOUT_SECONDS")
@@ -133,6 +141,29 @@ class Settings(BaseSettings):
     neetcode_ref: str = Field("main", alias="NEETCODE_REF")
     machine_coding_repo: str = Field("lavakumarThatisetti/Machine-Coding-Round", alias="MACHINE_CODING_REPO")
     machine_coding_ref: str = Field("master", alias="MACHINE_CODING_REF")
+    # Behavioural/HR scrape sources (Amazon LP + Googleyness are vendored JSON under <data_dir>/behavioural/).
+    tih_repo: str = Field("yangshun/tech-interview-handbook", alias="TIH_REPO")
+    tih_ref: str = Field("main", alias="TIH_REF")
+    rohan_behavioural_repo: str = Field("rohan-paul/Awesome-JavaScript-Interviews", alias="ROHAN_BEHAVIOURAL_REPO")
+    rohan_behavioural_ref: str = Field("master", alias="ROHAN_BEHAVIOURAL_REF")
+
+    # --- Interview prep (Pipeline 1) ---
+    # Seed questions pulled from the bank per round when building ladders.
+    prep_questions_per_round: int = Field(6, alias="PREP_QUESTIONS_PER_ROUND")
+    # structured.py re-ask budget: how many times to re-ask the LLM to fix invalid JSON.
+    prep_max_repairs: int = Field(2, alias="PREP_MAX_REPAIRS")
+    # Recorded on every stored plan; bump to force regeneration when the plan SHAPE changes.
+    prep_plan_version: str = Field("v1", alias="PREP_PLAN_VERSION")
+    # Concurrent LLM calls in Stage 2 (persona / ladders / probes = 3). Same RPM discipline as EXTRACT_CONCURRENCY.
+    prep_concurrency: int = Field(3, alias="PREP_CONCURRENCY")
+
+    # --- Langfuse tracing (OPTIONAL) ---
+    # New runtime dependency, kept OPTIONAL: the service starts and runs without the `langfuse`
+    # package installed. Tracing is a NO-OP unless enabled AND both keys are set (see app/obs).
+    langfuse_enabled: bool = Field(False, alias="LANGFUSE_ENABLED")
+    langfuse_public_key: str = Field("", alias="LANGFUSE_PUBLIC_KEY")
+    langfuse_secret_key: str = Field("", alias="LANGFUSE_SECRET_KEY")
+    langfuse_host: str = Field("https://cloud.langfuse.com", alias="LANGFUSE_HOST")
 
     # --- Logging --- set to DEBUG for the most verbose output.
     log_level: str = Field("INFO", alias="LOG_LEVEL")

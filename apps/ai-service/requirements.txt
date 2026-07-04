@@ -7,3 +7,4 @@ python-dotenv>=1.0
 motor>=3.6              # async MongoDB driver
 httpx>=0.27            # async HTTP: LLM calls
 apscheduler>=3.10      # in-process scheduler (no separate worker for V1)
+pypdf>=4.0            # résumé PDF -> text extraction (onboarding parse)

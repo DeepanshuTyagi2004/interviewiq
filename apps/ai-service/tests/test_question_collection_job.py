@@ -37,10 +37,11 @@ class _FakeLLM:
 
 
 def _setup(monkeypatch, *, dsa_records=None, sd_records=None, lld_records=None,
-           stored=None, cancelled=False, enrich_status="enriched"):
+           behavioural_records=None, stored=None, cancelled=False, enrich_status="enriched"):
     dsa_records = dsa_records or []
     sd_records = sd_records or []
     lld_records = lld_records or []
+    behavioural_records = behavioural_records or []
     stored = stored or {}
 
     async def fake_snehasishroy(s): return dsa_records
@@ -52,8 +53,10 @@ def _setup(monkeypatch, *, dsa_records=None, sd_records=None, lld_records=None,
 
     async def fake_collect_sd(s): return sd_records
     async def fake_collect_lld(s): return lld_records
+    async def fake_collect_behavioural(s): return behavioural_records
     monkeypatch.setattr(qc, "collect_system_design", fake_collect_sd)
     monkeypatch.setattr(qc, "collect_lld", fake_collect_lld)
+    monkeypatch.setattr(qc, "collect_behavioural", fake_collect_behavioural)
 
     async def fake_stored(version): return stored
     monkeypatch.setattr(qc.repo, "stored_states", fake_stored)

@@ -5,20 +5,37 @@
 - GET  /briefs/{company}/{role}/{level}      — internal key; the brief (404 if failed/missing)
 - POST /briefs/{company}/{role}/{level}/refresh — internal key; regenerate now, return it
 - GET  /experiences/{company}/{role}/{level} — internal key; paginated paste-in experiences
+- POST /interview-plans                       — internal key; build/return the cached InterviewPlan (prep)
+- POST /interview-plans/start                  — internal key; start plan gen in background, return run_id
+- GET  /interview-plans/runs/{run_id}          — internal key; poll a started run (running|completed|failed)
+- POST /resumes/parse                         — internal key; PDF body -> structured JSON (onboarding)
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import ValidationError
 
 from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import mongo, repositories as repo
-from app.llm.client import build_llm_client
+from app.llm.client import LLMError, build_llm_client
 from app.jobs.brief_generation import generate_one
 from app.exa.client import ExaClient, ExaConfigError
+from app.interview_prep.async_runner import PLAN_RUNS, run_plan_async
+from app.interview_prep.pipeline import PrepDataError, generate_interview_plan
+from app.interview_prep.schema import GenerateInterviewPlanRequest
+from app.models.resume import ParsedResume
+from app.prompts.parse_resume import RESUME_SYSTEM, build_parse_resume_prompt
+from app.resume.extract import ResumeExtractError, extract_text
 from app.targets import Combination, fetch_combinations
 
 router = APIRouter()
+
+# Defence in depth — the backend caps the multipart upload at 6 MB; mirror it here so a direct
+# internal call can't feed us an unbounded body.
+_MAX_RESUME_BYTES = 6 * 1024 * 1024
 
 
 @router.get("/health")
@@ -95,3 +112,78 @@ async def list_experiences(
 ) -> dict:
     total, items = await repo.paginate_experiences(company, role, level, page, size)
     return {"total": total, "page": page, "size": size, "items": items}
+
+
+@router.post("/interview-plans", dependencies=[Depends(require_internal_key)])
+async def generate_plan(req: GenerateInterviewPlanRequest) -> dict:
+    """Build (or return the cached) InterviewPlan for a session (Pipeline 1).
+
+    The backend assembles the session context + JD + candidate profile and posts it here. Cache-
+    gated on the fused input hash, so an identical re-request returns the stored plan with no LLM
+    calls. Returns the camelCase plan doc (interviewiq-infra openapi.yaml InterviewPlan)."""
+    settings = get_settings()
+    try:
+        return await generate_interview_plan(req, settings)
+    except PrepDataError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+    except LLMError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail=f"interview plan generation failed: {exc}")
+
+
+@router.post("/interview-plans/start", dependencies=[Depends(require_internal_key)])
+async def start_interview_plan(req: GenerateInterviewPlanRequest) -> dict:
+    """Fire-and-poll variant of POST /interview-plans. Start plan generation (the same cache-gated,
+    persisted production path) in the background and return a ``run_id`` immediately, so the caller
+    never holds one long HTTP call open for the concurrent Stage-2 LLM work. Poll
+    GET /interview-plans/runs/{run_id} until status is ``completed`` (carries the plan) or ``failed``.
+    """
+    settings = get_settings()
+    run_id = PLAN_RUNS.create()
+    asyncio.create_task(run_plan_async(req, run_id, settings))
+    return {"run_id": run_id, "status": "running"}
+
+
+@router.get("/interview-plans/runs/{run_id}", dependencies=[Depends(require_internal_key)])
+async def interview_plan_run_status(run_id: str) -> dict:
+    """Poll a run started by /interview-plans/start. Returns ``{run_id, status, plan, error}`` where
+    status is ``running`` | ``completed`` (``plan`` set) | ``failed`` (``error`` = {code, message})."""
+    rec = PLAN_RUNS.get(run_id)
+    if rec is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown run_id")
+    return rec
+
+
+@router.post("/resumes/parse", dependencies=[Depends(require_internal_key)])
+async def parse_resume(request: Request) -> dict:
+    """Parse a résumé PDF into structured JSON to prefill onboarding.
+
+    The body is the raw PDF (Content-Type: application/pdf) — no multipart, so this service needs
+    no python-multipart dependency; the backend owns the upload and forwards the bytes. Stateless:
+    nothing is persisted here. Returns a ParsedResume dict; the backend maps it onto CandidateProfile.
+    """
+    pdf_bytes = await request.body()
+    if len(pdf_bytes) > _MAX_RESUME_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                            detail="résumé exceeds 6 MB")
+    try:
+        text = extract_text(pdf_bytes)
+    except ResumeExtractError as exc:
+        # Unreadable / image-only PDF — the UI falls back to manual entry.
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+    settings = get_settings()
+    try:
+        async with build_llm_client(settings, model=settings.resume_llm_model or None) as llm:
+            data = await llm.complete_json(
+                RESUME_SYSTEM, build_parse_resume_prompt(text), label="resume-parse")
+    except LLMError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail=f"résumé parsing failed: {exc}")
+
+    try:
+        parsed = ParsedResume.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail=f"résumé parse produced invalid data: {exc.errors()[:3]}")
+    return parsed.model_dump()
