@@ -7,7 +7,7 @@ export function useLocalMedia(session: LiveSession) {
   const [micOn, setMicOn] = useState(true)
   const [camOn, setCamOn] = useState(true)
   const [error] = useState<string | null>(null)
-  const toggleMic = useCallback(() => setMicOn((on) => { session.setMicEnabled(!on); return !on }), [session])
-  const toggleCam = useCallback(() => setCamOn((on) => { session.setCameraEnabled(!on); return !on }), [session])
+  const toggleMic = useCallback(() => { const next = !micOn; session.setMicEnabled(next); setMicOn(next) }, [micOn, session])
+  const toggleCam = useCallback(() => { const next = !camOn; session.setCameraEnabled(next); setCamOn(next) }, [camOn, session])
   return { stream, micOn, camOn, toggleMic, toggleCam, error }
 }
