@@ -1,0 +1,48 @@
+import { describe, it, expect } from "vitest";
+import { render, screen, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
+import LiveInterview from "./LiveInterview";
+
+// PrejoinView's camera preview acquires its stream via a real (mocked) getUserMedia() call, which
+// resolves asynchronously. Flushing a macrotask after render lets that settle inside act() so it
+// doesn't leak an "update not wrapped in act" warning into whichever test runs next.
+async function flushMicrotasks() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+describe("LiveInterview / PrejoinView", () => {
+  it("shows the prejoin content with dos/don'ts, the AI-interviewer notice, a T&C checkbox, and a camera preview", async () => {
+    render(<LiveInterview sessionId="s1" session={new MockLiveSession()} />);
+
+    expect(screen.getByText(/AI interviewer/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/full screen/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/quiet, well-lit space/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /agree to the rules/i }),
+    ).toBeInTheDocument();
+    expect(document.querySelector("video")).toBeInTheDocument();
+
+    await flushMicrotasks();
+  });
+
+  it("disables Continue until the T&C checkbox is checked", async () => {
+    const user = userEvent.setup();
+    render(<LiveInterview sessionId="s1" session={new MockLiveSession()} />);
+
+    const continueButton = screen.getByRole("button", { name: /continue/i });
+    const checkbox = screen.getByRole("checkbox", {
+      name: /agree to the rules/i,
+    });
+
+    expect(continueButton).toBeDisabled();
+
+    await user.click(checkbox);
+
+    expect(continueButton).toBeEnabled();
+
+    await flushMicrotasks();
+  });
+});

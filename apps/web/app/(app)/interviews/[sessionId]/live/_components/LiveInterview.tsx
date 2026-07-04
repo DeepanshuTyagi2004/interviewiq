@@ -1,0 +1,39 @@
+"use client";
+
+import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
+import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
+import type { LiveSession } from "@/features/interview-live/session/types";
+import { PrejoinView } from "./PrejoinView";
+
+function LiveInterviewInner() {
+  const { state } = useLiveSession();
+
+  switch (state) {
+    case "prejoin":
+      return <PrejoinView />;
+    // checks / connecting / live / paused / ending / ended / error — real views land in later
+    // tasks; a placeholder keeps the state machine wired end-to-end today.
+    default:
+      return (
+        <div className="m-auto text-sm text-muted-foreground">
+          {state}&hellip;
+        </div>
+      );
+  }
+}
+
+export default function LiveInterview({
+  sessionId,
+  session,
+}: {
+  sessionId: string;
+  session?: LiveSession;
+}) {
+  return (
+    <LiveSessionProvider sessionId={sessionId} session={session}>
+      <div className="fixed inset-0 z-50 flex bg-background">
+        <LiveInterviewInner />
+      </div>
+    </LiveSessionProvider>
+  );
+}

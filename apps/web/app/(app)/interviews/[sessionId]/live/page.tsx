@@ -1,9 +1,10 @@
-export default async function InterviewLivePage({
+import LiveInterview from "./_components/LiveInterview";
+
+export default async function LiveInterviewPage({
   params,
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
   const { sessionId } = await params;
-  // TODO: live interview UI (video/audio, prompts)
-  return <main className="flex-1 p-8">Live · {sessionId}</main>;
+  return <LiveInterview sessionId={sessionId} />;
 }
