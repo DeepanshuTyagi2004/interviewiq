@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ function formatSlot(iso: string): string {
 function SessionCard({ session }: { session: InterviewSession }) {
   const regenerate = useRegenerateSession();
   const failed = session.status === "PREP_FAILED";
+  const ready = session.status === "PREP_READY";
 
   return (
     <Card>
@@ -41,6 +43,11 @@ function SessionCard({ session }: { session: InterviewSession }) {
         </div>
         <div className="flex items-center gap-3">
           <StatusPill status={session.status} />
+          {ready ? (
+            <Button asChild size="sm">
+              <Link href={`/interviews/${session.id}/live`}>Join</Link>
+            </Button>
+          ) : null}
           {failed ? (
             <Button
               size="sm"
