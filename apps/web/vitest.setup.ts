@@ -35,18 +35,25 @@ class FakeMediaStream {
   getAudioTracks() { return this.tracks.filter((t) => t.kind === 'audio') }
   getVideoTracks() { return this.tracks.filter((t) => t.kind === 'video') }
 }
-;(globalThis as any).MediaStream = FakeMediaStream
+type MutableFullscreenDocument = { fullscreenElement: Element | null }
+
+;(globalThis as unknown as { MediaStream: typeof MediaStream }).MediaStream =
+  FakeMediaStream as unknown as typeof MediaStream
 Object.defineProperty(globalThis.navigator, 'mediaDevices', {
   configurable: true,
   value: { getUserMedia: vi.fn(async () => new FakeMediaStream()) },
 })
 Object.defineProperty(document, 'fullscreenElement', { configurable: true, writable: true, value: null })
 document.documentElement.requestFullscreen = vi.fn(async function (this: HTMLElement) {
-  ;(document as any).fullscreenElement = this
+  ;(document as unknown as MutableFullscreenDocument).fullscreenElement = this
 })
-document.exitFullscreen = vi.fn(async () => { ;(document as any).fullscreenElement = null })
-;(globalThis as any).AudioContext = class {
+document.exitFullscreen = vi.fn(async () => {
+  ;(document as unknown as MutableFullscreenDocument).fullscreenElement = null
+})
+class FakeAudioContext {
   createAnalyser() { return { fftSize: 0, frequencyBinCount: 32, getByteTimeDomainData: (a: Uint8Array) => a.fill(128) } }
   createMediaStreamSource() { return { connect() {} } }
   close() {}
 }
+;(globalThis as unknown as { AudioContext: typeof AudioContext }).AudioContext =
+  FakeAudioContext as unknown as typeof AudioContext

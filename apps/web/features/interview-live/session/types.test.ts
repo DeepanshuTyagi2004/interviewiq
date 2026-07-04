@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { it, expect } from 'vitest'
 import type { LiveSession, ControlSignal, ProctorEvent, ArtifactSnapshot } from './types'
 
 it('control signals + artifact + proctor event shapes compile and construct', () => {

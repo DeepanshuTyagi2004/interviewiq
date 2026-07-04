@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLocalMedia } from './useLocalMedia'
 import type { LiveSession } from '../session/types'

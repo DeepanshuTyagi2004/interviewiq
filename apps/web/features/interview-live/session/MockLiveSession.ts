@@ -15,6 +15,7 @@ export class MockLiveSession implements LiveSession {
   private token = 0
   private openingTimeout: ReturnType<typeof setTimeout> | null = null
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async connect(_sessionId: string): Promise<void> {
     const t = ++this.token
     this.setConn('connecting')
@@ -55,6 +56,7 @@ export class MockLiveSession implements LiveSession {
 
   setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sendArtifact(_a: ArtifactSnapshot) { /* no-op in mock; real seam POSTs to the agent */ }
 
   sendProctorEvent(e: ProctorEvent) {

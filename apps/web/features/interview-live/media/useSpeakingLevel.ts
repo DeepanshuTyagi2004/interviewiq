@@ -2,10 +2,10 @@
 import { useEffect, useRef, useState } from 'react'
 
 export function useSpeakingLevel(stream: MediaStream | null, enabled: boolean): boolean {
-  const [speaking, setSpeaking] = useState(false)
+  const [level, setLevel] = useState(false)
   const raf = useRef<number | null>(null)
   useEffect(() => {
-    if (!stream || !enabled || typeof AudioContext === 'undefined') { setSpeaking(false); return }
+    if (!stream || !enabled || typeof AudioContext === 'undefined') return
     const ctx = new AudioContext()
     const src = ctx.createMediaStreamSource(stream)
     const analyser = ctx.createAnalyser()
@@ -16,11 +16,15 @@ export function useSpeakingLevel(stream: MediaStream | null, enabled: boolean): 
       analyser.getByteTimeDomainData(buf)
       let sum = 0
       for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v }
-      setSpeaking(Math.sqrt(sum / buf.length) > 0.04)   // RMS threshold
+      setLevel(Math.sqrt(sum / buf.length) > 0.04)   // RMS threshold
       raf.current = requestAnimationFrame(tick)
     }
     raf.current = requestAnimationFrame(tick)
-    return () => { if (raf.current) cancelAnimationFrame(raf.current); ctx.close() }
+    return () => {
+      if (raf.current) cancelAnimationFrame(raf.current)
+      ctx.close()
+      setLevel(false)
+    }
   }, [stream, enabled])
-  return speaking
+  return stream && enabled ? level : false
 }
