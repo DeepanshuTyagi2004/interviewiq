@@ -185,6 +185,9 @@ class InterviewPlan(_CamelModel):
     question_ladders: list[QuestionLadder] = Field(default_factory=list)
     candidate_probes: list[CandidateProbe] = Field(default_factory=list)
     red_flag_watchlist: list[str] = Field(default_factory=list)
+    # Pipeline-2 extension reserve: extra hard ladders used ONLY when the live agent extends a
+    # strong candidate toward the ceiling. Empty is valid (the brain falls back to follow_ups).
+    reserve: list[QuestionLadder] = Field(default_factory=list)
 
 
 # ---------------------------- LLM call targets ----------------------------
@@ -198,6 +201,10 @@ class PersonaAndArc(_CamelModel):
 
 
 class LadderSet(_CamelModel):
+    ladders: list[QuestionLadder] = Field(default_factory=list)
+
+
+class ReserveSet(_CamelModel):
     ladders: list[QuestionLadder] = Field(default_factory=list)
 
 
