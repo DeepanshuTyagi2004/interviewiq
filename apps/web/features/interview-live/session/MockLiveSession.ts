@@ -1,4 +1,4 @@
-import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent, Speaker } from './types'
+import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
 
 type Cb<T> = (v: T) => void
 
@@ -10,22 +10,40 @@ export class MockLiveSession implements LiveSession {
   private stream: MediaStream | null = null
   private controlCbs = new Set<Cb<ControlSignal>>()
   private connCbs = new Set<Cb<ConnState>>()
+  /** Bumped on every connect()/disconnect() so a stale in-flight connect() can detect it was
+   * superseded and bail out instead of resurrecting a disconnected session. */
+  private token = 0
+  private openingTimeout: ReturnType<typeof setTimeout> | null = null
 
   async connect(_sessionId: string): Promise<void> {
+    const t = ++this.token
     this.setConn('connecting')
+    let stream: MediaStream | null
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
     } catch {
-      this.stream = null   // media denied — UI surfaces it; connection still proceeds for the mock
+      stream = null   // media denied — UI surfaces it; connection still proceeds for the mock
     }
+    if (t !== this.token) {
+      // disconnect() (or a newer connect()) ran while we were awaiting getUserMedia — don't
+      // resurrect the session, just release the stream we just acquired.
+      stream?.getTracks().forEach((tr) => tr.stop())
+      return
+    }
+    this.stream = stream
     this.setConn('connected')
     // scripted opening
     this.emit({ type: 'interviewer_utterance', text: "Hi — thanks for joining. Let's start when you're ready." })
     this.emit({ type: 'speaking', who: 'interviewer', speaking: true })
-    setTimeout(() => this.emit({ type: 'speaking', who: 'interviewer', speaking: false }), 300)
+    this.openingTimeout = setTimeout(() => this.emit({ type: 'speaking', who: 'interviewer', speaking: false }), 300)
   }
 
   async disconnect(): Promise<void> {
+    this.token++
+    if (this.openingTimeout !== null) {
+      clearTimeout(this.openingTimeout)
+      this.openingTimeout = null
+    }
     this.stream?.getTracks().forEach((t) => t.stop())
     this.stream = null
     this.setConn('disconnected')
