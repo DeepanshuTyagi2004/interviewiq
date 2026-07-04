@@ -14,7 +14,7 @@ def test_build_functions_return_nonempty():
     assert grade.build_grade_prompt([{"criterion": "correctness", "weight": 1.0}], "solve two sum", "use a map")
     assert pacing_judge.build_pacing_judgment_prompt("may_wind_down", 0.3, "candidate struggled on 2 questions")
     assert converse.build_turn_prompt("ask_base", {"name": "Ada"}, {"basePrompt": "solve"}, [], {})
-    assert derive.build_derive_prompt("dsa", "dynamic programming", "brief text", "jd text")
+    assert derive.build_derive_prompt("dsa", "dynamic programming", "company: google; round: dsa")
 
 
 def test_converse_system_carries_spoken_style():

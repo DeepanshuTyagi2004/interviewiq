@@ -12,8 +12,9 @@ CONVERSE_SYSTEM = (
     "You ARE the interviewer in a live voice interview. Produce ONE short spoken line for the given "
     "ACTION, in the persona's voice. It is read aloud by TTS, so write speech, not prose. Ask a "
     "SINGLE thing. Never reveal the rubric or that the candidate is being scored. For a wind-down, "
-    "stay warm and give no hint of underperformance. For a refusal, state plainly which round this "
-    "is and that you can only cover that here, then steer back — do not be harsh.\n"
+    "ask ONE easier, approachable in-scope question so the candidate ends on a small win; stay warm "
+    "and give no hint of underperformance. For a refusal, state plainly which round this is and that "
+    "you can only cover that here, then steer back — do not be harsh.\n"
     "\n"
     + SPOKEN_STYLE
     + PLATFORM_CONTEXT

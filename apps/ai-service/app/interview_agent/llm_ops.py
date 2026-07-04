@@ -101,11 +101,12 @@ async def generate_line(llm: LLMClient, settings: Settings, *, action: str, pers
     return res.line
 
 
-async def derive_ladder(llm: LLMClient, settings: Settings, *, round_type, topic: str, brief: str,
-                        jd: str) -> dict:
-    """Return a QuestionLadder-shaped dict (camelCase, ready to slot into state.ladders)."""
+async def derive_ladder(llm: LLMClient, settings: Settings, *, round_type, topic: str,
+                        grounding: str) -> dict:
+    """Return a QuestionLadder-shaped dict (camelCase, ready to slot into state.ladders). `grounding`
+    is a real-plan-fields context string (company/role/level/round/focus) — F4."""
     rt = round_type.value if isinstance(round_type, RoundType) else str(round_type)
     res = await complete_structured(
-        llm, derive_p.DERIVE_SYSTEM, derive_p.build_derive_prompt(rt, topic, brief, jd),
+        llm, derive_p.DERIVE_SYSTEM, derive_p.build_derive_prompt(rt, topic, grounding),
         QuestionLadder, max_repairs=_scorer_max_repairs(settings), label="iv-derive")
     return res.model_dump(by_alias=True, mode="json")

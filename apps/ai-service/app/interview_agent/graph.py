@@ -17,8 +17,9 @@ from app.interview_agent.types import Action, PacingDirective, RoundType, TopicS
 
 @dataclass
 class GraphDeps:
-    llm: object            # LLMClient | None (None only in tests that stub llm_ops)
+    llm: object            # conversation LLMClient | None (None only in tests that stub llm_ops)
     settings: Settings
+    scorer: object = None  # F8: cheaper scorer/classifier model; used for classification & derivation
 
 
 def _active_summary(state: SessionState) -> str:
@@ -79,14 +80,13 @@ def decide(inputs: DecisionInputs) -> Action:
     return Action.MOVE_ON if inputs["has_next_question"] else Action.WRAP
 
 
-async def run_decision(state: SessionState, utterance: Turn | None, deps: GraphDeps) -> DecisionOutput:
-    """Classify the candidate turn (LLM), apply the deterministic cross-round scope guard, then
-    route. For the OPEN turn (utterance is None) skip classification and return OPEN."""
-    if utterance is None:
-        return DecisionOutput(action=Action.OPEN.value, requested_topic=None)
-
+async def classify_utterance(state: SessionState, utterance: Turn,
+                             deps: GraphDeps) -> tuple[TurnClass, str | None, TopicScope]:
+    """Classify the candidate turn (LLM, on the cheaper scorer model — F8) and apply the
+    deterministic cross-round scope guard. Extracted so the driver (session.py) can classify a turn
+    up front and gate scoring on the result — non-answer turns must never be graded (F1)."""
     turn_class, requested_topic = await llm_ops.classify_turn(
-        deps.llm, deps.settings, round_type=state.round_type,
+        deps.scorer, deps.settings, round_type=state.round_type,
         active_item_summary=_active_summary(state), last_text=utterance.text)
 
     topic_scope = TopicScope.UNCLEAR
@@ -96,7 +96,17 @@ async def run_decision(state: SessionState, utterance: Turn | None, deps: GraphD
             topic_scope = TopicScope.OUT
         else:
             topic_scope = TopicScope.IN
+    return turn_class, requested_topic, topic_scope
 
+
+async def run_decision(state: SessionState, utterance: Turn | None, deps: GraphDeps) -> DecisionOutput:
+    """Classify the candidate turn, apply the scope guard, then route (pure decide). For the OPEN
+    turn (utterance is None) skip classification and return OPEN. Kept for the LangGraph assembly;
+    the driver calls classify_utterance + decide directly so it can gate scoring on the class."""
+    if utterance is None:
+        return DecisionOutput(action=Action.OPEN.value, requested_topic=None)
+
+    turn_class, requested_topic, topic_scope = await classify_utterance(state, utterance, deps)
     inputs = build_inputs(state, turn_class, requested_topic, topic_scope, deps.settings)
     action = decide(inputs)
     return DecisionOutput(action=action.value, requested_topic=requested_topic)

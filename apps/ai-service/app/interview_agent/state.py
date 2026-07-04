@@ -59,6 +59,13 @@ class SessionState:
     reserve_idx: int = 0
     asked_slugs: set[str] = field(default_factory=set)
     attempted_core: int = 0
+    # F2: coverage is the fraction of the plan's ORIGINAL core ladders that got >=1 real ANSWER.
+    # core_count is frozen at plan-load; answered_core_idx dedupes follow-ups (same ladder answered
+    # multiple times counts once) and spliced_ladder_ids excludes reserve/derived items that were
+    # inserted mid-session (they are not part of the plan core, so they must not inflate coverage).
+    core_count: int = 0
+    answered_core_idx: set[int] = field(default_factory=set)
+    spliced_ladder_ids: set[int] = field(default_factory=set)
     per_answer: list[PerAnswerScore] = field(default_factory=list)
     negative_events: list[NegativeEvent] = field(default_factory=list)
     rolling: float = 0.0
@@ -68,12 +75,13 @@ class SessionState:
     derived_topics: list[str] = field(default_factory=list)
     hint_just_given: bool = False
     elapsed_s: float = 0.0
+    winding_down: bool = False   # F7: soft-landing in progress — wrap on the NEXT turn
     session_over: bool = False
     ended_reason: EndedReason | None = None
 
     @classmethod
     def from_plan(cls, plan: dict, bands: PacingBands) -> "SessionState":
-        return cls(
+        st = cls(
             session_id=plan.get("sessionId") or plan.get("session_id") or "",
             round_type=RoundType(plan.get("roundType") or plan.get("round_type") or "dsa"),
             plan=plan,
@@ -81,6 +89,8 @@ class SessionState:
             ladders=list(plan.get("questionLadders") or plan.get("question_ladders") or []),
             reserve=list(plan.get("reserve") or []),
         )
+        st.core_count = len(st.ladders)   # frozen: reserve/derived splices grow ladders, not this
+        return st
 
     def active_ladder(self) -> dict | None:
         if 0 <= self.ladder_idx < len(self.ladders):
@@ -116,6 +126,24 @@ class SessionState:
             self.reserve_idx += 1
             return item
         return None
+
+    def splice_ladder(self, item: dict) -> None:
+        """Insert a reserve/derived ladder right after the active one and advance onto it. The item
+        is tagged as non-core so answering it never counts toward plan coverage (F2)."""
+        self.spliced_ladder_ids.add(id(item))
+        self.ladders.insert(self.ladder_idx + 1, item)
+        self.advance_to_next_question()
+
+    def note_core_answer(self) -> None:
+        """Record that the active ladder received a real ANSWER, for coverage. Follow-ups of the same
+        ladder dedupe on ladder_idx; spliced (reserve/derived) items are excluded (F2)."""
+        lad = self.active_ladder()
+        if lad is not None and id(lad) not in self.spliced_ladder_ids:
+            self.answered_core_idx.add(self.ladder_idx)
+
+    def core_coverage(self) -> tuple[int, int]:
+        """(#distinct core ladders answered, original core count) — the F2 coverage measure."""
+        return len(self.answered_core_idx), self.core_count
 
     def mark_asked(self, slug: str | None) -> None:
         if slug:

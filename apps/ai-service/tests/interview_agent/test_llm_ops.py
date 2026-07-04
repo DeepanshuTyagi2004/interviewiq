@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 import app.interview_agent.llm_ops as ops
 from app.interview_agent.types import TurnClass, PacingDirective
 from app.config import get_settings
@@ -23,13 +25,15 @@ def test_classify_turn_maps_result(monkeypatch):
 
 
 def test_grade_answer_aggregates_criteria(monkeypatch):
+    # UNEQUAL weights so the weighted mean (0.8*0.75 + 0.4*0.25 = 0.70) is distinguishable from the
+    # plain mean (0.60) — proves competency uses the rubric weights, not a naive average.
     _stub_structured(monkeypatch, {"criteria": [{"criterion": "c1", "score": 0.8},
-                                                 {"criterion": "c2", "score": 0.6}], "coherence": 0.5})
+                                                 {"criterion": "c2", "score": 0.4}], "coherence": 0.5})
     comp, coh = _run(ops.grade_answer(llm=None, settings=get_settings(),
-                                      rubric=[{"criterion": "c1", "weight": 0.5},
-                                              {"criterion": "c2", "weight": 0.5}],
+                                      rubric=[{"criterion": "c1", "weight": 0.75},
+                                              {"criterion": "c2", "weight": 0.25}],
                                       question="q", answer="a"))
-    assert 0.6 <= comp <= 0.8 and coh == 0.5
+    assert comp == pytest.approx(0.70) and coh == 0.5   # weighted mean, NOT the plain mean 0.60
 
 
 def test_judge_pacing_maps_directive(monkeypatch):
@@ -52,5 +56,5 @@ def test_derive_ladder_returns_dict(monkeypatch):
                                    "follow_ups": ["optimize to n log n"], "hints": ["patience sorting"],
                                    "rubric": [{"criterion": "approach", "weight": 1.0}]})
     lad = _run(ops.derive_ladder(llm=None, settings=get_settings(), round_type="dsa",
-                                 topic="dp", brief="b", jd="j"))
+                                 topic="dp", grounding="company: google; role: swe; round: dsa"))
     assert lad["basePrompt"] == "longest increasing subsequence"   # camelCase out
