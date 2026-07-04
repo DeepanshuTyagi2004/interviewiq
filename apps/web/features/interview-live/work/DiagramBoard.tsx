@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import '@excalidraw/excalidraw/index.css'
 import type { LiveSession } from '../session/types'
 import { summarizeScene } from './summarizeScene'
@@ -16,6 +16,8 @@ const Excalidraw = dynamic(async () => (await import('@excalidraw/excalidraw')).
  * session — the interviewer sees a text description, not raw scene JSON. */
 export function DiagramBoard({ session }: { session: LiveSession }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   return (
     <div className="h-full">
