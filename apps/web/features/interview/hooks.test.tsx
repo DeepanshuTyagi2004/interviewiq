@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -11,6 +11,7 @@ vi.mock("@/lib/api-client/client", () => ({
 
 import { useSession } from "./hooks";
 import type { InterviewSession } from "./types";
+import { INTERVIEW_POLLING } from "@/lib/constants/interview";
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -52,5 +53,49 @@ describe("useSession", () => {
     const { result } = renderHook(() => useSession(""), { wrapper });
     await waitFor(() => expect(result.current.status).toBe("pending"));
     expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+
+  describe("conditional polling", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("stops polling once status is terminal (PREP_READY)", async () => {
+      apiFetchMock.mockResolvedValue({ ...SAMPLE_SESSION, status: "PREP_READY" });
+      const { result } = renderHook(() => useSession("s1"), { wrapper });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.isSuccess).toBe(true);
+      expect(apiFetchMock).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(INTERVIEW_POLLING.sessionsIntervalMs * 2);
+      });
+
+      expect(apiFetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps polling while status is non-terminal (SCHEDULED)", async () => {
+      apiFetchMock.mockResolvedValue({ ...SAMPLE_SESSION, status: "SCHEDULED" });
+      const { result } = renderHook(() => useSession("s1"), { wrapper });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.isSuccess).toBe(true);
+      expect(apiFetchMock).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(INTERVIEW_POLLING.sessionsIntervalMs + 500);
+      });
+
+      expect(apiFetchMock.mock.calls.length).toBeGreaterThan(1);
+    });
   });
 });
