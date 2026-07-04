@@ -14,7 +14,7 @@ _SCOPE: dict[RoundType, tuple[str, tuple[str, ...]]] = {
         "(operating systems, DBMS, computer networks, OOP concepts)",
         ("system design", "hld", "high level design", "high-level design", "scalab", "load balanc",
          "microservice", "distributed system", "design pattern", "low level design", "low-level design",
-         "lld", "machine coding", "behavioural", "behavioral", "tell me about a time"),
+         "lld", "machine coding", "behavioural", "behavioral", "tell me about a time", "class diagram"),
     ),
     RoundType.SYSTEM_DESIGN: (
         "a System Design round — HLD, scalability, caching, databases/sharding, consistency, "
@@ -26,7 +26,7 @@ _SCOPE: dict[RoundType, tuple[str, tuple[str, ...]]] = {
         "an LLD round — object-oriented design, class modeling, design patterns, SOLID, and "
         "concurrency in design",
         ("system design", "hld", "scalab", "leetcode", "dynamic programming", "behavioural",
-         "behavioral", "tell me about a time"),
+         "behavioral", "tell me about a time", "dsa"),
     ),
     RoundType.BEHAVIOURAL: (
         "a Behavioural round — situational / STAR questions about teamwork, conflict, ownership, "
@@ -37,7 +37,7 @@ _SCOPE: dict[RoundType, tuple[str, tuple[str, ...]]] = {
     RoundType.HIRING_MANAGER: (
         "a Hiring Manager round — motivation, role and company fit, project deep-dives, high-level "
         "technical judgement, and career goals",
-        ("leetcode", "dsa coding", "solve this algorithm", "class diagram"),
+        ("leetcode", "dsa coding", "solve this algorithm", "class diagram", "dsa"),
     ),
 }
 
