@@ -77,6 +77,22 @@ def test_kaggle_leetcode_dataset_default():
     assert s.kaggle_leetcode_dataset == "gzipchrist/leetcode-problem-dataset"
 
 
+def test_interview_settings_have_defaults(monkeypatch):
+    _base_env()
+    from app.config import Settings
+    s = Settings()
+    assert s.interview_min_duration_min == 18
+    assert s.interview_base_duration_min == 45
+    assert s.interview_max_duration_min == 60
+    assert s.interview_low_band == 0.40
+    assert s.interview_high_band == 0.70
+    assert s.interview_w_competency + s.interview_w_behavioral == 1.0
+    assert s.interview_pivot_cap == 2
+    # empty model → caller falls back to llm_model
+    assert s.interview_llm_model == ""
+    assert s.interview_scorer_model == ""
+
+
 if __name__ == "__main__":
     test_settings_load_llm_and_search()
     test_include_domains_accepts_comma_string()

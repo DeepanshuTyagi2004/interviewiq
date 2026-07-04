@@ -157,6 +157,38 @@ class Settings(BaseSettings):
     # Concurrent LLM calls in Stage 2 (persona / ladders / probes = 3). Same RPM discipline as EXTRACT_CONCURRENCY.
     prep_concurrency: int = Field(3, alias="PREP_CONCURRENCY")
 
+    # --- Live interview (Pipeline 2) ---
+    # Conversation-turn model (spoken lines). Empty → falls back to llm_model. Same keys/client.
+    interview_llm_model: str = Field("", alias="INTERVIEW_LLM_MODEL")
+    # Scoring / classification / pacing-judgment / topic-derivation model (cheaper/faster). Empty → llm_model.
+    interview_scorer_model: str = Field("", alias="INTERVIEW_SCORER_MODEL")
+    # Pacing rails (minutes). Floor = never end before this; base = target; max = hard ceiling.
+    interview_min_duration_min: int = Field(18, alias="INTERVIEW_MIN_DURATION_MIN")
+    interview_base_duration_min: int = Field(45, alias="INTERVIEW_BASE_DURATION_MIN")
+    interview_max_duration_min: int = Field(60, alias="INTERVIEW_MAX_DURATION_MIN")
+    # Score bands (0..1): below low → may wind down; above high → may extend.
+    interview_low_band: float = Field(0.40, alias="INTERVIEW_LOW_BAND")
+    interview_high_band: float = Field(0.70, alias="INTERVIEW_HIGH_BAND")
+    # Hybrid answer-score weights (must sum to 1.0): competency vs behavioral.
+    interview_w_competency: float = Field(0.75, alias="INTERVIEW_W_COMPETENCY")
+    interview_w_behavioral: float = Field(0.25, alias="INTERVIEW_W_BEHAVIORAL")
+    # Negative-event penalties applied to the rolling score.
+    interview_pivot_penalty: float = Field(0.15, alias="INTERVIEW_PIVOT_PENALTY")
+    interview_out_of_scope_penalty: float = Field(0.30, alias="INTERVIEW_OUT_OF_SCOPE_PENALTY")
+    interview_idk_penalty: float = Field(0.05, alias="INTERVIEW_IDK_PENALTY")
+    # How many in-scope pivots to honor before holding ground.
+    interview_pivot_cap: int = Field(2, alias="INTERVIEW_PIVOT_CAP")
+    # Seconds into a topic derivation before emitting a "bear with me" nudge line.
+    interview_nudge_after_s: float = Field(8.0, alias="INTERVIEW_NUDGE_AFTER_S")
+    # How long before base_s the extend gate opens.
+    interview_extend_lookahead_s: float = Field(300.0, alias="INTERVIEW_EXTEND_LOOKAHEAD_S")
+    # Minimum plan-core coverage before a wind-down is allowed (guards the floor with evidence).
+    interview_min_coverage: float = Field(0.34, alias="INTERVIEW_MIN_COVERAGE")
+    # structured.py re-ask budget for live LLM ops.
+    interview_max_repairs: int = Field(1, alias="INTERVIEW_MAX_REPAIRS")
+    # How many "sorry, didn't catch that" retries before aborting on persistent silence.
+    interview_silence_retries: int = Field(2, alias="INTERVIEW_SILENCE_RETRIES")
+
     # --- Langfuse tracing (OPTIONAL) ---
     # New runtime dependency, kept OPTIONAL: the service starts and runs without the `langfuse`
     # package installed. Tracing is a NO-OP unless enabled AND both keys are set (see app/obs).
