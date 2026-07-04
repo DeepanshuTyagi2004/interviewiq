@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTERVIEW_POLLING, INTERVIEW_QUERY_KEYS } from "@/lib/constants/interview";
-import { createSession, listMySessions, regenerateSession } from "./api";
-import type { CreateInterviewSessionRequest, InterviewSessionListResponse } from "./types";
+import { createSession, getSession, listMySessions, regenerateSession } from "./api";
+import type { CreateInterviewSessionRequest, InterviewSession, InterviewSessionListResponse } from "./types";
 
 /** The candidate's sessions. Auto-polls while any session is still preparing (Scheduled/Queued). */
 export function useMySessions() {
@@ -35,6 +35,21 @@ export function useRegenerateSession() {
     mutationFn: (id: string) => regenerateSession(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: INTERVIEW_QUERY_KEYS.sessions });
+    },
+  });
+}
+
+/** A single session, auto-polls while status is SCHEDULED/PREP_QUEUED. */
+export function useSession(id: string) {
+  return useQuery<InterviewSession>({
+    queryKey: INTERVIEW_QUERY_KEYS.session(id),
+    queryFn: () => getSession(id),
+    enabled: !!id,
+    refetchInterval: (query) => {
+      const st = query.state.data?.status;
+      return st === "SCHEDULED" || st === "PREP_QUEUED"
+        ? INTERVIEW_POLLING.sessionsIntervalMs
+        : false;
     },
   });
 }
