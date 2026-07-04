@@ -31,9 +31,20 @@ Runs in **`interviewiq-ai-service/app/interview_agent/`** (today an empty stub).
 
 **Assumed transport/voice interface (owned by A + D; we design against it):**
 - **In:** `on_utterance(text: str, timing: UtteranceTiming)` — a completed candidate turn from STT, with timestamps.
+- **In (artifact):** `current_artifact() -> Artifact | None` — a pull-snapshot of what the candidate has produced in the in-browser tool right now (code buffer or diagram). Pulled at scoring time, not pushed per keystroke.
 - **Out:** `say(text: str)` → TTS; `end_session()` → tear down the room.
 
 `UtteranceTiming = { t_start, t_end, time_to_first_word_s }` — enough for v1 behavioral signals. No raw-audio access assumed.
+`Artifact = { kind: "code" | "diagram", content: str, language: str | None }` — a plain-text snapshot the LLM can read.
+
+### 3.1 Candidate artifacts & in-browser tools
+
+Interview rounds are not speech-only: the candidate writes code (DSA/LLD) or draws a system diagram, and the agent must judge that artifact, not just the talk-track.
+
+- **Tools (open-source, in-browser, owned by the frontend live-UI sub-project — NOT this spec):** a **Monaco**-based code editor (MIT; VS Code's editor — LeetCode-like feel, multi-language) for coding rounds, and **Excalidraw** (MIT; embeddable React component) for system-design diagrams. These match `PLATFORM_CONTEXT` (own in-browser editor, no external tools).
+- **How the artifact reaches the brain:** the frontend syncs the live code buffer / diagram to the backend, which exposes it to the agent through `current_artifact()`. The brain is **tool-agnostic** — it only ever sees `Artifact.content` as text. The **diagram is delivered as a readable text summary** (elements + labels + connections), not raw Excalidraw scene JSON; producing that summary is the frontend/transport's job (A), not the brain's.
+- **No execution in MVP (hard decision).** The agent evaluates code and diagrams by **reading** them with the LLM against the ladder rubric. There is **no code execution and no test-case running** in the MVP (no Judge0, no sandbox). The competency grade for a coding/design answer is a read-based judgment of correctness, approach, and complexity — exactly as a human interviewer reasons about code on a shared screen.
+- **Pull, not push.** The agent pulls the current artifact snapshot at the moment it grades an answer (e.g. when the candidate says "I'm done" / the agent moves on), so mid-typing churn never floods the brain.
 
 ## 4. Graph topology (Approach 1)
 
@@ -108,7 +119,7 @@ InterviewSessionState:
 
 Hybrid, per completed answer. Pure/deterministic given the model's grades, so it's unit-testable.
 
-**Per-answer competency** — grade the answer against the **active ladder's rubric** (the same weighted criteria + strong/weak descriptors Pipeline 1 already generates in `ladder.py`). Evaluator model returns each criterion in `[0,1]`; `competency = Σ(criterion · weight)`, weights sum ~1.0 within that question. Reusing the plan rubric guarantees the live score and the final scorecard share a spine.
+**Per-answer competency** — grade the answer against the **active ladder's rubric** (the same weighted criteria + strong/weak descriptors Pipeline 1 already generates in `ladder.py`). Evaluator model returns each criterion in `[0,1]`; `competency = Σ(criterion · weight)`, weights sum ~1.0 within that question. Reusing the plan rubric guarantees the live score and the final scorecard share a spine. **The grade reads both what the candidate *said* and their current artifact** (via `current_artifact()`): for a DSA/LLD round the code buffer, for a system-design round the diagram text summary. The artifact is judged read-only — correctness, approach, complexity — never executed (§3.1, no-exec MVP). When no artifact is present (e.g. a behavioural round), grading falls back to the spoken answer alone.
 
 **Per-answer behavioral** — from transcript + timing only:
 - `time_to_first_word_s` → hesitation (fast/decisive vs long stall)
@@ -262,11 +273,15 @@ The graph is fully testable **without live voice** — drive it with scripted `o
 - **Real prompt text = product IP** — persona/steering/pacing/derivation prompts are scaffolded with version constants; human drafts the real text before production.
 - **InterviewPlan schema change** (`reserve`) — contained, flagged; requires `PREP_PLAN_VERSION` bump.
 - **No scoring leakage** — the live/final rubric never reaches any Profile Builder / ProfileSummary contract.
+- **New frontend deps (downstream, not this repo)** — Monaco editor + Excalidraw for the in-browser coding/diagramming tools. Both MIT-licensed, both open-source, both fit the in-browser `PLATFORM_CONTEXT`. They belong to the frontend live-UI sub-project.
+- **No code/test execution in MVP (deliberate)** — the agent judges artifacts by reading, not running. No Judge0 / sandbox / test-case harness. Revisit post-MVP if a "run my code" feature is prioritized.
 
 ## 14. Explicitly out of scope (v1)
 
 - Prosodic/audio behavioral analysis (transcript+timing only).
 - The authoritative final scorecard and round-gating logic (E).
 - LiveKit room/token/egress mechanics and the STT/LLM/TTS choice (A + D).
+- **The Monaco editor + Excalidraw frontend components and the code/diagram-sync transport wiring** (frontend live-UI sub-project + A). This spec defines only the `Artifact` shape + `current_artifact()` interface the brain consumes.
+- **Code execution / test-case running** (no Judge0 / sandbox in MVP — the agent reads artifacts, never runs them).
 - Video, screen-share, anti-cheating/integrity signals.
 - Continuous background analysis during silence (event-driven per-answer is sufficient for turn-based voice; Approach 2 deferred).
