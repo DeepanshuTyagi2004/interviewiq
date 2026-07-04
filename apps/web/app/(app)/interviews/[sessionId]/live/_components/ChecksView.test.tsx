@@ -47,6 +47,14 @@ async function renderAtChecks(session: MockLiveSession) {
   return user;
 }
 
+/** Session subclass that rejects on connect() — used to test error-handling. */
+class FailingMockLiveSession extends MockLiveSession {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async connect(_sessionId: string): Promise<void> {
+    throw new Error("Connection failed");
+  }
+}
+
 describe("ChecksView", () => {
   it("runs and shows the three system checks", async () => {
     const session = new MockLiveSession();
@@ -77,5 +85,22 @@ describe("ChecksView", () => {
 
     // let MockLiveSession's scripted 300ms "stop speaking" timeout fire inside act()
     await flushTimers(350);
+  });
+
+  it("Enter interview sends ERROR when connect() rejects", async () => {
+    const session = new FailingMockLiveSession();
+    const user = await renderAtChecks(session);
+
+    const enterButton = await screen.findByRole("button", {
+      name: /enter interview/i,
+    });
+    await waitFor(() => expect(enterButton).toBeEnabled());
+
+    await user.click(enterButton);
+
+    expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("fsm-state").textContent).toBe("error"),
+    );
   });
 });

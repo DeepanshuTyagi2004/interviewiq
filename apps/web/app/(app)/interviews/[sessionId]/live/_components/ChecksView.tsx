@@ -123,10 +123,14 @@ export function ChecksView({ sessionId }: { sessionId: string }) {
       await session.connect(sessionId);
       if (session.connectionState === "connected") {
         send({ type: "CONNECTED" });
+      } else {
+        // connect() resolved but session never reached connected state — treat as failure
+        send({ type: "ERROR" });
       }
     } catch {
-      // Connection failed after checks already passed — later tasks (proctoring/live shell)
-      // own recovery/error UI; nothing further to do from here.
+      // Connection failed after checks already passed — send ERROR to move state machine
+      // from connecting to error state so the error placeholder renders.
+      send({ type: "ERROR" });
     }
   }
 
