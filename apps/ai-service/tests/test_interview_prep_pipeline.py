@@ -45,7 +45,8 @@ def _fake_parts():
         round_arc=[])
     ladders = [QuestionLadder(base_prompt="Solve two-sum")]
     probes = [CandidateProbe(prompt="Walk me through a project", what_it_tests="ownership")]
-    return persona, ladders, probes
+    reserve = [QuestionLadder(base_prompt="Solve a harder variant of two-sum")]
+    return persona, ladders, probes, reserve
 
 
 def _wire_store(monkeypatch):
@@ -88,6 +89,7 @@ def test_first_run_generates_and_assembles(monkeypatch):
     assert len(doc["questionLadders"]) == 1
     assert len(doc["candidateProbes"]) == 1
     assert doc["redFlagWatchlist"] == ["rambling"]
+    assert doc["reserve"][0]["basePrompt"] == "Solve a harder variant of two-sum"
 
 
 def test_identical_rerun_is_cache_hit_no_llm(monkeypatch):

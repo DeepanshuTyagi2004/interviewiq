@@ -1,8 +1,8 @@
 """Interview-prep pipeline orchestration (Pipeline 1).
 
 build context → compute input hash → if a stored plan for this session has the same input hash,
-return it unchanged (skip ALL LLM calls) → else generate the three parts, assemble the plan,
-persist it (one per session, idempotent upsert), and return it.
+return it unchanged (skip ALL LLM calls) → else generate the four parts (persona, ladders, probes,
+reserve), assemble the plan, persist it (one per session, idempotent upsert), and return it.
 
 The stored/returned doc is the camelCase wire shape from the contract (interviewiq-infra
 openapi.yaml), so the backend consumes it as-is.
@@ -34,7 +34,8 @@ class PrepDataError(RuntimeError):
 
 
 def _assemble_plan(req: GenerateInterviewPlanRequest, ctx: PrepContext,
-                   persona_and_arc, ladders, probes_list, settings: Settings) -> InterviewPlan:
+                   persona_and_arc, ladders, probes_list, reserve_ladders,
+                   settings: Settings) -> InterviewPlan:
     session = req.session
     provenance = PlanProvenance(
         plan_version=settings.prep_plan_version,
@@ -61,6 +62,7 @@ def _assemble_plan(req: GenerateInterviewPlanRequest, ctx: PrepContext,
         question_ladders=ladders,
         candidate_probes=probes_list,
         red_flag_watchlist=ctx.red_flags,
+        reserve=reserve_ladders,
     )
 
 
@@ -84,8 +86,8 @@ async def generate_interview_plan(req: GenerateInterviewPlanRequest, settings: S
             sp.update(output={"cached": True})
             return existing
 
-        persona_and_arc, ladders, probes_list = await generate_plan_parts(ctx, settings)
-        plan = _assemble_plan(req, ctx, persona_and_arc, ladders, probes_list, settings)
+        persona_and_arc, ladders, probes_list, reserve_ladders = await generate_plan_parts(ctx, settings)
+        plan = _assemble_plan(req, ctx, persona_and_arc, ladders, probes_list, reserve_ladders, settings)
         doc = plan.model_dump(by_alias=True, mode="json")
         await repo.upsert_plan(doc)
         logger.info("[prep] plan generated for session %s (ladders=%d probes=%d input_hash=%s)",

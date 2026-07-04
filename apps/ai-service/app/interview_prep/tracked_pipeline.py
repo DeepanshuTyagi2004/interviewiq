@@ -119,8 +119,10 @@ async def run_interview_prep(req: GenerateInterviewPlanRequest, run_id: str, set
             })
 
         # --- assemble the final plan (NOT persisted — bench) ---
+        # Note: the bench does not run the (best-effort) reserve stage, so it always assembles with
+        # an empty reserve — matching production behavior when that call fails or is skipped.
         RUNS.begin_step(run_id, "assemble")
-        plan = _assemble_plan(req, ctx, persona_and_arc, ladder_set.ladders, probe_set.probes, settings)
+        plan = _assemble_plan(req, ctx, persona_and_arc, ladder_set.ladders, probe_set.probes, [], settings)
         doc = plan.model_dump(by_alias=True, mode="json")
         RUNS.set_result(run_id, doc)
         RUNS.end_step(run_id, "assemble", "ok",
