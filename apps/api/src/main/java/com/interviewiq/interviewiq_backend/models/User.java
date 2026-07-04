@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -27,6 +28,16 @@ public class User {
 
     @Column(nullable = false)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    @ColumnDefault("'USER'")
+    private Role role = Role.USER;
+
+    /** True once the user has completed the onboarding wizard. Gates the app entry vs. /onboarding. */
+    @Column(name = "onboarding_complete", nullable = false)
+    @ColumnDefault("false")
+    private boolean onboardingComplete = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
