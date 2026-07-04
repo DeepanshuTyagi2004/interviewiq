@@ -1,5 +1,3 @@
-import type { Speaker } from './types'
-
 export type LiveState = 'prejoin' | 'checks' | 'connecting' | 'live' | 'paused' | 'ending' | 'ended' | 'error'
 export type LiveEvent =
   | { type: 'START_CHECKS' } | { type: 'CHECKS_PASSED' } | { type: 'CHECKS_FAILED' }
@@ -31,6 +29,7 @@ export function transition(state: LiveState, ctx: LiveContext, event: LiveEvent)
       if (event.type === 'ENDED') return { state: 'ended', ctx }
       break
     case 'paused':
+      if (event.type === 'PAUSE') return { state: 'paused', ctx: { ...ctx, pausedReason: event.reason, violations: ctx.violations + 1 } }
       if (event.type === 'RESUME') return { state: 'live', ctx: { ...ctx, pausedReason: null } }
       if (event.type === 'END') return { state: 'ending', ctx }
       if (event.type === 'ENDED') return { state: 'ended', ctx }

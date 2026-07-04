@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { it, expect } from 'vitest'
 import { initialMachine, transition, type LiveState, type LiveContext } from './machine'
 
 it('happy path prejoin → checks → connecting → live', () => {
@@ -17,7 +17,12 @@ it('pause/resume from live counts a violation', () => {
 it('END from live → ending → ended; ENDED sets reason', () => {
   let s = transition('live', { pausedReason: null, endedReason: null, violations: 0 }, { type: 'END' })
   expect(s.state).toBe('ending')
-  s = transition(s.state, s.ctx, { type: 'ENDED' }); expect(s.state).toBe('ended')
+  s = transition(s.state, s.ctx, { type: 'ENDED' }); expect(s.state).toBe('ended'); expect(s.ctx.endedReason).toBe('completed')
+})
+it('PAUSE from paused increments violations and updates reason', () => {
+  let s: { state: LiveState; ctx: LiveContext } = { state: 'paused', ctx: { pausedReason: 'first_pause', endedReason: null, violations: 1 } }
+  s = transition(s.state, s.ctx, { type: 'PAUSE', reason: 'second_pause' })
+  expect(s.state).toBe('paused'); expect(s.ctx.violations).toBe(2); expect(s.ctx.pausedReason).toBe('second_pause')
 })
 it('ignores illegal transitions (CONNECTED while prejoin stays prejoin)', () => {
   const s = transition('prejoin', { pausedReason: null, endedReason: null, violations: 0 }, { type: 'CONNECTED' })
