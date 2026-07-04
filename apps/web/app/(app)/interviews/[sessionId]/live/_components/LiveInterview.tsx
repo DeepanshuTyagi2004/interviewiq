@@ -3,13 +3,14 @@
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import type { LiveSession } from "@/features/interview-live/session/types";
+import { ViolationOverlay } from "@/features/interview-live/proctor/ViolationOverlay";
 import { PrejoinView } from "./PrejoinView";
 import { ChecksView } from "./ChecksView";
 import { LiveView } from "./LiveView";
 import { EndedView } from "./EndedView";
 
 function LiveInterviewInner({ sessionId }: { sessionId: string }) {
-  const { state } = useLiveSession();
+  const { state, session } = useLiveSession();
 
   switch (state) {
     case "prejoin":
@@ -18,10 +19,20 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
       return <ChecksView sessionId={sessionId} />;
     case "live":
       return <LiveView sessionId={sessionId} />;
+    case "paused":
+      return (
+        <div className="relative h-full w-full">
+          <LiveView sessionId={sessionId} />
+          <ViolationOverlay
+            session={session}
+            onReturn={() => void document.documentElement.requestFullscreen()}
+          />
+        </div>
+      );
     case "ending":
     case "ended":
       return <EndedView sessionId={sessionId} />;
-    // connecting / paused / error — real views land in later tasks; a placeholder keeps the
+    // connecting / error — real views land in later tasks; a placeholder keeps the
     // state machine wired end-to-end today.
     default:
       return (

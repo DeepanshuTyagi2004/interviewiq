@@ -6,6 +6,7 @@ import { BottomDrawer } from '@/features/interview-live/controls/BottomDrawer'
 import { WorkArea } from '@/features/interview-live/work/WorkArea'
 import { useLocalMedia } from '@/features/interview-live/media/useLocalMedia'
 import { useLiveSession } from '@/features/interview-live/session/useLiveSession'
+import { useProctor } from '@/features/interview-live/proctor/useProctor'
 
 // The interviewer's persona name isn't available client-side — InterviewPlan (which carries it)
 // is interviewer-only and never sent to the frontend — so a fixed placeholder stands in for it.
@@ -17,6 +18,10 @@ const INTERVIEWER_NAME = 'Interviewer'
 export function LiveView({ sessionId }: { sessionId: string }) {
   const { session, send, speaking } = useLiveSession()
   const { stream, micOn, camOn, toggleMic, toggleCam } = useLocalMedia(session)
+  // LiveView is only mounted while the machine is in `live` or `paused`, so proctoring is always
+  // enabled here; ViolationOverlay (rendered above this by LiveInterview when paused) is what
+  // surfaces the resulting pause to the candidate.
+  useProctor({ session, enabled: true, onViolation: () => {} })
 
   async function handleEnd() {
     send({ type: 'END' })
