@@ -78,11 +78,17 @@ async def generate_interview_plan(req: GenerateInterviewPlanRequest, settings: S
                 f"no brief or questions for {ctx.company}/{ctx.role}/{ctx.level}/"
                 f"{ctx.specialization} round={ctx.round_type}")
 
-        # Cache gate: identical fused inputs → return the stored plan, no LLM calls.
+        # Cache gate: identical fused inputs AND the same plan version → return the stored plan, no
+        # LLM calls. The plan-version check (F9) is essential: bumping PREP_PLAN_VERSION (v1→v2 added
+        # the Pipeline-2 `reserve` field) must force regeneration for returning users, otherwise a
+        # cached v1 doc (same fused inputs) is served back verbatim with no `reserve`, so Pipeline-2
+        # EXTEND permanently no-ops for exactly the strong candidates it exists for.
         existing = await repo.get_plan(req.session.session_id)
-        if existing and (existing.get("provenance") or {}).get("inputHash") == ctx.input_hash:
-            logger.info("[prep] cache hit for session %s (input_hash=%s) — skipping LLM",
-                        req.session.session_id, ctx.input_hash)
+        existing_prov = (existing.get("provenance") or {}) if existing else {}
+        if (existing and existing_prov.get("inputHash") == ctx.input_hash
+                and existing_prov.get("planVersion") == settings.prep_plan_version):
+            logger.info("[prep] cache hit for session %s (input_hash=%s, plan_version=%s) — skipping LLM",
+                        req.session.session_id, ctx.input_hash, settings.prep_plan_version)
             sp.update(output={"cached": True})
             return existing
 
