@@ -5,6 +5,8 @@ import { useLiveSession } from "@/features/interview-live/session/useLiveSession
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { PrejoinView } from "./PrejoinView";
 import { ChecksView } from "./ChecksView";
+import { LiveView } from "./LiveView";
+import { EndedView } from "./EndedView";
 
 function LiveInterviewInner({ sessionId }: { sessionId: string }) {
   const { state } = useLiveSession();
@@ -14,8 +16,13 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
       return <PrejoinView />;
     case "checks":
       return <ChecksView sessionId={sessionId} />;
-    // connecting / live / paused / ending / ended / error — real views land in later
-    // tasks; a placeholder keeps the state machine wired end-to-end today.
+    case "live":
+      return <LiveView sessionId={sessionId} />;
+    case "ending":
+    case "ended":
+      return <EndedView sessionId={sessionId} />;
+    // connecting / paused / error — real views land in later tasks; a placeholder keeps the
+    // state machine wired end-to-end today.
     default:
       return (
         <div className="m-auto text-sm text-muted-foreground">
