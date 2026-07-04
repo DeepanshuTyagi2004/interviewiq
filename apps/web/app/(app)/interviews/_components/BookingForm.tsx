@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SectionLabel } from "@/components/patterns";
 import { cn } from "@/lib/utils/cn";
 import { useJds } from "@/features/jobs";
@@ -17,6 +18,13 @@ const selectClass =
 
 // Bookable hourly slots (local time). Kept simple for V1 — a fixed daytime window.
 const SLOT_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+
+// "Start now" nudges scheduledAt a minute into the future so the backend's past-slot
+// guard passes; prep kicks off on the session's next status poll. A dedicated
+// prepare-now trigger is a deferred backend refinement (sub-project A).
+const START_NOW_BUFFER_MS = 60_000;
+
+type BookingMode = "now" | "schedule";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -36,6 +44,7 @@ export function BookingForm() {
   const { data: jds, isLoading: jdsLoading } = useJds();
   const create = useCreateSession();
 
+  const [mode, setMode] = useState<BookingMode>("now");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [hour, setHour] = useState<number | null>(null);
@@ -43,7 +52,9 @@ export function BookingForm() {
 
   const hourValid = hour !== null && !isPastSlot(date, hour);
   const canSubmit =
-    Boolean(jobDescriptionId && date && hourValid) && !create.isPending;
+    mode === "now"
+      ? Boolean(jobDescriptionId) && !create.isPending
+      : Boolean(jobDescriptionId && date && hourValid) && !create.isPending;
 
   function reset() {
     setJobDescriptionId("");
@@ -51,14 +62,11 @@ export function BookingForm() {
     setHour(null);
   }
 
-  function submit() {
-    if (!date || hour === null) return;
-    const slot = new Date(date);
-    slot.setHours(hour, 0, 0, 0);
+  function book(scheduledAt: string) {
     // The candidate does not pick the round — the backend assigns it (currently the first round).
     const body: CreateInterviewSessionRequest = {
       jobDescriptionId,
-      scheduledAt: slot.toISOString(),
+      scheduledAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     create.mutate(body, {
@@ -70,10 +78,33 @@ export function BookingForm() {
     });
   }
 
+  function submitNow() {
+    book(new Date(Date.now() + START_NOW_BUFFER_MS).toISOString());
+  }
+
+  function submitSchedule() {
+    if (!date || hour === null) return;
+    const slot = new Date(date);
+    slot.setHours(hour, 0, 0, 0);
+    book(slot.toISOString());
+  }
+
   return (
     <Card>
       <CardContent className="space-y-5 p-6">
         <SectionLabel>Book a mock interview</SectionLabel>
+
+        <ToggleGroup
+          type="single"
+          value={mode}
+          onValueChange={(value) => {
+            if (value) setMode(value as BookingMode);
+          }}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="now">Start now</ToggleGroupItem>
+          <ToggleGroupItem value="schedule">Schedule for later</ToggleGroupItem>
+        </ToggleGroup>
 
         <label className="space-y-1.5 text-sm">
           <span className="text-muted-foreground">Role</span>
@@ -92,73 +123,75 @@ export function BookingForm() {
           </select>
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 text-sm">
-            <span className="text-muted-foreground">Date</span>
-            <Popover open={dateOpen} onOpenChange={setDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start font-normal", !date && "text-muted-foreground")}
-                >
-                  <CalendarIcon />
-                  {date
-                    ? date.toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="p-0">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => {
-                    setDate(d);
-                    setDateOpen(false);
-                  }}
-                  disabled={{ before: startOfToday() }}
-                  autoFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="space-y-1.5 text-sm">
-            <span className="text-muted-foreground">
-              Time slot <span className="font-mono text-xs">(local time)</span>
-            </span>
-            <div className="grid grid-cols-5 gap-1.5">
-              {SLOT_HOURS.map((h) => {
-                const past = isPastSlot(date, h);
-                const selected = hour === h && !past;
-                return (
-                  <button
-                    key={h}
-                    type="button"
-                    disabled={past}
-                    onClick={() => setHour(h)}
-                    className={cn(
-                      "h-8 rounded-md border text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                    )}
+        {mode === "schedule" ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 text-sm">
+              <span className="text-muted-foreground">Date</span>
+              <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start font-normal", !date && "text-muted-foreground")}
                   >
-                    {String(h).padStart(2, "0")}:00
-                  </button>
-                );
-              })}
+                    <CalendarIcon />
+                    {date
+                      ? date.toLocaleDateString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => {
+                      setDate(d);
+                      setDateOpen(false);
+                    }}
+                    disabled={{ before: startOfToday() }}
+                    autoFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-1.5 text-sm">
+              <span className="text-muted-foreground">
+                Time slot <span className="font-mono text-xs">(local time)</span>
+              </span>
+              <div className="grid grid-cols-5 gap-1.5">
+                {SLOT_HOURS.map((h) => {
+                  const past = isPastSlot(date, h);
+                  const selected = hour === h && !past;
+                  return (
+                    <button
+                      key={h}
+                      type="button"
+                      disabled={past}
+                      onClick={() => setHour(h)}
+                      className={cn(
+                        "h-8 rounded-md border text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      {String(h).padStart(2, "0")}:00
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="flex justify-end">
-          <Button disabled={!canSubmit} onClick={submit}>
+          <Button disabled={!canSubmit} onClick={mode === "now" ? submitNow : submitSchedule}>
             {create.isPending ? <Loader2 className="animate-spin" /> : null}
-            Book interview
+            {mode === "now" ? "Start now" : "Book interview"}
           </Button>
         </div>
       </CardContent>
