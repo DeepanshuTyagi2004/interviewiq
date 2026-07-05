@@ -1,7 +1,8 @@
-export type LiveState = 'prejoin' | 'checks' | 'connecting' | 'live' | 'paused' | 'ending' | 'ended' | 'error'
+export type LiveState = 'prejoin' | 'checks' | 'connecting' | 'live' | 'paused' | 'reconnecting' | 'ending' | 'ended' | 'error'
 export type LiveEvent =
   | { type: 'START_CHECKS' } | { type: 'CHECKS_PASSED' } | { type: 'CHECKS_FAILED' }
   | { type: 'CONNECTED' } | { type: 'PAUSE'; reason: string } | { type: 'RESUME' }
+  | { type: 'RECONNECTING' } | { type: 'RECONNECTED' }
   | { type: 'END' } | { type: 'ENDED'; reason?: string } | { type: 'ERROR' }
 export interface LiveContext { pausedReason: string | null; endedReason: string | null; violations: number }
 
@@ -25,14 +26,21 @@ export function transition(state: LiveState, ctx: LiveContext, event: LiveEvent)
       break
     case 'live':
       if (event.type === 'PAUSE') return { state: 'paused', ctx: { ...ctx, pausedReason: event.reason, violations: ctx.violations + 1 } }
+      if (event.type === 'RECONNECTING') return { state: 'reconnecting', ctx }
       if (event.type === 'END') return { state: 'ending', ctx }
       if (event.type === 'ENDED') return { state: 'ended', ctx: { ...ctx, endedReason: event.reason ?? ctx.endedReason ?? 'completed' } }
       break
     case 'paused':
       if (event.type === 'PAUSE') return { state: 'paused', ctx: { ...ctx, pausedReason: event.reason, violations: ctx.violations + 1 } }
       if (event.type === 'RESUME') return { state: 'live', ctx: { ...ctx, pausedReason: null } }
+      if (event.type === 'RECONNECTING') return { state: 'reconnecting', ctx }
       if (event.type === 'END') return { state: 'ending', ctx }
       if (event.type === 'ENDED') return { state: 'ended', ctx: { ...ctx, endedReason: event.reason ?? ctx.endedReason ?? 'completed' } }
+      break
+    case 'reconnecting':
+      if (event.type === 'RECONNECTED') return { state: 'live', ctx }
+      if (event.type === 'ENDED') return { state: 'ended', ctx: { ...ctx, endedReason: event.reason ?? ctx.endedReason ?? 'completed' } }
+      if (event.type === 'END') return { state: 'ending', ctx }
       break
     case 'ending':
       if (event.type === 'ENDED') return { state: 'ended', ctx: { ...ctx, endedReason: event.reason ?? ctx.endedReason ?? 'completed' } }
