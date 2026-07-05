@@ -15,9 +15,11 @@ class _AsyncIter:
 
 def test_publish_agent_audio_returns_speak_that_captures_tts_frames(monkeypatch):
     captured = []
+    playout_waits = []
     class FakeSource:
         sample_rate = 24000; num_channels = 1
         async def capture_frame(self, frame): captured.append(frame)
+        async def wait_for_playout(self): playout_waits.append(True)
     class FakeTrack: ...
     class FakeLocal:
         async def publish_track(self, track, opts): return "pub"
@@ -44,6 +46,9 @@ def test_publish_agent_audio_returns_speak_that_captures_tts_frames(monkeypatch)
         return captured
     result = asyncio.run(scenario())
     assert result == ["frame:hello:1", "frame:hello:2"]
+    # speak() must wait for real playout before returning, so speaking:false only fires
+    # once the candidate has actually stopped hearing the AI.
+    assert playout_waits == [True]
 
 
 def test_pump_stt_pushes_final_transcripts_as_utterances(monkeypatch):
@@ -77,3 +82,77 @@ def test_pump_stt_pushes_final_transcripts_as_utterances(monkeypatch):
     assert text == "my spoken answer"
     assert timing.t_start == 1.0 and timing.t_end == 4.0
     assert abs(timing.time_to_first_word_s - 0.2) < 1e-6   # word.start_time - alt.start_time
+
+
+def test_pump_stt_survives_a_bad_transcript(monkeypatch):
+    # first alternative raises the moment its `.text` is touched (simulates a malformed/partial
+    # transcript from the SDK); the second event is a normal, valid final transcript.
+    from livekit.agents.stt import SpeechEventType
+
+    class _BoomAlt:
+        @property
+        def text(self):
+            raise RuntimeError("boom: malformed alternative")
+
+    bad_final = _types.SimpleNamespace(type=SpeechEventType.FINAL_TRANSCRIPT, alternatives=[_BoomAlt()])
+
+    word = _types.SimpleNamespace(start_time=2.5)
+    good_alt = _types.SimpleNamespace(text="the second one works", start_time=2.0, end_time=3.0, words=[word])
+    good_final = _types.SimpleNamespace(type=SpeechEventType.FINAL_TRANSCRIPT, alternatives=[good_alt])
+
+    class FakeSTTStream:
+        def __init__(self): self.frames = []
+        def push_frame(self, f): self.frames.append(f)
+        def end_input(self): pass
+        def __aiter__(self): return _AsyncIter([bad_final, good_final]).__aiter__()
+    class FakeSTT:
+        def stream(self): return FakeSTTStream()
+
+    fake_rtc = _types.SimpleNamespace(
+        AudioStream=lambda track: _AsyncIter([]),
+    )
+    monkeypatch.setattr(voice, "rtc", fake_rtc)
+
+    pushed = []
+    class FakeTransport:
+        def push_utterance(self, text, timing): pushed.append((text, timing))
+
+    # must complete without raising despite the first (bad) transcript
+    asyncio.run(voice.pump_stt(object(), FakeTransport(), FakeSTT()))
+
+    assert len(pushed) == 1
+    text, timing = pushed[0]
+    assert text == "the second one works"
+    assert abs(timing.time_to_first_word_s - 0.5) < 1e-6
+
+
+def test_ttfw_zero_when_word_timing_missing(monkeypatch):
+    # alt.words is None (no word-level timing available) -> ttfw must default to 0.0, not raise.
+    from livekit.agents.stt import SpeechEventType
+
+    alt = _types.SimpleNamespace(text="no word timing here", start_time=1.0, end_time=2.0, words=None)
+    final = _types.SimpleNamespace(type=SpeechEventType.FINAL_TRANSCRIPT, alternatives=[alt])
+
+    class FakeSTTStream:
+        def __init__(self): self.frames = []
+        def push_frame(self, f): self.frames.append(f)
+        def end_input(self): pass
+        def __aiter__(self): return _AsyncIter([final]).__aiter__()
+    class FakeSTT:
+        def stream(self): return FakeSTTStream()
+
+    fake_rtc = _types.SimpleNamespace(
+        AudioStream=lambda track: _AsyncIter([]),
+    )
+    monkeypatch.setattr(voice, "rtc", fake_rtc)
+
+    pushed = []
+    class FakeTransport:
+        def push_utterance(self, text, timing): pushed.append((text, timing))
+
+    asyncio.run(voice.pump_stt(object(), FakeTransport(), FakeSTT()))
+
+    assert len(pushed) == 1
+    text, timing = pushed[0]
+    assert text == "no word timing here"
+    assert timing.time_to_first_word_s == 0.0

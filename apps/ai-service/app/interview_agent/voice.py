@@ -29,6 +29,8 @@ async def publish_agent_audio(room, tts) -> tuple[object, Callable[[str], Awaita
     async def speak(text: str) -> None:
         async for synthesized in tts.synthesize(text):
             await source.capture_frame(synthesized.frame)
+        if hasattr(source, "wait_for_playout"):
+            await source.wait_for_playout()
 
     return source, speak
 
@@ -47,12 +49,24 @@ async def pump_stt(track, transport, stt) -> None:
 
     async def consume() -> None:
         async for event in stt_stream:
-            if event.type == SpeechEventType.FINAL_TRANSCRIPT and event.alternatives:
-                alt = event.alternatives[0]
-                text = (alt.text or "").strip()
-                if not text:
-                    continue
-                ttfw = (alt.words[0].start_time - alt.start_time) if getattr(alt, "words", None) else 0.0
-                transport.push_utterance(text, UtteranceTiming(alt.start_time, alt.end_time, ttfw))
+            try:
+                if event.type == SpeechEventType.FINAL_TRANSCRIPT and event.alternatives:
+                    alt = event.alternatives[0]
+                    text = (alt.text or "").strip()
+                    if not text:
+                        continue
+                    words = getattr(alt, "words", None)
+                    if (
+                        words
+                        and isinstance(words[0].start_time, (int, float))
+                        and isinstance(alt.start_time, (int, float))
+                    ):
+                        ttfw = words[0].start_time - alt.start_time
+                    else:
+                        ttfw = 0.0
+                    transport.push_utterance(text, UtteranceTiming(alt.start_time, alt.end_time, ttfw))
+            except Exception:
+                logger.warning("pump_stt: failed to process a transcript event, skipping", exc_info=True)
+                continue
 
     await asyncio.gather(feed(), consume())
