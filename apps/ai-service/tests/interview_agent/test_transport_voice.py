@@ -53,3 +53,9 @@ def test_say_without_speak_hook_still_works():
     t, sent = _make(speak=None)
     asyncio.run(t.say("no audio"))
     assert [m["type"] for m in sent] == ["speaking", "interviewer_utterance", "speaking"]
+
+
+def test_send_candidate_utterance_emits_expected_message():
+    t, sent = _make()
+    asyncio.run(t.send_candidate_utterance("my answer"))
+    assert sent == [{"type": "candidate_utterance", "text": "my answer"}]

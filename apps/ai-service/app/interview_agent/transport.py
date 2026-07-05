@@ -128,6 +128,12 @@ class LiveKitTransport:
         else:
             self._paused_buffer.append(item)
 
+    async def send_candidate_utterance(self, text: str) -> None:
+        """Echo the candidate's transcribed speech to the browser transcript panel (display only;
+        NOT the brain path — that's push_utterance). Sent unconditionally (even while paused): it just
+        reflects what STT heard."""
+        await self._send({"type": "candidate_utterance", "text": text})
+
     async def say(self, text: str) -> None:
         await self._send({"type": "speaking", "who": "interviewer", "speaking": True})
         await self._send({"type": "interviewer_utterance", "text": text})

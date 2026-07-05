@@ -65,6 +65,7 @@ async def pump_stt(track, transport, stt) -> None:
                     else:
                         ttfw = 0.0
                     transport.push_utterance(text, UtteranceTiming(alt.start_time, alt.end_time, ttfw))
+                    await transport.send_candidate_utterance(text)
             except Exception:
                 logger.warning("pump_stt: failed to process a transcript event, skipping", exc_info=True)
                 continue

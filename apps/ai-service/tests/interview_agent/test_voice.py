@@ -73,8 +73,10 @@ def test_pump_stt_pushes_final_transcripts_as_utterances(monkeypatch):
     monkeypatch.setattr(voice, "rtc", fake_rtc)
 
     pushed = []
+    echoed = []
     class FakeTransport:
         def push_utterance(self, text, timing): pushed.append((text, timing))
+        async def send_candidate_utterance(self, text): echoed.append(text)
 
     asyncio.run(voice.pump_stt(object(), FakeTransport(), FakeSTT()))
     assert len(pushed) == 1
@@ -82,6 +84,7 @@ def test_pump_stt_pushes_final_transcripts_as_utterances(monkeypatch):
     assert text == "my spoken answer"
     assert timing.t_start == 1.0 and timing.t_end == 4.0
     assert abs(timing.time_to_first_word_s - 0.2) < 1e-6   # word.start_time - alt.start_time
+    assert echoed == ["my spoken answer"]
 
 
 def test_pump_stt_survives_a_bad_transcript(monkeypatch):
@@ -116,6 +119,7 @@ def test_pump_stt_survives_a_bad_transcript(monkeypatch):
     pushed = []
     class FakeTransport:
         def push_utterance(self, text, timing): pushed.append((text, timing))
+        async def send_candidate_utterance(self, text): pass
 
     # must complete without raising despite the first (bad) transcript
     asyncio.run(voice.pump_stt(object(), FakeTransport(), FakeSTT()))
@@ -149,6 +153,7 @@ def test_ttfw_zero_when_word_timing_missing(monkeypatch):
     pushed = []
     class FakeTransport:
         def push_utterance(self, text, timing): pushed.append((text, timing))
+        async def send_candidate_utterance(self, text): pass
 
     asyncio.run(voice.pump_stt(object(), FakeTransport(), FakeSTT()))
 
