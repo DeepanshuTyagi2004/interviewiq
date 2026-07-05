@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, renderHook, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LiveSessionProvider, useLiveSession } from './LiveSessionProvider'
@@ -107,6 +107,19 @@ describe('LiveSessionProvider onControl -> machine bridge', () => {
 
     expect(screen.getByTestId('state').textContent).toBe('ended')
     expect(screen.getByTestId('endedReason').textContent).toBe('candidate_left')
+  })
+
+  it('server-pushed ended signal releases media even though LiveView never unmounts (P1/Q6 regression)', async () => {
+    const session = new StubLiveSession()
+    const disconnectSpy = vi.spyOn(session, 'disconnect')
+    await renderBridgeAtLive(session)
+
+    act(() => session.emit({ type: 'ended', reason: 'host_ended' }))
+
+    expect(screen.getByTestId('state').textContent).toBe('ended')
+    expect(disconnectSpy).toHaveBeenCalled()
+    // fullscreenElement is always null in jsdom, so exitFullscreen is a guarded no-op here —
+    // the assertion that matters is that disconnect() (media release) ran on this path.
   })
 
   it('acknowledge_violation{text} appends to transcript', async () => {

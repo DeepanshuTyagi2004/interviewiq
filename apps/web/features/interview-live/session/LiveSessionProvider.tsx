@@ -42,6 +42,20 @@ export function LiveSessionProvider({ sessionId, session, children }: { sessionI
   // stops tracks) so re-running it after the End path already ran is safe.
   useEffect(() => () => { void liveSession.disconnect() }, [liveSession])
 
+  // Centralized end-cleanup: fires for EVERY path that lands the machine in `ended` — the manual
+  // End button, the ceiling timeout, and (critically) a server-pushed `ended` control signal, which
+  // maps straight to machine `ended` above (onControl) without unmounting LiveView or the provider.
+  // Without this, that path leaked the camera/mic stream and left the UI stuck in fullscreen.
+  // disconnect() is idempotent, so double-running it alongside LiveView.handleEnd is harmless.
+  useEffect(() => {
+    if (state === 'ended') {
+      void liveSession.disconnect()
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        void document.exitFullscreen()
+      }
+    }
+  }, [state, liveSession])
+
   const value = useMemo<Ctx>(() => ({ session: liveSession, state, ctx, send, speaking, transcript }), [liveSession, state, ctx, speaking, transcript])
   return <LiveCtx.Provider value={value}>{children}</LiveCtx.Provider>
 }
