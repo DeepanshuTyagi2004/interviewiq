@@ -69,6 +69,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/sessions/{sessionId}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Current live state (fresh token if LIVE_IN_PROGRESS).
+         * @description Read-only check of the session's live state. Returns a fresh LiveKit token when LIVE_IN_PROGRESS; livekitUrl/token/roomName are null for any other status. Only the owning candidate may call this.
+         *
+         */
+        get: operations["getLiveInterviewSession"];
+        put?: never;
+        /**
+         * Start (or resume) the live interview; mints a LiveKit join token.
+         * @description Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for the same room without altering session state. Only the owning candidate may call this.
+         *
+         */
+        post: operations["goLiveInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interview-plans": {
         parameters: {
             query?: never;
@@ -84,6 +112,48 @@ export interface paths {
          *
          */
         post: operations["generateInterviewPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/interview-plans/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start plan generation in the background (fire-and-poll variant).
+         * @description Same request body and cache/persist semantics as POST /interview-plans, but returns a run_id immediately and runs the pipeline in the background. The caller polls GET /interview-plans/runs/{runId} until the run is terminal. Used by the prep trigger so a slow, concurrent Stage-2 LLM run can't trip the HTTP client read timeout (which would wrongly mark the session PREP_FAILED). Single-process: start and poll must hit the same worker.
+         *
+         */
+        post: operations["startInterviewPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/interview-plans/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll a run started by /interview-plans/start.
+         * @description Returns the run's terminal state. While running, plan and error are null. On completed, plan carries the InterviewPlan. On failed, error carries {code, message} — code mirrors the synchronous route's failure modes (no_data ≈ 422, llm_error ≈ 502).
+         *
+         */
+        get: operations["getInterviewPlanRun"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -109,11 +179,11 @@ export interface components {
         /** @enum {string} */
         Difficulty: "easy" | "medium" | "hard";
         /**
-         * @description Interview session lifecycle. Prep-only today (SCHEDULED → PREP_QUEUED → PREP_READY, with PREP_FAILED). Deliberately left extensible for later live / debrief stages, which are NOT implemented in Pipeline 1.
+         * @description Interview session lifecycle. Prep (SCHEDULED → PREP_QUEUED → PREP_READY, with PREP_FAILED) is Pipeline 1. Live states (LIVE_IN_PROGRESS, COMPLETED, ABORTED_TECHNICAL) are Pipeline 2 — a PREP_READY session transitions to LIVE_IN_PROGRESS on go-live, then to COMPLETED or ABORTED_TECHNICAL.
          *
          * @enum {string}
          */
-        SessionStatus: "SCHEDULED" | "PREP_QUEUED" | "PREP_READY" | "PREP_FAILED";
+        SessionStatus: "SCHEDULED" | "PREP_QUEUED" | "PREP_READY" | "PREP_FAILED" | "LIVE_IN_PROGRESS" | "COMPLETED" | "ABORTED_TECHNICAL";
         CreateInterviewSessionRequest: {
             /** Format: uuid */
             jobDescriptionId: string;
@@ -167,6 +237,14 @@ export interface components {
         };
         InterviewSessionListResponse: {
             sessions: components["schemas"]["InterviewSession"][];
+        };
+        /** @description Result of starting or checking the live interview. `livekitUrl`/`token`/`roomName` are populated while status == LIVE_IN_PROGRESS and null otherwise (e.g. before prep is ready, or after the session has COMPLETED/ABORTED_TECHNICAL).
+         *      */
+        GoLiveResponse: {
+            livekitUrl?: string | null;
+            token?: string | null;
+            roomName?: string | null;
+            status: components["schemas"]["SessionStatus"];
         };
         /** @description Everything the ai-service needs to build a plan. Assembled by the backend. */
         GenerateInterviewPlanRequest: {
@@ -468,6 +546,54 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getLiveInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live session state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoLiveResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    goLiveInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live session state, with a LiveKit join token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoLiveResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     generateInterviewPlan: {
         parameters: {
             query?: never;
@@ -509,6 +635,68 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+        };
+    };
+    startInterviewPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateInterviewPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description The run was started. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        run_id: string;
+                        /** @enum {string} */
+                        status: "running";
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getInterviewPlanRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        run_id: string;
+                        /** @enum {string} */
+                        status: "running" | "completed" | "failed";
+                        plan?: components["schemas"]["InterviewPlan"] | null;
+                        error?: {
+                            code?: string;
+                            message?: string;
+                        } | null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

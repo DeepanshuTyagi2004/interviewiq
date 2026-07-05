@@ -9,3 +9,4 @@ export type SessionStatus = components["schemas"]["SessionStatus"];
 export type RoundType = components["schemas"]["RoundType"];
 export type CreateInterviewSessionRequest = components["schemas"]["CreateInterviewSessionRequest"];
 export type InterviewSessionListResponse = components["schemas"]["InterviewSessionListResponse"];
+export type GoLiveResponse = components["schemas"]["GoLiveResponse"];

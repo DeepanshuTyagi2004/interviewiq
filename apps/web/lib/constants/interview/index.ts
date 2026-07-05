@@ -9,11 +9,13 @@ export const INTERVIEW_ENDPOINTS = {
   sessions: SESSIONS,
   session: (id: string) => `${SESSIONS}/${id}`,
   regenerate: (id: string) => `${SESSIONS}/${id}/regenerate`,
+  live: (id: string) => `${SESSIONS}/${id}/live`,
 } as const;
 
 export const INTERVIEW_QUERY_KEYS = {
   sessions: ["interviews", "sessions"] as const,
   session: (id: string) => ["interviews", "session", id] as const,
+  live: (id: string) => ["interviews", "session", id, "live"] as const,
 } as const;
 
 /** Poll the sessions list while prep is in flight, so "Preparing → Ready" updates on its own. */

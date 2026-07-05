@@ -2,8 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTERVIEW_POLLING, INTERVIEW_QUERY_KEYS } from "@/lib/constants/interview";
-import { createSession, getSession, listMySessions, regenerateSession } from "./api";
-import type { CreateInterviewSessionRequest, InterviewSession, InterviewSessionListResponse } from "./types";
+import { createSession, getLive, getSession, listMySessions, regenerateSession } from "./api";
+import type {
+  CreateInterviewSessionRequest,
+  GoLiveResponse,
+  InterviewSession,
+  InterviewSessionListResponse,
+} from "./types";
 
 /** The candidate's sessions. Auto-polls while any session is still preparing (Scheduled/Queued). */
 export function useMySessions() {
@@ -51,5 +56,13 @@ export function useSession(id: string) {
         ? INTERVIEW_POLLING.sessionsIntervalMs
         : false;
     },
+  });
+}
+
+/** The session's live state (LiveKit URL/token/room). No polling — callers fetch on demand. */
+export function useLiveState(id: string) {
+  return useQuery<GoLiveResponse>({
+    queryKey: INTERVIEW_QUERY_KEYS.live(id),
+    queryFn: () => getLive(id),
   });
 }
