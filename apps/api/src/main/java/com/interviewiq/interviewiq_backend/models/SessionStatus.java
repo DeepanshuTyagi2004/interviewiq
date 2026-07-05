@@ -17,5 +17,8 @@ public enum SessionStatus {
     SCHEDULED,
     PREP_QUEUED,
     PREP_READY,
-    PREP_FAILED
+    PREP_FAILED,
+    LIVE_IN_PROGRESS,
+    COMPLETED,
+    ABORTED_TECHNICAL
 }

@@ -86,6 +86,29 @@ public class InterviewSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "live_started_at")
+    private Instant liveStartedAt;
+
+    @Column(name = "live_ended_at")
+    private Instant liveEndedAt;
+
+    @Column(name = "ended_reason", length = 32)
+    private String endedReason;
+
+    @Column(name = "livekit_room")
+    private String livekitRoom;
+
+    @Column(name = "live_score_final")
+    private Double liveScoreFinal;
+
+    @Column(name = "duration_s")
+    private Integer durationS;
+
+    // Full SessionOutcome JSON from the worker, stored verbatim. Null until the interview finalizes.
+    // Relies on hikari stringtype=unspecified for the String->jsonb cast (see application.properties).
+    @Column(name = "outcome", columnDefinition = "jsonb")
+    private String outcome;
+
     public InterviewSession(UUID candidateId, JobDescription jd, RoundType roundType,
                             Instant scheduledAt, String timezone) {
         this.candidateId = candidateId;
