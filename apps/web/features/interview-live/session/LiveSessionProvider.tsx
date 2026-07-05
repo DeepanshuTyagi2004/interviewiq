@@ -29,12 +29,18 @@ export function LiveSessionProvider({ sessionId, session, children }: { sessionI
     const off = liveSession.onControl((c) => {
       if (c.type === 'pause') send({ type: 'PAUSE', reason: c.reason })
       else if (c.type === 'resume') send({ type: 'RESUME' })
-      else if (c.type === 'ended') send({ type: 'ENDED' })
+      else if (c.type === 'ended') send({ type: 'ENDED', reason: c.reason })
       else if (c.type === 'speaking') setSpeaking((prev) => ({ ...prev, [c.who]: c.speaking }))
       else if (c.type === 'interviewer_utterance') setTranscript((t) => [...t, c.text])
+      else if (c.type === 'acknowledge_violation') setTranscript((t) => [...t, c.text ?? 'Please stay in full screen.'])
     })
     return off
   }, [liveSession])
+
+  // Release media on ANY exit (SPA navigation away, server `ended` signal, unmount) — not just the
+  // LiveView End button path. disconnect() is idempotent (bumps token, clears the opening timeout,
+  // stops tracks) so re-running it after the End path already ran is safe.
+  useEffect(() => () => { void liveSession.disconnect() }, [liveSession])
 
   const value = useMemo<Ctx>(() => ({ session: liveSession, state, ctx, send, speaking, transcript }), [liveSession, state, ctx, speaking, transcript])
   return <LiveCtx.Provider value={value}>{children}</LiveCtx.Provider>

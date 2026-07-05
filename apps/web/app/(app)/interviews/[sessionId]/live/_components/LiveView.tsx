@@ -16,7 +16,7 @@ const INTERVIEWER_NAME = 'Interviewer'
 // it); LiveView itself doesn't need it — session.connect(sessionId) already ran in ChecksView.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LiveView({ sessionId }: { sessionId: string }) {
-  const { session, send, speaking } = useLiveSession()
+  const { session, send, speaking, transcript } = useLiveSession()
   const { stream, micOn, camOn, toggleMic, toggleCam } = useLocalMedia(session)
   // LiveView is only mounted while the machine is in `live` or `paused`, so proctoring is always
   // enabled here; ViolationOverlay (rendered above this by LiveInterview when paused) is what
@@ -50,6 +50,14 @@ export function LiveView({ sessionId }: { sessionId: string }) {
           <div className="min-h-0 flex-1">
             <AvatarBubble name={INTERVIEWER_NAME} speaking={speaking.interviewer} />
           </div>
+          <ul
+            aria-label="Interviewer captions"
+            className="max-h-40 shrink-0 space-y-1 overflow-y-auto rounded border border-neutral-700 p-2 text-sm"
+          >
+            {transcript.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
         </aside>
       </div>
       <BottomDrawer
