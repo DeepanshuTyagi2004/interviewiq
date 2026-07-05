@@ -25,6 +25,7 @@ class LiveSessionServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock LiveKitTokenService liveKit;
+    @Mock tools.jackson.databind.ObjectMapper objectMapper;
     @InjectMocks LiveSessionService service;
 
     private InterviewSession session(SessionStatus status) {
@@ -112,5 +113,53 @@ class LiveSessionServiceTest {
         LiveSessionResponse r2 = service.getLive(USER, sid);
         assertNull(r2.token());
         assertEquals(SessionStatus.PREP_READY, r2.status());
+    }
+
+    @Test
+    void recordOutcome_persistsJsonbAndFlipsToCompleted() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        String body = "{\"session_id\":\"" + sid + "\",\"ended_reason\":\"natural_complete\","
+                + "\"live_score_final\":0.66,\"duration_s\":1830.0,\"per_answer_evidence\":[],"
+                + "\"negative_events\":[],\"arc_completed\":true,\"extensions_granted\":0,"
+                + "\"derived_topics\":[]}";
+        svc.recordOutcome(sid, om.readTree(body));
+
+        assertEquals(SessionStatus.COMPLETED, s.getStatus());
+        assertEquals("natural_complete", s.getEndedReason());
+        assertEquals(0.66, s.getLiveScoreFinal());
+        assertEquals(1830, s.getDurationS());
+        assertNotNull(s.getLiveEndedAt());
+        assertTrue(s.getOutcome().contains("\"session_id\""));
+    }
+
+    @Test
+    void recordOutcome_abortedTechnical_flipsToAborted() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        svc.recordOutcome(sid, om.readTree(
+                "{\"ended_reason\":\"aborted_technical\",\"live_score_final\":0.0,\"duration_s\":120.0}"));
+
+        assertEquals(SessionStatus.ABORTED_TECHNICAL, s.getStatus());
+    }
+
+    @Test
+    void recordOutcome_unknownSession_throwsNotFound() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findById(sid)).thenReturn(Optional.empty());
+        assertThrows(InterviewSessionException.class,
+                () -> svc.recordOutcome(sid, om.readTree("{\"ended_reason\":\"early_weak\"}")));
     }
 }

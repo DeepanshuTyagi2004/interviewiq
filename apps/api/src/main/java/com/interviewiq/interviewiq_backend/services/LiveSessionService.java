@@ -21,10 +21,15 @@ public class LiveSessionService {
 
     private final InterviewSessionRepository sessionRepository;
     private final LiveKitTokenService liveKit;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
-    public LiveSessionService(InterviewSessionRepository sessionRepository, LiveKitTokenService liveKit) {
+    public LiveSessionService(
+            InterviewSessionRepository sessionRepository,
+            LiveKitTokenService liveKit,
+            tools.jackson.databind.ObjectMapper objectMapper) {
         this.sessionRepository = sessionRepository;
         this.liveKit = liveKit;
+        this.objectMapper = objectMapper;
     }
 
     private InterviewSession requireOwned(UUID candidateId, UUID sessionId) {
@@ -64,5 +69,29 @@ public class LiveSessionService {
             return connection(sessionId, candidateId, s.getStatus());
         }
         return new LiveSessionResponse(null, null, null, s.getStatus());
+    }
+
+    /**
+     * Called by the Python worker (internal, no owner scope) when an interview ends: persists the
+     * full {@code SessionOutcome} JSON verbatim into the jsonb {@code outcome} column, promotes a
+     * few scalars for querying, and flips the session to its terminal status.
+     */
+    @Transactional
+    public void recordOutcome(UUID sessionId, tools.jackson.databind.JsonNode outcome) {
+        InterviewSession s = sessionRepository.findById(sessionId)
+                .orElseThrow(InterviewSessionException::notFound);
+        String endedReason = outcome.path("ended_reason").asString(null);
+        s.setEndedReason(endedReason);
+        if (outcome.has("live_score_final") && !outcome.path("live_score_final").isNull()) {
+            s.setLiveScoreFinal(outcome.path("live_score_final").asDouble());
+        }
+        if (outcome.has("duration_s") && !outcome.path("duration_s").isNull()) {
+            s.setDurationS((int) Math.round(outcome.path("duration_s").asDouble()));
+        }
+        s.setOutcome(outcome.toString());
+        s.setLiveEndedAt(Instant.now());
+        s.setStatus("aborted_technical".equals(endedReason)
+                ? SessionStatus.ABORTED_TECHNICAL : SessionStatus.COMPLETED);
+        sessionRepository.save(s);
     }
 }
