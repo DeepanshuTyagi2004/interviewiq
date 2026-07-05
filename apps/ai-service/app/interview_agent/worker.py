@@ -6,9 +6,14 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+from livekit import rtc
+from livekit.agents import AutoSubscribe
+from livekit.plugins import deepgram
+
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.db import repositories as repo
+from app.interview_agent import voice
 from app.interview_agent.outcome_sink import post_outcome
 from app.interview_agent.session import run_session
 from app.interview_agent.transport import LiveKitTransport
@@ -42,10 +47,23 @@ async def run_interview(ctx, settings: Settings) -> SessionOutcome | None:
     async def send(payload: dict) -> None:
         await ctx.room.local_participant.publish_data(json.dumps(payload).encode("utf-8"))
 
-    transport = LiveKitTransport(ctx.room, send=send)
+    tts = deepgram.TTS(model="aura-2-asteria-en", api_key=settings.deepgram_api_key)
+    _source, speak = await voice.publish_agent_audio(ctx.room, tts)
+    transport = LiveKitTransport(ctx.room, send=send, speak=speak)
 
     # wire inbound data-channel messages to the transport (real room only; fake room in tests skips this)
     _wire_data_received(ctx.room, transport)
+
+    stt = deepgram.STT(model="nova-3", language="en", api_key=settings.deepgram_api_key)
+    _pump_tasks: set[asyncio.Task] = set()
+    on = getattr(ctx.room, "on", None)
+    if on is not None:
+        @on("track_subscribed")
+        def _on_track(track, *_args, **_kwargs):
+            if getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
+                task = asyncio.create_task(voice.pump_stt(track, transport, stt))
+                _pump_tasks.add(task)
+                task.add_done_callback(_pump_tasks.discard)
 
     outcome = await run_session(transport, plan, settings)
     if outcome is not None:
@@ -103,7 +121,7 @@ async def entrypoint(ctx) -> None:
     settings = get_settings()
     await mongo.connect(settings)
     try:
-        await ctx.connect()  # defaults to AutoSubscribe.SUBSCRIBE_ALL; audio handling deferred to sub-project D
+        await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
         await run_interview(ctx, settings)
     finally:
         await mongo.close()
