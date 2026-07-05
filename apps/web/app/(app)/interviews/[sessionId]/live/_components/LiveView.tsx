@@ -23,10 +23,18 @@ export function LiveView({ sessionId }: { sessionId: string }) {
   // surfaces the resulting pause to the candidate.
   useProctor({ session, enabled: true, onViolation: () => {} })
 
-  async function handleEnd() {
+  function handleEnd() {
+    // Dispatch END then ENDED (with no reason) BEFORE disconnecting, so the machine records
+    // ctx.endedReason as 'completed' (via the ENDED handler's `event.reason ?? ctx.endedReason ??
+    // 'completed'` fallback) while still in `ending`. Only then call disconnect() — its resulting
+    // connectionState flip to 'disconnected' fires the provider's onConnectionChange bridge, which
+    // dispatches ENDED{reason:'aborted_technical'}, but by then the machine is already in `ended`
+    // (which has no ENDED handler), so that dispatch is a harmless no-op. Reversing this order (as
+    // it used to be — disconnect() before the trailing ENDED) let the bridge's 'aborted_technical'
+    // win the race, mislabeling every normal manual end.
     send({ type: 'END' })
-    await session.disconnect()
     send({ type: 'ENDED' })
+    void session.disconnect()
     // Don't leave the ended/report screen stuck in fullscreen.
     if (document.fullscreenElement) void document.exitFullscreen()
   }
