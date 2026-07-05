@@ -25,8 +25,9 @@ function isControlSignal(v: unknown): v is ControlSignal {
 }
 
 /** Real LiveSession backed by a LiveKit room. Sub-project A scope: connect + data-channel
- * control bridge + artifact/proctor publishing + a local self-view stream. Mic publish to the
- * room, AI audio playback, and STT/TTS are sub-project D — not built here. */
+ * control bridge + artifact/proctor publishing + a local self-view stream. Sub-project D adds
+ * candidate mic publish to the room and AI audio-track playback here; STT/TTS themselves live
+ * in the ai-service worker, not this client. */
 export class LiveKitLiveSession implements LiveSession {
   connectionState: ConnState = 'idle'
   private room: Room | null = null
@@ -118,7 +119,7 @@ export class LiveKitLiveSession implements LiveSession {
 
   setMicEnabled(on: boolean) {
     this.stream?.getAudioTracks().forEach((t) => (t.enabled = on))
-    void this.room?.localParticipant.setMicrophoneEnabled(on)
+    void this.room?.localParticipant.setMicrophoneEnabled(on)?.catch(() => {})
   }
 
   setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
