@@ -67,9 +67,16 @@ class LiveKitTransport:
     authoritative `ended` data-channel message and sends it itself, after `run_session` returns. This
     keeps the class unit-testable with a fake `send` and no real room."""
 
-    def __init__(self, room: object, *, send: Callable[[dict], Awaitable[None]]):
+    def __init__(
+        self,
+        room: object,
+        *,
+        send: Callable[[dict], Awaitable[None]],
+        speak: Callable[[str], Awaitable[None]] | None = None,
+    ):
         self._room = room
         self._send = send
+        self._speak = speak
         self._queue: asyncio.Queue[tuple[str, UtteranceTiming]] = asyncio.Queue()
         self._paused_buffer: list[tuple[str, UtteranceTiming]] = []
         self._latest_artifact: Artifact | None = None
@@ -111,9 +118,24 @@ class LiveKitTransport:
         except Exception as exc:  # noqa: BLE001 - fire-and-forget task; never let this raise
             logger.warning("error handling data-channel message %r: %s", payload.get("type"), exc)
 
+    def push_utterance(self, text: str, timing: UtteranceTiming) -> None:
+        """Sync entry point for STT-derived candidate turns (sub-project D). Mirrors the `answer`
+        branch of `handle_incoming` exactly: pause-gated onto the same queue `next_utterance` drains,
+        buffered and flushed on resume otherwise."""
+        item = (text, timing)
+        if self._not_paused.is_set():
+            self._queue.put_nowait(item)
+        else:
+            self._paused_buffer.append(item)
+
     async def say(self, text: str) -> None:
         await self._send({"type": "speaking", "who": "interviewer", "speaking": True})
         await self._send({"type": "interviewer_utterance", "text": text})
+        if self._speak is not None:
+            try:
+                await self._speak(text)
+            except Exception as exc:  # noqa: BLE001 - voice is best-effort over the always-present caption
+                logger.warning("TTS speak failed: %s", exc)
         await self._send({"type": "speaking", "who": "interviewer", "speaking": False})
 
     async def next_utterance(self) -> tuple[str, UtteranceTiming] | None:
