@@ -27,6 +27,8 @@ export function LiveView({ sessionId }: { sessionId: string }) {
     send({ type: 'END' })
     await session.disconnect()
     send({ type: 'ENDED' })
+    // Don't leave the ended/report screen stuck in fullscreen.
+    if (document.fullscreenElement) void document.exitFullscreen()
   }
 
   function handleToggleFullscreen() {

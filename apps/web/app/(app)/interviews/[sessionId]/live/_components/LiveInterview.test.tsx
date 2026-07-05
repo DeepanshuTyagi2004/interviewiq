@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
+
+// LiveInterviewInner reads useRouter() unconditionally (for the `error` state's recovery
+// button) — stub it since these tests never leave the app-router-less test environment.
+vi.mock("next/navigation", async () => {
+  const actual = await vi.importActual<typeof import("next/navigation")>("next/navigation");
+  return { ...actual, useRouter: () => ({ push: vi.fn() }) };
+});
+
 import LiveInterview from "./LiveInterview";
 
 // PrejoinView's camera preview acquires its stream via a real (mocked) getUserMedia() call, which

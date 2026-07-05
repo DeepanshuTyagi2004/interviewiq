@@ -85,4 +85,47 @@ describe("LiveView", () => {
 
     await flushTimers();
   });
+
+  it("Q6: clicking End interview exits fullscreen if active", async () => {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      writable: true,
+      value: null,
+    });
+    const session = new MockLiveSession();
+    await session.connect("s1");
+    const user = userEvent.setup();
+
+    renderLiveView(session);
+    await flushTimers();
+
+    await document.documentElement.requestFullscreen();
+    expect(document.fullscreenElement).not.toBeNull();
+
+    const endButton = screen.getByRole("button", { name: /end interview/i });
+    await user.click(endButton);
+
+    expect(document.exitFullscreen).toHaveBeenCalled();
+  });
+
+  it("Q6: clicking End interview does not call exitFullscreen when not in fullscreen", async () => {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      writable: true,
+      value: null,
+    });
+    const session = new MockLiveSession();
+    await session.connect("s1");
+    const exitFullscreenSpy = vi.spyOn(document, "exitFullscreen");
+    const user = userEvent.setup();
+
+    renderLiveView(session);
+    await flushTimers();
+
+    expect(document.fullscreenElement).toBeNull();
+    const endButton = screen.getByRole("button", { name: /end interview/i });
+    await user.click(endButton);
+
+    expect(exitFullscreenSpy).not.toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import type { LiveSession } from "@/features/interview-live/session/types";
@@ -11,6 +13,7 @@ import { EndedView } from "./EndedView";
 
 function LiveInterviewInner({ sessionId }: { sessionId: string }) {
   const { state, session } = useLiveSession();
+  const router = useRouter();
 
   switch (state) {
     case "prejoin":
@@ -40,8 +43,25 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
     case "ending":
     case "ended":
       return <EndedView sessionId={sessionId} />;
-    // connecting / error — real views land in later tasks; a placeholder keeps the
-    // state machine wired end-to-end today.
+    case "error":
+      return (
+        <div className="m-auto flex w-full max-w-md flex-col items-center gap-4 p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Something went wrong connecting to your interview. You can try again from the
+            interviews list.
+          </p>
+          <Button
+            onClick={() => {
+              if (document.fullscreenElement) void document.exitFullscreen();
+              router.push("/interviews");
+            }}
+          >
+            Back to interviews
+          </Button>
+        </div>
+      );
+    // connecting — real views land in later tasks; a placeholder keeps the state machine
+    // wired end-to-end today.
     default:
       return (
         <div className="m-auto text-sm text-muted-foreground">

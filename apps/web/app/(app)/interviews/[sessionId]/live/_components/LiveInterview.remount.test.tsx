@@ -33,6 +33,12 @@ vi.mock("./LiveView", async () => {
 vi.mock("@/features/interview-live/proctor/ViolationOverlay", () => ({
   ViolationOverlay: () => <div data-testid="overlay" />,
 }));
+// LiveInterviewInner reads useRouter() unconditionally (for the `error` state's recovery
+// button) — stub it since this test never leaves the app-router-less test environment.
+vi.mock("next/navigation", async () => {
+  const actual = await vi.importActual<typeof import("next/navigation")>("next/navigation");
+  return { ...actual, useRouter: () => ({ push: vi.fn() }) };
+});
 
 import LiveInterview from "./LiveInterview";
 

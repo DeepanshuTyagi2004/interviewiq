@@ -19,6 +19,7 @@ interface ViolationOverlayProps {
  * believes the candidate is paused. */
 export function ViolationOverlay({ session, onReturn }: ViolationOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const returnButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const node = overlayRef.current
@@ -38,15 +39,27 @@ export function ViolationOverlay({ session, onReturn }: ViolationOverlayProps) {
     return () => observer.disconnect()
   }, [session])
 
+  // Keep keyboard users on the recovery action: move focus to the Return button as soon as the
+  // overlay mounts. A DOM call, not setState, so it's fine to run in the effect body directly.
+  useEffect(() => {
+    returnButtonRef.current?.focus()
+  }, [])
+
   return (
     <div
       ref={overlayRef}
       data-testid="violation-overlay"
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-[70] backdrop-blur-md bg-background/80 grid place-items-center"
     >
       <div className="flex flex-col items-center gap-4 rounded-lg border bg-card p-8 text-center shadow-lg">
-        <p className="text-lg font-medium">Please return to full-screen to continue</p>
-        <Button onClick={onReturn}>Return to full-screen</Button>
+        <p className="text-lg font-medium" aria-live="assertive">
+          Please return to full-screen to continue
+        </p>
+        <Button ref={returnButtonRef} onClick={onReturn}>
+          Return to full-screen
+        </Button>
       </div>
     </div>
   )

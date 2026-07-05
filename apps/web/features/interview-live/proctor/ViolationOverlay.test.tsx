@@ -43,4 +43,28 @@ describe('ViolationOverlay', () => {
     expect(overlay.parentElement).toBe(parent)
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ type: 'overlay_tamper' }))
   })
+
+  it('Q4: exposes the overlay as a modal dialog with an assertive live message', () => {
+    const session = new MockLiveSession()
+    const onReturn = vi.fn()
+
+    render(<ViolationOverlay session={session} onReturn={onReturn} />)
+
+    const overlay = screen.getByTestId('violation-overlay')
+    expect(overlay).toHaveAttribute('role', 'dialog')
+    expect(overlay).toHaveAttribute('aria-modal', 'true')
+
+    const message = screen.getByText(/please return to full-screen to continue/i)
+    expect(message).toHaveAttribute('aria-live', 'assertive')
+  })
+
+  it('Q4: moves focus to the Return button on mount, for keyboard users', () => {
+    const session = new MockLiveSession()
+    const onReturn = vi.fn()
+
+    render(<ViolationOverlay session={session} onReturn={onReturn} />)
+
+    const button = screen.getByRole('button', { name: /return to full-screen/i })
+    expect(button).toHaveFocus()
+  })
 })
