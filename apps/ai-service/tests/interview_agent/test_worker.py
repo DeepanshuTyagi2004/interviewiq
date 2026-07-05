@@ -205,3 +205,18 @@ def test_run_interview_aborts_cleanly_when_no_plan(monkeypatch):
     ctx = FakeCtx(FakeRoom("interview-missing"))
     outcome = asyncio.run(worker.run_interview(ctx, get_settings()))
     assert outcome is None
+
+
+def test_build_worker_options_carries_livekit_creds():
+    """Regression: the worker must pass our .env-loaded LiveKit creds into WorkerOptions —
+    LiveKit Agents otherwise reads them from os.environ (which pydantic .env loading does NOT
+    populate), causing 'ws_url is required' at startup."""
+    from app.config import get_settings
+    from app.interview_agent import worker
+
+    s = get_settings()
+    opts = worker.build_worker_options(s)
+    assert opts.ws_url == s.livekit_url
+    assert opts.api_key == s.livekit_api_key
+    assert opts.api_secret == s.livekit_api_secret
+    assert opts.entrypoint_fnc is worker.entrypoint

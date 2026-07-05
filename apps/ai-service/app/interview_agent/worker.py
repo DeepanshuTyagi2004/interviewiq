@@ -127,10 +127,24 @@ async def entrypoint(ctx) -> None:
         await mongo.close()
 
 
-def main() -> None:
-    from livekit.agents import WorkerOptions, cli  # verified via context7 (/livekit/agents) + local package
+def build_worker_options(settings: Settings):
+    """WorkerOptions wired with our LiveKit creds. LiveKit Agents otherwise reads
+    LIVEKIT_URL/API_KEY/API_SECRET from os.environ — but our creds live in `.env` (loaded by
+    pydantic Settings, NOT exported to the process env), so we pass them explicitly here."""
+    from livekit.agents import WorkerOptions  # verified via context7 (/livekit/agents) + local package
 
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    return WorkerOptions(
+        entrypoint_fnc=entrypoint,
+        ws_url=settings.livekit_url,
+        api_key=settings.livekit_api_key,
+        api_secret=settings.livekit_api_secret,
+    )
+
+
+def main() -> None:
+    from livekit.agents import cli
+
+    cli.run_app(build_worker_options(get_settings()))
 
 
 if __name__ == "__main__":
