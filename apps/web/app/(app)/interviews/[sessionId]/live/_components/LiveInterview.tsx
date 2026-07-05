@@ -17,16 +17,24 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
       return <PrejoinView />;
     case "checks":
       return <ChecksView sessionId={sessionId} />;
+    // live + paused share ONE stable tree so LiveView (and the candidate's in-progress
+    // code/diagram/tab/media state) is NEVER remounted on a pause/resume. Only the `inert`
+    // flag toggles (disables the work area under the overlay) and the overlay renders as a
+    // sibling. useProctor's document listeners inside LiveView keep firing while inert, so
+    // the restore→resume path still works.
     case "live":
-      return <LiveView sessionId={sessionId} />;
     case "paused":
       return (
         <div className="relative h-full w-full">
-          <LiveView sessionId={sessionId} />
-          <ViolationOverlay
-            session={session}
-            onReturn={() => void document.documentElement.requestFullscreen()}
-          />
+          <div inert={state === "paused"} className="h-full w-full">
+            <LiveView sessionId={sessionId} />
+          </div>
+          {state === "paused" && (
+            <ViolationOverlay
+              session={session}
+              onReturn={() => void document.documentElement.requestFullscreen()}
+            />
+          )}
         </div>
       );
     case "ending":
