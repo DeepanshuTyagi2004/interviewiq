@@ -33,4 +33,8 @@ public class InterviewSessionException extends RuntimeException {
     public static InterviewSessionException badRequest(String code, String message) {
         return new InterviewSessionException(HttpStatus.BAD_REQUEST, code, message);
     }
+
+    public static InterviewSessionException conflict(String code, String message) {
+        return new InterviewSessionException(HttpStatus.CONFLICT, code, message);
+    }
 }

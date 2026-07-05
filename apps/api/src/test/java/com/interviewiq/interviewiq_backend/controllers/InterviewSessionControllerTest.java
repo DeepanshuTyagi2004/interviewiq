@@ -6,6 +6,7 @@ import com.interviewiq.interviewiq_backend.models.RoundType;
 import com.interviewiq.interviewiq_backend.models.SessionStatus;
 import com.interviewiq.interviewiq_backend.services.InterviewSessionException;
 import com.interviewiq.interviewiq_backend.services.InterviewSessionService;
+import com.interviewiq.interviewiq_backend.services.LiveSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -47,6 +48,9 @@ class InterviewSessionControllerTest {
 
     @MockitoBean
     InterviewSessionService service;
+
+    @MockitoBean
+    LiveSessionService liveSessionService; // controller ctor dep (unused directly by these tests)
 
     private static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID SESSION_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
