@@ -5,11 +5,14 @@ that drives the brain deterministically with no audio."""
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Awaitable, Callable, Protocol, runtime_checkable
 
 from app.interview_agent.types import Artifact, ArtifactKind, UtteranceTiming
 
 SILENCE_TIMEOUT_S = 45.0
+
+logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -64,34 +67,50 @@ class LiveKitTransport:
         self._room = room
         self._send = send
         self._queue: asyncio.Queue[tuple[str, UtteranceTiming]] = asyncio.Queue()
+        self._paused_buffer: list[tuple[str, UtteranceTiming]] = []
         self._latest_artifact: Artifact | None = None
         self._not_paused = asyncio.Event()
         self._not_paused.set()
+        self._disconnected = asyncio.Event()
         self._ended_reason: str | None = None
 
     def set_ended_reason(self, reason: str) -> None:
         self._ended_reason = reason
 
+    def mark_disconnected(self) -> None:
+        self._disconnected.set()
+
     async def handle_incoming(self, payload: dict) -> None:
-        msg_type = payload["type"]
-        if msg_type == "answer":
-            timing = UtteranceTiming(t_start=payload["tStart"], t_end=payload["tEnd"], time_to_first_word_s=0.0)
-            await self._queue.put((payload["text"], timing))
-        elif msg_type == "artifact":
-            self._latest_artifact = Artifact(
-                kind=ArtifactKind(payload["kind"]),
-                content=payload["content"],
-                language=payload.get("language"),
-            )
-        elif msg_type == "proctor":
-            event = payload["event"]
-            if event in _PAUSE_EVENTS:
-                self._not_paused.clear()
-                await self._send({"type": "pause", "reason": event})
-                await self._send({"type": "acknowledge_violation", "text": f"Violation detected: {event}. The interview is paused until you resolve this."})
-            elif event in _RESUME_EVENTS:
-                self._not_paused.set()
-                await self._send({"type": "resume"})
+        try:
+            msg_type = payload["type"]
+            if msg_type == "answer":
+                timing = UtteranceTiming(t_start=payload["tStart"], t_end=payload["tEnd"], time_to_first_word_s=0.0)
+                item = (payload["text"], timing)
+                if self._not_paused.is_set():
+                    self._queue.put_nowait(item)
+                else:
+                    self._paused_buffer.append(item)
+            elif msg_type == "artifact":
+                self._latest_artifact = Artifact(
+                    kind=ArtifactKind(payload["kind"]),
+                    content=payload["content"],
+                    language=payload.get("language"),
+                )
+            elif msg_type == "proctor":
+                event = payload["event"]
+                if event in _PAUSE_EVENTS:
+                    self._not_paused.clear()
+                    await self._send({"type": "pause", "reason": event})
+                    await self._send({"type": "acknowledge_violation", "text": f"Violation detected: {event}. The interview is paused until you resolve this."})
+                elif event in _RESUME_EVENTS:
+                    self._not_paused.set()
+                    for it in self._paused_buffer:
+                        self._queue.put_nowait(it)
+                    self._paused_buffer.clear()
+                    await self._send({"type": "resume"})
+        except Exception as exc:  # noqa: BLE001 - fire-and-forget task; never let this raise
+            logger.warning("dropping malformed data-channel message: %s", exc)
+            return
 
     async def say(self, text: str) -> None:
         await self._send({"type": "speaking", "who": "interviewer", "speaking": True})
@@ -100,10 +119,21 @@ class LiveKitTransport:
 
     async def next_utterance(self) -> tuple[str, UtteranceTiming] | None:
         await self._not_paused.wait()
-        try:
-            return await asyncio.wait_for(self._queue.get(), timeout=SILENCE_TIMEOUT_S)
-        except asyncio.TimeoutError:
+        if self._disconnected.is_set() and self._queue.empty():
             return None
+        get_task = asyncio.ensure_future(self._queue.get())
+        disc_task = asyncio.ensure_future(self._disconnected.wait())
+        try:
+            done, pending = await asyncio.wait(
+                {get_task, disc_task}, timeout=SILENCE_TIMEOUT_S, return_when=asyncio.FIRST_COMPLETED
+            )
+        finally:
+            for t in (get_task, disc_task):
+                if not t.done():
+                    t.cancel()
+        if get_task in done and not get_task.cancelled():
+            return get_task.result()
+        return None  # disconnected or 45s silence timeout
 
     async def current_artifact(self) -> Artifact | None:
         return self._latest_artifact
