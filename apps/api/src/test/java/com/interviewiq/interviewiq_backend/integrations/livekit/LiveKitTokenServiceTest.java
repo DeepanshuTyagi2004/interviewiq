@@ -4,6 +4,7 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,8 +37,14 @@ class LiveKitTokenServiceTest {
         var claims = parsed.getJWTClaimsSet();
         assertEquals(API_KEY, claims.getIssuer());          // LiveKit: iss = api key
         assertEquals(cid.toString(), claims.getSubject());   // sub = participant identity
-        assertNotNull(claims.getClaim("video"));             // the room grant object
         assertNotNull(claims.getExpirationTime());
+
+        // the "video" claim is LiveKit's VideoGrant, serialized as a nested object:
+        // {"roomJoin": true, "room": "interview-<sessionId>"}
+        Map<String, Object> videoGrant = claims.getJSONObjectClaim("video");
+        assertNotNull(videoGrant, "video grant object must be present");
+        assertEquals("interview-" + sid, videoGrant.get("room"), "grant must scope to the session's room");
+        assertEquals(Boolean.TRUE, videoGrant.get("roomJoin"), "grant must allow joining the room");
     }
 
     @Test

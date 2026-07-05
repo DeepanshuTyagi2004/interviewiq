@@ -25,7 +25,6 @@ class LiveSessionServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock LiveKitTokenService liveKit;
-    @Mock tools.jackson.databind.ObjectMapper objectMapper;
     @InjectMocks LiveSessionService service;
 
     private InterviewSession session(SessionStatus status) {
@@ -54,6 +53,7 @@ class LiveSessionServiceTest {
         assertEquals(SessionStatus.LIVE_IN_PROGRESS, s.getStatus());
         assertNotNull(s.getLiveStartedAt());
         assertEquals("interview-" + sid, s.getLivekitRoom());
+        verify(sessionRepository).save(s);
     }
 
     @Test
@@ -116,9 +116,19 @@ class LiveSessionServiceTest {
     }
 
     @Test
+    void getLive_whenNotOwned_throwsNotFound() {
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.empty());
+
+        InterviewSessionException ex =
+                assertThrows(InterviewSessionException.class, () -> service.getLive(USER, sid));
+        assertEquals(404, ex.status().value());
+    }
+
+    @Test
     void recordOutcome_persistsJsonbAndFlipsToCompleted() {
         tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
-        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
         UUID sid = UUID.randomUUID();
         InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
         when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
@@ -141,7 +151,7 @@ class LiveSessionServiceTest {
     @Test
     void recordOutcome_abortedTechnical_flipsToAborted() {
         tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
-        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
         UUID sid = UUID.randomUUID();
         InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
         when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
@@ -156,10 +166,30 @@ class LiveSessionServiceTest {
     @Test
     void recordOutcome_unknownSession_throwsNotFound() {
         tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
-        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit, om);
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
         UUID sid = UUID.randomUUID();
         when(sessionRepository.findById(sid)).thenReturn(Optional.empty());
         assertThrows(InterviewSessionException.class,
                 () -> svc.recordOutcome(sid, om.readTree("{\"ended_reason\":\"early_weak\"}")));
+    }
+
+    @Test
+    void recordOutcome_onAlreadyCompletedSession_isNoOp() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.COMPLETED);
+        String originalOutcome = "{\"ended_reason\":\"natural_complete\"}";
+        java.time.Instant originalEndedAt = java.time.Instant.parse("2020-01-01T00:00:00Z");
+        s.setOutcome(originalOutcome);
+        s.setLiveEndedAt(originalEndedAt);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+
+        svc.recordOutcome(sid, om.readTree("{\"ended_reason\":\"aborted_technical\"}"));
+
+        assertEquals(SessionStatus.COMPLETED, s.getStatus());
+        assertEquals(originalOutcome, s.getOutcome());
+        assertEquals(originalEndedAt, s.getLiveEndedAt());
+        verify(sessionRepository, never()).save(any());
     }
 }

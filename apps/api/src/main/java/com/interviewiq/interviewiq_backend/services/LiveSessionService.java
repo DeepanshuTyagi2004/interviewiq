@@ -21,15 +21,12 @@ public class LiveSessionService {
 
     private final InterviewSessionRepository sessionRepository;
     private final LiveKitTokenService liveKit;
-    private final tools.jackson.databind.ObjectMapper objectMapper;
 
     public LiveSessionService(
             InterviewSessionRepository sessionRepository,
-            LiveKitTokenService liveKit,
-            tools.jackson.databind.ObjectMapper objectMapper) {
+            LiveKitTokenService liveKit) {
         this.sessionRepository = sessionRepository;
         this.liveKit = liveKit;
-        this.objectMapper = objectMapper;
     }
 
     private InterviewSession requireOwned(UUID candidateId, UUID sessionId) {
@@ -75,11 +72,18 @@ public class LiveSessionService {
      * Called by the Python worker (internal, no owner scope) when an interview ends: persists the
      * full {@code SessionOutcome} JSON verbatim into the jsonb {@code outcome} column, promotes a
      * few scalars for querying, and flips the session to its terminal status.
+     *
+     * <p>The worker delivers outcomes at-least-once, so this is idempotent: if the session is
+     * already terminal ({@code COMPLETED} or {@code ABORTED_TECHNICAL}), a retried delivery is a
+     * safe no-op rather than an error or a re-write.
      */
     @Transactional
     public void recordOutcome(UUID sessionId, tools.jackson.databind.JsonNode outcome) {
         InterviewSession s = sessionRepository.findById(sessionId)
                 .orElseThrow(InterviewSessionException::notFound);
+        if (s.getStatus() == SessionStatus.COMPLETED || s.getStatus() == SessionStatus.ABORTED_TECHNICAL) {
+            return; // already finalized: duplicate delivery, idempotent no-op
+        }
         String endedReason = outcome.path("ended_reason").asString(null);
         s.setEndedReason(endedReason);
         if (outcome.has("live_score_final") && !outcome.path("live_score_final").isNull()) {

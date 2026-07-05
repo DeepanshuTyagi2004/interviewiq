@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalLiveSessionController.class,
@@ -63,7 +64,8 @@ class InternalLiveSessionControllerTest {
         mockMvc.perform(post("/api/v1/internal/sessions/" + sid + "/outcome")
                         .header("X-Internal-Api-Key", "wrong")
                         .contentType("application/json").content(BODY))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("invalid_internal_key"));
         verify(liveSessionService, never()).recordOutcome(any(), any());
     }
 }
