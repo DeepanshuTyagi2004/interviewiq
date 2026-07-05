@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 from app.config import get_settings
 from app.interview_agent import worker
@@ -11,7 +12,11 @@ def test_session_id_from_room_parses_prefix():
 
 
 class FakeParticipant:
-    async def publish_data(self, *a, **k): pass
+    def __init__(self):
+        self.published: list[dict] = []
+
+    async def publish_data(self, data, *a, **k):
+        self.published.append(json.loads(bytes(data).decode("utf-8")))
 
 
 class FakeRoom:
@@ -31,8 +36,14 @@ class FakeCtx:
 
 
 def test_run_interview_loads_plan_runs_brain_and_posts_outcome(monkeypatch):
+    """Also covers Fix 1: the worker must publish the authoritative `ended` message itself, carrying
+    the REAL outcome reason, AFTER post_outcome has run. The outcome below uses a non-natural reason
+    (EARLY_WEAK) — under the old (pre-fix) code, LiveKitTransport.end_session() always emitted
+    "natural_complete" regardless of the real outcome, so this assertion would fail under that
+    behavior."""
     calls = {}
     plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": []}
+    room = FakeRoom("interview-s-1")
 
     async def fake_get_plan(sid):
         calls["get_plan"] = sid
@@ -40,17 +51,20 @@ def test_run_interview_loads_plan_runs_brain_and_posts_outcome(monkeypatch):
 
     async def fake_run_session(transport, p, settings):
         calls["run_session"] = (type(transport).__name__, p)
-        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+        return SessionOutcome("s-1", EndedReason.EARLY_WEAK, 0.7, [], [], True, 0, [], 1200.0)
 
     async def fake_post_outcome(settings, outcome):
         calls["post_outcome"] = outcome.session_id
+        # Snapshot what's been published so far — must be empty, i.e. post_outcome runs BEFORE
+        # the authoritative "ended" message goes out (order: post_outcome then ended).
+        calls["published_before_post_outcome"] = list(room.local_participant.published)
         return True
 
     monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
     monkeypatch.setattr(worker, "run_session", fake_run_session)
     monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
 
-    ctx = FakeCtx(FakeRoom("interview-s-1"))
+    ctx = FakeCtx(room)
     outcome = asyncio.run(worker.run_interview(ctx, get_settings()))
 
     assert calls["get_plan"] == "s-1"
@@ -58,6 +72,38 @@ def test_run_interview_loads_plan_runs_brain_and_posts_outcome(monkeypatch):
     assert calls["run_session"][1] is plan
     assert calls["post_outcome"] == "s-1"
     assert outcome is not None and outcome.session_id == "s-1"
+
+    assert calls["published_before_post_outcome"] == []
+    assert {"type": "ended", "reason": "early_weak"} in room.local_participant.published
+
+
+def test_wire_data_received_registers_disconnect_handler():
+    """Fix 2: the disconnect wiring was dead in production before this fix — nothing registered a
+    handler for the room's disconnect events, so mark_disconnected() was only ever reachable from
+    tests. Verify _wire_data_received actually registers one (or both, wired defensively) of
+    "participant_disconnected" / "disconnected" and that invoking it flips the transport's
+    disconnected flag."""
+    room = FakeRoom("interview-s-1")
+
+    async def send(payload):
+        pass
+
+    transport = worker.LiveKitTransport(room, send=send)
+
+    worker._wire_data_received(room, transport)
+
+    disconnect_handlers = [
+        room._handlers[event]
+        for event in ("participant_disconnected", "disconnected")
+        if event in room._handlers
+    ]
+    assert disconnect_handlers, "expected a disconnect handler to be registered"
+    assert not transport._disconnected.is_set()
+
+    for handler in disconnect_handlers:
+        handler()  # simulate the event firing (candidate leaves / room tears down)
+
+    assert transport._disconnected.is_set()
 
 
 def test_run_interview_aborts_cleanly_when_no_plan(monkeypatch):

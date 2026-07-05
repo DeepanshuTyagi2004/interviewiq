@@ -11,6 +11,7 @@ from typing import Awaitable, Callable, Protocol, runtime_checkable
 from app.interview_agent.types import Artifact, ArtifactKind, UtteranceTiming
 
 SILENCE_TIMEOUT_S = 45.0
+PAUSE_MAX_S = 300.0
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +60,12 @@ class LiveKitTransport:
     """Real transport for sub-project A: everything is TEXT over a LiveKit room's data channel
     (audio/STT/TTS is sub-project D). Does not import the LiveKit SDK — it is constructed with the
     room (used only for identity/logging by the worker) plus an injected async `send(payload)` that
-    publishes a JSON message, and it exposes `handle_incoming`/`set_ended_reason` for the worker to
-    wire to the room's data_received event and session teardown, respectively. This keeps the class
-    unit-testable with a fake `send` and no real room."""
+    publishes a JSON message, and it exposes `handle_incoming`/`mark_disconnected` for the worker to
+    wire to the room's data_received and disconnect events, respectively. `end_session()` is
+    teardown-only (no message emitted) — the frozen brain's `run_session` calls it from a `finally`
+    BEFORE returning its SessionOutcome, so it never has the real end reason; the worker owns the
+    authoritative `ended` data-channel message and sends it itself, after `run_session` returns. This
+    keeps the class unit-testable with a fake `send` and no real room."""
 
     def __init__(self, room: object, *, send: Callable[[dict], Awaitable[None]]):
         self._room = room
@@ -72,10 +76,6 @@ class LiveKitTransport:
         self._not_paused = asyncio.Event()
         self._not_paused.set()
         self._disconnected = asyncio.Event()
-        self._ended_reason: str | None = None
-
-    def set_ended_reason(self, reason: str) -> None:
-        self._ended_reason = reason
 
     def mark_disconnected(self) -> None:
         self._disconnected.set()
@@ -119,15 +119,21 @@ class LiveKitTransport:
     async def next_utterance(self) -> tuple[str, UtteranceTiming] | None:
         # 1) wait until unpaused OR disconnected (whichever first) -- a disconnect while paused
         # (e.g. candidate leaves during a proctor violation) must not hang forever on the pause gate.
+        # Also bounded by PAUSE_MAX_S: a pause with no resume AND no disconnect event (e.g. the
+        # disconnect wiring didn't fire) must still terminate rather than hang forever.
         if not self._not_paused.is_set():
             np_task = asyncio.ensure_future(self._not_paused.wait())
             disc_wait_task = asyncio.ensure_future(self._disconnected.wait())
             try:
-                await asyncio.wait({np_task, disc_wait_task}, return_when=asyncio.FIRST_COMPLETED)
+                await asyncio.wait(
+                    {np_task, disc_wait_task}, timeout=PAUSE_MAX_S, return_when=asyncio.FIRST_COMPLETED
+                )
             finally:
                 for t in (np_task, disc_wait_task):
                     if not t.done():
                         t.cancel()
+            if not self._not_paused.is_set() and not self._disconnected.is_set():
+                return None  # paused too long with no resume/disconnect — let silence handling take over
         # 2) if disconnected and nothing left to deliver, end promptly
         if self._disconnected.is_set() and self._queue.empty():
             return None
@@ -150,4 +156,8 @@ class LiveKitTransport:
         return self._latest_artifact
 
     async def end_session(self) -> None:
-        await self._send({"type": "ended", "reason": self._ended_reason or "natural_complete"})
+        """Teardown-only: unblock any waiter parked in `next_utterance`. Called from the frozen
+        brain's `finally` BEFORE `run_session` returns its SessionOutcome, so it cannot know the real
+        end reason — emitting an `ended` message here would always be wrong (see class docstring).
+        The worker sends the authoritative `ended` message itself once it has the real outcome."""
+        self._disconnected.set()

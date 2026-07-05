@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from app.config import Settings, get_settings
 from app.db import mongo
@@ -11,6 +12,9 @@ from app.db import repositories as repo
 from app.interview_agent.outcome_sink import post_outcome
 from app.interview_agent.session import run_session
 from app.interview_agent.transport import LiveKitTransport
+
+if TYPE_CHECKING:
+    from app.interview_agent.types import SessionOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +28,11 @@ def session_id_from_room(name: str | None) -> str | None:
     return sid or None
 
 
-async def run_interview(ctx, settings: Settings):
+async def run_interview(ctx, settings: Settings) -> SessionOutcome | None:
     """Testable core: sessionId -> plan -> brain over LiveKitTransport -> post outcome. Returns the outcome or None."""
     session_id = session_id_from_room(ctx.room.name)
     if session_id is None:
-        logger.warning("Room %r is not an interview room — ignoring", getattr(ctx.room, "name", None))
+        logger.warning("Room %r is not an interview room — ignoring", ctx.room.name)
         return None
     plan = await repo.get_plan(session_id)
     if plan is None:
@@ -45,18 +49,28 @@ async def run_interview(ctx, settings: Settings):
 
     outcome = await run_session(transport, plan, settings)
     if outcome is not None:
-        transport.set_ended_reason(outcome.ended_reason.value)
+        # run_session's `finally` already called transport.end_session() (teardown-only, see
+        # transport.LiveKitTransport) BEFORE returning here, so it never knew the real end reason.
+        # This worker owns the authoritative `ended` message — post the outcome first, then tell the
+        # client the real reason.
         await post_outcome(settings, outcome)
+        await send({"type": "ended", "reason": outcome.ended_reason.value})
     return outcome
 
 
 def _wire_data_received(room, transport: LiveKitTransport) -> None:
-    """Register the room's data_received handler → transport.handle_incoming. Verified against
-    livekit-rtc 1.6.x: Room.on("data_received") is an EventEmitter-style decorator (callback=None ->
-    returns a decorator), the handler receives a single `DataPacket` with a `.data: bytes` field."""
+    """Register the room's data_received handler → transport.handle_incoming, plus the disconnect
+    signal(s) that unblock a transport parked on the pause gate or the answer queue. Verified against
+    livekit-rtc 1.6.x (installed package + context7 /livekit/python-sdks docs): Room.on(event) is an
+    EventEmitter-style decorator (callback=None -> returns a decorator); "data_received" delivers a
+    `DataPacket` with a `.data: bytes` field; "participant_disconnected" fires when a remote
+    participant (the candidate) leaves the room; "disconnected" fires when the room itself tears down.
+    Either can be how the candidate goes away, so both are wired defensively to mark_disconnected."""
     on = getattr(room, "on", None)
     if on is None:
         return
+
+    background_tasks: set[asyncio.Task] = set()
 
     @on("data_received")
     def _on_data(data_packet):  # DataPacket(data: bytes, kind, participant, topic) — livekit-rtc 1.6.x
@@ -64,12 +78,28 @@ def _wire_data_received(room, transport: LiveKitTransport) -> None:
             payload = json.loads(bytes(data_packet.data).decode("utf-8"))
         except Exception:  # noqa: BLE001
             return
-        asyncio.create_task(transport.handle_incoming(payload))
+        # Keep a handle so the task isn't GC'd mid-flight; drop it from the set once it's done.
+        task = asyncio.create_task(transport.handle_incoming(payload))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
+
+    def _on_disconnect(*_args, **_kwargs) -> None:
+        transport.mark_disconnected()
+
+    for event in ("participant_disconnected", "disconnected"):
+        try:
+            on(event)(_on_disconnect)
+        except Exception:  # noqa: BLE001 - defensive; a room lacking these events must not break wiring
+            logger.debug("could not register %r handler on room", event)
 
 
 async def entrypoint(ctx) -> None:
     """LiveKit Agents entrypoint. Automatic dispatch: this worker joins every room; non-interview
-    rooms are ignored by run_interview."""
+    rooms are rejected here, before paying any Mongo connect/index cost (run_interview would reject
+    them too, but only after that connect)."""
+    if session_id_from_room(ctx.room.name) is None:
+        logger.warning("Room %r is not an interview room — ignoring", ctx.room.name)
+        return
     settings = get_settings()
     await mongo.connect(settings)
     try:

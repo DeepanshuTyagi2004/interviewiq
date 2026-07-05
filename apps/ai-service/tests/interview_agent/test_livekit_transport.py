@@ -1,5 +1,6 @@
 import asyncio
 
+from app.interview_agent import transport as transport_module
 from app.interview_agent.transport import LiveKitTransport
 from app.interview_agent.types import ArtifactKind
 
@@ -68,14 +69,35 @@ def test_proctor_pause_withholds_next_utterance_until_resume():
     assert "pause" in kinds and "acknowledge_violation" in kinds and "resume" in kinds
 
 
-def test_end_session_emits_ended_with_reason():
+def test_end_session_marks_disconnected():
+    """end_session() is teardown-only now (Fix 1): it must NOT emit an `ended` message (the frozen
+    brain calls it from a `finally` BEFORE run_session returns, so it never knows the real end
+    reason — the worker sends the authoritative `ended` message itself, after the fact). It must
+    still unblock anything parked in next_utterance()."""
     t, sent = _make()
+
     async def scenario():
-        t.set_ended_reason("early_weak")
         await t.end_session()
-    asyncio.run(scenario())
-    ended = [m for m in sent if m["type"] == "ended"]
-    assert ended and ended[0]["reason"] == "early_weak"
+        return await asyncio.wait_for(t.next_utterance(), 1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+    assert [m for m in sent if m["type"] == "ended"] == []
+
+
+def test_pause_wait_capped_by_pause_max_s_returns_none(monkeypatch):
+    """A pause that is never resumed and sees no disconnect event must still terminate rather than
+    hang next_utterance() forever — PAUSE_MAX_S bounds the wait so the driver's silence handling can
+    take over. Monkeypatch the module constant down to keep the test fast."""
+    monkeypatch.setattr(transport_module, "PAUSE_MAX_S", 0.05)
+    t, _ = _make()
+
+    async def scenario():
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        return await asyncio.wait_for(t.next_utterance(), timeout=1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
 
 
 def test_answer_arriving_while_paused_is_withheld_until_resume():
