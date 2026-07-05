@@ -52,7 +52,7 @@ class ScriptedTransport:
         self.ended = True
 
 
-_PAUSE_EVENTS = {"fullscreen_exit", "tab_hidden", "external_display", "overlay_tamper"}
+_PAUSE_EVENTS = {"fullscreen_exit", "tab_hidden", "external_display_detected", "overlay_tamper"}
 _RESUME_EVENTS = {"fullscreen_restored", "tab_visible"}
 
 
