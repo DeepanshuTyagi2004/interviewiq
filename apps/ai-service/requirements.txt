@@ -9,3 +9,4 @@ httpx>=0.27            # async HTTP: LLM calls
 apscheduler>=3.10      # in-process scheduler (no separate worker for V1)
 pypdf>=4.0            # résumé PDF -> text extraction (onboarding parse)
 langgraph>=0.2          # Pipeline 2 live-interview decision graph (stateful per-turn routing)
+livekit-agents~=1.6     # Pipeline 2 live interview worker (LiveKit Agents; pulls livekit-rtc)

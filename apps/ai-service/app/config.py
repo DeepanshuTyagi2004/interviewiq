@@ -189,6 +189,11 @@ class Settings(BaseSettings):
     # How many "sorry, didn't catch that" retries before aborting on persistent silence.
     interview_silence_retries: int = Field(2, alias="INTERVIEW_SILENCE_RETRIES")
 
+    # --- LiveKit (Pipeline 2 live interview worker) ---
+    livekit_url: str = Field(..., alias="LIVEKIT_URL")
+    livekit_api_key: str = Field(..., alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str = Field(..., alias="LIVEKIT_API_SECRET")
+
     # --- Langfuse tracing (OPTIONAL) ---
     # New runtime dependency, kept OPTIONAL: the service starts and runs without the `langfuse`
     # package installed. Tracing is a NO-OP unless enabled AND both keys are set (see app/obs).
