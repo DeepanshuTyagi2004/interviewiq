@@ -1,16 +1,101 @@
-import type { LiveSession } from './types'
+import { ConnectionState, Room, RoomEvent } from 'livekit-client'
+import { goLive } from '@/features/interview/api'
+import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
 
-/** Real implementation lands with sub-projects A (LiveKit rooms/token) + D (voice). Until then, unused. */
+type Cb<T> = (v: T) => void
+
+function mapConnState(s: ConnectionState): ConnState {
+  switch (s) {
+    case ConnectionState.Connecting:
+      return 'connecting'
+    case ConnectionState.Connected:
+      return 'connected'
+    case ConnectionState.Reconnecting:
+    case ConnectionState.SignalReconnecting:
+      return 'reconnecting'
+    case ConnectionState.Disconnected:
+    default:
+      return 'disconnected'
+  }
+}
+
+function isControlSignal(v: unknown): v is ControlSignal {
+  return typeof v === 'object' && v !== null && typeof (v as { type?: unknown }).type === 'string'
+}
+
+/** Real LiveSession backed by a LiveKit room. Sub-project A scope: connect + data-channel
+ * control bridge + artifact/proctor publishing + a local self-view stream. Mic publish to the
+ * room, AI audio playback, and STT/TTS are sub-project D — not built here. */
 export class LiveKitLiveSession implements LiveSession {
-  connectionState = 'idle' as const
-  private nie(): never { throw new Error('LiveKitLiveSession not implemented — see spec sub-projects A + D') }
-  connect() { return this.nie() }
-  disconnect() { return this.nie() }
-  getLocalStream() { return this.nie() }
-  setMicEnabled() { this.nie() }
-  setCameraEnabled() { this.nie() }
-  sendArtifact() { this.nie() }
-  sendProctorEvent() { this.nie() }
-  onControl() { return this.nie() }
-  onConnectionChange() { return this.nie() }
+  connectionState: ConnState = 'idle'
+  private room: Room | null = null
+  private stream: MediaStream | null = null
+  private controlCbs = new Set<Cb<ControlSignal>>()
+  private connCbs = new Set<Cb<ConnState>>()
+
+  async connect(sessionId: string): Promise<void> {
+    this.setConn('connecting')
+    const { livekitUrl, token } = await goLive(sessionId)
+    if (!livekitUrl || !token) {
+      this.setConn('disconnected')
+      throw new Error('goLive did not return a livekitUrl/token')
+    }
+
+    const room = new Room()
+    room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+      try {
+        const parsed: unknown = JSON.parse(new TextDecoder().decode(payload))
+        if (isControlSignal(parsed)) this.emit(parsed)
+      } catch {
+        // malformed inbound data — ignore, never throw
+      }
+    })
+    room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
+      this.setConn(mapConnState(state))
+    })
+    this.room = room
+
+    await room.connect(livekitUrl, token)
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    } catch {
+      this.stream = null // media denied — self-view is best-effort only
+    }
+
+    this.setConn('connected')
+  }
+
+  async disconnect(): Promise<void> {
+    this.stream?.getTracks().forEach((t) => t.stop())
+    this.stream = null
+    await this.room?.disconnect()
+    this.setConn('disconnected')
+  }
+
+  getLocalStream() { return this.stream }
+
+  setMicEnabled(on: boolean) { this.stream?.getAudioTracks().forEach((t) => (t.enabled = on)) }
+
+  setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
+
+  sendArtifact(a: ArtifactSnapshot) {
+    this.publish({ type: 'artifact', kind: a.kind, content: a.content, language: a.language })
+  }
+
+  sendProctorEvent(e: ProctorEvent) {
+    this.publish({ type: 'proctor', event: e.type })
+  }
+
+  onControl(cb: Cb<ControlSignal>) { this.controlCbs.add(cb); return () => this.controlCbs.delete(cb) }
+
+  onConnectionChange(cb: Cb<ConnState>) { this.connCbs.add(cb); return () => this.connCbs.delete(cb) }
+
+  private publish(obj: Record<string, unknown>) {
+    this.room?.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(obj)), { reliable: true })
+  }
+
+  private emit(c: ControlSignal) { this.controlCbs.forEach((cb) => cb(c)) }
+
+  private setConn(s: ConnState) { this.connectionState = s; this.connCbs.forEach((cb) => cb(s)) }
 }
