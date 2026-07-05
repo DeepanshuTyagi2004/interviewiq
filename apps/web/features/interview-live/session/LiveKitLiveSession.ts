@@ -41,21 +41,26 @@ export class LiveKitLiveSession implements LiveSession {
       throw new Error('goLive did not return a livekitUrl/token')
     }
 
-    const room = new Room()
-    room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-      try {
-        const parsed: unknown = JSON.parse(new TextDecoder().decode(payload))
-        if (isControlSignal(parsed)) this.emit(parsed)
-      } catch {
-        // malformed inbound data — ignore, never throw
-      }
-    })
-    room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
-      this.setConn(mapConnState(state))
-    })
-    this.room = room
+    try {
+      const room = new Room()
+      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+        try {
+          const parsed: unknown = JSON.parse(new TextDecoder().decode(payload))
+          if (isControlSignal(parsed)) this.emit(parsed)
+        } catch {
+          // malformed inbound data — ignore, never throw
+        }
+      })
+      room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
+        this.setConn(mapConnState(state))
+      })
+      this.room = room
 
-    await room.connect(livekitUrl, token)
+      await room.connect(livekitUrl, token)
+    } catch (err) {
+      this.setConn('disconnected')
+      throw err
+    }
 
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })

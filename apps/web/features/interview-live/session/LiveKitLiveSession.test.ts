@@ -69,4 +69,14 @@ describe("LiveKitLiveSession", () => {
     await s.connect("s1");
     expect(() => handlers["dataReceived"](new TextEncoder().encode("not json"))).not.toThrow();
   });
+
+  it("connect rejection resets connectionState to disconnected and rethrows", async () => {
+    connect.mockRejectedValueOnce(new Error("room down"));
+    const s = new LiveKitLiveSession();
+    const seen: string[] = [];
+    s.onConnectionChange((st) => seen.push(st));
+    await expect(s.connect("s1")).rejects.toThrow("room down");
+    expect(s.connectionState).toBe("disconnected");
+    expect(seen).toContain("disconnected");
+  });
 });
