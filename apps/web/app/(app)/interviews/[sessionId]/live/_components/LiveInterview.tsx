@@ -119,7 +119,7 @@ export default function LiveInterview({
   session?: LiveSession;
 }) {
   const router = useRouter();
-  const { data, isLoading } = useLiveState(sessionId);
+  const { data, isLoading, isError } = useLiveState(sessionId);
   const status = data?.status;
   const isTerminal = status === "COMPLETED" || status === "ABORTED_TECHNICAL";
   const isEnterable = status === "PREP_READY" || status === "LIVE_IN_PROGRESS";
@@ -130,7 +130,32 @@ export default function LiveInterview({
     }
   }, [isTerminal, sessionId, router]);
 
-  if (isLoading || !data) {
+  if (isLoading) {
+    return (
+      <GateShell>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </GateShell>
+    );
+  }
+
+  // The gate's initial fetch (getLive) failed — without this branch a candidate stays on the
+  // spinner forever, since `!data` would otherwise fall straight back into the loading render
+  // below. Give them the same recovery affordance as the in-session `error` state.
+  if (isError) {
+    return (
+      <GateShell>
+        <div className="flex w-full max-w-md flex-col items-center gap-4 p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Something went wrong loading your interview. You can try again from the interviews
+            list.
+          </p>
+          <Button onClick={() => router.push("/interviews")}>Back to interviews</Button>
+        </div>
+      </GateShell>
+    );
+  }
+
+  if (!data) {
     return (
       <GateShell>
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

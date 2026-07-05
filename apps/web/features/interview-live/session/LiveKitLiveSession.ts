@@ -35,13 +35,17 @@ export class LiveKitLiveSession implements LiveSession {
 
   async connect(sessionId: string): Promise<void> {
     this.setConn('connecting')
-    const { livekitUrl, token } = await goLive(sessionId)
-    if (!livekitUrl || !token) {
-      this.setConn('disconnected')
-      throw new Error('goLive did not return a livekitUrl/token')
-    }
 
+    // Everything that can fail before the room is actually connected — including the goLive
+    // await itself — is wrapped here so ANY failure resets connectionState back to
+    // 'disconnected' (via the notifying setConn) and rethrows, rather than leaving a caller
+    // stuck reading 'connecting' forever after a rejected/failed connect().
     try {
+      const { livekitUrl, token } = await goLive(sessionId)
+      if (!livekitUrl || !token) {
+        throw new Error('goLive did not return a livekitUrl/token')
+      }
+
       const room = new Room()
       room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
         try {
@@ -68,7 +72,12 @@ export class LiveKitLiveSession implements LiveSession {
       this.stream = null // media denied — self-view is best-effort only
     }
 
-    this.setConn('connected')
+    // Only force 'connected' if nothing truer arrived while we were awaiting getUserMedia — a
+    // RoomEvent.ConnectionStateChanged (e.g. a drop to 'disconnected' or a 'reconnecting' blip)
+    // during that window already reflects reality via setConn and must not be clobbered here.
+    if (this.connectionState === 'connecting') {
+      this.setConn('connected')
+    }
   }
 
   async disconnect(): Promise<void> {

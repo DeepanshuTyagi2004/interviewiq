@@ -79,4 +79,41 @@ describe("LiveKitLiveSession", () => {
     expect(s.connectionState).toBe("disconnected");
     expect(seen).toContain("disconnected");
   });
+
+  it("a goLive() rejection also resets connectionState to disconnected and rethrows", async () => {
+    vi.mocked(goLive).mockRejectedValueOnce(new Error("network down"));
+    const s = new LiveKitLiveSession();
+    const seen: string[] = [];
+    s.onConnectionChange((st) => seen.push(st));
+
+    await expect(s.connect("s1")).rejects.toThrow("network down");
+
+    expect(s.connectionState).toBe("disconnected");
+    expect(seen).toContain("disconnected");
+    // never got far enough to touch the room
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("does not force-set 'connected' if a truer connection state already arrived before the trailing set", async () => {
+    // Deterministically simulating the exact getUserMedia-await race is brittle (fake timers
+    // don't interleave real microtask-based mocks reliably), so — per the task's documented
+    // fallback — we instead prove the guard itself: have the room's own
+    // ConnectionStateChanged handler report a drop (same mock shape as the "maps
+    // ConnectionStateChanged(reconnecting)" test above) before room.connect() resolves, then
+    // assert the trailing unconditional set is skipped because connectionState is no longer
+    // 'connecting' by the time it would run.
+    connect.mockImplementationOnce(async () => {
+      handlers["connectionStateChanged"]("disconnected")
+    });
+    const s = new LiveKitLiveSession();
+    const seen: string[] = [];
+    s.onConnectionChange((st) => seen.push(st));
+
+    await s.connect("s1");
+
+    // the trailing unconditional setConn('connected') must have been skipped since
+    // connectionState was already 'disconnected' (not 'connecting') by the time it ran.
+    expect(s.connectionState).toBe("disconnected");
+    expect(seen).not.toContain("connected");
+  });
 });

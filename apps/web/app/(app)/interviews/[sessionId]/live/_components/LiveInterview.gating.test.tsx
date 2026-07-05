@@ -35,4 +35,17 @@ describe("live route gating", () => {
     expect(screen.queryByText(/report/i)).toBeNull();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it("shows a fetch-error affordance (not an infinite spinner) when getLive errors, and never mounts the provider", () => {
+    useLiveState.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    render(<LiveInterview sessionId="s1" session={inert as LiveSession} />);
+
+    const backButton = screen.getByRole("button", { name: /back to interviews/i });
+    expect(backButton).toBeInTheDocument();
+
+    // If LiveSessionProvider had mounted, its machine starts at `prejoin`, which renders this
+    // T&C checkbox copy — its absence is proof the provider (and its connection-change wiring)
+    // never mounted for an unenterable, errored gate.
+    expect(screen.queryByText(/agree to the rules/i)).toBeNull();
+  });
 });
