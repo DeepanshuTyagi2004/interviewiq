@@ -59,7 +59,7 @@ function Bridge() {
       <span data-testid="violations">{ctx.violations}</span>
       <span data-testid="pausedReason">{ctx.pausedReason ?? ''}</span>
       <span data-testid="endedReason">{ctx.endedReason ?? ''}</span>
-      <span data-testid="transcript">{transcript.join('|')}</span>
+      <span data-testid="transcript">{transcript.map((e) => `${e.speaker}:${e.text}`).join('|')}</span>
       <button onClick={() => send({ type: 'START_CHECKS' })}>start-checks</button>
       <button onClick={() => send({ type: 'CHECKS_PASSED' })}>checks-passed</button>
       <button onClick={() => send({ type: 'CONNECTED' })}>connected</button>
@@ -122,21 +122,39 @@ describe('LiveSessionProvider onControl -> machine bridge', () => {
     // the assertion that matters is that disconnect() (media release) ran on this path.
   })
 
-  it('acknowledge_violation{text} appends to transcript', async () => {
+  it('acknowledge_violation{text} appends a system-speaker transcript entry', async () => {
     const session = new StubLiveSession()
     await renderBridgeAtLive(session)
 
     act(() => session.emit({ type: 'acknowledge_violation', text: 'Please return to full screen.' }))
 
-    expect(screen.getByTestId('transcript').textContent).toContain('Please return to full screen.')
+    expect(screen.getByTestId('transcript').textContent).toContain('system:Please return to full screen.')
   })
 
-  it('interviewer_utterance{text} appends to transcript', async () => {
+  it('acknowledge_violation with no text falls back to a default system message', async () => {
+    const session = new StubLiveSession()
+    await renderBridgeAtLive(session)
+
+    act(() => session.emit({ type: 'acknowledge_violation' }))
+
+    expect(screen.getByTestId('transcript').textContent).toContain('system:Please return to full screen.')
+  })
+
+  it('interviewer_utterance{text} appends an interviewer-speaker transcript entry', async () => {
     const session = new StubLiveSession()
     await renderBridgeAtLive(session)
 
     act(() => session.emit({ type: 'interviewer_utterance', text: "Let's begin." }))
 
-    expect(screen.getByTestId('transcript').textContent).toContain("Let's begin.")
+    expect(screen.getByTestId('transcript').textContent).toContain("interviewer:Let's begin.")
+  })
+
+  it('candidate_utterance{text} appends a candidate-speaker transcript entry', async () => {
+    const session = new StubLiveSession()
+    await renderBridgeAtLive(session)
+
+    act(() => session.emit({ type: 'candidate_utterance', text: 'Sure, sounds good.' }))
+
+    expect(screen.getByTestId('transcript').textContent).toContain('candidate:Sure, sounds good.')
   })
 })

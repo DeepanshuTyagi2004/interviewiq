@@ -4,6 +4,7 @@ import { AvatarBubble } from '@/features/interview-live/media/AvatarBubble'
 import { CameraTile } from '@/features/interview-live/media/CameraTile'
 import { BottomDrawer } from '@/features/interview-live/controls/BottomDrawer'
 import { WorkArea } from '@/features/interview-live/work/WorkArea'
+import { TranscriptPanel } from '@/features/interview-live/work/TranscriptPanel'
 import { useLocalMedia } from '@/features/interview-live/media/useLocalMedia'
 import { useLiveSession } from '@/features/interview-live/session/useLiveSession'
 import { useProctor } from '@/features/interview-live/proctor/useProctor'
@@ -50,7 +51,10 @@ export function LiveView({ sessionId }: { sessionId: string }) {
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <div className="h-full w-4/5 p-2">
+        <aside className="h-full w-1/5 p-2">
+          <TranscriptPanel entries={transcript} interviewerName={INTERVIEWER_NAME} />
+        </aside>
+        <div className="h-full w-3/5 p-2">
           <WorkArea session={session} />
         </div>
         <aside className="flex h-full w-1/5 flex-col gap-2 p-2">
@@ -60,14 +64,6 @@ export function LiveView({ sessionId }: { sessionId: string }) {
           <div className="min-h-0 flex-1">
             <AvatarBubble name={INTERVIEWER_NAME} speaking={speaking.interviewer} />
           </div>
-          <ul
-            aria-label="Interviewer captions"
-            className="max-h-40 shrink-0 space-y-1 overflow-y-auto rounded border border-neutral-700 p-2 text-sm"
-          >
-            {transcript.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
         </aside>
       </div>
       <BottomDrawer

@@ -24,11 +24,20 @@ export interface ArtifactSnapshot {
 
 export type ControlSignal =
   | { type: 'interviewer_utterance'; text: string }
+  | { type: 'candidate_utterance'; text: string }
   | { type: 'speaking'; who: Speaker; speaking: boolean }
   | { type: 'pause'; reason: string }
   | { type: 'resume' }
   | { type: 'acknowledge_violation'; text?: string }
   | { type: 'ended'; reason: string }
+
+/** One line of the live-interview conversation, attributed to whichever party said it —
+ * `system` covers proctoring notices (e.g. acknowledge_violation) so they render distinctly
+ * from real interviewer speech instead of being misattributed to the interviewer. */
+export interface TranscriptEntry {
+  speaker: 'interviewer' | 'candidate' | 'system'
+  text: string
+}
 
 export interface LiveSession {
   connect(sessionId: string): Promise<void>

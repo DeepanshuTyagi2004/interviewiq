@@ -49,6 +49,10 @@ describe("LiveView", () => {
     expect(document.querySelector("video")).toBeInTheDocument();
     expect(screen.getByTestId("avatar-bubble")).toHaveTextContent("I");
 
+    // The left-hand transcript panel replaces the old "Interviewer captions" right-rail list.
+    expect(screen.getByRole("log", { name: /conversation transcript/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/interviewer captions/i)).not.toBeInTheDocument();
+
     expect(
       screen.getByRole("button", { name: /end interview/i }),
     ).toBeInTheDocument();

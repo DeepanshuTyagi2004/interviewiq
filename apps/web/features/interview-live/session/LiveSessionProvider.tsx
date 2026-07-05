@@ -1,12 +1,12 @@
 'use client'
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
-import type { LiveSession, Speaker } from './types'
+import type { LiveSession, Speaker, TranscriptEntry } from './types'
 import { LiveKitLiveSession } from './LiveKitLiveSession'
 import { initialMachine, transition, type LiveContext, type LiveEvent, type LiveState } from './machine'
 
 interface Ctx {
   session: LiveSession; state: LiveState; ctx: LiveContext; send: (e: LiveEvent) => void
-  speaking: Record<Speaker, boolean>; transcript: string[]
+  speaking: Record<Speaker, boolean>; transcript: TranscriptEntry[]
 }
 const LiveCtx = createContext<Ctx | null>(null)
 
@@ -23,7 +23,7 @@ export function LiveSessionProvider({ sessionId, session, children }: { sessionI
   )
   const send = (e: LiveEvent) => dispatch(e)
   const [speaking, setSpeaking] = useState<Record<Speaker, boolean>>({ candidate: false, interviewer: false })
-  const [transcript, setTranscript] = useState<string[]>([])
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
 
   useEffect(() => {
     const off = liveSession.onControl((c) => {
@@ -31,8 +31,9 @@ export function LiveSessionProvider({ sessionId, session, children }: { sessionI
       else if (c.type === 'resume') send({ type: 'RESUME' })
       else if (c.type === 'ended') send({ type: 'ENDED', reason: c.reason })
       else if (c.type === 'speaking') setSpeaking((prev) => ({ ...prev, [c.who]: c.speaking }))
-      else if (c.type === 'interviewer_utterance') setTranscript((t) => [...t, c.text])
-      else if (c.type === 'acknowledge_violation') setTranscript((t) => [...t, c.text ?? 'Please stay in full screen.'])
+      else if (c.type === 'interviewer_utterance') setTranscript((t) => [...t, { speaker: 'interviewer', text: c.text }])
+      else if (c.type === 'candidate_utterance') setTranscript((t) => [...t, { speaker: 'candidate', text: c.text }])
+      else if (c.type === 'acknowledge_violation') setTranscript((t) => [...t, { speaker: 'system', text: c.text ?? 'Please return to full screen.' }])
     })
     return off
   }, [liveSession])
