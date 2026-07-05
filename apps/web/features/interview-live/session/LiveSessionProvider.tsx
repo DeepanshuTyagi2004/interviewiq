@@ -1,7 +1,7 @@
 'use client'
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
 import type { LiveSession, Speaker } from './types'
-import { MockLiveSession } from './MockLiveSession'
+import { LiveKitLiveSession } from './LiveKitLiveSession'
 import { initialMachine, transition, type LiveContext, type LiveEvent, type LiveState } from './machine'
 
 interface Ctx {
@@ -16,7 +16,7 @@ const LiveCtx = createContext<Ctx | null>(null)
 export function LiveSessionProvider({ sessionId, session, children }: { sessionId: string; session?: LiveSession; children: React.ReactNode }) {
   // Lazy useState (not useRef) so the stable session instance can be read during render without
   // tripping the react-hooks/refs rule — refs may only be read in effects/handlers, not render.
-  const [liveSession] = useState<LiveSession>(() => session ?? new MockLiveSession())
+  const [liveSession] = useState<LiveSession>(() => session ?? new LiveKitLiveSession())
   const [{ state, ctx }, dispatch] = useReducer(
     (s: { state: LiveState; ctx: LiveContext }, e: LiveEvent) => transition(s.state, s.ctx, e),
     undefined, initialMachine,
@@ -33,6 +33,15 @@ export function LiveSessionProvider({ sessionId, session, children }: { sessionI
       else if (c.type === 'speaking') setSpeaking((prev) => ({ ...prev, [c.who]: c.speaking }))
       else if (c.type === 'interviewer_utterance') setTranscript((t) => [...t, c.text])
       else if (c.type === 'acknowledge_violation') setTranscript((t) => [...t, c.text ?? 'Please stay in full screen.'])
+    })
+    return off
+  }, [liveSession])
+
+  useEffect(() => {
+    const off = liveSession.onConnectionChange((s) => {
+      if (s === 'reconnecting') send({ type: 'RECONNECTING' })
+      else if (s === 'connected') send({ type: 'RECONNECTED' })
+      else if (s === 'disconnected') send({ type: 'ENDED', reason: 'aborted_technical' })
     })
     return off
   }, [liveSession])
