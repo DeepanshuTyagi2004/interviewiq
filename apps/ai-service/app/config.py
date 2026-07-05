@@ -193,6 +193,8 @@ class Settings(BaseSettings):
     livekit_url: str = Field(..., alias="LIVEKIT_URL")
     livekit_api_key: str = Field(..., alias="LIVEKIT_API_KEY")
     livekit_api_secret: str = Field(..., alias="LIVEKIT_API_SECRET")
+    # Deepgram STT + Aura TTS (sub-project D voice pipeline).
+    deepgram_api_key: str = Field(..., alias="DEEPGRAM_API_KEY")
 
     # --- Langfuse tracing (OPTIONAL) ---
     # New runtime dependency, kept OPTIONAL: the service starts and runs without the `langfuse`
