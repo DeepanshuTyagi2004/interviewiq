@@ -9,6 +9,11 @@ vi.mock("next/navigation", async () => {
   const actual = await vi.importActual<typeof import("next/navigation")>("next/navigation");
   return { ...actual, useRouter: () => ({ push: vi.fn() }) };
 });
+// LiveInterview now gates on the server session status (Task 5) before mounting the provider —
+// these tests exercise the prejoin view, so report a PREP_READY session as already loaded.
+vi.mock("@/features/interview/hooks", () => ({
+  useLiveState: () => ({ data: { status: "PREP_READY" }, isLoading: false }),
+}));
 
 import LiveInterview from "./LiveInterview";
 
