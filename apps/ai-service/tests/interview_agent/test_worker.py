@@ -29,6 +29,7 @@ class FakeRoom:
         self.name = name
         self.local_participant = FakeParticipant()
         self._handlers = {}
+        self.remote_participants = {}
     def on(self, event):
         def deco(fn): self._handlers[event] = fn; return fn
         return deco
@@ -112,8 +113,19 @@ def test_wire_data_received_registers_disconnect_handler():
 
 
 class FakeTrack:
-    def __init__(self, kind):
+    def __init__(self, kind, sid="t-1"):
         self.kind = kind
+        self.sid = sid
+
+
+class FakePublication:
+    def __init__(self, track):
+        self.track = track
+
+
+class FakeRemoteParticipant:
+    def __init__(self, publications):
+        self.track_publications = publications
 
 
 def test_run_interview_wires_tts_speak_and_stt_pump_on_track_subscribed(monkeypatch):
@@ -194,6 +206,51 @@ def test_run_interview_wires_tts_speak_and_stt_pump_on_track_subscribed(monkeypa
     assert pumped_track is fake_track
     assert pumped_transport is transport
     assert isinstance(pumped_stt, FakeSTT)
+
+
+def test_run_interview_starts_stt_pump_for_already_subscribed_track(monkeypatch):
+    """Regression: the candidate's mic is usually ALREADY subscribed when the worker reaches
+    run_interview (the track_subscribed event fired during ctx.connect / the awaits, before the
+    handler was registered). Without scanning existing subscriptions, pump_stt never starts and the
+    brain only hears silence. This asserts the pump starts for a pre-subscribed track with NO
+    track_subscribed event ever firing."""
+    calls = {}
+    plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": []}
+    room = FakeRoom("interview-s-1")
+    audio_track = FakeTrack(rtc.TrackKind.KIND_AUDIO, sid="mic-1")
+    room.remote_participants = {"p1": FakeRemoteParticipant({"pub-1": FakePublication(audio_track)})}
+
+    class FakeSTT: pass
+    class FakeTTS: pass
+    class FakeDeepgram:
+        def STT(self, **k): return FakeSTT()
+        def TTS(self, **k): return FakeTTS()
+
+    async def fake_publish_agent_audio(room_arg, tts_arg):
+        async def speak(t): pass
+        return object(), speak
+    async def fake_pump_stt(track, transport, stt):
+        calls.setdefault("pumped", []).append(track)
+    async def fake_get_plan(sid): return plan
+    async def fake_run_session(transport, p, settings):
+        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+    async def fake_post_outcome(settings, outcome): return True
+
+    monkeypatch.setattr(worker, "deepgram", FakeDeepgram())
+    monkeypatch.setattr(worker.voice, "publish_agent_audio", fake_publish_agent_audio)
+    monkeypatch.setattr(worker.voice, "pump_stt", fake_pump_stt)
+    monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
+    monkeypatch.setattr(worker, "run_session", fake_run_session)
+    monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
+
+    async def scenario():
+        out = await worker.run_interview(FakeCtx(room), get_settings())
+        await asyncio.sleep(0)  # let the scan's create_task'd pump run
+        return out
+
+    outcome = asyncio.run(scenario())
+    assert outcome is not None
+    assert calls.get("pumped") == [audio_track], "pump_stt must start for the already-subscribed mic track"
 
 
 def test_run_interview_aborts_cleanly_when_no_plan(monkeypatch):

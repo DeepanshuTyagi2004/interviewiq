@@ -56,14 +56,34 @@ async def run_interview(ctx, settings: Settings) -> SessionOutcome | None:
 
     stt = deepgram.STT(model="nova-3", language="en", api_key=settings.deepgram_api_key)
     _pump_tasks: set[asyncio.Task] = set()
+    _pumped: set[str] = set()
+
+    def _start_pump(track) -> None:
+        if getattr(track, "kind", None) != rtc.TrackKind.KIND_AUDIO:
+            return
+        sid = getattr(track, "sid", None) or str(id(track))
+        if sid in _pumped:
+            return  # already pumping this track (caught by both the scan and the event)
+        _pumped.add(sid)
+        task = asyncio.create_task(voice.pump_stt(track, transport, stt))
+        _pump_tasks.add(task)
+        task.add_done_callback(_pump_tasks.discard)
+
     on = getattr(ctx.room, "on", None)
     if on is not None:
         @on("track_subscribed")
         def _on_track(track, *_args, **_kwargs):
-            if getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
-                task = asyncio.create_task(voice.pump_stt(track, transport, stt))
-                _pump_tasks.add(task)
-                task.add_done_callback(_pump_tasks.discard)
+            _start_pump(track)
+
+    # The candidate's mic is usually ALREADY subscribed by the time we reach here — the worker joins
+    # a room where the candidate has already published, so `track_subscribed` fired during
+    # `ctx.connect()` / the `await`s above, before the handler existed, and was missed. Without this
+    # scan, STT never starts and the brain only ever hears silence ("sorry, I didn't catch that").
+    for participant in getattr(ctx.room, "remote_participants", {}).values():
+        for pub in getattr(participant, "track_publications", {}).values():
+            track = getattr(pub, "track", None)
+            if track is not None:
+                _start_pump(track)
 
     outcome = await run_session(transport, plan, settings)
     if outcome is not None:
