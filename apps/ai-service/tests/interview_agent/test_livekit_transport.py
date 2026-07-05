@@ -118,6 +118,25 @@ def test_mark_disconnected_returns_none_promptly():
     assert result is None
 
 
+def test_disconnect_while_paused_returns_none_promptly():
+    """A candidate who disconnects mid-violation (paused, never resumes) must not hang the interview
+    forever: next_utterance() is parked on the pause gate when mark_disconnected() fires, and it must
+    return None promptly rather than waiting indefinitely for a resume that will never come."""
+    t, sent = _make()
+
+    async def scenario():
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        task = asyncio.ensure_future(t.next_utterance())
+        await asyncio.sleep(0)  # let the task start and park on the pause gate
+        t.mark_disconnected()
+        return await asyncio.wait_for(task, timeout=1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+    kinds = [m["type"] for m in sent]
+    assert "pause" in kinds
+
+
 def test_malformed_incoming_message_does_not_raise():
     t, _ = _make()
 

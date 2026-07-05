@@ -109,8 +109,7 @@ class LiveKitTransport:
                     self._paused_buffer.clear()
                     await self._send({"type": "resume"})
         except Exception as exc:  # noqa: BLE001 - fire-and-forget task; never let this raise
-            logger.warning("dropping malformed data-channel message: %s", exc)
-            return
+            logger.warning("error handling data-channel message %r: %s", payload.get("type"), exc)
 
     async def say(self, text: str) -> None:
         await self._send({"type": "speaking", "who": "interviewer", "speaking": True})
@@ -118,9 +117,21 @@ class LiveKitTransport:
         await self._send({"type": "speaking", "who": "interviewer", "speaking": False})
 
     async def next_utterance(self) -> tuple[str, UtteranceTiming] | None:
-        await self._not_paused.wait()
+        # 1) wait until unpaused OR disconnected (whichever first) -- a disconnect while paused
+        # (e.g. candidate leaves during a proctor violation) must not hang forever on the pause gate.
+        if not self._not_paused.is_set():
+            np_task = asyncio.ensure_future(self._not_paused.wait())
+            disc_wait_task = asyncio.ensure_future(self._disconnected.wait())
+            try:
+                await asyncio.wait({np_task, disc_wait_task}, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                for t in (np_task, disc_wait_task):
+                    if not t.done():
+                        t.cancel()
+        # 2) if disconnected and nothing left to deliver, end promptly
         if self._disconnected.is_set() and self._queue.empty():
             return None
+        # 3) otherwise wait for the next answer, racing disconnect, bounded by the silence timeout
         get_task = asyncio.ensure_future(self._queue.get())
         disc_task = asyncio.ensure_future(self._disconnected.wait())
         try:
