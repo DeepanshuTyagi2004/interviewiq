@@ -69,13 +69,19 @@ public class CandidateProfile {
     // projects/achievements were added after the table already had rows, so they carry a DB DEFAULT
     // '[]' — otherwise Hibernate's ddl-auto=update ALTER ... ADD COLUMN ... NOT NULL fails on a
     // populated table (existing rows would violate NOT NULL). The default backfills them.
-    @Column(name = "projects", nullable = false, columnDefinition = "jsonb default '[]'::jsonb")
+    // columnDefinition is plain "jsonb" (not "jsonb default '[]'::jsonb"): the DB DEFAULT was only
+    // needed once, to backfill existing rows when this column was first added to a populated table
+    // (see the ddl-auto NOT-NULL gotcha). Keeping the default in columnDefinition makes ddl-auto=update
+    // emit an invalid `ALTER COLUMN ... SET DATA TYPE jsonb default '[]'::jsonb` on every restart. The
+    // DB keeps its default; the app always writes a value anyway.
+    @Column(name = "projects", nullable = false, columnDefinition = "jsonb")
     private String projects = "[]";
 
     @Column(name = "skills", nullable = false, columnDefinition = "jsonb")
     private String skills = "[]";
 
-    @Column(name = "achievements", nullable = false, columnDefinition = "jsonb default '[]'::jsonb")
+    // plain "jsonb" — see the projects note above (avoids the invalid SET DATA TYPE on ddl-auto restart)
+    @Column(name = "achievements", nullable = false, columnDefinition = "jsonb")
     private String achievements = "[]";
 
     // {github, leetcode, linkedin} detected from the résumé — prefills the connectors step.
