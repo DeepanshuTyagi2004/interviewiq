@@ -5,15 +5,19 @@ const handlers: Record<string, (...a: unknown[]) => void> = {};
 const publishData = vi.fn();
 const connect = vi.fn(async () => {});
 const disconnect = vi.fn(async () => {});
+const setMicrophoneEnabled = vi.fn(async () => {});
+const startAudio = vi.fn(async () => {});
 vi.mock("livekit-client", () => ({
   Room: class {
-    localParticipant = { publishData };
+    localParticipant = { publishData, setMicrophoneEnabled };
     on(event: string, cb: (...a: unknown[]) => void) { handlers[event] = cb; return this; }
     connect = connect;
     disconnect = disconnect;
+    startAudio = startAudio;
   },
-  RoomEvent: { DataReceived: "dataReceived", ConnectionStateChanged: "connectionStateChanged" },
+  RoomEvent: { DataReceived: "dataReceived", ConnectionStateChanged: "connectionStateChanged", TrackSubscribed: "trackSubscribed" },
   ConnectionState: { Connecting: "connecting", Connected: "connected", Reconnecting: "reconnecting", SignalReconnecting: "signalReconnecting", Disconnected: "disconnected" },
+  Track: { Kind: { Audio: "audio", Video: "video" } },
 }));
 vi.mock("@/features/interview/api", () => ({
   goLive: vi.fn(async () => ({ livekitUrl: "wss://x", token: "jwt", roomName: "interview-s1", status: "LIVE_IN_PROGRESS" })),
@@ -115,5 +119,52 @@ describe("LiveKitLiveSession", () => {
     // connectionState was already 'disconnected' (not 'connecting') by the time it ran.
     expect(s.connectionState).toBe("disconnected");
     expect(seen).not.toContain("connected");
+  });
+
+  it("publishes the candidate mic on connect", async () => {
+    const s = new LiveKitLiveSession();
+    await s.connect("s1");
+    expect(setMicrophoneEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("attaches and plays a subscribed AI audio track", async () => {
+    const s = new LiveKitLiveSession();
+    await s.connect("s1");
+    const attach = vi.fn(() => document.createElement("audio"));
+    const fakeTrack = { kind: "audio", attach, detach: vi.fn() };
+    handlers["trackSubscribed"](fakeTrack);
+    expect(attach).toHaveBeenCalled();
+  });
+
+  it("ignores subscribed non-audio tracks", async () => {
+    const s = new LiveKitLiveSession();
+    await s.connect("s1");
+    const attach = vi.fn(() => document.createElement("video"));
+    handlers["trackSubscribed"]({ kind: "video", attach, detach: vi.fn() });
+    expect(attach).not.toHaveBeenCalled();
+  });
+
+  it("calls startAudio (best-effort) on connect", async () => {
+    const s = new LiveKitLiveSession();
+    await s.connect("s1");
+    expect(startAudio).toHaveBeenCalled();
+  });
+
+  it("connect still succeeds if startAudio/mic publish reject", async () => {
+    setMicrophoneEnabled.mockRejectedValueOnce(new Error("no mic"));
+    startAudio.mockRejectedValueOnce(new Error("autoplay blocked"));
+    const s = new LiveKitLiveSession();
+    await expect(s.connect("s1")).resolves.toBeUndefined();
+    expect(s.connectionState).toBe("connected");
+  });
+
+  it("detaches attached audio on disconnect", async () => {
+    const s = new LiveKitLiveSession();
+    await s.connect("s1");
+    const detach = vi.fn();
+    const el = document.createElement("audio");
+    handlers["trackSubscribed"]({ kind: "audio", attach: () => el, detach });
+    await s.disconnect();
+    expect(detach).toHaveBeenCalled();
   });
 });

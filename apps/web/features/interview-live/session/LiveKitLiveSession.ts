@@ -1,4 +1,5 @@
-import { ConnectionState, Room, RoomEvent } from 'livekit-client'
+import { ConnectionState, Room, RoomEvent, Track } from 'livekit-client'
+import type { RemoteTrack } from 'livekit-client'
 import { goLive } from '@/features/interview/api'
 import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
 
@@ -32,6 +33,8 @@ export class LiveKitLiveSession implements LiveSession {
   private stream: MediaStream | null = null
   private controlCbs = new Set<Cb<ControlSignal>>()
   private connCbs = new Set<Cb<ConnState>>()
+  private audioTracks: RemoteTrack[] = []
+  private audioEls: HTMLMediaElement[] = []
 
   async connect(sessionId: string): Promise<void> {
     this.setConn('connecting')
@@ -58,9 +61,29 @@ export class LiveKitLiveSession implements LiveSession {
       room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
         this.setConn(mapConnState(state))
       })
+      room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+        if (track.kind === Track.Kind.Audio) {
+          const el = track.attach()
+          this.audioTracks.push(track)
+          this.audioEls.push(el)
+        }
+      })
       this.room = room
 
       await room.connect(livekitUrl, token)
+
+      // Mic publish + autoplay start are best-effort: a denied mic or blocked autoplay must not
+      // fail connect() — captions/data-channel bridge still work without them.
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true)
+      } catch {
+        // mic publish best-effort — candidate may deny permission
+      }
+      try {
+        await room.startAudio()
+      } catch {
+        // autoplay may be blocked until a user gesture — captions still work
+      }
     } catch (err) {
       this.setConn('disconnected')
       throw err
@@ -83,13 +106,20 @@ export class LiveKitLiveSession implements LiveSession {
   async disconnect(): Promise<void> {
     this.stream?.getTracks().forEach((t) => t.stop())
     this.stream = null
+    this.audioTracks.forEach((track) => track.detach())
+    this.audioEls.forEach((el) => el.remove())
+    this.audioTracks = []
+    this.audioEls = []
     await this.room?.disconnect()
     this.setConn('disconnected')
   }
 
   getLocalStream() { return this.stream }
 
-  setMicEnabled(on: boolean) { this.stream?.getAudioTracks().forEach((t) => (t.enabled = on)) }
+  setMicEnabled(on: boolean) {
+    this.stream?.getAudioTracks().forEach((t) => (t.enabled = on))
+    void this.room?.localParticipant.setMicrophoneEnabled(on)
+  }
 
   setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
 
