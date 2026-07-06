@@ -37,6 +37,7 @@ class DecisionInputs(TypedDict):
     reserve_available: bool
     pivot_count: int
     pivot_cap: int
+    answer_adequate: bool           # Task 3: most-recent answer's competency >= interview_high_band
 
 
 class DecisionOutput(TypedDict):

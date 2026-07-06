@@ -31,6 +31,10 @@ def _active_summary(state: SessionState) -> str:
 
 def build_inputs(state: SessionState, turn_class: TurnClass, requested_topic: str | None,
                  topic_scope: TopicScope, settings: Settings) -> DecisionInputs:
+    # The most recent answer is graded (session._score_last_answer) BEFORE build_inputs runs, so
+    # per_answer[-1] is the just-scored answer; on a grade failure it's the last-known answer;
+    # empty (no scored answer yet) => not adequate (keep probing).
+    answer_adequate = bool(state.per_answer) and state.per_answer[-1].competency >= settings.interview_high_band
     return DecisionInputs(
         turn_class=turn_class.value,
         requested_topic=requested_topic,
@@ -42,6 +46,7 @@ def build_inputs(state: SessionState, turn_class: TurnClass, requested_topic: st
         reserve_available=state.reserve_available(),
         pivot_count=state.pivot_count,
         pivot_cap=settings.interview_pivot_cap,
+        answer_adequate=answer_adequate,
     )
 
 
@@ -74,7 +79,10 @@ def decide(inputs: DecisionInputs) -> Action:
             return Action.GIVE_HINT
         return Action.MOVE_ON if inputs["has_next_question"] else Action.WRAP
 
-    # ANSWER (default)
+    # ANSWER (default): stay-until-satisfied — probe while the answer is thin and budget/pacing allow;
+    # advance once it's adequate (don't grind follow-ups on a resolved point). Pacing had precedence above.
+    if inputs["answer_adequate"]:
+        return Action.MOVE_ON if inputs["has_next_question"] else Action.WRAP
     if inputs["followups_left"]:
         return Action.ESCALATE_FOLLOWUP
     return Action.MOVE_ON if inputs["has_next_question"] else Action.WRAP
