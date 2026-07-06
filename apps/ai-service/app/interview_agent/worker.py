@@ -17,7 +17,7 @@ from app.interview_agent import llm_ops, voice
 from app.interview_agent.outcome_sink import post_outcome
 from app.interview_agent.session import run_session
 from app.interview_agent.transport import LiveKitTransport
-from app.llm.client import build_llm_client
+from app.llm.client import LLMError, build_llm_client
 
 if TYPE_CHECKING:
     from app.interview_agent.types import SessionOutcome
@@ -52,13 +52,19 @@ async def run_interview(ctx, settings: Settings) -> SessionOutcome | None:
 
     async def _infer_gender(name: str) -> str | None:
         # Only reached when persona.gender is absent/unknown AND a name exists — new plans (Task 4)
-        # carry gender directly and never build this client. Short-circuit on an empty name so we
-        # don't pay for a client + LLM call with nothing to classify.
+        # usually carry gender directly, but a freshly-generated persona can still have a name with no
+        # recognized gender, so this client CAN be built even for new plans. Short-circuit on an empty
+        # name so we don't pay for a client + LLM call with nothing to classify.
         if not (name or "").strip():
             return None
         infer_llm = build_llm_client(settings, model=settings.interview_scorer_model or None)
         try:
             return await llm_ops.infer_gender(name, infer_llm, settings)
+        except LLMError as exc:
+            # Cosmetic path (persona voice only) — never let a transient LLM failure abort session
+            # start. select_voice falls back to DEFAULT_VOICE when this returns None.
+            logger.warning("[iv] gender inference failed (%s) — using default voice", exc)
+            return None
         finally:
             await infer_llm.aclose()
 

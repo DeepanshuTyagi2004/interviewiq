@@ -357,6 +357,63 @@ def test_run_interview_infers_voice_from_name_when_gender_missing(monkeypatch):
     assert calls.get("aclosed") is True
 
 
+def test_run_interview_falls_back_to_default_voice_when_gender_inference_raises(monkeypatch):
+    """Review fix: a transient LLM failure (rate limit, transport error, repair exhaustion) during the
+    cosmetic gender->voice inference must NOT abort session start. persona has a NAME but NO gender
+    (freshly-generated persona whose gender normalized to None, or a legacy plan) — infer_gender raises
+    LLMError; run_interview must swallow it, still close the inference client, fall back to
+    DEFAULT_VOICE, and complete the session normally."""
+    from app.llm.client import LLMError
+
+    calls = {}
+    plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": [],
+            "persona": {"name": "Alex"}}
+    room = FakeRoom("interview-s-1")
+
+    class FakeSTT: pass
+    class FakeTTS: pass
+
+    class FakeDeepgram:
+        def STT(self, **k): return FakeSTT()
+        def TTS(self, **kwargs):
+            calls["tts_kwargs"] = kwargs
+            return FakeTTS()
+
+    class FakeInferLLM:
+        async def aclose(self):
+            calls["aclosed"] = True
+
+    def fake_build_llm_client(settings_arg, *, model=None):
+        return FakeInferLLM()
+
+    async def fake_infer_gender(name, llm, settings_arg):
+        raise LLMError("rate limited")
+
+    async def fake_publish_agent_audio(room_arg, tts_arg):
+        async def speak(t): pass
+        return object(), speak
+    async def fake_pump_stt(track, transport, stt): pass
+    async def fake_get_plan(sid): return plan
+    async def fake_run_session(transport, p, settings):
+        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+    async def fake_post_outcome(settings, outcome): return True
+
+    monkeypatch.setattr(worker, "deepgram", FakeDeepgram())
+    monkeypatch.setattr(worker.voice, "publish_agent_audio", fake_publish_agent_audio)
+    monkeypatch.setattr(worker.voice, "pump_stt", fake_pump_stt)
+    monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
+    monkeypatch.setattr(worker, "run_session", fake_run_session)
+    monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
+    monkeypatch.setattr(worker, "build_llm_client", fake_build_llm_client)
+    monkeypatch.setattr(worker.llm_ops, "infer_gender", fake_infer_gender)
+
+    outcome = asyncio.run(worker.run_interview(FakeCtx(room), get_settings()))
+
+    assert outcome is not None, "session start must not abort on a gender-inference LLMError"
+    assert calls["tts_kwargs"]["model"] == worker.voice.DEFAULT_VOICE
+    assert calls.get("aclosed") is True, "the inference client must still be closed (no leak)"
+
+
 def test_run_interview_aborts_cleanly_when_no_plan(monkeypatch):
     async def no_plan(sid): return None
     async def fake_run_session(*a, **k): raise AssertionError("must not run the brain without a plan")
