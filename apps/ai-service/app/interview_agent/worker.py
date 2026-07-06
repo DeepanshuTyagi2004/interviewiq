@@ -13,10 +13,11 @@ from livekit.plugins import deepgram
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.db import repositories as repo
-from app.interview_agent import voice
+from app.interview_agent import llm_ops, voice
 from app.interview_agent.outcome_sink import post_outcome
 from app.interview_agent.session import run_session
 from app.interview_agent.transport import LiveKitTransport
+from app.llm.client import build_llm_client
 
 if TYPE_CHECKING:
     from app.interview_agent.types import SessionOutcome
@@ -47,7 +48,22 @@ async def run_interview(ctx, settings: Settings) -> SessionOutcome | None:
     async def send(payload: dict) -> None:
         await ctx.room.local_participant.publish_data(json.dumps(payload).encode("utf-8"))
 
-    tts = deepgram.TTS(model="aura-2-asteria-en", api_key=settings.deepgram_api_key)
+    persona = plan.get("persona") or {}
+
+    async def _infer_gender(name: str) -> str | None:
+        # Only reached when persona.gender is absent/unknown AND a name exists — new plans (Task 4)
+        # carry gender directly and never build this client. Short-circuit on an empty name so we
+        # don't pay for a client + LLM call with nothing to classify.
+        if not (name or "").strip():
+            return None
+        infer_llm = build_llm_client(settings, model=settings.interview_scorer_model or None)
+        try:
+            return await llm_ops.infer_gender(name, infer_llm, settings)
+        finally:
+            await infer_llm.aclose()
+
+    voice_model = await voice.select_voice(persona, infer=_infer_gender)
+    tts = deepgram.TTS(model=voice_model, api_key=settings.deepgram_api_key)
     _source, speak = await voice.publish_agent_audio(ctx.room, tts)
     transport = LiveKitTransport(ctx.room, send=send, speak=speak)
 

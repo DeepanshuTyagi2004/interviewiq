@@ -64,6 +64,31 @@ def test_generate_line_returns_text(monkeypatch):
     assert "two sum" in line.lower()
 
 
+def test_infer_gender_maps_result(monkeypatch):
+    _stub_structured(monkeypatch, {"gender": "male"})
+    g = _run(ops.infer_gender("Rohan", llm=None, settings=get_settings()))
+    assert g == "male"
+
+
+def test_infer_gender_empty_name_short_circuits_without_llm_call(monkeypatch):
+    called = {"n": 0}
+
+    async def fake(*a, **k):
+        called["n"] += 1
+        return None
+    monkeypatch.setattr(ops, "complete_structured", fake)
+
+    g = _run(ops.infer_gender("", llm=None, settings=get_settings()))
+    assert g is None
+    assert called["n"] == 0
+
+
+def test_infer_gender_returns_none_on_junk_value(monkeypatch):
+    _stub_structured(monkeypatch, {"gender": "xyz"})
+    g = _run(ops.infer_gender("Xx", llm=None, settings=get_settings()))
+    assert g is None
+
+
 def test_derive_ladder_returns_dict(monkeypatch):
     _stub_structured(monkeypatch, {"base_prompt": "longest increasing subsequence",
                                    "follow_ups": ["optimize to n log n"], "hints": ["patience sorting"],

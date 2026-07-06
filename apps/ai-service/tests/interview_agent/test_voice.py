@@ -161,3 +161,36 @@ def test_ttfw_zero_when_word_timing_missing(monkeypatch):
     text, timing = pushed[0]
     assert text == "no word timing here"
     assert timing.time_to_first_word_s == 0.0
+
+
+# ---- Task 5: select_voice (persona.gender -> Aura-2 voice, name-inference fallback) ----
+
+def test_select_voice_male_gender():
+    assert asyncio.run(voice.select_voice({"gender": "male"})) == "aura-2-apollo-en"
+
+
+def test_select_voice_female_gender_is_case_insensitive():
+    assert asyncio.run(voice.select_voice({"gender": "Female"})) == "aura-2-asteria-en"
+
+
+def test_select_voice_neutral_gender():
+    assert asyncio.run(voice.select_voice({"gender": "neutral"})) == "aura-2-asteria-en"
+
+
+def test_select_voice_infers_from_name_when_gender_missing():
+    async def infer(name):
+        assert name == "Priya"
+        return "female"
+    result = asyncio.run(voice.select_voice({"name": "Priya"}, infer=infer))
+    assert result == "aura-2-asteria-en"
+
+
+def test_select_voice_defaults_when_no_gender_and_no_infer():
+    assert asyncio.run(voice.select_voice({}, infer=None)) == voice.DEFAULT_VOICE
+
+
+def test_select_voice_defaults_when_infer_returns_none():
+    async def infer(name):
+        return None
+    result = asyncio.run(voice.select_voice({"name": "X"}, infer=infer))
+    assert result == voice.DEFAULT_VOICE
