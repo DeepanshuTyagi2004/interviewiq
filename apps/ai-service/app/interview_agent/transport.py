@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Awaitable, Callable, Protocol, runtime_checkable
 
 from app.interview_agent.types import Artifact, ArtifactKind, UtteranceTiming
@@ -22,18 +23,29 @@ class Transport(Protocol):
     async def next_utterance(self) -> tuple[str, UtteranceTiming] | None: ...
     async def current_artifact(self) -> Artifact | None: ...
     async def end_session(self) -> None: ...
+    def seconds_since_activity(self) -> float: ...
 
 
 class ScriptedTransport:
     """Feeds a fixed list of candidate utterances; returns None once exhausted (models a silence /
-    disconnect). Records every line the interviewer says + whether the session was ended."""
+    disconnect). A scripted entry may itself be `None` to model an explicit mid-interview silence
+    window without ending the script — a real utterance can still follow it. Records every line the
+    interviewer says + whether the session was ended.
 
-    def __init__(self, script: list[tuple[str, UtteranceTiming]], artifact: Artifact | None = None):
+    Task 7: `activity` backs `seconds_since_activity()` with a controllable source so driver tests
+    can simulate idle-vs-coding silence — a float is a constant reading, a list is consumed one
+    value per call (the last value repeats once exhausted). Defaults to 999.0 (always idle), so
+    scripted silences drive the inactivity escalation unless a test says otherwise."""
+
+    def __init__(self, script: list[tuple[str, UtteranceTiming] | None], artifact: Artifact | None = None,
+                 activity: float | list[float] = 999.0):
         self._script = list(script)
         self._i = 0
         self.said: list[str] = []
         self.ended = False
         self._artifact = artifact
+        self._activity = activity
+        self._activity_i = 0
 
     async def say(self, text: str) -> None:
         self.said.append(text)
@@ -50,6 +62,13 @@ class ScriptedTransport:
 
     async def end_session(self) -> None:
         self.ended = True
+
+    def seconds_since_activity(self) -> float:
+        if isinstance(self._activity, list):
+            idx = min(self._activity_i, len(self._activity) - 1)
+            self._activity_i += 1
+            return self._activity[idx]
+        return self._activity
 
 
 _PAUSE_EVENTS = {"fullscreen_exit", "tab_hidden", "external_display_detected", "overlay_tamper"}
@@ -73,16 +92,19 @@ class LiveKitTransport:
         *,
         send: Callable[[dict], Awaitable[None]],
         speak: Callable[[str], Awaitable[None]] | None = None,
+        now: Callable[[], float] = time.monotonic,
     ):
         self._room = room
         self._send = send
         self._speak = speak
+        self._now = now
         self._queue: asyncio.Queue[tuple[str, UtteranceTiming]] = asyncio.Queue()
         self._paused_buffer: list[tuple[str, UtteranceTiming]] = []
         self._latest_artifact: Artifact | None = None
         self._not_paused = asyncio.Event()
         self._not_paused.set()
         self._disconnected = asyncio.Event()
+        self._last_activity = now()
 
     def mark_disconnected(self) -> None:
         self._disconnected.set()
@@ -91,6 +113,7 @@ class LiveKitTransport:
         try:
             msg_type = payload["type"]
             if msg_type == "answer":
+                self._last_activity = self._now()
                 timing = UtteranceTiming(t_start=payload["tStart"], t_end=payload["tEnd"], time_to_first_word_s=0.0)
                 item = (payload["text"], timing)
                 if self._not_paused.is_set():
@@ -98,6 +121,9 @@ class LiveKitTransport:
                 else:
                     self._paused_buffer.append(item)
             elif msg_type == "artifact":
+                # Task 7: code/diagram edits ARE activity — a candidate silently writing code is
+                # working, not gone. This is the crux of "code != inactivity".
+                self._last_activity = self._now()
                 self._latest_artifact = Artifact(
                     kind=ArtifactKind(payload["kind"]),
                     content=payload["content"],
@@ -122,6 +148,7 @@ class LiveKitTransport:
         """Sync entry point for STT-derived candidate turns (sub-project D). Mirrors the `answer`
         branch of `handle_incoming` exactly: pause-gated onto the same queue `next_utterance` drains,
         buffered and flushed on resume otherwise."""
+        self._last_activity = self._now()
         item = (text, timing)
         if self._not_paused.is_set():
             self._queue.put_nowait(item)
@@ -182,6 +209,12 @@ class LiveKitTransport:
 
     async def current_artifact(self) -> Artifact | None:
         return self._latest_artifact
+
+    def seconds_since_activity(self) -> float:
+        """Task 7: how long since the candidate last did anything — spoke (answer) or edited
+        code/diagram (artifact). The driver uses this to tell genuine inactivity apart from a
+        candidate who is silently working."""
+        return self._now() - self._last_activity
 
     async def end_session(self) -> None:
         """Teardown-only: unblock any waiter parked in `next_utterance`. Called from the frozen

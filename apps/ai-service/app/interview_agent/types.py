@@ -69,6 +69,9 @@ class EndedReason(str, Enum):
     EARLY_WEAK = "early_weak"
     TIME_CEILING = "time_ceiling"
     ABORTED_TECHNICAL = "aborted_technical"
+    # Task 7: the candidate left (escalating nudges + a warning got no response) — a graceful end,
+    # distinct from ABORTED_TECHNICAL which is reserved for genuine technical/exception failures.
+    ABANDONED = "abandoned"
 
 
 class ArtifactKind(str, Enum):

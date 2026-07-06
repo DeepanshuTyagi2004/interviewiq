@@ -10,6 +10,8 @@ def test_enums_have_expected_members():
     assert PacingDirective.WIND_DOWN.value == "wind_down"
     assert Action.EXTEND_RESERVE.value == "extend_reserve"
     assert EndedReason.EARLY_WEAK.value == "early_weak"
+    # Task 7: candidate-left is distinct from a genuine technical/exception failure.
+    assert EndedReason.ABANDONED.value == "abandoned"
     assert RoundType.DSA.value == "dsa"   # reused from app.models.brief
 
 

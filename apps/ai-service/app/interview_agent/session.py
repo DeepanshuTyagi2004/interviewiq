@@ -38,6 +38,17 @@ MAX_RAPPORT_TURNS = 2
 
 _OPENING_REPROMPT = "Sorry, I didn't catch that — go ahead whenever you're ready."
 
+# Task 7 — inactivity escalation. A candidate actively editing code/diagram is NOT idle (artifact
+# edits refresh transport activity), so they're never nudged for thinking. A silent AND idle
+# candidate is nudged a few times, then warned, then given one more silence window as grace; a
+# candidate who is truly gone ends as ABANDONED (a graceful end, not a technical abort).
+INACTIVITY_WINDOW_S = 45.0
+MAX_INACTIVITY_NUDGES = 3
+GRACE_S = 30.0   # min grace after the final warning; realized by the next silence window (>= GRACE_S)
+_NUDGE_LINE = "Are you still there? Take your time — just let me know when you're ready."
+_FINAL_WARNING_LINE = "I still haven't heard from you — if you're not there I'll have to stop the interview shortly."
+_ABANDONED_LINE = "It looks like you've stepped away, so I'll end the session here. Take care."
+
 
 def _transcript_tail(state: SessionState, n: int = 4) -> list[dict]:
     return [{"speaker": t.speaker, "text": t.text} for t in state.transcript[-n:]]
@@ -334,17 +345,35 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
         # Ask the first question.
         await _say(transport, state, await _gen(conv_llm, settings, action=Action.ASK_BASE, state=state, extra={}))
 
-        silence_used = 0
+        inactivity_nudges = 0
+        final_warning_given = False
         while not state.session_over:
             item = await transport.next_utterance()
             if item is None:
-                silence_used += 1
-                if silence_used > settings.interview_silence_retries:
-                    state.ended_reason = EndedReason.ABORTED_TECHNICAL
-                    break
-                await _say(transport, state, "sorry — I didn't catch that, could you say it again?")
-                continue
-            silence_used = 0
+                # Code/diagram editing is NOT inactivity: if the candidate edited an artifact recently,
+                # they're working — keep waiting silently, and treat resumed activity as a reset of any
+                # escalation.
+                if transport.seconds_since_activity() < INACTIVITY_WINDOW_S:
+                    inactivity_nudges = 0
+                    final_warning_given = False
+                    continue
+                # Genuine inactivity — escalate gently before ever ending.
+                if inactivity_nudges < MAX_INACTIVITY_NUDGES:
+                    inactivity_nudges += 1
+                    await _say(transport, state, _NUDGE_LINE)
+                    continue
+                if not final_warning_given:
+                    final_warning_given = True
+                    await _say(transport, state, _FINAL_WARNING_LINE)
+                    continue
+                # Warned, then one more silent + idle grace window (the transport silence timeout >=
+                # GRACE_S) elapsed with no speech and no activity → the candidate has abandoned the
+                # session.
+                await _say(transport, state, _ABANDONED_LINE)
+                state.ended_reason = EndedReason.ABANDONED
+                break
+            inactivity_nudges = 0
+            final_warning_given = False
             text, timing = item
             state.elapsed_s = timing.t_end
             state.transcript.append(Turn(speaker="candidate", text=text, t_start=timing.t_start, t_end=timing.t_end))

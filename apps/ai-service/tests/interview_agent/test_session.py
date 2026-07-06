@@ -120,11 +120,66 @@ def test_out_of_scope_pivot_is_refused_and_penalized(monkeypatch):
 
 
 def test_silence_aborts_after_retries(monkeypatch):
+    """Task 7: exhausted/silent script (idle throughout, ScriptedTransport's default
+    activity=999.0) now escalates through nudges + a final warning before ending gracefully as
+    ABANDONED — never ABORTED_TECHNICAL, which is reserved for genuine technical/exception failures."""
     _install_stubs(monkeypatch)
-    t = ScriptedTransport([])   # no utterances at all → immediate silence
+    t = ScriptedTransport([])   # no utterances at all → immediate + persistent silence
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
-    assert out.ended_reason == EndedReason.ABORTED_TECHNICAL
+    assert out.ended_reason == EndedReason.ABANDONED
+    assert out.ended_reason != EndedReason.ABORTED_TECHNICAL
     assert t.ended is True
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == sess.MAX_INACTIVITY_NUDGES
+    assert sess._FINAL_WARNING_LINE in t.said
+    assert t.said[-1] == sess._ABANDONED_LINE
+
+
+# ----------------------------- Task 7: inactivity escalation (code != inactivity) -----------------------------
+
+
+def test_gone_candidate_escalates_to_abandoned(monkeypatch):
+    """A candidate who never comes back (idle the whole time — ScriptedTransport's default
+    activity=999.0 is always >= INACTIVITY_WINDOW_S) is nudged MAX_INACTIVITY_NUDGES times, then
+    warned once, then ends gracefully as ABANDONED — not a technical abort."""
+    _install_stubs(monkeypatch)
+    t = ScriptedTransport(_opening_pad())   # exhausted right after the opening
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert out.ended_reason == EndedReason.ABANDONED
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == sess.MAX_INACTIVITY_NUDGES
+    assert t.said[-2] == sess._FINAL_WARNING_LINE
+    assert t.said[-1] == sess._ABANDONED_LINE
+    assert t.ended is True
+
+
+def test_silence_while_actively_coding_is_not_treated_as_inactivity(monkeypatch):
+    """A candidate silently writing code (recent artifact/answer activity, so
+    `seconds_since_activity()` stays below INACTIVITY_WINDOW_S) must never be nudged for 'still
+    there?' — the driver keeps waiting quietly and picks the later real answer back up."""
+    _install_stubs(monkeypatch, competency=0.8)
+    script = _opening_pad() + [None, None] + _script(6, gap=120.0)
+    t = ScriptedTransport(script, activity=[10.0, 10.0])
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert sess._NUDGE_LINE not in t.said
+    assert sess._FINAL_WARNING_LINE not in t.said
+    assert sess._ABANDONED_LINE not in t.said
+    assert out.ended_reason == EndedReason.NATURAL_COMPLETE   # the later real answers were processed
+    assert t.ended is True
+
+
+def test_real_utterance_resets_inactivity_escalation_counter(monkeypatch):
+    """After a couple of idle nudges, a real answer arrives and must reset the escalation counter —
+    a later idle stretch nudges again from zero rather than jumping straight to the final warning."""
+    _install_stubs(monkeypatch, competency=0.8, directive=PacingDirective.CONTINUE)
+    script = _opening_pad() + [None, None, (
+        "some answer here that is reasonably long and coherent", UtteranceTiming(3.0, 8.0, 1.0))]
+    t = ScriptedTransport(script, activity=999.0)   # idle throughout — no artifact activity involved
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    # 2 nudges before the real answer resets the counter, then a fresh full escalation afterwards.
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == 2 + sess.MAX_INACTIVITY_NUDGES
+    assert out.ended_reason == EndedReason.ABANDONED
 
 
 def test_generate_line_failure_degrades_gracefully(monkeypatch):
