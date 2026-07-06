@@ -32,6 +32,10 @@ _ARTIFACT_ROUNDS = {RoundType.DSA, RoundType.LLD, RoundType.SYSTEM_DESIGN}
 # so a chatty candidate can't stall the interview indefinitely.
 MAX_OPENING_EXCHANGES = 3
 
+# Task 6: the staged rapport step (light background small talk before the format explanation) is
+# bounded to a couple of turns so it warms things up without turning into its own mini-interview.
+MAX_RAPPORT_TURNS = 2
+
 _OPENING_REPROMPT = "Sorry, I didn't catch that — go ahead whenever you're ready."
 
 
@@ -279,6 +283,21 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
                await _gen(conv_llm, settings, action=Action.GREET, state=state, extra={}))
     last_text = await _await_opening_turn(transport, state)
 
+    # Task 6: staged rapport — one or two light, warm background questions (where they're from,
+    # college, etc.) grounded in the candidate profile when the plan carries one, BEFORE the format
+    # explanation. Opening-only carve-out applies here too: these turns are transcript-only context,
+    # never scored/paced/negative (no _score_last_answer/_update_pacing calls), same as the rest of
+    # the opening. Degrades gracefully to `{}` when no candidate profile is present on the plan.
+    profile = state.plan.get("candidateProfile") or state.plan.get("candidate_profile") or {}
+    rapport_turns = 0
+    while rapport_turns < MAX_RAPPORT_TURNS:
+        await _say(transport, state, await _gen(conv_llm, settings, action=Action.RAPPORT, state=state,
+                                                extra={"candidate_said": last_text, "candidate_profile": profile}))
+        last_text = await _await_opening_turn(transport, state)
+        rapport_turns += 1
+        if last_text is None:
+            break
+
     await _say(transport, state, await _gen(conv_llm, settings, action=Action.ORIENT, state=state,
                                             extra={"candidate_said": last_text}))
     last_text = await _await_opening_turn(transport, state)
@@ -307,8 +326,9 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
         scorer = build_llm_client(settings, model=settings.interview_scorer_model or None)
         deps = GraphDeps(llm=conv_llm, settings=settings, scorer=scorer)
 
-        # Opening: greet -> orient -> bounded Q&A, each step awaiting the candidate (Task 1) — never
-        # a monologue. Opening turns are transcript-only context; scoring/pacing start at ASK_BASE.
+        # Opening: greet -> rapport (Task 6) -> orient -> bounded Q&A, each step awaiting the
+        # candidate (Task 1) — never a monologue. Opening turns are transcript-only context;
+        # scoring/pacing start at ASK_BASE.
         await _run_opening(conv_llm, scorer, settings, transport, state)
         state.mark_asked((state.active_ladder() or {}).get("questionSlug"))
         # Ask the first question.

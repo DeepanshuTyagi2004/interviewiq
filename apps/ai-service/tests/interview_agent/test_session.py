@@ -72,12 +72,15 @@ def _script(n, gap=180.0, start=0.0):
 
 
 def _opening_pad():
-    """Task 1: the opening now awaits the candidate twice (GREET, ORIENT) before the first real
-    question. `_install_stubs`'s classify_opening_turn stub defaults to 'ready', so these two filler
-    turns are exactly what the opening consumes — prepend them so a script's REAL answers still land
-    on the main loop / plan questions unchanged."""
+    """Task 1/6: the opening now awaits the candidate four times — GREET, 2x RAPPORT, ORIENT —
+    before the first real question. `_install_stubs`'s classify_opening_turn stub defaults to
+    'ready', so the Q&A loop after ORIENT is skipped and these four filler turns are exactly what
+    the opening consumes — prepend them so a script's REAL answers still land on the main loop /
+    plan questions unchanged."""
     return [("hi, doing well thanks", UtteranceTiming(0.0, 1.0, 0.3)),
-            ("sounds good, ready when you are", UtteranceTiming(1.0, 2.0, 0.3))]
+            ("i'm from Pune", UtteranceTiming(1.0, 2.0, 0.3)),
+            ("studied at COEP", UtteranceTiming(2.0, 3.0, 0.3)),
+            ("sounds good, ready when you are", UtteranceTiming(3.0, 4.0, 0.3))]
 
 
 def test_natural_completion_strong_candidate(monkeypatch):
@@ -209,8 +212,10 @@ def test_strong_candidate_extends_into_reserve(monkeypatch):
     """A strong candidate past base-lookahead with a plan carrying `reserve` → EXTEND pulls a reserve
     item as the new active ladder."""
     _install_stubs(monkeypatch, competency=0.9, directive=PacingDirective.EXTEND)
-    # gaps large enough to reach base_s - lookahead (2700-300=2400s) while still strong
-    t = ScriptedTransport(_script(6, gap=1300.0))
+    # `_opening_pad()` covers the (now 4-turn, Task 6) opening at negligible elapsed time; the real
+    # script then starts already past base_s - lookahead (2700-300=2400s) so the very first real
+    # answer lands in the extend-eligible window while still strong.
+    t = ScriptedTransport(_opening_pad() + _script(6, gap=1300.0, start=2600.0))
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.extensions_granted >= 1
     assert any(a.startswith("[ask_base]") for a in t.said)   # the pulled reserve item is asked

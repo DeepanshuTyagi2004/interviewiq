@@ -1,13 +1,14 @@
-"""Task 1: the opening is a real multi-turn exchange (greet -> orient -> bounded Q&A -> first
-question), never a monologue. These tests drive run_session end-to-end with ScriptedTransport and
-stubbed llm_ops, asserting the spoken sequence WAITS for the candidate between each opening step and
-that opening turns never touch scoring/pacing/the ladder (F1-style carve-out, but for the opening)."""
+"""Task 1/6: the opening is a real multi-turn exchange (greet -> rapport (x2) -> orient -> bounded
+Q&A -> first question), never a monologue. These tests drive run_session end-to-end with
+ScriptedTransport and stubbed llm_ops, asserting the spoken sequence WAITS for the candidate between
+each opening step and that opening turns (including rapport) never touch scoring/pacing/the ladder
+(F1-style carve-out, but for the opening)."""
 import asyncio
 
 import app.interview_agent.session as sess
 import app.interview_agent.llm_ops as ops
 from app.interview_agent.transport import ScriptedTransport
-from app.interview_agent.types import PacingDirective, TurnClass, UtteranceTiming
+from app.interview_agent.types import Action, PacingDirective, TurnClass, UtteranceTiming
 from app.config import get_settings
 
 
@@ -63,29 +64,63 @@ def _turn(t=0.0):
 
 
 def test_opening_waits_and_reacts_before_first_question(monkeypatch):
-    """GREET, wait; ORIENT, wait; a 'question' turn -> ANSWER_OPENING, wait; THEN ask the first
-    question. Proves the opening awaits + reacts instead of firing greet+Q1 back-to-back."""
+    """GREET, wait; RAPPORT x2, wait each; ORIENT, wait; a 'question' turn -> ANSWER_OPENING, wait;
+    THEN ask the first question. Proves the opening awaits + reacts at every step (including the
+    Task-6 rapport stage) instead of firing greet+Q1 back-to-back."""
     _install_stubs(monkeypatch, opening_intents=["question", "ready"])
-    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
+    script = [_turn(0), _turn(10), _turn(20), _turn(30), _turn(40)]
     t = ScriptedTransport(script)
     asyncio.run(sess.run_session(t, PLAN, get_settings()))
-    assert t.said[:4] == ["[greet]", "[orient]", "[answer_opening]", "[ask_base]"]
+    assert t.said[:6] == ["[greet]", "[rapport]", "[rapport]", "[orient]", "[answer_opening]", "[ask_base]"]
 
 
 def test_opening_ready_skips_qna_loop(monkeypatch):
-    """A candidate who signals readiness right after ORIENT skips the Q&A loop entirely."""
+    """A candidate who signals readiness right after ORIENT skips the Q&A loop entirely (the rapport
+    stage still runs unconditionally — it's not gated on the 'ready'/'question' classifier)."""
     _install_stubs(monkeypatch, opening_intents=["ready"])
-    script = [_turn(0), _turn(10), _turn(20)]
+    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
     t = ScriptedTransport(script)
     asyncio.run(sess.run_session(t, PLAN, get_settings()))
-    assert t.said[:3] == ["[greet]", "[orient]", "[ask_base]"]
+    assert t.said[:5] == ["[greet]", "[rapport]", "[rapport]", "[orient]", "[ask_base]"]
+
+
+def test_rapport_emitted_max_rapport_turns_times_for_responsive_candidate(monkeypatch):
+    """Task 6: a responsive candidate always gets exactly MAX_RAPPORT_TURNS rapport turns, bounded
+    just like the rest of the opening — this is unconditional (not gated on candidate intent)."""
+    _install_stubs(monkeypatch, opening_intents=["ready"])
+    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
+    t = ScriptedTransport(script)
+    asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert t.said.count("[rapport]") == sess.MAX_RAPPORT_TURNS
+
+
+def test_rapport_grounds_in_candidate_profile_when_present(monkeypatch):
+    """Task 6: when the plan carries a candidateProfile, it's forwarded into the RAPPORT `_gen`
+    call's `extra` so the generated line can personalize; absent a profile it degrades to `{}`
+    (never crashes, never omits the extra key)."""
+    captured_extras = []
+
+    async def fake_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
+        if action == Action.RAPPORT.value:
+            captured_extras.append(extra)
+        return f"[{action}]"
+
+    _install_stubs(monkeypatch, opening_intents=["ready"])
+    monkeypatch.setattr(ops, "generate_line", fake_generate)
+    plan_with_profile = dict(PLAN, candidateProfile={"college": "COEP", "city": "Pune"})
+    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
+    t = ScriptedTransport(script)
+    asyncio.run(sess.run_session(t, plan_with_profile, get_settings()))
+    assert len(captured_extras) == sess.MAX_RAPPORT_TURNS
+    assert all(e["candidate_profile"] == {"college": "COEP", "city": "Pune"} for e in captured_extras)
 
 
 def test_opening_turns_are_never_scored_or_penalized(monkeypatch):
     _install_stubs(monkeypatch, opening_intents=["question", "question", "ready"])
-    # GREET + ORIENT + 2 "question" exchanges consume exactly 4 turns; the 3rd classify ("ready")
-    # breaks the loop without awaiting a 5th, so the script is exhausted before any real question
-    # is ever answered — proving none of these 4 candidate turns were scored.
+    # GREET + 2x RAPPORT + ORIENT consume 4 turns unconditionally; the Q&A loop then awaits a 5th
+    # turn for its first classify ("question"), and the script (only 4 turns) runs dry there — one
+    # gentle re-prompt, still nothing, so the opening falls through with no 5th turn ever answered.
+    # Either way, none of these candidate turns pass through the scored main loop.
     script = [_turn(0), _turn(10), _turn(20), _turn(30)]
     t = ScriptedTransport(script)
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))

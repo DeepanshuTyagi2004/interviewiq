@@ -60,6 +60,8 @@ class Action(str, Enum):
     GREET = "greet"
     ORIENT = "orient"
     ANSWER_OPENING = "answer_opening"
+    # Task 6: staged rapport between GREET and ORIENT (light background questions before format).
+    RAPPORT = "rapport"
 
 
 class EndedReason(str, Enum):
