@@ -24,6 +24,19 @@ def test_classify_turn_maps_result(monkeypatch):
     assert tc == TurnClass.PIVOT_REQUEST and topic == "dp"
 
 
+def test_classify_opening_turn_maps_result(monkeypatch):
+    _stub_structured(monkeypatch, {"intent": "question"})
+    intent = _run(ops.classify_opening_turn(llm=None, settings=get_settings(),
+                                            last_text="how long does this usually take?"))
+    assert intent == "question"
+
+
+def test_classify_opening_turn_falls_back_to_ready_on_bad_value(monkeypatch):
+    _stub_structured(monkeypatch, {"intent": "not-a-real-intent"})
+    intent = _run(ops.classify_opening_turn(llm=None, settings=get_settings(), last_text="ok, let's go"))
+    assert intent == "ready"
+
+
 def test_grade_answer_aggregates_criteria(monkeypatch):
     # UNEQUAL weights so the weighted mean (0.8*0.75 + 0.4*0.25 = 0.70) is distinguishable from the
     # plain mean (0.60) — proves competency uses the rubric weights, not a naive average.

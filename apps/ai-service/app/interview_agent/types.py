@@ -56,6 +56,10 @@ class Action(str, Enum):
     EXTEND_RESERVE = "extend_reserve"
     WRAP = "wrap"
     CLOSE = "close"
+    # Task 1: multi-turn interactive opening (greet -> orient -> bounded Q&A -> first question).
+    GREET = "greet"
+    ORIENT = "orient"
+    ANSWER_OPENING = "answer_opening"
 
 
 class EndedReason(str, Enum):

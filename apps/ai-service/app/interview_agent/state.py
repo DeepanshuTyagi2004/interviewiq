@@ -75,6 +75,9 @@ class SessionState:
     derived_topics: list[str] = field(default_factory=list)
     hint_just_given: bool = False
     elapsed_s: float = 0.0
+    # Task 1: bounded opening back-and-forth (greet -> orient -> Q&A) — counts ANSWER_OPENING turns
+    # so the loop cannot run forever on a candidate who keeps asking questions.
+    opening_exchanges: int = 0
     winding_down: bool = False   # F7: soft-landing in progress — wrap on the NEXT turn
     session_over: bool = False
     ended_reason: EndedReason | None = None

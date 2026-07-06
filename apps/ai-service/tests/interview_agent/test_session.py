@@ -37,9 +37,12 @@ WEAK_PLAN = {
 }
 
 
-def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, directive=None):
+def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, directive=None,
+                   opening_intent="ready"):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return classify, None
+    async def fake_classify_opening(llm, settings, *, last_text):
+        return opening_intent
     async def fake_grade(llm, settings, *, rubric, question, answer):
         return competency, 0.7
     async def fake_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
@@ -49,6 +52,7 @@ def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, di
     async def fake_derive(llm, settings, *, round_type, topic, grounding):
         return {"questionSlug": "derived", "basePrompt": "derived q", "rubric": []}
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
+    monkeypatch.setattr(ops, "classify_opening_turn", fake_classify_opening)
     monkeypatch.setattr(ops, "grade_answer", fake_grade)
     monkeypatch.setattr(ops, "generate_line", fake_generate)
     monkeypatch.setattr(ops, "judge_pacing", fake_judge)
@@ -65,6 +69,15 @@ def _script(n, gap=180.0, start=0.0):
         out.append(("some answer here that is reasonably long and coherent", UtteranceTiming(t, t + 5, 1.0)))
         t += gap
     return out
+
+
+def _opening_pad():
+    """Task 1: the opening now awaits the candidate twice (GREET, ORIENT) before the first real
+    question. `_install_stubs`'s classify_opening_turn stub defaults to 'ready', so these two filler
+    turns are exactly what the opening consumes — prepend them so a script's REAL answers still land
+    on the main loop / plan questions unchanged."""
+    return [("hi, doing well thanks", UtteranceTiming(0.0, 1.0, 0.3)),
+            ("sounds good, ready when you are", UtteranceTiming(1.0, 2.0, 0.3))]
 
 
 def test_natural_completion_strong_candidate(monkeypatch):
@@ -97,7 +110,7 @@ def test_out_of_scope_pivot_is_refused_and_penalized(monkeypatch):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return TurnClass.PIVOT_REQUEST, "system design"
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
-    t = ScriptedTransport([("can we do system design instead", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("can we do system design instead", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert any(a.startswith("[refuse_out_of_scope]") for a in t.said)
     assert any(e.type == "out_of_scope" for e in out.negative_events)
@@ -148,7 +161,7 @@ def test_in_scope_pivot_derives_and_records_one_negative(monkeypatch):
         return TurnClass.PIVOT_REQUEST, "dynamic programming"   # in-scope for a DSA round
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
 
-    t = ScriptedTransport([("can we try a dynamic programming question?", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("can we try a dynamic programming question?", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.per_answer_evidence == []                          # not graded
     assert sum(1 for e in out.negative_events if e.type == "pivot") == 1   # counted once
@@ -210,7 +223,8 @@ def test_ceiling_forces_time_ceiling_wrap(monkeypatch):
     """Elapsed past the hard ceiling (max_s = 60min) → immediate wrap with ended_reason TIME_CEILING,
     regardless of score (the MUST_WRAP rail is absolute)."""
     _install_stubs(monkeypatch, competency=0.9)
-    t = ScriptedTransport([("a strong, complete answer to the very first question", UtteranceTiming(3700, 3705, 1.0))])
+    t = ScriptedTransport(_opening_pad() +
+                          [("a strong, complete answer to the very first question", UtteranceTiming(3700, 3705, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.TIME_CEILING
     assert t.ended is True
@@ -246,6 +260,8 @@ def test_coverage_counts_distinct_core_not_followups(monkeypatch):
 def _artifact_stubs(monkeypatch, captured):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return TurnClass.ANSWER, None
+    async def fake_classify_opening(llm, settings, *, last_text):
+        return "ready"
     async def fake_grade(llm, settings, *, rubric, question, answer, artifact=None):
         captured.append(artifact)
         return 0.8, 0.7
@@ -254,6 +270,7 @@ def _artifact_stubs(monkeypatch, captured):
     async def fake_judge(llm, settings, *, gate, rolling, transcript_summary):
         return PacingDirective.CONTINUE
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
+    monkeypatch.setattr(ops, "classify_opening_turn", fake_classify_opening)
     monkeypatch.setattr(ops, "grade_answer", fake_grade)
     monkeypatch.setattr(ops, "generate_line", fake_generate)
     monkeypatch.setattr(ops, "judge_pacing", fake_judge)
@@ -265,7 +282,7 @@ def test_artifact_reaches_grading_for_dsa_round(monkeypatch):
     captured = []
     _artifact_stubs(monkeypatch, captured)
     art = Artifact(kind=ArtifactKind.CODE, content="def f(): return 1", language="python")
-    t = ScriptedTransport(_script(1), artifact=art)
+    t = ScriptedTransport(_opening_pad() + _script(1, start=3.0), artifact=art)
     asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert art in captured                        # DSA round → artifact graded
 
@@ -276,7 +293,7 @@ def test_artifact_not_passed_for_behavioural_round(monkeypatch):
     _artifact_stubs(monkeypatch, captured)
     behavioural_plan = dict(PLAN, roundType="behavioural")
     art = Artifact(kind=ArtifactKind.CODE, content="stale editor content", language="python")
-    t = ScriptedTransport(_script(1), artifact=art)
+    t = ScriptedTransport(_opening_pad() + _script(1, start=3.0), artifact=art)
     asyncio.run(sess.run_session(t, behavioural_plan, get_settings()))
     assert captured and all(a is None for a in captured)   # graded, but artifact was None
 

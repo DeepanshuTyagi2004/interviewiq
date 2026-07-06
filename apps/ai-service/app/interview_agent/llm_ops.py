@@ -10,6 +10,7 @@ from app.interview_agent.prompts import classify as classify_p
 from app.interview_agent.prompts import converse as converse_p
 from app.interview_agent.prompts import derive as derive_p
 from app.interview_agent.prompts import grade as grade_p
+from app.interview_agent.prompts import opening_classify as opening_classify_p
 from app.interview_agent.prompts import pacing_judge as pacing_p
 from app.interview_agent.scope import scope_prompt_context
 from app.interview_agent.types import PacingDirective, RoundType, TurnClass
@@ -28,6 +29,10 @@ class _Classify(BaseModel):
     turn_class: str
     requested_topic: str | None = None
     topic_scope: str = "unclear"
+
+
+class _OpeningClassify(BaseModel):
+    intent: str = "ready"
 
 
 class _Criterion(BaseModel):
@@ -60,6 +65,17 @@ async def classify_turn(llm: LLMClient, settings: Settings, *, round_type, activ
     except ValueError:
         tc = TurnClass.ANSWER
     return tc, (res.requested_topic or None)
+
+
+async def classify_opening_turn(llm: LLMClient, settings: Settings, *, last_text: str) -> str:
+    """Task 1: is the candidate's opening-phase turn a question (they expect a reply) or a signal
+    they're ready to begin? Deliberately tiny — no topic/scope extraction, mirrors `classify_turn`'s
+    LLM/structured-call shape but returns a bare intent string since there's nothing else to route on."""
+    res = await complete_structured(
+        llm, opening_classify_p.OPENING_CLASSIFY_SYSTEM,
+        opening_classify_p.build_opening_classify_prompt(last_text),
+        _OpeningClassify, max_repairs=_scorer_max_repairs(settings), label="iv-opening-classify")
+    return res.intent if res.intent in ("ready", "question") else "ready"
 
 
 async def grade_answer(llm: LLMClient, settings: Settings, *, rubric: list[dict], question: str,
