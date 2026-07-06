@@ -290,8 +290,11 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
     """Task 1: a real multi-turn opening — greet, wait; orient, wait; then a bounded back-and-forth
     that answers the candidate's questions (never rubric/logistics-only) until they're ready or the
     bound is hit. Falls through to ASK_BASE (unchanged main loop) once this returns."""
-    await _say(transport, state, state.plan.get("persona", {}).get("opening") or
-               await _gen(conv_llm, settings, action=Action.GREET, state=state, extra={}))
+    # GREET is always generated via the converse prompt (warm greeting + "how are you?", no format
+    # dump) — never the persona's `opening` field, which is a FORMAT-DUMP script (greeting + format +
+    # timebox + invite-to-ask) meant to be folded into ORIENT, not spoken verbatim here. Reusing it
+    # for GREET would dump the format twice (once here, again at ORIENT).
+    await _say(transport, state, await _gen(conv_llm, settings, action=Action.GREET, state=state, extra={}))
     last_text = await _await_opening_turn(transport, state)
 
     # Task 6: staged rapport — one or two light, warm background questions (where they're from,
@@ -314,7 +317,11 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
     last_text = await _await_opening_turn(transport, state)
 
     while last_text is not None and state.opening_exchanges < MAX_OPENING_EXCHANGES:
-        intent = await llm_ops.classify_opening_turn(scorer, settings, last_text=last_text)
+        try:
+            intent = await llm_ops.classify_opening_turn(scorer, settings, last_text=last_text)
+        except LLMError as exc:
+            logger.warning("[iv] opening classify failed (%s) — assuming ready", exc)
+            intent = "ready"
         if intent != "question":
             break
         state.opening_exchanges += 1
@@ -371,6 +378,7 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                 # session.
                 await _say(transport, state, _ABANDONED_LINE)
                 state.ended_reason = EndedReason.ABANDONED
+                state.session_over = True
                 break
             inactivity_nudges = 0
             final_warning_given = False

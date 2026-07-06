@@ -8,8 +8,9 @@ import asyncio
 import app.interview_agent.session as sess
 import app.interview_agent.llm_ops as ops
 from app.interview_agent.transport import ScriptedTransport
-from app.interview_agent.types import Action, PacingDirective, TurnClass, UtteranceTiming
+from app.interview_agent.types import Action, EndedReason, PacingDirective, TurnClass, UtteranceTiming
 from app.config import get_settings
+from app.llm.client import LLMError
 
 
 PLAN = {
@@ -146,3 +147,49 @@ def test_opening_silence_gets_one_reprompt_then_proceeds(monkeypatch):
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert "[ask_base]" in t.said
     assert out.per_answer_evidence == []
+
+
+# ----------------------- Final-review Fix 1: GREET must never surface persona.opening -----------------------
+
+
+_FORMAT_DUMP_OPENING = ("Hi, I'm Ada. This is a 45-minute DSA round; we'll do a couple of problems. "
+                        "Ask me anything.")
+
+PLAN_WITH_FORMAT_DUMP_OPENING = dict(
+    PLAN, persona={"name": "Ada", "closing": "bye", "opening": _FORMAT_DUMP_OPENING})
+
+
+def test_greet_uses_generated_line_not_persona_format_dump_opening(monkeypatch):
+    """The prep persona's `opening` field is a FORMAT DUMP (greeting + format + timebox + invite-to-
+    ask) meant for ORIENT, not a bare greeting. GREET must ALWAYS generate via the converse prompt
+    (whose GREET guidance is greeting-only) — reusing persona.opening here would dump the format
+    twice (once at GREET, again at ORIENT), contradicting the spec."""
+    _install_stubs(monkeypatch, opening_intents=["ready"])
+    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
+    t = ScriptedTransport(script)
+    asyncio.run(sess.run_session(t, PLAN_WITH_FORMAT_DUMP_OPENING, get_settings()))
+    assert t.said[0] == "[greet]"                 # the GENERATED greeting marker, not the format-dump
+    assert _FORMAT_DUMP_OPENING not in t.said      # the persona's opening script never gets spoken
+
+
+# ----------------------- Final-review Fix 2: opening classify failure must not abort -----------------------
+
+
+def test_opening_classify_failure_degrades_to_ready_not_abort(monkeypatch):
+    """A transient LLMError from classify_opening_turn must degrade to 'ready' (proceed straight to
+    ASK_BASE) rather than propagating up to run_session's `except LLMError` -> ABORTED_TECHNICAL,
+    which would end the interview before the candidate ever heard the first question."""
+    _install_stubs(monkeypatch)
+
+    async def failing_classify_opening(llm, settings, *, last_text):
+        raise LLMError("boom")
+    monkeypatch.setattr(ops, "classify_opening_turn", failing_classify_opening)
+
+    # A 'question'-shaped utterance after ORIENT would normally enter the Q&A loop and call
+    # classify_opening_turn; here that call fails, so the degrade-to-ready path must skip the loop
+    # and fall through to the first question instead of aborting.
+    script = [_turn(0), _turn(10), _turn(20), _turn(30)]
+    t = ScriptedTransport(script)
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert out.ended_reason != EndedReason.ABORTED_TECHNICAL
+    assert "[ask_base]" in t.said

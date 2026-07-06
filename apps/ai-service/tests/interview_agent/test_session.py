@@ -89,7 +89,7 @@ def test_natural_completion_strong_candidate(monkeypatch):
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.NATURAL_COMPLETE   # drained the plan before the floor
     assert t.ended is True
-    assert t.said[0] == "hi"                    # persona opening spoken first (falls back to [open] only if absent)
+    assert t.said[0] == "[greet]"                # GREET is always generated — never persona.opening
     assert out.live_score_final > 0.5
 
 
@@ -143,6 +143,16 @@ def test_gone_candidate_escalates_to_abandoned(monkeypatch):
     activity=999.0 is always >= INACTIVITY_WINDOW_S) is nudged MAX_INACTIVITY_NUDGES times, then
     warned once, then ends gracefully as ABANDONED — not a technical abort."""
     _install_stubs(monkeypatch)
+    # Final-review Fix 3: capture the internal SessionState (via the real `finalize` call) so we can
+    # also assert `session_over` was set on the ABANDONED break path, alongside the outcome itself.
+    captured_state = {}
+    real_finalize = sess.finalize
+
+    def spying_finalize(state, ended_reason):
+        captured_state["state"] = state
+        return real_finalize(state, ended_reason)
+    monkeypatch.setattr(sess, "finalize", spying_finalize)
+
     t = ScriptedTransport(_opening_pad())   # exhausted right after the opening
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.ABANDONED
@@ -151,6 +161,7 @@ def test_gone_candidate_escalates_to_abandoned(monkeypatch):
     assert t.said[-2] == sess._FINAL_WARNING_LINE
     assert t.said[-1] == sess._ABANDONED_LINE
     assert t.ended is True
+    assert captured_state["state"].session_over is True   # set on the ABANDONED break path (Fix 3)
 
 
 def test_silence_while_actively_coding_is_not_treated_as_inactivity(monkeypatch):
