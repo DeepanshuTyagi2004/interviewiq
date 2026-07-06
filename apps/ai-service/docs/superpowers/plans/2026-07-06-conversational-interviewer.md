@@ -62,7 +62,7 @@ Opening turns: append to `state.transcript` for context, but do NOT call `_score
 
 **Files:** `app/interview_agent/prompts/converse.py`; Test: `tests/interview_agent/test_prompts.py` (extend).
 
-**Design:** Enrich `CONVERSE_SYSTEM` so every line (a) briefly ACKNOWLEDGES/reacts to the candidate's most recent turn (available in `RECENT TURNS`/`transcript_tail`), then (b) does the ACTION's job, transitioning naturally — treating `CURRENT ITEM` as the topic to steer toward, not a script to read. Add explicit one-line guidance for the new actions: `GREET` (warm hello + how-are-you, NO format dump), `ORIENT` (react + brief format explanation + invite questions), `ANSWER_OPENING` (answer the candidate's pre-interview question warmly; logistics/expectations only; never reveal rubric/scoring). Keep: one spoken thing per line, TTS-friendly, never reveal scoring, wind-down = one easy in-scope question, refusal = plainly name the round + steer back. Bump `CONVERSE_PROMPT_VERSION` (e.g. `"v1-conversational"`). `build_turn_prompt` already passes action/persona/active_item/transcript_tail/extra — keep the signature.
+**Design:** Enrich `CONVERSE_SYSTEM` so every line (a) briefly ACKNOWLEDGES/reacts to the candidate's most recent turn (available in `RECENT TURNS`/`transcript_tail`), then (b) does the ACTION's job, transitioning naturally — treating `CURRENT ITEM` as the topic to steer toward, not a script to read. Add explicit one-line guidance for the new actions: `GREET` (warm hello + how-are-you, NO format dump), `RAPPORT` (one or two light personal/background questions, warm, grounded in the candidate profile when present), `ORIENT` (react + brief format explanation + invite questions), `ANSWER_OPENING` (answer the candidate's pre-interview question warmly; logistics/expectations only; never reveal rubric/scoring). **ALSO refine `ANSWER_CLARIFY`**: answer questions about the PROBLEM (constraints, I/O, examples, edge cases) helpfully + specifically but NEVER reveal the approach, algorithm, complexity target, or solution ('clarify the problem, never hint the path'). Keep: one spoken thing per line, TTS-friendly, never reveal scoring, wind-down = one easy in-scope question, refusal = plainly name the round + steer back. Bump `CONVERSE_PROMPT_VERSION` (e.g. `"v1-conversational"`). `build_turn_prompt` already passes action/persona/active_item/transcript_tail/extra — keep the signature.
 
 - [ ] **Step 1: Write failing tests** — assert `CONVERSE_SYSTEM` contains the acknowledge/transition instruction (e.g. references reacting to the candidate's last turn) and that `build_turn_prompt` renders the new actions; assert `CONVERSE_PROMPT_VERSION` changed. Keep assertions about existing guidance (rubric-secrecy, one-thing, wind-down, refusal).
 - [ ] **Step 2: Run → FAIL.**
@@ -136,3 +136,37 @@ Opening turns: append to `state.transcript` for context, but do NOT call `_score
 - **Type consistency:** new Actions (GREET/ORIENT/ANSWER_OPENING) used in T1 driver + T2 prompt; `select_voice(persona, infer)` + `infer_gender(name, llm)` consistent across T5; `gender` field (T4) consumed by T5's `select_voice`.
 - **Sequencing:** T1→T2 (prompt supports the new actions T1 introduces) → T3 (policy) → T4 (prep field) → T5 (voice consumes the field). Each independently testable + committed.
 - **Known adaptation risks:** (1) the exact `decide` structure (T3) — the implementer must read it and tune the threshold without restructuring; if the router doesn't currently track per-question adequacy/follow-up count, add a minimal counter to `SessionState`/`build_inputs`. (2) The Aura male voice id (T5) — verify against Deepgram docs. (3) `PREP_PLAN_VERSION` location (T4) — grep to find it. (4) opening classifier (`classify_opening_turn`) is a new LLM op — stub it in tests like the other ops.
+
+---
+
+### Task 6: Richer staged rapport opening (extends Task 1)
+
+**Files:** `types.py` (`Action.RAPPORT`), `session.py` (opening sub-phase), `prompts/converse.py` (RAPPORT voice — may already be covered by Task 2); Test: `tests/interview_agent/test_opening.py` (extend).
+
+**Design:** Extend the Task-1 opening sub-phase with a rapport step between GREET and ORIENT: GREET (how-are-you) → wait → **RAPPORT** (1–2 light background questions — where they're from, college — grounded in the plan's candidate profile if available, else generic) → wait (bounded to ~2 rapport turns via a `MAX_RAPPORT_TURNS = 2` const) → ORIENT (format + invite questions) → the existing Task-1 Q&A loop → ASK_BASE. Rapport turns: NOT scored, NO negative events, NOT paced (same treatment as the rest of the opening). Read the Task-1 `_run_opening`/`_await_opening_turn` first and insert the rapport step cleanly. The candidate profile is on the plan (`plan.get('candidateProfile')` / persona `grounded_in`) — pass what's available into `_gen`'s `extra` so RAPPORT can personalize; degrade gracefully if absent.
+
+- [ ] Step 1: failing test — the opening sequence now includes `[rapport]` between `[greet]` and `[orient]`; rapport turns are not scored; bounded by `MAX_RAPPORT_TURNS`.
+- [ ] Step 2: run → FAIL.
+- [ ] Step 3: implement `Action.RAPPORT` + the rapport step in the opening sub-phase (+ RAPPORT converse guidance if not already added in Task 2).
+- [ ] Step 4: run → PASS + full slice green (adapt Task-1 opening tests to the new sequence — do not weaken not-scored assertions).
+- [ ] Step 5: commit `feat(convo): staged rapport opening (how-are-you -> background -> format)`.
+
+---
+
+### Task 7: Silence & inactivity handling (code != inactivity; graceful escalating end)
+
+**Files:** `types.py` (`EndedReason.ABANDONED`), `transport.py` (activity tracking), `session.py` (escalation), config/consts; Test: `tests/interview_agent/test_livekit_transport.py` + `tests/interview_agent/test_session.py` (extend).
+
+**Design:**
+- **Transport activity tracking (`transport.py`):** track `_last_activity` (a monotonic timestamp) updated whenever an `artifact` message arrives in `handle_incoming` (code/diagram edits) — and on `answer` too. Expose `def seconds_since_activity(self) -> float` (or `recently_active(window)`) for the driver. (Use a module clock indirection so tests can control it — e.g. accept an injectable `now` or monkeypatch.) This makes "writing code" count as activity.
+- **`types.py`:** add `EndedReason.ABANDONED = "abandoned"`.
+- **Driver escalation (`session.py`):** replace the bare `silence_used > interview_silence_retries -> ABORTED_TECHNICAL` in the MAIN loop with: when `next_utterance()` returns `None`, FIRST check `transport.seconds_since_activity()` — if the candidate has recent artifact/code activity (within `INACTIVITY_WINDOW_S`, e.g. 45s), treat it as "still working": do NOT nudge, just continue waiting (optionally a single soft "take your time"). Otherwise escalate: nudge "are you still there?" (up to `MAX_INACTIVITY_NUDGES`, e.g. 3, warmer than the current terse retry); then a final warning "I may need to stop the interview"; then one more `next_utterance()` bounded by a `GRACE_S` (≈30s) window — if still None AND still inactive, end with `EndedReason.ABANDONED` (via `_wrap_and_close` or a clean end path). Any real utterance OR resumed activity resets the escalation counter. Keep `ABORTED_TECHNICAL` for genuine technical/exception failures.
+- Constants (module-level or Settings): `INACTIVITY_WINDOW_S≈45`, `MAX_INACTIVITY_NUDGES≈3`, `GRACE_S≈30`.
+- The transport's `next_utterance` silence timeout already exists (`SILENCE_TIMEOUT_S`); the escalation is driver-side using activity to decide nudge-vs-wait. Ensure the escalation still terminates (ABANDONED) so a truly-gone candidate can't hang the session.
+
+- [ ] Step 1: failing tests — (transport) `seconds_since_activity` drops after an `artifact` message (code = activity); (driver) silence with NO recent activity → escalating nudges then `ABANDONED` end; silence WITH recent artifact activity → NOT counted as inactivity (no premature nudge/end, keeps waiting); a real answer/resumed activity resets the counter.
+- [ ] Step 2: run → FAIL.
+- [ ] Step 3: implement transport activity tracking + `EndedReason.ABANDONED` + driver escalation. Read the current `next_utterance` + the main-loop silence handling first; keep `ABORTED_TECHNICAL` for exceptions.
+- [ ] Step 4: run → PASS + full slice green (the outcome-shape/EndedReason tests may need the new enum value; do not weaken).
+- [ ] Step 5: commit `feat(convo): silence/inactivity escalation (code!=idle, nudge -> warn -> 30s grace -> abandoned end)`.
+

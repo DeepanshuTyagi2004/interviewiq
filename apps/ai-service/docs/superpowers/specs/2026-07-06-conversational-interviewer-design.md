@@ -74,3 +74,19 @@ Frontend/UI changes; barge-in/interruption (candidate talking over the AI); mult
 
 ## Definition of done
 A candidate joins, is greeted with light small talk, replies, hears a brief format explanation, can ask questions (answered warmly, back-and-forth), then is taken into the problems — where the interviewer reacts to each reply, holds genuine multi-turn back-and-forth per point and only advances when satisfied (pacing-capped), speaks in a voice matching the persona's gender, and still gets fairly scored/paced/scope-guarded with a persisted `SessionOutcome`. All CI green; manual smoke confirms the conversational feel.
+
+---
+
+## Addendum — additional requirements (added mid-build 2026-07-06)
+
+### A1. Richer, staged rapport opening (extends §1)
+The opening warms up in stages, each awaiting the candidate: **GREET** ("hi, I'm <name> — how are you doing?") → wait → **RAPPORT** — one or two light background questions (where they're from, which college, grounded in the candidate profile in the plan when present) ~1–2 min → wait → **ORIENT** (explain the format) → invite questions → **ASK_BASE**. Rapport turns are rapport-only (not scored/paced), same as the rest of the opening.
+
+### A2. Silence & inactivity handling (new)
+The interviewer must never sit dead on silence, and must not mistake *thinking/coding* for absence.
+- **Writing code is NOT inactivity.** Artifact edits (code/diagram) stream over the data channel; while the candidate is actively editing, the inactivity timer is suppressed/reset. The transport tracks a "last activity" timestamp (updated on artifact messages) and exposes recent-activity to the driver.
+- On genuine inactivity (no speech AND no recent artifact activity): a gentle nudge ("are you still there?"), escalating over ~2–3 nudges; then a final warning ("I may need to stop the interview"); then a ~30s grace; if still nothing, **end gracefully** with a new `EndedReason.ABANDONED` (distinct from `ABORTED_TECHNICAL`). Counts/windows/grace are config'd (module constants ok). This supersedes the current bare `interview_silence_retries → ABORTED_TECHNICAL`.
+
+### A3. Answer problem-clarification questions WITHOUT solving (refines §4)
+When the candidate asks about the problem itself (constraints, input/output, examples, edge cases), the interviewer answers helpfully and specifically — but NEVER reveals the approach, algorithm, complexity target, or solution. Enforced in the `ANSWER_CLARIFY` converse guidance ("clarify the problem, never hint the path").
+
