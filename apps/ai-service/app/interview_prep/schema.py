@@ -196,6 +196,7 @@ class InterviewPlan(_CamelModel):
     provenance: PlanProvenance
     # content
     persona: InterviewerPersona
+    candidate_profile: PlanCandidateProfile | None = None
     round_arc: list[RoundBeat] = Field(default_factory=list)
     question_ladders: list[QuestionLadder] = Field(default_factory=list)
     candidate_probes: list[CandidateProbe] = Field(default_factory=list)

@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     # structured.py re-ask budget: how many times to re-ask the LLM to fix invalid JSON.
     prep_max_repairs: int = Field(2, alias="PREP_MAX_REPAIRS")
     # Recorded on every stored plan; bump to force regeneration when the plan SHAPE changes.
-    prep_plan_version: str = Field("v3", alias="PREP_PLAN_VERSION")
+    prep_plan_version: str = Field("v4", alias="PREP_PLAN_VERSION")
     # Concurrent LLM calls in Stage 2 (persona / ladders / probes = 3). Same RPM discipline as EXTRACT_CONCURRENCY.
     prep_concurrency: int = Field(3, alias="PREP_CONCURRENCY")
 

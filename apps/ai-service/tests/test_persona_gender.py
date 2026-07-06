@@ -66,4 +66,4 @@ def test_persona_prompt_version_bumped():
 
 
 def test_prep_plan_version_bumped():
-    assert get_settings().prep_plan_version == "v3"
+    assert get_settings().prep_plan_version == "v4"
