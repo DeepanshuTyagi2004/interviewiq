@@ -56,6 +56,12 @@ class Action(str, Enum):
     EXTEND_RESERVE = "extend_reserve"
     WRAP = "wrap"
     CLOSE = "close"
+    # Task 1: multi-turn interactive opening (greet -> orient -> bounded Q&A -> first question).
+    GREET = "greet"
+    ORIENT = "orient"
+    ANSWER_OPENING = "answer_opening"
+    # Task 6: staged rapport between GREET and ORIENT (light background questions before format).
+    RAPPORT = "rapport"
 
 
 class EndedReason(str, Enum):
@@ -63,6 +69,9 @@ class EndedReason(str, Enum):
     EARLY_WEAK = "early_weak"
     TIME_CEILING = "time_ceiling"
     ABORTED_TECHNICAL = "aborted_technical"
+    # Task 7: the candidate left (escalating nudges + a warning got no response) — a graceful end,
+    # distinct from ABORTED_TECHNICAL which is reserved for genuine technical/exception failures.
+    ABANDONED = "abandoned"
 
 
 class ArtifactKind(str, Enum):

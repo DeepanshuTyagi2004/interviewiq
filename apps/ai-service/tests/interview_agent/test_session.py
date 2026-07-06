@@ -37,9 +37,12 @@ WEAK_PLAN = {
 }
 
 
-def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, directive=None):
+def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, directive=None,
+                   opening_intent="ready"):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return classify, None
+    async def fake_classify_opening(llm, settings, *, last_text):
+        return opening_intent
     async def fake_grade(llm, settings, *, rubric, question, answer):
         return competency, 0.7
     async def fake_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
@@ -49,6 +52,7 @@ def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, di
     async def fake_derive(llm, settings, *, round_type, topic, grounding):
         return {"questionSlug": "derived", "basePrompt": "derived q", "rubric": []}
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
+    monkeypatch.setattr(ops, "classify_opening_turn", fake_classify_opening)
     monkeypatch.setattr(ops, "grade_answer", fake_grade)
     monkeypatch.setattr(ops, "generate_line", fake_generate)
     monkeypatch.setattr(ops, "judge_pacing", fake_judge)
@@ -67,13 +71,25 @@ def _script(n, gap=180.0, start=0.0):
     return out
 
 
+def _opening_pad():
+    """Task 1/6: the opening now awaits the candidate four times — GREET, 2x RAPPORT, ORIENT —
+    before the first real question. `_install_stubs`'s classify_opening_turn stub defaults to
+    'ready', so the Q&A loop after ORIENT is skipped and these four filler turns are exactly what
+    the opening consumes — prepend them so a script's REAL answers still land on the main loop /
+    plan questions unchanged."""
+    return [("hi, doing well thanks", UtteranceTiming(0.0, 1.0, 0.3)),
+            ("i'm from Pune", UtteranceTiming(1.0, 2.0, 0.3)),
+            ("studied at COEP", UtteranceTiming(2.0, 3.0, 0.3)),
+            ("sounds good, ready when you are", UtteranceTiming(3.0, 4.0, 0.3))]
+
+
 def test_natural_completion_strong_candidate(monkeypatch):
     _install_stubs(monkeypatch, competency=0.8)
     t = ScriptedTransport(_script(6, gap=120.0))
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.NATURAL_COMPLETE   # drained the plan before the floor
     assert t.ended is True
-    assert t.said[0] == "hi"                    # persona opening spoken first (falls back to [open] only if absent)
+    assert t.said[0] == "[greet]"                # GREET is always generated — never persona.opening
     assert out.live_score_final > 0.5
 
 
@@ -97,18 +113,84 @@ def test_out_of_scope_pivot_is_refused_and_penalized(monkeypatch):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return TurnClass.PIVOT_REQUEST, "system design"
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
-    t = ScriptedTransport([("can we do system design instead", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("can we do system design instead", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert any(a.startswith("[refuse_out_of_scope]") for a in t.said)
     assert any(e.type == "out_of_scope" for e in out.negative_events)
 
 
 def test_silence_aborts_after_retries(monkeypatch):
+    """Task 7: exhausted/silent script (idle throughout, ScriptedTransport's default
+    activity=999.0) now escalates through nudges + a final warning before ending gracefully as
+    ABANDONED — never ABORTED_TECHNICAL, which is reserved for genuine technical/exception failures."""
     _install_stubs(monkeypatch)
-    t = ScriptedTransport([])   # no utterances at all → immediate silence
+    t = ScriptedTransport([])   # no utterances at all → immediate + persistent silence
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
-    assert out.ended_reason == EndedReason.ABORTED_TECHNICAL
+    assert out.ended_reason == EndedReason.ABANDONED
+    assert out.ended_reason != EndedReason.ABORTED_TECHNICAL
     assert t.ended is True
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == sess.MAX_INACTIVITY_NUDGES
+    assert sess._FINAL_WARNING_LINE in t.said
+    assert t.said[-1] == sess._ABANDONED_LINE
+
+
+# ----------------------------- Task 7: inactivity escalation (code != inactivity) -----------------------------
+
+
+def test_gone_candidate_escalates_to_abandoned(monkeypatch):
+    """A candidate who never comes back (idle the whole time — ScriptedTransport's default
+    activity=999.0 is always >= INACTIVITY_WINDOW_S) is nudged MAX_INACTIVITY_NUDGES times, then
+    warned once, then ends gracefully as ABANDONED — not a technical abort."""
+    _install_stubs(monkeypatch)
+    # Final-review Fix 3: capture the internal SessionState (via the real `finalize` call) so we can
+    # also assert `session_over` was set on the ABANDONED break path, alongside the outcome itself.
+    captured_state = {}
+    real_finalize = sess.finalize
+
+    def spying_finalize(state, ended_reason):
+        captured_state["state"] = state
+        return real_finalize(state, ended_reason)
+    monkeypatch.setattr(sess, "finalize", spying_finalize)
+
+    t = ScriptedTransport(_opening_pad())   # exhausted right after the opening
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert out.ended_reason == EndedReason.ABANDONED
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == sess.MAX_INACTIVITY_NUDGES
+    assert t.said[-2] == sess._FINAL_WARNING_LINE
+    assert t.said[-1] == sess._ABANDONED_LINE
+    assert t.ended is True
+    assert captured_state["state"].session_over is True   # set on the ABANDONED break path (Fix 3)
+
+
+def test_silence_while_actively_coding_is_not_treated_as_inactivity(monkeypatch):
+    """A candidate silently writing code (recent artifact/answer activity, so
+    `seconds_since_activity()` stays below INACTIVITY_WINDOW_S) must never be nudged for 'still
+    there?' — the driver keeps waiting quietly and picks the later real answer back up."""
+    _install_stubs(monkeypatch, competency=0.8)
+    script = _opening_pad() + [None, None] + _script(6, gap=120.0)
+    t = ScriptedTransport(script, activity=[10.0, 10.0])
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert sess._NUDGE_LINE not in t.said
+    assert sess._FINAL_WARNING_LINE not in t.said
+    assert sess._ABANDONED_LINE not in t.said
+    assert out.ended_reason == EndedReason.NATURAL_COMPLETE   # the later real answers were processed
+    assert t.ended is True
+
+
+def test_real_utterance_resets_inactivity_escalation_counter(monkeypatch):
+    """After a couple of idle nudges, a real answer arrives and must reset the escalation counter —
+    a later idle stretch nudges again from zero rather than jumping straight to the final warning."""
+    _install_stubs(monkeypatch, competency=0.8, directive=PacingDirective.CONTINUE)
+    script = _opening_pad() + [None, None, (
+        "some answer here that is reasonably long and coherent", UtteranceTiming(3.0, 8.0, 1.0))]
+    t = ScriptedTransport(script, activity=999.0)   # idle throughout — no artifact activity involved
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    # 2 nudges before the real answer resets the counter, then a fresh full escalation afterwards.
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == 2 + sess.MAX_INACTIVITY_NUDGES
+    assert out.ended_reason == EndedReason.ABANDONED
 
 
 def test_generate_line_failure_degrades_gracefully(monkeypatch):
@@ -133,7 +215,7 @@ def test_generate_line_failure_degrades_gracefully(monkeypatch):
 def test_non_answer_turn_is_not_scored(monkeypatch):
     """F1: a CLARIFY (non-answer) turn must NOT produce a PerAnswerScore or record any grade."""
     _install_stubs(monkeypatch, classify=TurnClass.CLARIFY, competency=0.9)
-    t = ScriptedTransport([("wait, what do you mean by optimal here?", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("wait, what do you mean by optimal here?", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.per_answer_evidence == []                       # non-answer never graded
     assert all(e.type != "idk" for e in out.negative_events)   # clarify is not an idk penalty
@@ -148,7 +230,7 @@ def test_in_scope_pivot_derives_and_records_one_negative(monkeypatch):
         return TurnClass.PIVOT_REQUEST, "dynamic programming"   # in-scope for a DSA round
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
 
-    t = ScriptedTransport([("can we try a dynamic programming question?", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("can we try a dynamic programming question?", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.per_answer_evidence == []                          # not graded
     assert sum(1 for e in out.negative_events if e.type == "pivot") == 1   # counted once
@@ -196,8 +278,10 @@ def test_strong_candidate_extends_into_reserve(monkeypatch):
     """A strong candidate past base-lookahead with a plan carrying `reserve` → EXTEND pulls a reserve
     item as the new active ladder."""
     _install_stubs(monkeypatch, competency=0.9, directive=PacingDirective.EXTEND)
-    # gaps large enough to reach base_s - lookahead (2700-300=2400s) while still strong
-    t = ScriptedTransport(_script(6, gap=1300.0))
+    # `_opening_pad()` covers the (now 4-turn, Task 6) opening at negligible elapsed time; the real
+    # script then starts already past base_s - lookahead (2700-300=2400s) so the very first real
+    # answer lands in the extend-eligible window while still strong.
+    t = ScriptedTransport(_opening_pad() + _script(6, gap=1300.0, start=2600.0))
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.extensions_granted >= 1
     assert any(a.startswith("[ask_base]") for a in t.said)   # the pulled reserve item is asked
@@ -210,7 +294,8 @@ def test_ceiling_forces_time_ceiling_wrap(monkeypatch):
     """Elapsed past the hard ceiling (max_s = 60min) → immediate wrap with ended_reason TIME_CEILING,
     regardless of score (the MUST_WRAP rail is absolute)."""
     _install_stubs(monkeypatch, competency=0.9)
-    t = ScriptedTransport([("a strong, complete answer to the very first question", UtteranceTiming(3700, 3705, 1.0))])
+    t = ScriptedTransport(_opening_pad() +
+                          [("a strong, complete answer to the very first question", UtteranceTiming(3700, 3705, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.ended_reason == EndedReason.TIME_CEILING
     assert t.ended is True
@@ -246,6 +331,8 @@ def test_coverage_counts_distinct_core_not_followups(monkeypatch):
 def _artifact_stubs(monkeypatch, captured):
     async def fake_classify(llm, settings, *, round_type, active_item_summary, last_text):
         return TurnClass.ANSWER, None
+    async def fake_classify_opening(llm, settings, *, last_text):
+        return "ready"
     async def fake_grade(llm, settings, *, rubric, question, answer, artifact=None):
         captured.append(artifact)
         return 0.8, 0.7
@@ -254,6 +341,7 @@ def _artifact_stubs(monkeypatch, captured):
     async def fake_judge(llm, settings, *, gate, rolling, transcript_summary):
         return PacingDirective.CONTINUE
     monkeypatch.setattr(ops, "classify_turn", fake_classify)
+    monkeypatch.setattr(ops, "classify_opening_turn", fake_classify_opening)
     monkeypatch.setattr(ops, "grade_answer", fake_grade)
     monkeypatch.setattr(ops, "generate_line", fake_generate)
     monkeypatch.setattr(ops, "judge_pacing", fake_judge)
@@ -265,7 +353,7 @@ def test_artifact_reaches_grading_for_dsa_round(monkeypatch):
     captured = []
     _artifact_stubs(monkeypatch, captured)
     art = Artifact(kind=ArtifactKind.CODE, content="def f(): return 1", language="python")
-    t = ScriptedTransport(_script(1), artifact=art)
+    t = ScriptedTransport(_opening_pad() + _script(1, start=3.0), artifact=art)
     asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert art in captured                        # DSA round → artifact graded
 
@@ -276,7 +364,7 @@ def test_artifact_not_passed_for_behavioural_round(monkeypatch):
     _artifact_stubs(monkeypatch, captured)
     behavioural_plan = dict(PLAN, roundType="behavioural")
     art = Artifact(kind=ArtifactKind.CODE, content="stale editor content", language="python")
-    t = ScriptedTransport(_script(1), artifact=art)
+    t = ScriptedTransport(_opening_pad() + _script(1, start=3.0), artifact=art)
     asyncio.run(sess.run_session(t, behavioural_plan, get_settings()))
     assert captured and all(a is None for a in captured)   # graded, but artifact was None
 

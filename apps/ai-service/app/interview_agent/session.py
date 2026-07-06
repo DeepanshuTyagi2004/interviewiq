@@ -28,6 +28,27 @@ logger = logging.getLogger(__name__)
 # (behavioural / hiring-manager) grade the talk-track alone.
 _ARTIFACT_ROUNDS = {RoundType.DSA, RoundType.LLD, RoundType.SYSTEM_DESIGN}
 
+# Task 1: the opening back-and-forth (candidate keeps asking questions before starting) is bounded
+# so a chatty candidate can't stall the interview indefinitely.
+MAX_OPENING_EXCHANGES = 3
+
+# Task 6: the staged rapport step (light background small talk before the format explanation) is
+# bounded to a couple of turns so it warms things up without turning into its own mini-interview.
+MAX_RAPPORT_TURNS = 2
+
+_OPENING_REPROMPT = "Sorry, I didn't catch that — go ahead whenever you're ready."
+
+# Task 7 — inactivity escalation. A candidate actively editing code/diagram is NOT idle (artifact
+# edits refresh transport activity), so they're never nudged for thinking. A silent AND idle
+# candidate is nudged a few times, then warned, then given one more silence window as grace; a
+# candidate who is truly gone ends as ABANDONED (a graceful end, not a technical abort).
+INACTIVITY_WINDOW_S = 45.0
+MAX_INACTIVITY_NUDGES = 3
+GRACE_S = 30.0   # min grace after the final warning; realized by the next silence window (>= GRACE_S)
+_NUDGE_LINE = "Are you still there? Take your time — just let me know when you're ready."
+_FINAL_WARNING_LINE = "I still haven't heard from you — if you're not there I'll have to stop the interview shortly."
+_ABANDONED_LINE = "It looks like you've stepped away, so I'll end the session here. Take care."
+
 
 def _transcript_tail(state: SessionState, n: int = 4) -> list[dict]:
     return [{"speaker": t.speaker, "text": t.text} for t in state.transcript[-n:]]
@@ -248,6 +269,67 @@ def _aborted_outcome(state: SessionState | None, plan: dict) -> SessionOutcome:
         extensions_granted=0, derived_topics=[], duration_s=0.0)
 
 
+async def _await_opening_turn(transport: Transport, state: SessionState) -> str | None:
+    """Wait for the candidate's next turn during the opening. Appended to `state.transcript` for
+    context ONLY — never scored, never a negative event, never touches pacing/the ladder (that carve-
+    out starts at ASK_BASE). Silence gets exactly one gentle re-prompt; if the candidate is still
+    silent after that, this is NOT a technical abort — the caller proceeds to the next opening step."""
+    item = await transport.next_utterance()
+    if item is None:
+        await _say(transport, state, _OPENING_REPROMPT)
+        item = await transport.next_utterance()
+    if item is None:
+        return None
+    text, timing = item
+    state.elapsed_s = timing.t_end
+    state.transcript.append(Turn(speaker="candidate", text=text, t_start=timing.t_start, t_end=timing.t_end))
+    return text
+
+
+async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transport, state: SessionState) -> None:
+    """Task 1: a real multi-turn opening — greet, wait; orient, wait; then a bounded back-and-forth
+    that answers the candidate's questions (never rubric/logistics-only) until they're ready or the
+    bound is hit. Falls through to ASK_BASE (unchanged main loop) once this returns."""
+    # GREET is always generated via the converse prompt (warm greeting + "how are you?", no format
+    # dump) — never the persona's `opening` field, which is a FORMAT-DUMP script (greeting + format +
+    # timebox + invite-to-ask) meant to be folded into ORIENT, not spoken verbatim here. Reusing it
+    # for GREET would dump the format twice (once here, again at ORIENT).
+    await _say(transport, state, await _gen(conv_llm, settings, action=Action.GREET, state=state, extra={}))
+    last_text = await _await_opening_turn(transport, state)
+
+    # Task 6: staged rapport — one or two light, warm background questions (where they're from,
+    # college, etc.) grounded in the candidate profile when the plan carries one, BEFORE the format
+    # explanation. Opening-only carve-out applies here too: these turns are transcript-only context,
+    # never scored/paced/negative (no _score_last_answer/_update_pacing calls), same as the rest of
+    # the opening. Degrades gracefully to `{}` when no candidate profile is present on the plan.
+    profile = state.plan.get("candidateProfile") or state.plan.get("candidate_profile") or {}
+    rapport_turns = 0
+    while rapport_turns < MAX_RAPPORT_TURNS:
+        await _say(transport, state, await _gen(conv_llm, settings, action=Action.RAPPORT, state=state,
+                                                extra={"candidate_said": last_text, "candidate_profile": profile}))
+        last_text = await _await_opening_turn(transport, state)
+        rapport_turns += 1
+        if last_text is None:
+            break
+
+    await _say(transport, state, await _gen(conv_llm, settings, action=Action.ORIENT, state=state,
+                                            extra={"candidate_said": last_text}))
+    last_text = await _await_opening_turn(transport, state)
+
+    while last_text is not None and state.opening_exchanges < MAX_OPENING_EXCHANGES:
+        try:
+            intent = await llm_ops.classify_opening_turn(scorer, settings, last_text=last_text)
+        except LLMError as exc:
+            logger.warning("[iv] opening classify failed (%s) — assuming ready", exc)
+            intent = "ready"
+        if intent != "question":
+            break
+        state.opening_exchanges += 1
+        await _say(transport, state, await _gen(conv_llm, settings, action=Action.ANSWER_OPENING,
+                                                state=state, extra={"candidate_said": last_text}))
+        last_text = await _await_opening_turn(transport, state)
+
+
 async def run_session(transport: Transport, plan: dict, settings: Settings):
     """Drive one live interview to completion; return the SessionOutcome. Never raises for interview
     content — technical failures (including malformed plans) resolve to EndedReason.ABORTED_TECHNICAL
@@ -262,24 +344,44 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
         scorer = build_llm_client(settings, model=settings.interview_scorer_model or None)
         deps = GraphDeps(llm=conv_llm, settings=settings, scorer=scorer)
 
-        # Opening.
-        await _say(transport, state, state.plan.get("persona", {}).get("opening") or
-                   await _gen(conv_llm, settings, action=Action.OPEN, state=state, extra={}))
+        # Opening: greet -> rapport (Task 6) -> orient -> bounded Q&A, each step awaiting the
+        # candidate (Task 1) — never a monologue. Opening turns are transcript-only context;
+        # scoring/pacing start at ASK_BASE.
+        await _run_opening(conv_llm, scorer, settings, transport, state)
         state.mark_asked((state.active_ladder() or {}).get("questionSlug"))
         # Ask the first question.
         await _say(transport, state, await _gen(conv_llm, settings, action=Action.ASK_BASE, state=state, extra={}))
 
-        silence_used = 0
+        inactivity_nudges = 0
+        final_warning_given = False
         while not state.session_over:
             item = await transport.next_utterance()
             if item is None:
-                silence_used += 1
-                if silence_used > settings.interview_silence_retries:
-                    state.ended_reason = EndedReason.ABORTED_TECHNICAL
-                    break
-                await _say(transport, state, "sorry — I didn't catch that, could you say it again?")
-                continue
-            silence_used = 0
+                # Code/diagram editing is NOT inactivity: if the candidate edited an artifact recently,
+                # they're working — keep waiting silently, and treat resumed activity as a reset of any
+                # escalation.
+                if transport.seconds_since_activity() < INACTIVITY_WINDOW_S:
+                    inactivity_nudges = 0
+                    final_warning_given = False
+                    continue
+                # Genuine inactivity — escalate gently before ever ending.
+                if inactivity_nudges < MAX_INACTIVITY_NUDGES:
+                    inactivity_nudges += 1
+                    await _say(transport, state, _NUDGE_LINE)
+                    continue
+                if not final_warning_given:
+                    final_warning_given = True
+                    await _say(transport, state, _FINAL_WARNING_LINE)
+                    continue
+                # Warned, then one more silent + idle grace window (the transport silence timeout >=
+                # GRACE_S) elapsed with no speech and no activity → the candidate has abandoned the
+                # session.
+                await _say(transport, state, _ABANDONED_LINE)
+                state.ended_reason = EndedReason.ABANDONED
+                state.session_over = True
+                break
+            inactivity_nudges = 0
+            final_warning_given = False
             text, timing = item
             state.elapsed_s = timing.t_end
             state.transcript.append(Turn(speaker="candidate", text=text, t_start=timing.t_start, t_end=timing.t_end))

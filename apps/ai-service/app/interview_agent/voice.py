@@ -14,6 +14,28 @@ from app.interview_agent.types import UtteranceTiming
 
 logger = logging.getLogger(__name__)
 
+# Task 5: persona-matched Aura-2 voice selection. Verified Aura-2 voice ids (Deepgram docs) —
+# masculine: apollo, arcas, aries, mars; feminine: thalia, asteria, andromeda, helena, luna.
+# `asteria` is the voice already proven in production, so it stays the female/neutral/default pick.
+GENDER_VOICES = {
+    "male": "aura-2-apollo-en",
+    "female": "aura-2-asteria-en",
+    "neutral": "aura-2-asteria-en",
+}
+DEFAULT_VOICE = "aura-2-asteria-en"
+
+
+async def select_voice(persona: dict, *, infer=None) -> str:
+    """Pick an Aura-2 TTS voice id matching persona['gender'] (Task 4). If gender is absent/unknown
+    and `infer` is given, fall back to inferring it from persona['name'] — `infer` is an async
+    callable `name -> gender|None` (worker.py wires this to llm_ops.infer_gender via a cheap,
+    short-lived LLM client). With no usable gender and no infer (or infer yields nothing),
+    DEFAULT_VOICE is returned."""
+    g = (persona.get("gender") or "").strip().lower()
+    if g not in GENDER_VOICES and infer is not None:
+        g = ((await infer(persona.get("name") or "")) or "").strip().lower()
+    return GENDER_VOICES.get(g, DEFAULT_VOICE)
+
 
 async def publish_agent_audio(room, tts) -> tuple[object, Callable[[str], Awaitable[None]]]:
     """Publish an agent audio track and return (source, speak) where speak(text) synthesizes via Aura

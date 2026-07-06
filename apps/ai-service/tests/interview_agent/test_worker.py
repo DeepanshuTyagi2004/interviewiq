@@ -191,6 +191,10 @@ def test_run_interview_wires_tts_speak_and_stt_pump_on_track_subscribed(monkeypa
     assert transport.__class__.__name__ == "LiveKitTransport"
     assert transport._speak is not None
 
+    # Task 5: an empty persona (no gender, no name) must fall back to the default Aura voice,
+    # with no inference call attempted (there's no name to infer from).
+    assert calls["tts_kwargs"]["model"] == worker.voice.DEFAULT_VOICE
+
     assert "track_subscribed" in room._handlers
     handler = room._handlers["track_subscribed"]
     fake_track = FakeTrack(rtc.TrackKind.KIND_AUDIO)
@@ -251,6 +255,163 @@ def test_run_interview_starts_stt_pump_for_already_subscribed_track(monkeypatch)
     outcome = asyncio.run(scenario())
     assert outcome is not None
     assert calls.get("pumped") == [audio_track], "pump_stt must start for the already-subscribed mic track"
+
+
+def test_run_interview_selects_male_voice_from_persona_gender(monkeypatch):
+    """Task 5: when the InterviewPlan's persona carries a gender, run_interview must pick the
+    matching Aura-2 voice and must NOT build an LLM client (the inference fallback only fires when
+    gender is absent/unknown)."""
+    calls = {}
+    plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": [],
+            "persona": {"name": "Ravi", "gender": "male"}}
+    room = FakeRoom("interview-s-1")
+
+    class FakeSTT: pass
+    class FakeTTS: pass
+
+    class FakeDeepgram:
+        def STT(self, **k): return FakeSTT()
+        def TTS(self, **kwargs):
+            calls["tts_kwargs"] = kwargs
+            return FakeTTS()
+
+    async def fake_publish_agent_audio(room_arg, tts_arg):
+        async def speak(t): pass
+        return object(), speak
+    async def fake_pump_stt(track, transport, stt): pass
+    async def fake_get_plan(sid): return plan
+    async def fake_run_session(transport, p, settings):
+        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+    async def fake_post_outcome(settings, outcome): return True
+
+    def fail_build_llm_client(*a, **k):
+        raise AssertionError("must not build an LLM client when persona.gender is already present")
+
+    monkeypatch.setattr(worker, "deepgram", FakeDeepgram())
+    monkeypatch.setattr(worker.voice, "publish_agent_audio", fake_publish_agent_audio)
+    monkeypatch.setattr(worker.voice, "pump_stt", fake_pump_stt)
+    monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
+    monkeypatch.setattr(worker, "run_session", fake_run_session)
+    monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
+    monkeypatch.setattr(worker, "build_llm_client", fail_build_llm_client)
+
+    outcome = asyncio.run(worker.run_interview(FakeCtx(room), get_settings()))
+
+    assert outcome is not None
+    assert calls["tts_kwargs"]["model"] == "aura-2-apollo-en"
+
+
+def test_run_interview_infers_voice_from_name_when_gender_missing(monkeypatch):
+    """Task 5 fallback: persona has a name but no gender (old cached plan, pre-Task-4) — run_interview
+    must build a cheap inference LLM client, call llm_ops.infer_gender, close the client, and select
+    the voice the inference returned."""
+    calls = {}
+    plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": [],
+            "persona": {"name": "Priya"}}
+    room = FakeRoom("interview-s-1")
+
+    class FakeSTT: pass
+    class FakeTTS: pass
+
+    class FakeDeepgram:
+        def STT(self, **k): return FakeSTT()
+        def TTS(self, **kwargs):
+            calls["tts_kwargs"] = kwargs
+            return FakeTTS()
+
+    class FakeInferLLM:
+        async def aclose(self):
+            calls["aclosed"] = True
+
+    def fake_build_llm_client(settings_arg, *, model=None):
+        calls["build_llm_client_model"] = model
+        return FakeInferLLM()
+
+    async def fake_infer_gender(name, llm, settings_arg):
+        calls["infer_gender_args"] = (name, llm)
+        return "female"
+
+    async def fake_publish_agent_audio(room_arg, tts_arg):
+        async def speak(t): pass
+        return object(), speak
+    async def fake_pump_stt(track, transport, stt): pass
+    async def fake_get_plan(sid): return plan
+    async def fake_run_session(transport, p, settings):
+        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+    async def fake_post_outcome(settings, outcome): return True
+
+    monkeypatch.setattr(worker, "deepgram", FakeDeepgram())
+    monkeypatch.setattr(worker.voice, "publish_agent_audio", fake_publish_agent_audio)
+    monkeypatch.setattr(worker.voice, "pump_stt", fake_pump_stt)
+    monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
+    monkeypatch.setattr(worker, "run_session", fake_run_session)
+    monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
+    monkeypatch.setattr(worker, "build_llm_client", fake_build_llm_client)
+    monkeypatch.setattr(worker.llm_ops, "infer_gender", fake_infer_gender)
+
+    outcome = asyncio.run(worker.run_interview(FakeCtx(room), get_settings()))
+
+    assert outcome is not None
+    assert calls["tts_kwargs"]["model"] == "aura-2-asteria-en"
+    assert calls["infer_gender_args"][0] == "Priya"
+    assert calls.get("aclosed") is True
+
+
+def test_run_interview_falls_back_to_default_voice_when_gender_inference_raises(monkeypatch):
+    """Review fix: a transient LLM failure (rate limit, transport error, repair exhaustion) during the
+    cosmetic gender->voice inference must NOT abort session start. persona has a NAME but NO gender
+    (freshly-generated persona whose gender normalized to None, or a legacy plan) — infer_gender raises
+    LLMError; run_interview must swallow it, still close the inference client, fall back to
+    DEFAULT_VOICE, and complete the session normally."""
+    from app.llm.client import LLMError
+
+    calls = {}
+    plan = {"sessionId": "s-1", "roundType": "dsa", "questionLadders": [], "reserve": [],
+            "persona": {"name": "Alex"}}
+    room = FakeRoom("interview-s-1")
+
+    class FakeSTT: pass
+    class FakeTTS: pass
+
+    class FakeDeepgram:
+        def STT(self, **k): return FakeSTT()
+        def TTS(self, **kwargs):
+            calls["tts_kwargs"] = kwargs
+            return FakeTTS()
+
+    class FakeInferLLM:
+        async def aclose(self):
+            calls["aclosed"] = True
+
+    def fake_build_llm_client(settings_arg, *, model=None):
+        return FakeInferLLM()
+
+    async def fake_infer_gender(name, llm, settings_arg):
+        raise LLMError("rate limited")
+
+    async def fake_publish_agent_audio(room_arg, tts_arg):
+        async def speak(t): pass
+        return object(), speak
+    async def fake_pump_stt(track, transport, stt): pass
+    async def fake_get_plan(sid): return plan
+    async def fake_run_session(transport, p, settings):
+        return SessionOutcome("s-1", EndedReason.NATURAL_COMPLETE, 0.7, [], [], True, 0, [], 1200.0)
+    async def fake_post_outcome(settings, outcome): return True
+
+    monkeypatch.setattr(worker, "deepgram", FakeDeepgram())
+    monkeypatch.setattr(worker.voice, "publish_agent_audio", fake_publish_agent_audio)
+    monkeypatch.setattr(worker.voice, "pump_stt", fake_pump_stt)
+    monkeypatch.setattr(worker.repo, "get_plan", fake_get_plan)
+    monkeypatch.setattr(worker, "run_session", fake_run_session)
+    monkeypatch.setattr(worker, "post_outcome", fake_post_outcome)
+    monkeypatch.setattr(worker, "build_llm_client", fake_build_llm_client)
+    monkeypatch.setattr(worker.llm_ops, "infer_gender", fake_infer_gender)
+
+    outcome = asyncio.run(worker.run_interview(FakeCtx(room), get_settings()))
+
+    assert outcome is not None, "session start must not abort on a gender-inference LLMError"
+    assert calls["tts_kwargs"]["model"] == worker.voice.DEFAULT_VOICE
+    assert calls.get("aclosed") is True, "the inference client must still be closed (no leak)"
 
 
 def test_run_interview_aborts_cleanly_when_no_plan(monkeypatch):

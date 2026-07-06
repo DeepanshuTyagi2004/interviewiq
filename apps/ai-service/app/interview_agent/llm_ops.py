@@ -9,7 +9,9 @@ from app.config import Settings
 from app.interview_agent.prompts import classify as classify_p
 from app.interview_agent.prompts import converse as converse_p
 from app.interview_agent.prompts import derive as derive_p
+from app.interview_agent.prompts import gender_classify as gender_classify_p
 from app.interview_agent.prompts import grade as grade_p
+from app.interview_agent.prompts import opening_classify as opening_classify_p
 from app.interview_agent.prompts import pacing_judge as pacing_p
 from app.interview_agent.scope import scope_prompt_context
 from app.interview_agent.types import PacingDirective, RoundType, TurnClass
@@ -28,6 +30,14 @@ class _Classify(BaseModel):
     turn_class: str
     requested_topic: str | None = None
     topic_scope: str = "unclear"
+
+
+class _OpeningClassify(BaseModel):
+    intent: str = "ready"
+
+
+class _Gender(BaseModel):
+    gender: str = ""
 
 
 class _Criterion(BaseModel):
@@ -60,6 +70,31 @@ async def classify_turn(llm: LLMClient, settings: Settings, *, round_type, activ
     except ValueError:
         tc = TurnClass.ANSWER
     return tc, (res.requested_topic or None)
+
+
+async def classify_opening_turn(llm: LLMClient, settings: Settings, *, last_text: str) -> str:
+    """Task 1: is the candidate's opening-phase turn a question (they expect a reply) or a signal
+    they're ready to begin? Deliberately tiny — no topic/scope extraction, mirrors `classify_turn`'s
+    LLM/structured-call shape but returns a bare intent string since there's nothing else to route on."""
+    res = await complete_structured(
+        llm, opening_classify_p.OPENING_CLASSIFY_SYSTEM,
+        opening_classify_p.build_opening_classify_prompt(last_text),
+        _OpeningClassify, max_repairs=_scorer_max_repairs(settings), label="iv-opening-classify")
+    return res.intent if res.intent in ("ready", "question") else "ready"
+
+
+async def infer_gender(name: str, llm: LLMClient, settings: Settings) -> str | None:
+    """Task 5 fallback: classify a persona's first/display name into 'male'|'female'|'neutral' for
+    Aura-2 voice selection. Only reached by voice.select_voice when a cached InterviewPlan predates
+    persona.gender (Task 4) — new plans carry the field directly. Empty name short-circuits to None
+    WITHOUT an LLM call, keeping the common (gender-present) path — and tests — free of network I/O."""
+    if not (name or "").strip():
+        return None
+    res = await complete_structured(
+        llm, gender_classify_p.GENDER_CLASSIFY_SYSTEM, gender_classify_p.build_gender_classify_prompt(name),
+        _Gender, max_repairs=_scorer_max_repairs(settings), label="iv-gender")
+    g = (res.gender or "").strip().lower()
+    return g if g in {"male", "female", "neutral"} else None
 
 
 async def grade_answer(llm: LLMClient, settings: Settings, *, rubric: list[dict], question: str,

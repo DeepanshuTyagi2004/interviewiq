@@ -24,6 +24,19 @@ def test_classify_turn_maps_result(monkeypatch):
     assert tc == TurnClass.PIVOT_REQUEST and topic == "dp"
 
 
+def test_classify_opening_turn_maps_result(monkeypatch):
+    _stub_structured(monkeypatch, {"intent": "question"})
+    intent = _run(ops.classify_opening_turn(llm=None, settings=get_settings(),
+                                            last_text="how long does this usually take?"))
+    assert intent == "question"
+
+
+def test_classify_opening_turn_falls_back_to_ready_on_bad_value(monkeypatch):
+    _stub_structured(monkeypatch, {"intent": "not-a-real-intent"})
+    intent = _run(ops.classify_opening_turn(llm=None, settings=get_settings(), last_text="ok, let's go"))
+    assert intent == "ready"
+
+
 def test_grade_answer_aggregates_criteria(monkeypatch):
     # UNEQUAL weights so the weighted mean (0.8*0.75 + 0.4*0.25 = 0.70) is distinguishable from the
     # plain mean (0.60) — proves competency uses the rubric weights, not a naive average.
@@ -49,6 +62,31 @@ def test_generate_line_returns_text(monkeypatch):
                                   persona={"name": "Ada"}, active_item={"basePrompt": "two sum"},
                                   transcript_tail=[], extra={}))
     assert "two sum" in line.lower()
+
+
+def test_infer_gender_maps_result(monkeypatch):
+    _stub_structured(monkeypatch, {"gender": "male"})
+    g = _run(ops.infer_gender("Rohan", llm=None, settings=get_settings()))
+    assert g == "male"
+
+
+def test_infer_gender_empty_name_short_circuits_without_llm_call(monkeypatch):
+    called = {"n": 0}
+
+    async def fake(*a, **k):
+        called["n"] += 1
+        return None
+    monkeypatch.setattr(ops, "complete_structured", fake)
+
+    g = _run(ops.infer_gender("", llm=None, settings=get_settings()))
+    assert g is None
+    assert called["n"] == 0
+
+
+def test_infer_gender_returns_none_on_junk_value(monkeypatch):
+    _stub_structured(monkeypatch, {"gender": "xyz"})
+    g = _run(ops.infer_gender("Xx", llm=None, settings=get_settings()))
+    assert g is None
 
 
 def test_derive_ladder_returns_dict(monkeypatch):

@@ -10,7 +10,7 @@ import json
 
 from app.interview_prep.prompts.style import PLATFORM_CONTEXT, SPOKEN_STYLE
 
-PERSONA_PROMPT_VERSION = "v3"
+PERSONA_PROMPT_VERSION = "v4"
 
 # The interviewer-persona system prompt. The LLM client folds this into the user turn (Gemma has
 # no system role), so keep it self-contained.
@@ -29,7 +29,9 @@ PERSONA_SYSTEM = (
     "- Persona: a plausible full name; a seniority that fits who would run THIS round at THIS level "
     "(e.g. an SDE-2/senior for an SDE-1 loop); a disposition and style_notes drawn from the brief's "
     "interviewerStyleNotes and companySpecificPatterns when present, else sensible defaults for the "
-    "company/round.\n"
+    "company/round. gender: set to \"male\", \"female\", or \"neutral\" — CONSISTENT with the "
+    "invented name (e.g. a name that reads female -> \"female\"); use \"neutral\" only for a name "
+    "that doesn't clearly read as either.\n"
     "- opening: 1-3 sentences the interviewer actually SAYS to start — a warm greeting, the format "
     "and rough timebox, an invite to ask questions. Make it sound spoken and slightly off-the-cuff, "
     "not a script read aloud (see SPEAKING STYLE below). closing: 1-2 spoken sentences to wrap — "
@@ -62,6 +64,7 @@ Return a JSON object with EXACTLY this shape:
     "name": "<interviewer display name>",
     "seniority": "<e.g. Senior Software Engineer>",
     "disposition": "<e.g. warm but rigorous>",
+    "gender": "male"|"female"|"neutral",
     "style_notes": "<how they probe / give hints, or null>",
     "opening": "<short opening script the interviewer says, or null>",
     "closing": "<short closing script, or null>",

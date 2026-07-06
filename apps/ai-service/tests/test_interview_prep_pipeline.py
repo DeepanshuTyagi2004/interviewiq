@@ -12,9 +12,12 @@ from app.interview_prep.schema import (
     CandidateProbe,
     GenerateInterviewPlanRequest,
     InterviewerPersona,
+    InterviewPlan,
     PersonaAndArc,
+    PlanProvenance,
     QuestionLadder,
 )
+from app.models.brief import utcnow
 
 
 def _req(profile=None):
@@ -108,6 +111,28 @@ def test_changed_profile_regenerates(monkeypatch):
     # Different profile -> different profile hash -> different input hash -> fresh generation.
     asyncio.run(generate_interview_plan(_req(profile={"fullName": "Ben", "skills": ["Go"]}), settings))
     assert calls["n"] == 2
+
+
+def test_assembled_plan_persists_candidate_profile(monkeypatch):
+    """Fix: rapport grounding (session.py reads plan.get('candidateProfile')) needs real data, not
+    the `{}` it always got before `_assemble_plan` carried the request's profile through."""
+    _wire_store(monkeypatch)
+    profile = {"fullName": "Asha", "education": [{"institution": "COEP"}]}
+    doc = asyncio.run(generate_interview_plan(_req(profile=profile), get_settings()))
+    assert doc["candidateProfile"]["fullName"] == "Asha"
+    assert doc["candidateProfile"]["education"][0]["institution"] == "COEP"
+
+
+def test_interview_plan_candidate_profile_defaults_to_none():
+    """Backward-compat: plans (e.g. old cached docs) with no candidateProfile still validate."""
+    plan = InterviewPlan(
+        session_id="s1", candidate_id="c1", company="google", role="software-engineer",
+        level="sde1", specialization="backend", round_type="dsa",
+        provenance=PlanProvenance(plan_version="v4", input_hash="sha256:x", model="m",
+                                   generated_at=utcnow()),
+        persona=InterviewerPersona(name="Sam", seniority="Senior SWE", disposition="warm"),
+    )
+    assert plan.candidate_profile is None
 
 
 def test_no_brief_no_questions_raises_prepdata(monkeypatch):

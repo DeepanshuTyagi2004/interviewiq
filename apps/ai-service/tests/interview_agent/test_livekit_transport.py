@@ -2,7 +2,7 @@ import asyncio
 
 from app.interview_agent import transport as transport_module
 from app.interview_agent.transport import LiveKitTransport
-from app.interview_agent.types import ArtifactKind
+from app.interview_agent.types import ArtifactKind, UtteranceTiming
 
 
 class FakeRoom:
@@ -170,3 +170,61 @@ def test_malformed_incoming_message_does_not_raise():
 
     item = asyncio.run(scenario())
     assert item is not None and item[0] == "ok"
+
+
+# ----------------------------- Task 7: activity tracking (code != inactivity) -----------------------------
+
+
+def _make_with_clock(start: float = 0.0):
+    """A LiveKitTransport wired to a controllable fake clock so tests can assert
+    `seconds_since_activity()` deterministically instead of racing a real wall clock."""
+    sent: list[dict] = []
+    clock = {"t": start}
+
+    def now() -> float:
+        return clock["t"]
+
+    async def send(payload: dict) -> None:
+        sent.append(payload)
+
+    t = LiveKitTransport(FakeRoom(), send=send, now=now)
+    return t, sent, clock
+
+
+def test_seconds_since_activity_grows_with_the_clock():
+    t, _, clock = _make_with_clock(start=100.0)
+    assert t.seconds_since_activity() == 0.0
+    clock["t"] = 130.0
+    assert t.seconds_since_activity() == 30.0
+
+
+def test_artifact_message_refreshes_activity():
+    """Code/diagram edits ARE activity — this is the crux of Task 7."""
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 40.0
+    assert t.seconds_since_activity() == 40.0
+
+    async def scenario():
+        await t.handle_incoming({"type": "artifact", "kind": "code", "content": "def f(): pass"})
+    asyncio.run(scenario())
+    assert t.seconds_since_activity() == 0.0
+
+    clock["t"] = 45.0
+    assert t.seconds_since_activity() == 5.0
+
+
+def test_answer_message_refreshes_activity():
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 20.0
+
+    async def scenario():
+        await t.handle_incoming({"type": "answer", "text": "hi", "tStart": 0.0, "tEnd": 1.0})
+    asyncio.run(scenario())
+    assert t.seconds_since_activity() == 0.0
+
+
+def test_push_utterance_refreshes_activity():
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 15.0
+    t.push_utterance("hi", UtteranceTiming(0.0, 1.0, 0.3))
+    assert t.seconds_since_activity() == 0.0
