@@ -70,6 +70,19 @@ def _norm_difficulty(v):
     return v
 
 
+def _norm_gender(v):
+    if not isinstance(v, str):
+        return None
+    s = v.strip().lower()
+    if s in {"male", "m", "man", "boy", "he", "him"}:
+        return "male"
+    if s in {"female", "f", "woman", "girl", "she", "her"}:
+        return "female"
+    if s in {"neutral", "nonbinary", "non-binary", "nb", "they", "them", "other", "androgynous"}:
+        return "neutral"
+    return None
+
+
 class _CamelModel(BaseModel):
     """camelCase on the wire, snake_case-friendly in Python, tolerant of extra keys."""
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
@@ -102,6 +115,7 @@ class InterviewerPersona(_CamelModel):
     name: str
     seniority: str
     disposition: str
+    gender: str | None = None
     style_notes: str | None = None
     opening: str | None = None
     closing: str | None = None
@@ -109,6 +123,7 @@ class InterviewerPersona(_CamelModel):
 
     _s = field_validator("name", "seniority", "disposition", "style_notes", "opening", "closing",
                          mode="before")(_coerce_str)
+    _g = field_validator("gender", mode="before")(_norm_gender)
     _l = field_validator("grounded_in", mode="before")(_coerce_str_list)
 
 
