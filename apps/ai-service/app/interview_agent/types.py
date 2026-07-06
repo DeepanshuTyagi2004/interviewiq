@@ -62,6 +62,9 @@ class Action(str, Enum):
     ANSWER_OPENING = "answer_opening"
     # Task 6: staged rapport between GREET and ORIENT (light background questions before format).
     RAPPORT = "rapport"
+    # Proactive mid-coding check-in: during a quiet-but-active coding stretch, ask ONE grounded
+    # question about the work-in-progress (never a hint/bug-callout/solution reveal).
+    PROBE_ARTIFACT = "probe_artifact"
 
 
 class EndedReason(str, Enum):

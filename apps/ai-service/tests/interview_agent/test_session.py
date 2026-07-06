@@ -43,7 +43,7 @@ def _install_stubs(monkeypatch, *, classify=TurnClass.ANSWER, competency=0.8, di
         return classify, None
     async def fake_classify_opening(llm, settings, *, last_text):
         return opening_intent
-    async def fake_grade(llm, settings, *, rubric, question, answer):
+    async def fake_grade(llm, settings, *, rubric, question, answer, artifact=None):
         return competency, 0.7
     async def fake_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
         return f"[{action}]"
@@ -191,6 +191,113 @@ def test_real_utterance_resets_inactivity_escalation_counter(monkeypatch):
     nudges = [s for s in t.said if s == sess._NUDGE_LINE]
     assert len(nudges) == 2 + sess.MAX_INACTIVITY_NUDGES
     assert out.ended_reason == EndedReason.ABANDONED
+
+
+# ----------------------------- mid-coding artifact probe (proactive check-in) -----------------------------
+#
+# New behavior layered on top of Task 7's silence handling: an active-but-quiet coding stretch (the
+# candidate is NOT idle — activity stays below INACTIVITY_WINDOW_S — but also isn't speaking) should
+# occasionally get a check-in on the work-in-progress rather than total silence. This must stay
+# strictly separate from the genuine-inactivity escalation (nudges/warning/ABANDONED), never score
+# anything, and never fire without real artifact content to ground it in.
+
+
+def test_probe_fires_during_quiet_coding(monkeypatch):
+    """During a quiet-but-active coding stretch, after CODE_PROBE_EVERY_CYCLES silence windows the
+    interviewer checks in on the work-in-progress — grounded in the artifact, never scored."""
+    _install_stubs(monkeypatch, competency=0.8)
+    art = Artifact(kind=ArtifactKind.CODE, content="def f(): pass", language="python")
+    # 2 quiet-coding cycles (< INACTIVITY_WINDOW_S) fire exactly one probe; activity then goes stale
+    # so the script terminates cleanly via the existing (unchanged) ABANDONED escalation.
+    activity = [10.0, 10.0] + [999.0] * 5
+    t = ScriptedTransport(_opening_pad(), artifact=art, activity=activity)
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert t.said.count("[probe_artifact]") == 1
+    assert out.per_answer_evidence == []               # a probe is an interviewer turn only — never scored
+    assert out.ended_reason == EndedReason.ABANDONED   # later stale activity still ends the session cleanly
+
+
+def test_no_probe_without_artifact_content(monkeypatch):
+    """No artifact at all, or an artifact with no real content yet, must never produce a probe — there
+    is nothing to ground the check-in in."""
+    _install_stubs(monkeypatch)
+    activity = [10.0, 10.0] + [999.0] * 5
+
+    t_none = ScriptedTransport(_opening_pad(), artifact=None, activity=list(activity))
+    out_none = asyncio.run(sess.run_session(t_none, PLAN, get_settings()))
+    assert "[probe_artifact]" not in t_none.said
+    assert out_none.ended_reason == EndedReason.ABANDONED
+
+    empty_art = Artifact(kind=ArtifactKind.CODE, content="   ", language="python")
+    t_empty = ScriptedTransport(_opening_pad(), artifact=empty_art, activity=list(activity))
+    out_empty = asyncio.run(sess.run_session(t_empty, PLAN, get_settings()))
+    assert "[probe_artifact]" not in t_empty.said
+    assert out_empty.ended_reason == EndedReason.ABANDONED
+
+
+def test_probe_extra_is_grounded_in_the_artifact(monkeypatch):
+    """The `extra` payload passed to generate_line for PROBE_ARTIFACT must carry the candidate's
+    actual work-in-progress (content/kind/language) — the probe has to be grounded, not generic."""
+    _install_stubs(monkeypatch)
+    captured = []
+
+    async def capturing_generate(llm, settings, *, action, persona, active_item, transcript_tail, extra):
+        if action == Action.PROBE_ARTIFACT.value:
+            captured.append(extra)
+        return f"[{action}]"
+    monkeypatch.setattr(ops, "generate_line", capturing_generate)
+
+    art = Artifact(kind=ArtifactKind.CODE, content="def two_sum(nums, target):\n    pass", language="python")
+    activity = [10.0, 10.0] + [999.0] * 5
+    t = ScriptedTransport(_opening_pad(), artifact=art, activity=activity)
+    asyncio.run(sess.run_session(t, PLAN, get_settings()))
+
+    assert len(captured) == 1
+    extra = captured[0]
+    assert extra["artifact"]["content"] == art.content
+    assert extra["artifact"]["kind"] == art.kind.value
+    assert extra["artifact"]["language"] == art.language
+
+
+def test_real_answer_resets_coding_quiet_counter(monkeypatch):
+    """A real utterance mid-coding must reset the quiet-coding cycle counter: one quiet cycle before
+    the answer plus one quiet cycle after it must NOT sum to CODE_PROBE_EVERY_CYCLES and fire early —
+    the probe should only fire once a full CODE_PROBE_EVERY_CYCLES of FRESH post-answer quiet cycles
+    have elapsed."""
+    _install_stubs(monkeypatch, competency=0.8, directive=PacingDirective.CONTINUE)
+    art = Artifact(kind=ArtifactKind.CODE, content="def f(): pass", language="python")
+    real_answer = ("a solid answer explaining the approach in detail", UtteranceTiming(10.0, 15.0, 1.0))
+
+    # Scenario A: 1 quiet cycle, the answer (resets the counter), then just 1 MORE quiet cycle before
+    # idling out. If the counter weren't reset this would wrongly sum to 2 and fire early.
+    script_a = _opening_pad() + [None, real_answer, None]
+    activity_a = [10.0, 10.0] + [999.0] * 5
+    t_a = ScriptedTransport(script_a, artifact=art, activity=activity_a)
+    out_a = asyncio.run(sess.run_session(t_a, PLAN, get_settings()))
+    assert "[probe_artifact]" not in t_a.said
+    assert out_a.ended_reason == EndedReason.ABANDONED
+
+    # Scenario B: same shape, but a full CODE_PROBE_EVERY_CYCLES of FRESH quiet cycles follow the
+    # answer — the probe should still fire once that fresh count is reached.
+    script_b = _opening_pad() + [None, real_answer, None, None]
+    activity_b = [10.0, 10.0, 10.0] + [999.0] * 5
+    t_b = ScriptedTransport(script_b, artifact=art, activity=activity_b)
+    out_b = asyncio.run(sess.run_session(t_b, PLAN, get_settings()))
+    assert t_b.said.count("[probe_artifact]") == 1
+    assert out_b.ended_reason == EndedReason.ABANDONED
+
+
+def test_silence_still_escalates_without_probe(monkeypatch):
+    """Regression: genuine dead-air silence (no activity at all — never below INACTIVITY_WINDOW_S)
+    must still escalate through nudges to ABANDONED exactly as before, and must never say a code
+    probe along the way — probing only ever happens during ACTIVE-but-quiet coding."""
+    _install_stubs(monkeypatch)
+    t = ScriptedTransport([])   # no utterances at all, default activity=999.0 (always idle)
+    out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
+    assert out.ended_reason == EndedReason.ABANDONED
+    assert "[probe_artifact]" not in t.said
+    nudges = [s for s in t.said if s == sess._NUDGE_LINE]
+    assert len(nudges) == sess.MAX_INACTIVITY_NUDGES
 
 
 def test_generate_line_failure_degrades_gracefully(monkeypatch):
