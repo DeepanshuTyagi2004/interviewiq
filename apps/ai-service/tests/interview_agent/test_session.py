@@ -146,7 +146,7 @@ def test_generate_line_failure_degrades_gracefully(monkeypatch):
 def test_non_answer_turn_is_not_scored(monkeypatch):
     """F1: a CLARIFY (non-answer) turn must NOT produce a PerAnswerScore or record any grade."""
     _install_stubs(monkeypatch, classify=TurnClass.CLARIFY, competency=0.9)
-    t = ScriptedTransport([("wait, what do you mean by optimal here?", UtteranceTiming(0, 3, 1.0))])
+    t = ScriptedTransport(_opening_pad() + [("wait, what do you mean by optimal here?", UtteranceTiming(3, 6, 1.0))])
     out = asyncio.run(sess.run_session(t, PLAN, get_settings()))
     assert out.per_answer_evidence == []                       # non-answer never graded
     assert all(e.type != "idk" for e in out.negative_events)   # clarify is not an idk penalty
