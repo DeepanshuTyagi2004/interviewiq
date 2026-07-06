@@ -45,6 +45,12 @@ _OPENING_REPROMPT = "Sorry, I didn't catch that — go ahead whenever you're rea
 INACTIVITY_WINDOW_S = 45.0
 MAX_INACTIVITY_NUDGES = 3
 GRACE_S = 30.0   # min grace after the final warning; realized by the next silence window (>= GRACE_S)
+
+# Proactive mid-coding check-in: an active-but-quiet coding stretch (not idle — see INACTIVITY_WINDOW_S
+# above — but also not talking) shouldn't sit in total silence. Every CODE_PROBE_EVERY_CYCLES silence
+# windows (~90s at the default 45s window), check in on the work-in-progress — sparingly, grounded in
+# the current artifact, and never with a hint/bug-callout/solution reveal.
+CODE_PROBE_EVERY_CYCLES = 2
 _NUDGE_LINE = "Are you still there? Take your time — just let me know when you're ready."
 _FINAL_WARNING_LINE = "I still haven't heard from you — if you're not there I'll have to stop the interview shortly."
 _ABANDONED_LINE = "It looks like you've stepped away, so I'll end the session here. Take care."
@@ -354,6 +360,7 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
 
         inactivity_nudges = 0
         final_warning_given = False
+        coding_quiet_cycles = 0
         while not state.session_over:
             item = await transport.next_utterance()
             if item is None:
@@ -363,6 +370,20 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                 if transport.seconds_since_activity() < INACTIVITY_WINDOW_S:
                     inactivity_nudges = 0
                     final_warning_given = False
+                    # The candidate is actively editing (typing/drawing) — never nudge them for
+                    # "thinking". But don't sit mute either: on a long quiet coding stretch, occasionally
+                    # check in on their work-in-progress so it stays conversational — spaced out,
+                    # grounded in the artifact, and NEVER with hints/bug-callouts/solution.
+                    coding_quiet_cycles += 1
+                    if (state.round_type in _ARTIFACT_ROUNDS
+                            and coding_quiet_cycles >= CODE_PROBE_EVERY_CYCLES):
+                        artifact = await transport.current_artifact()
+                        if artifact is not None and (artifact.content or "").strip():
+                            await _say(transport, state, await _gen(
+                                conv_llm, settings, action=Action.PROBE_ARTIFACT, state=state,
+                                extra={"artifact": {"kind": artifact.kind.value, "language": artifact.language,
+                                                    "content": (artifact.content or "")[:2000]}}))
+                            coding_quiet_cycles = 0
                     continue
                 # Genuine inactivity — escalate gently before ever ending.
                 if inactivity_nudges < MAX_INACTIVITY_NUDGES:
@@ -382,6 +403,7 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                 break
             inactivity_nudges = 0
             final_warning_given = False
+            coding_quiet_cycles = 0   # a spoken turn restarts the quiet-coding clock
             text, timing = item
             state.elapsed_s = timing.t_end
             state.transcript.append(Turn(speaker="candidate", text=text, t_start=timing.t_start, t_end=timing.t_end))

@@ -44,8 +44,20 @@ def test_converse_system_covers_opening_and_rapport_actions():
     assert "profile" in lower  # RAPPORT grounded in candidate profile when present
 
 
+def test_converse_system_probe_artifact_never_hints_or_solves():
+    """The mid-coding check-in probe must stay a question, never steer: no hints, no bug-callouts,
+    no revealing any part of the solution. This is safety IP — pin it so a prompt refactor can't
+    silently drop it (the session-level tests stub generate_line and never read the real prompt)."""
+    lower = converse.CONVERSE_SYSTEM.lower()
+    assert "probe_artifact" in lower
+    assert "do not give hints" in lower
+    assert "reveal any part of the solution" in lower
+    assert "bugs" in lower  # explicitly forbid pointing out bugs/mistakes
+    assert "checking in" in lower and "not " in lower and "steering" in lower
+
+
 def test_converse_system_handles_new_actions_via_build_turn_prompt():
-    for action in ("greet", "rapport", "orient", "answer_opening"):
+    for action in ("greet", "rapport", "orient", "answer_opening", "probe_artifact"):
         prompt = converse.build_turn_prompt(action, {"name": "Ada"}, {"basePrompt": "solve"}, [], {})
         assert f"ACTION: {action}" in prompt
 
