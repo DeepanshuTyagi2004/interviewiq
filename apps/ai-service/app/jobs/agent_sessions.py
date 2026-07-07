@@ -93,6 +93,39 @@ class AgentSessionStore:
             r["current_turn"] = idx
             return idx
 
+    def set_pending_candidate(self, run_id, candidate_text, artifact_present_this_turn,
+                              artifact_available, elapsed_s_at_turn) -> None:
+        """Stash the NEXT turn's candidate context (recorded by the transport at next_utterance) so the
+        session — not the transport — controls when the turn opens (via open_pending_turn). This lets
+        opening-phase replies fold into the seeded turn 0 instead of opening empty turns. No-op on an
+        unknown/evicted run_id, mirroring every other mutator."""
+        with self._lock:
+            r = self._runs.get(run_id)
+            if not r:
+                return
+            r["_pending"] = {
+                "candidate_text": candidate_text,
+                "artifact_present_this_turn": artifact_present_this_turn,
+                "artifact_available": artifact_available,
+                "elapsed_s_at_turn": elapsed_s_at_turn,
+            }
+
+    def open_pending_turn(self, run_id, kind) -> int:
+        """Open a turn of ``kind`` using the stashed pending candidate, then clear the pending slot.
+        If nothing is pending (e.g. a silence window that recorded no candidate, or a second open
+        with no fresh candidate) the turn opens with candidate_text=None. Returns the new turn index,
+        or -1 on an unknown/evicted run_id."""
+        with self._lock:
+            r = self._runs.get(run_id)
+            if not r:
+                return -1
+            p = r.pop("_pending", None) or {}
+            return self.open_turn(
+                run_id, kind, p.get("candidate_text"),
+                p.get("artifact_present_this_turn", False),
+                p.get("artifact_available", False),
+                p.get("elapsed_s_at_turn", 0.0))
+
     # ---- steps -----------------------------------------------------------
     def begin_step(self, run_id, name, llm_label=None) -> None:
         with self._lock:
@@ -110,7 +143,12 @@ class AgentSessionStore:
             r = self._runs.get(run_id)
             if not r:
                 return
-            step = r["turns"][-1]["steps"][-1]
+            # Close the most-recent still-"running" step. For the flat begin→end case this is
+            # steps[-1] (unchanged behaviour); it only differs when a step nests inside another
+            # (the `derive` step emitted inside the `action` step) — the inner end closes derive,
+            # then the outer end closes action, instead of the outer end re-closing derive.
+            steps = r["turns"][-1]["steps"]
+            step = next((s for s in reversed(steps) if s["status"] == "running"), steps[-1])
             step["status"] = status
             step["finished_at"] = _now_iso()
             step["duration_ms"] = _duration_ms(step["started_at"], step["finished_at"])
@@ -203,7 +241,7 @@ class AgentSessionStore:
             if not r:
                 return None
             logs = [l for l in r["_logs"] if l["seq"] > after]
-            out = {k: v for k, v in r.items() if k not in ("_logs", "_seq")}
+            out = {k: v for k, v in r.items() if k not in ("_logs", "_seq", "_pending")}
             out["_logs"] = logs
             out["last_seq"] = r["_seq"]
             # deep-ish copy for turns is unnecessary for read-only JSON serialization

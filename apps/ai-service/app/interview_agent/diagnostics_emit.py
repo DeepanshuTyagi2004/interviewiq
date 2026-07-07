@@ -19,30 +19,80 @@ from app.jobs.agent_sessions import AGENT_SESSIONS
 _current: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
     "diag_emitter_run_id", default=None)
 
+# Per-session scratch for the raw model <thought> of each LLM op, keyed by the op's BASE label
+# (the ``#N`` attempt suffix stripped). Default None means "no diagnostic session bound" — so on
+# the production run_session path record_thought short-circuits and never allocates or stores.
+_thoughts: "contextvars.ContextVar[dict[str, str] | None]" = contextvars.ContextVar(
+    "diag_thoughts", default=None)
+# LIFO stack of the in-flight steps' llm_labels: step_begin pushes, step_end pops. A STACK (not a
+# scalar) so a step nested inside another (the `derive` step inside the `action` step) does NOT
+# clobber its parent's label — each step_end pops ITS OWN label and attaches ITS OWN thought, so a
+# pivot turn keeps both the derive AND the converse thought. Default None = no session bound
+# (production path); every push/pop short-circuits.
+_label_stack: "contextvars.ContextVar[list[str | None] | None]" = contextvars.ContextVar(
+    "diag_label_stack", default=None)
+
 
 def bind_emitter(run_id: str):
-    """Bind the emitter to ``run_id`` for the current context; returns a token for unbind_emitter."""
+    """Bind the emitter to ``run_id`` for the current context; returns a token for unbind_emitter.
+    Also resets a fresh (empty) thoughts dict + label stack so neither leaks across sessions."""
+    _thoughts.set({})
+    _label_stack.set([])
     return _current.set(run_id)
 
 
 def unbind_emitter(token) -> None:
     _current.reset(token)
+    _thoughts.set(None)
+    _label_stack.set(None)
 
 
 def _rid() -> str | None:
     return _current.get()
 
 
+def record_thought(label: str, thought: str) -> None:
+    """Stash the model's raw <thought> for an LLM op so step_end can attach it. No-op when no
+    session is bound (thoughts is None → the production path) or the thought is empty. Keyed by the
+    op's BASE label (``iv-classify#2`` -> ``iv-classify``); last write wins across retry attempts."""
+    d = _thoughts.get()
+    if d is None or not thought:
+        return
+    base = label.split("#", 1)[0]
+    d[base] = thought
+
+
 def step_begin(name, llm_label=None) -> None:
     rid = _rid()
     if rid is not None:
+        stack = _label_stack.get()
+        if stack is not None:
+            stack.append(llm_label)   # push even when None so pops stay balanced with begins
         AGENT_SESSIONS.begin_step(rid, name, llm_label=llm_label)
 
 
 def step_end(status, detail) -> None:
     rid = _rid()
+    if rid is None:
+        return
+    stack = _label_stack.get()
+    label = stack.pop() if stack else None   # LIFO: pop THIS step's own label (not a nested child's)
+    thoughts = _thoughts.get() or {}
+    if label and label in thoughts:
+        detail = {**(detail or {}), "thought": thoughts[label]}
+        # Consume it: a later step reusing the same base label with no fresh <thought> must not
+        # re-attach this stale one.
+        thoughts.pop(label, None)
+    AGENT_SESSIONS.end_step(rid, status, detail)
+
+
+def begin_turn(kind: str) -> None:
+    """Open the diagnostic turn (using the transport's stashed pending candidate). No-op when unbound
+    — so the transport no longer opens turns; the session drives turn boundaries via this signal,
+    letting opening-phase replies fold into the seeded turn 0 instead of opening empty ``main`` turns."""
+    rid = _rid()
     if rid is not None:
-        AGENT_SESSIONS.end_step(rid, status, detail)
+        AGENT_SESSIONS.open_pending_turn(rid, kind)
 
 
 def step_skipped(name) -> None:

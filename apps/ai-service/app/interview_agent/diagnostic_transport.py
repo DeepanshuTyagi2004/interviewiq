@@ -77,8 +77,10 @@ class DiagnosticTransport:
             advance = item[1]
             self._clock += advance
             self._activity_seconds = max(self._activity_seconds, advance, 45.0)
-            self._store.open_turn(self._run_id, "silence", None, False,
-                                  self._artifact is not None, self._clock)
+            # The turn is opened by the session (emit.begin_turn) — bound in the runner's task so it
+            # controls turn boundaries. Here we only stash the candidate context for that open.
+            self._store.set_pending_candidate(self._run_id, None, False,
+                                              self._artifact is not None, self._clock)
             return None
         # _TurnInput. Three-way artifact handling:
         #   None       -> keep the sticky artifact unchanged (no new artifact this turn)
@@ -96,8 +98,10 @@ class DiagnosticTransport:
         self._clock += item.advance_seconds
         self._activity_seconds = 0.0
         self._store.append_transcript(self._run_id, "candidate", item.text)
-        self._store.open_turn(self._run_id, "main", item.text, present,
-                              self._artifact is not None, self._clock)
+        # Stash the candidate context; the session opens the turn via emit.begin_turn("main") once it
+        # has decided this is a real interview turn (opening replies never open a turn).
+        self._store.set_pending_candidate(self._run_id, item.text, present,
+                                          self._artifact is not None, self._clock)
         return item.text, UtteranceTiming(t_start=t_start, t_end=self._clock,
                                           time_to_first_word_s=0.0)
 

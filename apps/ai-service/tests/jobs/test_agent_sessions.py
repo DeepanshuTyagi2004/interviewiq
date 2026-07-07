@@ -10,6 +10,20 @@ def test_start_seeds_opening_turn_zero():
     assert snap["turns"][0]["kind"] == "opening"
     assert snap["turns"][0]["index"] == 0
 
+def test_pending_candidate_opens_turn_on_begin():
+    from app.jobs.agent_sessions import AgentSessionStore
+    s = AgentSessionStore(); s.start("r", {}, label="x")
+    s.set_pending_candidate("r", "my answer", True, True, 60.0)
+    idx = s.open_pending_turn("r", "main")
+    assert idx == 1
+    t = s.snapshot("r", 0)["turns"][1]
+    assert t["kind"] == "main" and t["candidate_text"] == "my answer"
+    assert t["artifact_present_this_turn"] is True and t["elapsed_s_at_turn"] == 60.0
+    # pending cleared: a second open with no pending yields candidate_text None
+    idx2 = s.open_pending_turn("r", "silence")
+    assert s.snapshot("r", 0)["turns"][idx2]["candidate_text"] is None
+
+
 def test_steps_attach_to_current_turn_and_compute_duration():
     s = AgentSessionStore()
     s.start("r1", {}, label="x")
@@ -104,6 +118,8 @@ def test_mutators_noop_on_unknown_run_id():
     s = AgentSessionStore()
     # None of these may raise for an unknown/evicted run_id — they must no-op silently.
     assert s.open_turn("ghost", "main", None, False, False, 0.0) == -1
+    s.set_pending_candidate("ghost", "x", False, False, 0.0)
+    assert s.open_pending_turn("ghost", "main") == -1
     s.begin_step("ghost", "step")
     s.end_step("ghost", "ok", {})
     s.emit_skipped("ghost", "scope")

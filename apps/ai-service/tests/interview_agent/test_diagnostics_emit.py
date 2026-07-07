@@ -58,6 +58,55 @@ def test_unbind_restores_noop(monkeypatch):
     assert store.snapshot("r", 0)["turns"][0]["steps"] == []
 
 
+def test_record_thought_noop_when_unbound():
+    # Production path safety: with no session bound the thoughts contextvar is None, so
+    # record_thought must be a pure no-op (must not raise, must not create state).
+    emit.record_thought("iv-classify#1", "because X")
+
+
+def test_thought_attaches_to_llm_step_by_base_label(monkeypatch):
+    store = AgentSessionStore()
+    store.start("r", {}, label="x")
+    monkeypatch.setattr(emit, "AGENT_SESSIONS", store)
+    tok = emit.bind_emitter("r")
+    try:
+        emit.step_begin("classify", llm_label="iv-classify")
+        emit.record_thought("iv-classify#2", "chose answer because it addressed the prompt")  # #N stripped
+        emit.step_end("ok", {"decision": "answer"})
+    finally:
+        emit.unbind_emitter(tok)
+    step = store.snapshot("r", 0)["turns"][0]["steps"][-1]
+    assert step["detail"]["thought"] == "chose answer because it addressed the prompt"
+    assert step["detail"]["decision"] == "answer"
+
+
+def test_nested_steps_each_keep_their_own_thought(monkeypatch):
+    """§12: a step nested inside another (the `derive` step inside the `action` step) must not
+    clobber its parent's thought. With the LIFO label stack, derive.end pops "iv-derive" and attaches
+    the derive thought, then action.end pops "iv-converse" and attaches the converse thought — both
+    distinct, both present."""
+    store = AgentSessionStore()
+    store.start("r", {}, label="x")
+    monkeypatch.setattr(emit, "AGENT_SESSIONS", store)
+    tok = emit.bind_emitter("r")
+    try:
+        emit.step_begin("action", llm_label="iv-converse")
+        emit.record_thought("iv-converse#1", "converse reasoning")
+        emit.step_begin("derive", llm_label="iv-derive")
+        emit.record_thought("iv-derive#1", "derive reasoning")
+        emit.step_end("ok", {})   # closes derive (LIFO)
+        emit.step_end("ok", {})   # closes action
+    finally:
+        emit.unbind_emitter(tok)
+    steps = store.snapshot("r", 0)["turns"][0]["steps"]
+    action_step = next(s for s in steps if s["name"] == "action")
+    derive_step = next(s for s in steps if s["name"] == "derive")
+    assert derive_step["detail"]["thought"] == "derive reasoning"
+    assert action_step["detail"]["thought"] == "converse reasoning"
+    # both fully closed by the nested-aware end_step
+    assert action_step["status"] == "ok" and derive_step["status"] == "ok"
+
+
 def test_decide_with_reason_matches_bare_decide_and_labels():
     from app.interview_agent.state import DecisionInputs   # TypedDict lives in state.py
     from app.interview_agent.types import PacingDirective
