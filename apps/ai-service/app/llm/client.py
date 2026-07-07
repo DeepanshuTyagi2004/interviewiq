@@ -238,6 +238,7 @@ class LLMClient:
                             try:
                                 from app.interview_agent import diagnostics_emit as _emit
                                 _emit.record_thought(label, thought)
+                                _emit.record_llm_io(label, system, user, content)
                             except Exception:  # noqa: BLE001 — diagnostics must never break the call
                                 pass
                             return data, thought
