@@ -19,6 +19,7 @@ from app.api.routes import router
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.jobs.brief_generation import any_combination_missing_brief, execute_tracked_run
+from app.interview_agent.diagnostics_emit import AgentDiagLogHandler
 from app.jobs.pipeline_runs import PipelineRunLogHandler
 from app.jobs.run_store import RUN_STORE, RunLogHandler, new_run_id
 from app.jobs.scheduler import create_scheduler
@@ -45,6 +46,10 @@ async def lifespan(app: FastAPI):
     # to the run bound to the current task's context. No-op unless a run is bound.
     if not any(isinstance(h, PipelineRunLogHandler) for h in root.handlers):
         root.addHandler(PipelineRunLogHandler())
+    # And the agent-diagnostics console: routes logs to the bound diagnostic session (keyed by the
+    # emitter contextvar). No-op unless an agent-diag session is bound.
+    if not any(isinstance(h, AgentDiagLogHandler) for h in root.handlers):
+        root.addHandler(AgentDiagLogHandler())
 
     await mongo.connect(settings)
     app.state.exa = build_exa_client(settings)

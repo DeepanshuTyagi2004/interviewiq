@@ -320,7 +320,16 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
     # dump) — never the persona's `opening` field, which is a FORMAT-DUMP script (greeting + format +
     # timebox + invite-to-ask) meant to be folded into ORIENT, not spoken verbatim here. Reusing it
     # for GREET would dump the format twice (once here, again at ORIENT).
-    await _say(transport, state, await _gen(conv_llm, settings, action=Action.GREET, state=state, extra={}))
+    # Diagnostics: wrap each opening spoken line (an iv-converse LLM call) as its OWN step on the
+    # seeded turn 0, so the console shows the prompt-in / raw-response / <thought> behind the
+    # greet/rapport/orient/answer lines — not just the transcript. Inert when unbound (production).
+    async def _opening_say(step_name: str, action: Action, extra: dict) -> None:
+        emit.step_begin(step_name, llm_label="iv-converse")
+        line = await _gen(conv_llm, settings, action=action, state=state, extra=extra)
+        emit.step_end("ok", {"action": action.value})
+        await _say(transport, state, line)
+
+    await _opening_say("greet", Action.GREET, {})
     last_text = await _await_opening_turn(transport, state)
 
     # Task 6: staged rapport — one or two light, warm background questions (where they're from,
@@ -331,15 +340,14 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
     profile = state.plan.get("candidateProfile") or state.plan.get("candidate_profile") or {}
     rapport_turns = 0
     while rapport_turns < MAX_RAPPORT_TURNS:
-        await _say(transport, state, await _gen(conv_llm, settings, action=Action.RAPPORT, state=state,
-                                                extra={"candidate_said": last_text, "candidate_profile": profile}))
+        await _opening_say("rapport", Action.RAPPORT,
+                           {"candidate_said": last_text, "candidate_profile": profile})
         last_text = await _await_opening_turn(transport, state)
         rapport_turns += 1
         if last_text is None:
             break
 
-    await _say(transport, state, await _gen(conv_llm, settings, action=Action.ORIENT, state=state,
-                                            extra={"candidate_said": last_text}))
+    await _opening_say("orient", Action.ORIENT, {"candidate_said": last_text})
     last_text = await _await_opening_turn(transport, state)
 
     while last_text is not None and state.opening_exchanges < MAX_OPENING_EXCHANGES:
@@ -355,8 +363,7 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
         if intent != "question":
             break
         state.opening_exchanges += 1
-        await _say(transport, state, await _gen(conv_llm, settings, action=Action.ANSWER_OPENING,
-                                                state=state, extra={"candidate_said": last_text}))
+        await _opening_say("answer_opening", Action.ANSWER_OPENING, {"candidate_said": last_text})
         last_text = await _await_opening_turn(transport, state)
 
 

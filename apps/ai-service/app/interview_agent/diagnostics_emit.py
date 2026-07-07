@@ -7,6 +7,7 @@ stable, human-readable branch label to the routing decision for the diagnostics 
 from __future__ import annotations
 
 import contextvars
+import logging
 
 from app.interview_agent.graph import decide
 from app.interview_agent.state import DecisionInputs  # DecisionInputs is a TypedDict in state.py, NOT types.py
@@ -172,3 +173,20 @@ def _branch_reason(inputs: DecisionInputs, action: Action) -> str:
     if inputs["followups_left"]:
         return "answer thin, follow-ups left -> escalate follow-up"
     return "answer thin, no follow-ups left -> move on / wrap"
+
+
+class AgentDiagLogHandler(logging.Handler):
+    """Routes any log record emitted while a diagnostic session is bound into that session's log
+    buffer, keyed by the emitter's run-id contextvar (``_current``). No-op — returns before touching
+    the store — when nothing is bound, so it's silent on the production run_session/worker path and
+    for every other request. Install once on the root logger (see app.main). This is what makes the
+    console's log stream show the [llm]/[iv]/[structured] activity behind each step."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        rid = _current.get()
+        if rid is None:
+            return
+        try:
+            AGENT_SESSIONS.log(rid, record.levelname, record.getMessage())
+        except Exception:  # logging must never raise
+            pass
