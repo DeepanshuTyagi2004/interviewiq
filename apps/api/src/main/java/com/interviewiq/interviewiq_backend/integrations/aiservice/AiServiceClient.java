@@ -344,4 +344,62 @@ public class AiServiceClient {
                 .body(String.class);
         return objectMapper.readTree(body);
     }
+
+    // --- Agent diagnostics (interactive brain harness) -------------------------------------
+
+    /** Start an interactive diagnostic interview session on the ai-service. */
+    public JsonNode startAgentRun(JsonNode plan) {
+        String body = restClient.post()
+                .uri(baseUrl + "/admin/interview-agent/run")
+                .header("X-Internal-Api-Key", internalApiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(plan)
+                .retrieve()
+                .body(String.class);
+        if (body == null || body.isBlank())
+            throw new RestClientException("ai-service /admin/interview-agent/run returned an empty body");
+        return objectMapper.readTree(body);
+    }
+
+    /** Submit a candidate turn (or silence/end) to a diagnostic session. */
+    public JsonNode submitAgentTurn(String runId, JsonNode turn) {
+        String body = restClient.post()
+                .uri(baseUrl + "/admin/interview-agent/runs/{runId}/turn", runId)
+                .header("X-Internal-Api-Key", internalApiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(turn)
+                .retrieve()
+                .body(String.class);
+        return objectMapper.readTree(body);
+    }
+
+    /** Snapshot of a diagnostic session + incremental logs (entries with seq &gt; after). */
+    public JsonNode getAgentRun(String runId, long after) {
+        String body = restClient.get()
+                .uri(baseUrl + "/admin/interview-agent/runs/{runId}?after={after}", runId, after)
+                .header("X-Internal-Api-Key", internalApiKey)
+                .retrieve()
+                .body(String.class);
+        return objectMapper.readTree(body);
+    }
+
+    /** Recent diagnostic sessions (newest first). */
+    public JsonNode listAgentRuns() {
+        String body = restClient.get()
+                .uri(baseUrl + "/admin/interview-agent/runs")
+                .header("X-Internal-Api-Key", internalApiKey)
+                .retrieve()
+                .body(String.class);
+        return objectMapper.readTree(body);
+    }
+
+    /** Force-end a diagnostic session. */
+    public JsonNode endAgentRun(String runId) {
+        String body = restClient.post()
+                .uri(baseUrl + "/admin/interview-agent/runs/{runId}/end", runId)
+                .header("X-Internal-Api-Key", internalApiKey)
+                .retrieve()
+                .body(String.class);
+        return objectMapper.readTree(body);
+    }
 }
