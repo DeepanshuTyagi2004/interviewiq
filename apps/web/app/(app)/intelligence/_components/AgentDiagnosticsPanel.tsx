@@ -205,6 +205,16 @@ export function AgentDiagnosticsPanel() {
               }
               onEnd={() => endSession.mutate(sessionId)}
             />
+            {submitTurn.isError && (
+              <span className="text-sm text-destructive">
+                Turn failed: {(submitTurn.error as Error).message}
+              </span>
+            )}
+            {endSession.isError && (
+              <span className="text-sm text-destructive">
+                End failed: {(endSession.error as Error).message}
+              </span>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={onCopyMarkdown}>
                 Copy as Markdown
