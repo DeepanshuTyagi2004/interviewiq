@@ -19,30 +19,60 @@ from app.jobs.agent_sessions import AGENT_SESSIONS
 _current: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
     "diag_emitter_run_id", default=None)
 
+# Per-session scratch for the raw model <thought> of each LLM op, keyed by the op's BASE label
+# (the ``#N`` attempt suffix stripped). Default None means "no diagnostic session bound" — so on
+# the production run_session path record_thought short-circuits and never allocates or stores.
+_thoughts: "contextvars.ContextVar[dict[str, str] | None]" = contextvars.ContextVar(
+    "diag_thoughts", default=None)
+# The current step's llm_label, remembered at step_begin so step_end can look up its thought.
+_cur_label: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
+    "diag_cur_label", default=None)
+
 
 def bind_emitter(run_id: str):
-    """Bind the emitter to ``run_id`` for the current context; returns a token for unbind_emitter."""
+    """Bind the emitter to ``run_id`` for the current context; returns a token for unbind_emitter.
+    Also resets a fresh (empty) thoughts dict so thoughts never leak across sessions."""
+    _thoughts.set({})
     return _current.set(run_id)
 
 
 def unbind_emitter(token) -> None:
     _current.reset(token)
+    _thoughts.set(None)
 
 
 def _rid() -> str | None:
     return _current.get()
 
 
+def record_thought(label: str, thought: str) -> None:
+    """Stash the model's raw <thought> for an LLM op so step_end can attach it. No-op when no
+    session is bound (thoughts is None → the production path) or the thought is empty. Keyed by the
+    op's BASE label (``iv-classify#2`` -> ``iv-classify``); last write wins across retry attempts."""
+    d = _thoughts.get()
+    if d is None or not thought:
+        return
+    base = label.split("#", 1)[0]
+    d[base] = thought
+
+
 def step_begin(name, llm_label=None) -> None:
     rid = _rid()
     if rid is not None:
+        _cur_label.set(llm_label)
         AGENT_SESSIONS.begin_step(rid, name, llm_label=llm_label)
 
 
 def step_end(status, detail) -> None:
     rid = _rid()
-    if rid is not None:
-        AGENT_SESSIONS.end_step(rid, status, detail)
+    if rid is None:
+        return
+    label = _cur_label.get()
+    thoughts = _thoughts.get() or {}
+    if label and label in thoughts:
+        detail = {**(detail or {}), "thought": thoughts[label]}
+    AGENT_SESSIONS.end_step(rid, status, detail)
+    _cur_label.set(None)
 
 
 def step_skipped(name) -> None:

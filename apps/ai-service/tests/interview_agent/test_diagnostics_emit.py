@@ -58,6 +58,28 @@ def test_unbind_restores_noop(monkeypatch):
     assert store.snapshot("r", 0)["turns"][0]["steps"] == []
 
 
+def test_record_thought_noop_when_unbound():
+    # Production path safety: with no session bound the thoughts contextvar is None, so
+    # record_thought must be a pure no-op (must not raise, must not create state).
+    emit.record_thought("iv-classify#1", "because X")
+
+
+def test_thought_attaches_to_llm_step_by_base_label(monkeypatch):
+    store = AgentSessionStore()
+    store.start("r", {}, label="x")
+    monkeypatch.setattr(emit, "AGENT_SESSIONS", store)
+    tok = emit.bind_emitter("r")
+    try:
+        emit.step_begin("classify", llm_label="iv-classify")
+        emit.record_thought("iv-classify#2", "chose answer because it addressed the prompt")  # #N stripped
+        emit.step_end("ok", {"decision": "answer"})
+    finally:
+        emit.unbind_emitter(tok)
+    step = store.snapshot("r", 0)["turns"][0]["steps"][-1]
+    assert step["detail"]["thought"] == "chose answer because it addressed the prompt"
+    assert step["detail"]["decision"] == "answer"
+
+
 def test_decide_with_reason_matches_bare_decide_and_labels():
     from app.interview_agent.state import DecisionInputs   # TypedDict lives in state.py
     from app.interview_agent.types import PacingDirective

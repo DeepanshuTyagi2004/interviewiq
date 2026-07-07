@@ -230,7 +230,17 @@ class LLMClient:
                             last_error = f"HTTP 200 but no salvageable JSON: {exc}"
                             cool_for = _TRANSPORT_BACKOFF_SECONDS
                         else:
-                            return data, extract_thought(content)
+                            thought = extract_thought(content)
+                            # Additive diagnostics tap: record the raw <thought> against this op's
+                            # label. Lazy import + broad except so the LLM path can NEVER be
+                            # affected — no-op unless an agent-diag session is bound (production
+                            # run_session binds nothing, so record_thought's contextvar is None).
+                            try:
+                                from app.interview_agent import diagnostics_emit as _emit
+                                _emit.record_thought(label, thought)
+                            except Exception:  # noqa: BLE001 — diagnostics must never break the call
+                                pass
+                            return data, thought
                 elif resp.status_code == 429:
                     cool_for, kind = _retry_plan(resp.text or "", resp.headers.get("retry-after"))
                     cool_for = cool_for if cool_for is not None else _RATE_LIMIT_BACKOFF_SECONDS
