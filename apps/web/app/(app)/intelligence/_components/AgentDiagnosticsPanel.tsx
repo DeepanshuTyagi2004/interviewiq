@@ -188,10 +188,12 @@ export function AgentDiagnosticsPanel() {
       {sessionId && session.data && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr]">
           <div className="space-y-3">
-            <TranscriptPanel
-              entries={session.data.transcript}
-              interviewerName={String(session.data.plan_summary.persona_name ?? "Interviewer")}
-            />
+            <div className="h-[42vh] min-h-64">
+              <TranscriptPanel
+                entries={session.data.transcript}
+                interviewerName={String(session.data.plan_summary.persona_name ?? "Interviewer")}
+              />
+            </div>
             <TurnComposer
               status={session.data.status}
               onSubmit={(body) => submitTurn.mutate({ runId: sessionId, body })}
@@ -220,6 +222,9 @@ export function AgentDiagnosticsPanel() {
             )}
           </div>
           <div className="space-y-3">
+            {selectedStep && (
+              <StepDetailDrawer step={selectedStep} onClose={() => setSelectedStep(null)} />
+            )}
             {turns.length > 0 ? (
               <>
                 <label className="flex flex-col gap-1 text-sm">
@@ -254,15 +259,23 @@ export function AgentDiagnosticsPanel() {
                     }}
                   />
                 </label>
-                {selectedStep && (
-                  <StepDetailDrawer step={selectedStep} onClose={() => setSelectedStep(null)} />
-                )}
               </>
             ) : (
               <p className="text-sm text-muted-foreground">No turns yet.</p>
             )}
-            <DecisionTimeline turns={session.data.turns} />
-            <RunLogStream logs={session.data._logs} />
+            <div className="max-h-[45vh] overflow-auto rounded-lg border border-border p-1">
+              <DecisionTimeline
+                turns={session.data.turns}
+                onSelectStep={(turnIndex, stepIndex) =>
+                  setSelectedStep(
+                    session.data?.turns.find((t) => t.index === turnIndex)?.steps[stepIndex] ?? null,
+                  )
+                }
+              />
+            </div>
+            <div className="max-h-64 overflow-auto">
+              <RunLogStream logs={session.data._logs} />
+            </div>
           </div>
         </div>
       )}
