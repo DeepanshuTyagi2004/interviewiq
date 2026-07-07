@@ -9,8 +9,9 @@ import asyncio
 import logging
 
 from app.config import Settings
+from app.interview_agent import diagnostics_emit as emit
 from app.interview_agent import llm_ops
-from app.interview_agent.graph import GraphDeps, build_inputs, classify_utterance, decide
+from app.interview_agent.graph import GraphDeps, build_inputs, classify_utterance
 from app.interview_agent.outcome import finalize
 from app.interview_agent.pacing import evaluate_gate
 from app.interview_agent.state import SessionState, bands_from_settings
@@ -111,22 +112,29 @@ async def _wrap_and_close(conv_llm, settings: Settings, transport: Transport, st
 
 
 async def _score_last_answer(scorer, settings: Settings, state: SessionState,
-                             text: str, timing: UtteranceTiming, artifact=None) -> None:
+                             text: str, timing: UtteranceTiming, artifact=None
+                             ) -> tuple[float | None, float | None, bool]:
     """Grade the candidate's ANSWER against the active ladder's rubric + behavioral signals; update
     rolling + coverage. Grading failure is swallowed (spec §10: never block; keep last-known score).
-    Called ONLY for ANSWER turns (F1) — non-answers are never graded."""
+    Called ONLY for ANSWER turns (F1) — non-answers are never graded.
+
+    Returns ``(competency, coherence, artifact_used)`` for the diagnostics tap — a PURE addition:
+    control flow, state mutations, and the values passed to the brain are all unchanged. On a
+    grade failure competency/coherence are ``None`` (nothing was scored). ``artifact_used`` reports
+    whether the artifact was actually forwarded into grade_answer."""
     lad = state.active_ladder() or {}
     rubric = lad.get("rubric") or []
+    # Forward the artifact kwarg only when present — keeps compatibility with callers/test
+    # doubles (e.g. test_session.py's fake_grade) that stub grade_answer's pre-Task-15 signature.
+    grade_kwargs = {"artifact": artifact} if artifact is not None else {}
+    artifact_used = bool(grade_kwargs)   # whether the artifact was actually passed into grade_answer
     try:
-        # Forward the artifact kwarg only when present — keeps compatibility with callers/test
-        # doubles (e.g. test_session.py's fake_grade) that stub grade_answer's pre-Task-15 signature.
-        grade_kwargs = {"artifact": artifact} if artifact is not None else {}
         competency, coherence = await llm_ops.grade_answer(
             scorer, settings, rubric=rubric,
             question=lad.get("basePrompt") or lad.get("base_prompt") or "", answer=text, **grade_kwargs)
     except LLMError as exc:
         logger.warning("[iv] grade failed (%s) — keeping last score", exc)
-        return
+        return None, None, artifact_used
     sig = scoring.extract_behavioral(text, timing, hint_was_given=state.hint_just_given)
     # F3: blend answer coherence (spec §6 behavioral input) into the behavioral component. Simple
     # equal-weight mean of the transcript/timing signal and the model's coherence; bounded [0,1].
@@ -139,20 +147,26 @@ async def _score_last_answer(scorer, settings: Settings, state: SessionState,
     state.note_core_answer()   # F2: distinct-core coverage (dedupes follow-ups, excludes splices)
     state.hint_just_given = False
     state.rolling = scoring.rolling_score(state.per_answer, state.negative_events)
+    return competency, coherence, artifact_used
 
 
-async def _update_pacing(scorer, settings: Settings, state: SessionState) -> None:
-    """Run the deterministic gate; only if a gate opens ask the LLM to confirm the directive."""
+async def _update_pacing(scorer, settings: Settings, state: SessionState
+                         ) -> tuple[PacingGate, PacingDirective]:
+    """Run the deterministic gate; only if a gate opens ask the LLM to confirm the directive.
+
+    Returns ``(gate, directive)`` for the diagnostics tap — a PURE addition. The returned directive
+    always equals the ``state.pacing_directive`` this call set, and ``state.pacing_directive`` /
+    ``state.ended_reason`` are mutated exactly as before."""
     answered, core_total = state.core_coverage()   # F2: distinct core answered / original core count
     cov = scoring.coverage(answered, core_total)
     gate = evaluate_gate(state.elapsed_s, state.rolling, cov, state.reserve_available(), state.bands)
     if gate == PacingGate.MUST_WRAP:
         state.pacing_directive = PacingDirective.WIND_DOWN   # forced wrap uses the wind-down path
         state.ended_reason = EndedReason.TIME_CEILING
-        return
+        return gate, state.pacing_directive
     if gate in (PacingGate.LOCKED, PacingGate.CONTINUE):
         state.pacing_directive = PacingDirective.CONTINUE
-        return
+        return gate, state.pacing_directive
     try:
         directive = await llm_ops.judge_pacing(
             scorer, settings, gate=gate.value, rolling=state.rolling,
@@ -160,6 +174,7 @@ async def _update_pacing(scorer, settings: Settings, state: SessionState) -> Non
     except LLMError:
         directive = PacingDirective.CONTINUE
     state.pacing_directive = directive
+    return gate, state.pacing_directive
 
 
 async def _derive_flow(conv_llm, scorer, settings: Settings, transport: Transport,
@@ -416,8 +431,16 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
 
             # Classify FIRST so scoring is gated on the turn class (F1): a non-answer (CLARIFY /
             # OFF_TOPIC / CHALLENGE / DISTRESS / IDK_SILENCE / PIVOT_REQUEST) is NEVER graded.
+            # Diagnostics taps below are inert on the production path (nothing binds the emitter).
+            emit.step_begin("classify", llm_label="iv-classify")
             turn_class, requested_topic, topic_scope = await classify_utterance(
                 state, Turn("candidate", text), deps)
+            emit.step_end("ok", {"decision": turn_class.value, "requested_topic": requested_topic,
+                                 "topic_scope": topic_scope.value})
+            # The cross-round scope guard runs INSIDE classify_utterance only for pivot requests;
+            # for every other turn class there is no scope decision to make — record it as skipped.
+            if turn_class != TurnClass.PIVOT_REQUEST:
+                emit.step_skipped("scope")
 
             if turn_class == TurnClass.ANSWER:
                 # F10: only pull/grade an artifact for rounds with a code/diagram surface. NOTE:
@@ -425,19 +448,39 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                 # transport-contract requirement owned by sub-project A — flagged, not solved here.
                 artifact = (await transport.current_artifact()
                             if state.round_type in _ARTIFACT_ROUNDS else None)
-                await _score_last_answer(scorer, settings, state, text, timing, artifact)
-            elif turn_class == TurnClass.IDK_SILENCE:
-                # F6: repeated IDK/non-answer → small penalty per occurrence (spec §6). No grade.
-                state.negative_events.append(NegativeEvent(
-                    type="idk", magnitude=settings.interview_idk_penalty,
-                    reason="no substantive answer", at_s=timing.t_end))
-                state.rolling = scoring.rolling_score(state.per_answer, state.negative_events)
+                emit.step_begin("grade", llm_label="iv-grade")
+                competency, coherence, artifact_used = await _score_last_answer(
+                    scorer, settings, state, text, timing, artifact)
+                emit.step_end("ok", {
+                    "decision": {"competency": competency, "coherence": coherence},
+                    "artifact_present_this_turn": artifact is not None,
+                    "artifact_used_in_grade": artifact_used,
+                    "state_delta": {
+                        "rolling": state.rolling,
+                        "last_competency": state.per_answer[-1].competency if state.per_answer else None}})
+            else:
+                emit.step_skipped("grade")
+                if turn_class == TurnClass.IDK_SILENCE:
+                    # F6: repeated IDK/non-answer → small penalty per occurrence (spec §6). No grade.
+                    state.negative_events.append(NegativeEvent(
+                        type="idk", magnitude=settings.interview_idk_penalty,
+                        reason="no substantive answer", at_s=timing.t_end))
+                    state.rolling = scoring.rolling_score(state.per_answer, state.negative_events)
 
-            await _update_pacing(scorer, settings, state)
+            emit.step_begin("pacing")
+            gate, directive = await _update_pacing(scorer, settings, state)
+            emit.step_end("ok", {"decision": {"gate": gate.value, "directive": directive.value},
+                                 "inputs": {"elapsed_s": state.elapsed_s, "rolling": state.rolling}})
 
+            emit.step_begin("route")
             inputs = build_inputs(state, turn_class, requested_topic, topic_scope, settings)
-            action = decide(inputs)
+            action, branch_reason = emit.decide_with_reason(inputs)
+            emit.step_end("ok", {"inputs": dict(inputs), "decision": action.value,
+                                 "branch_reason": branch_reason})
+
+            emit.step_begin("action")
             await _apply_action(action, requested_topic, conv_llm, scorer, settings, transport, state, timing.t_end)
+            emit.step_end("ok", {"decision": action.value})
 
         if state.ended_reason is None:
             state.ended_reason = EndedReason.NATURAL_COMPLETE
