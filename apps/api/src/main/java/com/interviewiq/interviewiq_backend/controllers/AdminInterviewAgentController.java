@@ -47,7 +47,7 @@ public class AdminInterviewAgentController {
 
     /** Snapshot of one run. Poll with ?after=<last_seq> for incremental logs. */
     @GetMapping("/runs/{runId}")
-    public ResponseEntity<?> get(@PathVariable String runId, @RequestParam(defaultValue = "0") long after) {
+    public ResponseEntity<?> get(@PathVariable String runId, @RequestParam(name = "after", defaultValue = "0") long after) {
         return proxy(() -> aiService.getAgentRun(runId, after));
     }
 

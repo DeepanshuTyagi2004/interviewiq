@@ -96,4 +96,17 @@ class AdminInterviewAgentControllerTest {
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("ai_service_unreachable"));
     }
+
+    @Test
+    void capacity_maps_to_429_sessions_at_capacity() throws Exception {
+        when(aiServiceClient.startAgentRun(any()))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.TOO_MANY_REQUESTS, "too many", null, null, null));
+
+        mockMvc.perform(post("/api/v1/intelligence/interview-agent/run")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("sessions_at_capacity"));
+    }
 }
