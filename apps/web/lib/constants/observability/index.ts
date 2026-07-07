@@ -20,7 +20,7 @@ const INTERVIEW_AGENT_BASE = "/api/v1/intelligence/interview-agent";
 export const INTERVIEW_AGENT_ENDPOINTS = {
   run: `${INTERVIEW_AGENT_BASE}/run`,
   runs: `${INTERVIEW_AGENT_BASE}/runs`,
-  runOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}`,
-  turnOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}/turn`,
-  endOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}/end`,
+  runOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${encodeURIComponent(id)}`,
+  turnOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${encodeURIComponent(id)}/turn`,
+  endOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${encodeURIComponent(id)}/end`,
 } as const;
