@@ -254,7 +254,12 @@ async def _apply_action(action: Action, requested_topic: str | None, conv_llm, s
         await _say(transport, state, await _gen(conv_llm, settings, action=Action.HOLD_GROUND, state=state, extra={}))
         return
     if action == Action.PIVOT_DERIVE:
+        # A nested step inside `action`: the derive op (derive_ladder, inside _derive_flow) records
+        # its <thought> under "iv-derive"; step_end attaches it. Inert on the production path.
+        emit.step_begin("derive", llm_label="iv-derive")
         await _derive_flow(conv_llm, scorer, settings, transport, state, requested_topic, now)
+        emit.step_end("ok", {"requested_topic": requested_topic,
+                             "derived": bool(state.derived_topics)})
         return
     if action == Action.ESCALATE_FOLLOWUP:
         state.next_followup()
@@ -338,11 +343,15 @@ async def _run_opening(conv_llm, scorer, settings: Settings, transport: Transpor
     last_text = await _await_opening_turn(transport, state)
 
     while last_text is not None and state.opening_exchanges < MAX_OPENING_EXCHANGES:
+        # Diagnostics: this classify happens DURING the opening, so no turn has been opened via
+        # emit.begin_turn — the step attaches to the seeded turn 0 (kind "opening"). Inert unbound.
+        emit.step_begin("opening_classify", llm_label="iv-opening-classify")
         try:
             intent = await llm_ops.classify_opening_turn(scorer, settings, last_text=last_text)
         except LLMError as exc:
             logger.warning("[iv] opening classify failed (%s) — assuming ready", exc)
             intent = "ready"
+        emit.step_end("ok", {"decision": intent})
         if intent != "question":
             break
         state.opening_exchanges += 1
@@ -379,6 +388,9 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
         while not state.session_over:
             item = await transport.next_utterance()
             if item is None:
+                # Diagnostics: open a `silence` turn for this silence window (inert on the production
+                # path — nothing binds the emitter there). Each silence window is its own turn.
+                emit.begin_turn("silence")
                 # Code/diagram editing is NOT inactivity: if the candidate edited an artifact recently,
                 # they're working — keep waiting silently, and treat resumed activity as a reset of any
                 # escalation.
@@ -416,6 +428,9 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                 state.ended_reason = EndedReason.ABANDONED
                 state.session_over = True
                 break
+            # A real interview turn — open a `main` turn (index >= 1) for the diagnostics tree so the
+            # per-turn steps below attach to it. Inert on the production path (emitter unbound).
+            emit.begin_turn("main")
             inactivity_nudges = 0
             final_warning_given = False
             coding_quiet_cycles = 0   # a spoken turn restarts the quiet-coding clock
@@ -439,7 +454,11 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                                  "topic_scope": topic_scope.value})
             # The cross-round scope guard runs INSIDE classify_utterance only for pivot requests;
             # for every other turn class there is no scope decision to make — record it as skipped.
-            if turn_class != TurnClass.PIVOT_REQUEST:
+            if turn_class == TurnClass.PIVOT_REQUEST:
+                emit.step_begin("scope")
+                emit.step_end("ok", {"decision": topic_scope.value, "requested_topic": requested_topic,
+                                     "branch_reason": f"cross-round guard: {topic_scope.value}"})
+            else:
                 emit.step_skipped("scope")
 
             if turn_class == TurnClass.ANSWER:
@@ -467,7 +486,7 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
                         reason="no substantive answer", at_s=timing.t_end))
                     state.rolling = scoring.rolling_score(state.per_answer, state.negative_events)
 
-            emit.step_begin("pacing")
+            emit.step_begin("pacing", llm_label="iv-pacing")
             gate, directive = await _update_pacing(scorer, settings, state)
             emit.step_end("ok", {"decision": {"gate": gate.value, "directive": directive.value},
                                  "inputs": {"elapsed_s": state.elapsed_s, "rolling": state.rolling}})
@@ -478,7 +497,7 @@ async def run_session(transport: Transport, plan: dict, settings: Settings):
             emit.step_end("ok", {"inputs": dict(inputs), "decision": action.value,
                                  "branch_reason": branch_reason})
 
-            emit.step_begin("action")
+            emit.step_begin("action", llm_label="iv-converse")
             await _apply_action(action, requested_topic, conv_llm, scorer, settings, transport, state, timing.t_end)
             emit.step_end("ok", {"decision": action.value})
 

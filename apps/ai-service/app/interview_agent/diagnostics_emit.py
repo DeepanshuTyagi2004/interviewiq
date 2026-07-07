@@ -39,6 +39,7 @@ def bind_emitter(run_id: str):
 def unbind_emitter(token) -> None:
     _current.reset(token)
     _thoughts.set(None)
+    _cur_label.set(None)
 
 
 def _rid() -> str | None:
@@ -71,8 +72,20 @@ def step_end(status, detail) -> None:
     thoughts = _thoughts.get() or {}
     if label and label in thoughts:
         detail = {**(detail or {}), "thought": thoughts[label]}
+        # Consume it: a later step reusing the same base label with no fresh <thought> must not
+        # re-attach this stale one.
+        thoughts.pop(label, None)
     AGENT_SESSIONS.end_step(rid, status, detail)
     _cur_label.set(None)
+
+
+def begin_turn(kind: str) -> None:
+    """Open the diagnostic turn (using the transport's stashed pending candidate). No-op when unbound
+    — so the transport no longer opens turns; the session drives turn boundaries via this signal,
+    letting opening-phase replies fold into the seeded turn 0 instead of opening empty ``main`` turns."""
+    rid = _rid()
+    if rid is not None:
+        AGENT_SESSIONS.open_pending_turn(rid, kind)
 
 
 def step_skipped(name) -> None:
