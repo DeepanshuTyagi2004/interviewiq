@@ -202,3 +202,29 @@ def test_llm_io_attaches_prompts_and_response_to_step(monkeypatch):
 def test_record_llm_io_noop_when_unbound():
     from app.interview_agent import diagnostics_emit as emit
     emit.record_llm_io("iv-classify#1", "s", "u", "r")   # must not raise, no state
+
+
+def test_llm_timing_attaches_latency_and_tokens(monkeypatch):
+    """record_llm_timing merges round-trip ms + token usage onto the step (alongside io/thought)."""
+    from app.interview_agent import diagnostics_emit as emit
+    from app.jobs.agent_sessions import AgentSessionStore
+    store = AgentSessionStore()
+    store.start("r", {}, label="x")
+    monkeypatch.setattr(emit, "AGENT_SESSIONS", store)
+    tok = emit.bind_emitter("r")
+    try:
+        emit.step_begin("grade", llm_label="iv-grade")
+        emit.record_llm_io("iv-grade#1", "S", "U", "resp")
+        emit.record_llm_timing("iv-grade#1", 842, prompt_tokens=1200, completion_tokens=64)
+        emit.step_end("ok", {})
+    finally:
+        emit.unbind_emitter(tok)
+    d = store.snapshot("r", 0)["turns"][0]["steps"][-1]["detail"]
+    assert d["llm_ms"] == 842
+    assert d["prompt_tokens"] == 1200 and d["completion_tokens"] == 64
+    assert d["prompt_system"] == "S"   # merged with io, not overwritten
+
+
+def test_record_llm_timing_noop_when_unbound():
+    from app.interview_agent import diagnostics_emit as emit
+    emit.record_llm_timing("iv-grade#1", 100)   # must not raise

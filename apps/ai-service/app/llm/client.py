@@ -203,6 +203,7 @@ class LLMClient:
 
             # cool_for/last_error get set by every failure branch below, then a single shared
             # "cool this key + rotate (or raise if out of attempts)" tail runs.
+            _t0 = time.monotonic()
             try:
                 resp = await self._client.post(
                     self._url, json=payload, headers={"Authorization": f"Bearer {self._keys[key_i]}"}
@@ -216,7 +217,8 @@ class LLMClient:
             else:
                 if resp.status_code == 200:
                     try:
-                        content = resp.json()["choices"][0]["message"]["content"]
+                        _body = resp.json()
+                        content = _body["choices"][0]["message"]["content"]
                     except (KeyError, IndexError, ValueError):
                         last_error = f"HTTP 200 but malformed body: {resp.text[:300]}"
                         cool_for = _TRANSPORT_BACKOFF_SECONDS
@@ -235,10 +237,15 @@ class LLMClient:
                             # label. Lazy import + broad except so the LLM path can NEVER be
                             # affected — no-op unless an agent-diag session is bound (production
                             # run_session binds nothing, so record_thought's contextvar is None).
+                            _usage = _body.get("usage") or {}
+                            _llm_ms = int((time.monotonic() - _t0) * 1000)
                             try:
                                 from app.interview_agent import diagnostics_emit as _emit
                                 _emit.record_thought(label, thought)
                                 _emit.record_llm_io(label, system, user, content)
+                                _emit.record_llm_timing(label, _llm_ms,
+                                                        _usage.get("prompt_tokens"),
+                                                        _usage.get("completion_tokens"))
                             except Exception:  # noqa: BLE001 — diagnostics must never break the call
                                 pass
                             return data, thought

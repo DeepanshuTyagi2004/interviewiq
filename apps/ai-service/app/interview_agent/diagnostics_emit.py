@@ -81,6 +81,22 @@ def record_llm_io(label: str, system: str, user: str, raw_response: str) -> None
     d[base] = {"prompt_system": system, "prompt_user": user, "raw_response": raw_response}
 
 
+def record_llm_timing(label: str, llm_ms: int, prompt_tokens=None, completion_tokens=None) -> None:
+    """Stash an LLM op's round-trip latency (ms) + token usage so step_end can attach it — the key
+    latency signal per step (a slow model, a big prompt, or retries all show here). Merges onto the
+    same base-label entry as record_llm_io. No-op unbound; last write wins across retries."""
+    d = _llm_io.get()
+    if d is None:
+        return
+    base = label.split("#", 1)[0]
+    entry = d.setdefault(base, {})
+    entry["llm_ms"] = llm_ms
+    if prompt_tokens is not None:
+        entry["prompt_tokens"] = prompt_tokens
+    if completion_tokens is not None:
+        entry["completion_tokens"] = completion_tokens
+
+
 def step_begin(name, llm_label=None) -> None:
     rid = _rid()
     if rid is not None:
