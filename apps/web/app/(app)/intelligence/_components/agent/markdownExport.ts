@@ -11,6 +11,8 @@ export function turnToMarkdown(turn: AgentTurn, notes?: string): string {
     if (d.inputs !== undefined) lines.push(`- inputs: \`${JSON.stringify(d.inputs)}\``);
     if (d.prompt_user) lines.push(`- prompt:\n\`\`\`\n${String(d.prompt_user)}\n\`\`\``);
     if (d.raw_response) lines.push(`- response:\n\`\`\`\n${String(d.raw_response)}\n\`\`\``);
+    if (d.prompt_system) lines.push(`- system:\n\`\`\`\n${String(d.prompt_system)}\n\`\`\``);
+    if (d.thought) lines.push(`- reasoning:\n\`\`\`\n${String(d.thought)}\n\`\`\``);
   }
   if (notes) lines.push(`\n> Notes: ${notes}`);
   return lines.join("\n");

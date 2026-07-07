@@ -8,6 +8,7 @@ import { RunLogStream } from "@/components/observability/RunLogStream";
 import { TranscriptPanel } from "@/features/interview-live/work/TranscriptPanel";
 import { useJds } from "@/features/jobs";
 import { usePrepCandidates, usePrepRun, useStartPrepRun } from "@/features/interview-prep-bench";
+import type { AgentStep } from "@/features/agent-diagnostics";
 import {
   isSessionTerminal,
   useAgentSession,
@@ -16,6 +17,8 @@ import {
   useSubmitTurn,
 } from "@/features/agent-diagnostics";
 import { DecisionTimeline } from "./agent/DecisionTimeline";
+import { PipelineCanvas } from "./agent/PipelineCanvas";
+import { StepDetailDrawer } from "./agent/StepDetailDrawer";
 import { TurnComposer } from "./agent/TurnComposer";
 import { sessionToMarkdown } from "./agent/markdownExport";
 
@@ -48,6 +51,18 @@ export function AgentDiagnosticsPanel() {
   const submitTurn = useSubmitTurn();
   const endSession = useEndAgentSession();
 
+  // Pipeline-canvas / step-detail state: which turn's steps are shown on the canvas,
+  // which step's detail (incl. `thought`) is open in the drawer, and free-text notes
+  // keyed by AgentTurn.index (not array position) so they line up with what
+  // sessionToMarkdown looks up per turn.
+  const [selectedTurn, setSelectedTurn] = React.useState(() => session.data?.current_turn ?? 0);
+  const [selectedStep, setSelectedStep] = React.useState<AgentStep | null>(null);
+  const [notes, setNotes] = React.useState<Record<number, string>>({});
+
+  const turns = session.data?.turns ?? [];
+  const clampedTurnIdx = turns.length === 0 ? 0 : Math.min(Math.max(selectedTurn, 0), turns.length - 1);
+  const currentTurn = turns[clampedTurnIdx];
+
   const plan = prep.data?.status === "completed" ? prep.data.result : null;
   const canRunPrep = Boolean(jobDescriptionId) && !startPrep.isPending;
 
@@ -66,7 +81,7 @@ export function AgentDiagnosticsPanel() {
 
   const onCopyMarkdown = () => {
     if (!session.data) return;
-    void navigator.clipboard.writeText(sessionToMarkdown(session.data, {}));
+    void navigator.clipboard.writeText(sessionToMarkdown(session.data, notes));
   };
 
   // Spec §8.1: restart resets. Clear all run state back to the idle phase (JD/candidate pickers)
@@ -75,6 +90,9 @@ export function AgentDiagnosticsPanel() {
   const onReset = () => {
     setSessionId(null);
     setPrepRunId(null);
+    setSelectedTurn(0);
+    setSelectedStep(null);
+    setNotes({});
   };
 
   const sessionEnded = isSessionTerminal(session.data?.status);
@@ -193,6 +211,46 @@ export function AgentDiagnosticsPanel() {
             )}
           </div>
           <div className="space-y-3">
+            {turns.length > 0 ? (
+              <>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Turn</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={clampedTurnIdx}
+                    onChange={(e) => {
+                      setSelectedTurn(Number(e.target.value));
+                      setSelectedStep(null);
+                    }}
+                  >
+                    {turns.map((t, i) => (
+                      <option key={t.index} value={i}>
+                        Turn {t.index} — {t.kind}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <PipelineCanvas turn={currentTurn} onSelectStep={(step) => setSelectedStep(step ?? null)} />
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Notes for turn {currentTurn?.index ?? clampedTurnIdx}</span>
+                  <textarea
+                    className="w-full rounded-md border border-border bg-background p-2 text-sm"
+                    rows={3}
+                    value={(currentTurn && notes[currentTurn.index]) ?? ""}
+                    onChange={(e) => {
+                      const idx = currentTurn?.index ?? clampedTurnIdx;
+                      const value = e.target.value;
+                      setNotes((prev) => ({ ...prev, [idx]: value }));
+                    }}
+                  />
+                </label>
+                {selectedStep && (
+                  <StepDetailDrawer step={selectedStep} onClose={() => setSelectedStep(null)} />
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No turns yet.</p>
+            )}
             <DecisionTimeline turns={session.data.turns} />
             <RunLogStream logs={session.data._logs} />
           </div>
