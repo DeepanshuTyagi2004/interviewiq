@@ -54,6 +54,24 @@ def test_sticky_artifact_retained_until_replaced():
     asyncio.run(scenario())
 
 
+def test_empty_artifact_clears_sticky_and_none_keeps():
+    store = AgentSessionStore(); store.start("r", {}, label="x")
+    t = DiagnosticTransport("r", store)
+
+    async def scenario():
+        t.submit_turn("a", artifact={"kind": "code", "content": "x=1"}, advance_seconds=10)
+        await t.next_utterance()
+        assert (await t.current_artifact()) is not None
+        t.submit_turn("b", artifact={}, advance_seconds=10)     # explicit clear
+        await t.next_utterance()
+        assert (await t.current_artifact()) is None             # cleared
+        t.submit_turn("c", artifact=None, advance_seconds=10)   # None keeps (still cleared)
+        await t.next_utterance()
+        assert (await t.current_artifact()) is None
+
+    asyncio.run(scenario())
+
+
 def test_end_sentinel_raises_aborted():
     store = AgentSessionStore(); store.start("r", {}, label="x")
     t = DiagnosticTransport("r", store)
@@ -75,7 +93,7 @@ def test_say_appends_transcript_and_status_flip():
         assert store.snapshot("r", 0)["transcript"][-1] == {"speaker": "interviewer", "text": "welcome"}
         # next_utterance sets awaiting_input while blocked
         fut = asyncio.ensure_future(t.next_utterance())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
         assert store.status_of("r") == "awaiting_input"
         t.submit_turn("hi", None, 10); await fut
         assert store.status_of("r") == "running"

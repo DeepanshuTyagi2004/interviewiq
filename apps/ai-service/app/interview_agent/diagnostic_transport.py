@@ -15,8 +15,12 @@ _ARTIFACT_KIND_DEFAULT = "code"
 
 
 class DiagnosticSessionAborted(Exception):
-    """Raised out of next_utterance when a force-end (_END) is dequeued; propagates out of
-    run_session (the brain does not catch it) so the runner can mark the session aborted."""
+    """Raised out of next_utterance when a force-end (_END) is dequeued. This does NOT propagate out
+    of run_session: run_session (session.py) wraps its whole body in `except Exception` and returns
+    an _aborted_outcome with ended_reason == ABORTED_TECHNICAL. The raise only breaks the driver out
+    of the awaiting next_utterance so run_session finalizes promptly as an aborted outcome; the
+    runner detects a force-end via the returned SessionOutcome.ended_reason ("aborted_technical"),
+    not by catching this exception."""
 
 
 class _Sentinel:
@@ -61,9 +65,9 @@ class DiagnosticTransport:
     # ---- Transport protocol ---------------------------------------------
     async def say(self, text: str) -> None:
         self._store.append_transcript(self._run_id, "interviewer", text)
-        # tts step is recorded by the emitter tap around _say; here we just carry text.
+        # tts text is also recorded via the diagnostics emitter in a later task; here we just carry text.
 
-    async def next_utterance(self):
+    async def next_utterance(self) -> tuple[str, UtteranceTiming] | None:
         self._store.set_status(self._run_id, "awaiting_input")
         item = await self._inbox.get()
         self._store.set_status(self._run_id, "running")
@@ -76,13 +80,18 @@ class DiagnosticTransport:
             self._store.open_turn(self._run_id, "silence", None, False,
                                   self._artifact is not None, self._clock)
             return None
-        # _TurnInput
-        present = item.artifact is not None
-        if present:
+        # _TurnInput. Three-way artifact handling:
+        #   None       -> keep the sticky artifact unchanged (no new artifact this turn)
+        #   {} (falsy) -> explicit clear (candidate removed their artifact)
+        #   non-empty  -> replace with the supplied artifact
+        if item.artifact is None:
+            pass  # sticky: unchanged
+        elif not item.artifact:
+            self._artifact = None
+        else:
             self._artifact = Artifact(kind=ArtifactKind(item.artifact.get("kind", _ARTIFACT_KIND_DEFAULT)),
                                       content=item.artifact.get("content", ""))
-        elif item.artifact == {}:   # explicit clear
-            self._artifact = None
+        present = bool(item.artifact)  # a non-empty dict = artifact supplied this turn
         t_start = self._clock
         self._clock += item.advance_seconds
         self._activity_seconds = 0.0
