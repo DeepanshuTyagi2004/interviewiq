@@ -856,7 +856,7 @@ git commit -m "feat(agent-diag): contextvar emitter + pure decide_with_reason + 
   - `MAX_ACTIVE_SESSIONS` (from settings, default 3).
   - `start_agent_session(plan: dict, settings, label: str | None = None) -> tuple[str, DiagnosticTransport]` — capacity check, seed store, create the `_run` task, `attach_task`, return `(run_id, transport)`.
   - `terminal_status(ended_reason: str | None) -> str` — `"abandoned"` if `abandoned` else `"completed"`.
-  - `_run(run_id, transport, plan, settings)` — binds run+emitter, awaits `run_session`, stores result/finish; catches `DiagnosticSessionAborted` → `finish("aborted")`; catches `LLMError` → `fail(...)`.
+  - `_run(run_id, transport, plan, settings)` — binds run+emitter, awaits `run_session` (which ALWAYS returns a `SessionOutcome`; it catches its own errors), stores result + `finish(terminal_status(ended_reason))`. Force-end and fatal LLM errors both arrive as `ended_reason=="aborted_technical"` → status `"aborted"`. Only `asyncio.CancelledError` (eviction) and a defensive `Exception` (asdict/store failure) are caught.
 - The endpoints (Task A5) keep a registry `run_id -> DiagnosticTransport` so `/turn` and `/end` can reach the transport.
 
 - [ ] **Step 1: Write the failing integration test (drive a full scripted session)**
@@ -916,12 +916,12 @@ import dataclasses
 import logging
 
 from app.config import Settings
-from app.interview_agent.diagnostic_transport import DiagnosticTransport, DiagnosticSessionAborted
+from app.interview_agent.diagnostic_transport import DiagnosticTransport
 from app.interview_agent.session import run_session
 from app.interview_agent import diagnostics_emit as emit
 from app.jobs.agent_sessions import AGENT_SESSIONS
 from app.jobs.pipeline_runs import bind_run, unbind_run, new_run_id
-from app.llm.client import LLMError
+# (no LLMError import — run_session never raises it to the runner; it returns aborted_technical)
 
 logger = logging.getLogger(__name__)
 
@@ -939,7 +939,13 @@ TRANSPORTS: dict[str, DiagnosticTransport] = {}
 
 
 def terminal_status(ended_reason: str | None) -> str:
-    return "abandoned" if ended_reason == "abandoned" else "completed"
+    # run_session catches ALL exceptions (session.py ~448) and returns an outcome; a force-end
+    # (_END -> DiagnosticSessionAborted) OR a fatal LLM error both come back as "aborted_technical".
+    if ended_reason == "abandoned":
+        return "abandoned"
+    if ended_reason == "aborted_technical":
+        return "aborted"
+    return "completed"
 
 
 def start_agent_session(plan: dict, settings: Settings, label: str | None = None):
@@ -966,14 +972,15 @@ async def _run(run_id, transport, plan, settings) -> None:
         ended_reason = doc.get("ended_reason")
         AGENT_SESSIONS.set_result(run_id, doc, ended_reason)
         AGENT_SESSIONS.finish(run_id, terminal_status(ended_reason))
-    except DiagnosticSessionAborted:
-        AGENT_SESSIONS.finish(run_id, "aborted")
-    except LLMError as e:
-        logger.warning("[agent-diag] fatal LLM error: %s", e)
-        AGENT_SESSIONS.fail(run_id, step=AGENT_SESSIONS.current_step(run_id), error=e)
     except asyncio.CancelledError:
-        AGENT_SESSIONS.finish(run_id, "aborted")
+        AGENT_SESSIONS.finish(run_id, "aborted")   # store evicted this session and cancelled us
         raise
+    except Exception as e:
+        # defensive only: run_session catches its OWN errors and always returns an outcome, so this
+        # guards asdict/store failures — NOT interview content. A force-end (_END) or fatal LLM
+        # error arrives above as ended_reason == "aborted_technical" and is mapped by terminal_status.
+        logger.warning("[agent-diag] runner error: %s", e)
+        AGENT_SESSIONS.fail(run_id, step=AGENT_SESSIONS.current_step(run_id), error=e)
     finally:
         emit.unbind_emitter(emit_tok)
         unbind_run(run_tok)
