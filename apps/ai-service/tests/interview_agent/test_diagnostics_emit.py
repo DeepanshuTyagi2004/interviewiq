@@ -173,3 +173,32 @@ def test_decide_with_reason_is_pure_across_the_precedence_ladder():
         action, reason = emit.decide_with_reason(di)
         assert action == decide(di)
         assert isinstance(reason, str) and reason
+
+
+def test_llm_io_attaches_prompts_and_response_to_step(monkeypatch):
+    """record_llm_io stashes prompt-in / raw-response and step_end attaches them (with the thought)
+    to the LLM step, keyed by base label — so the console drawer shows real prompt-in/out."""
+    from app.interview_agent import diagnostics_emit as emit
+    from app.jobs.agent_sessions import AgentSessionStore
+    store = AgentSessionStore()
+    store.start("r", {}, label="x")
+    monkeypatch.setattr(emit, "AGENT_SESSIONS", store)
+    tok = emit.bind_emitter("r")
+    try:
+        emit.step_begin("classify", llm_label="iv-classify")
+        emit.record_llm_io("iv-classify#1", "SYS", "USER", '<thought>t</thought>{"x":1}')
+        emit.record_thought("iv-classify#1", "t")
+        emit.step_end("ok", {"decision": "answer"})
+    finally:
+        emit.unbind_emitter(tok)
+    d = store.snapshot("r", 0)["turns"][0]["steps"][-1]["detail"]
+    assert d["prompt_system"] == "SYS"
+    assert d["prompt_user"] == "USER"
+    assert d["raw_response"].endswith('{"x":1}')
+    assert d["thought"] == "t"
+    assert d["decision"] == "answer"
+
+
+def test_record_llm_io_noop_when_unbound():
+    from app.interview_agent import diagnostics_emit as emit
+    emit.record_llm_io("iv-classify#1", "s", "u", "r")   # must not raise, no state

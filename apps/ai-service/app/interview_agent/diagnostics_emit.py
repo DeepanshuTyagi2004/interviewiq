@@ -31,12 +31,18 @@ _thoughts: "contextvars.ContextVar[dict[str, str] | None]" = contextvars.Context
 # (production path); every push/pop short-circuits.
 _label_stack: "contextvars.ContextVar[list[str | None] | None]" = contextvars.ContextVar(
     "diag_label_stack", default=None)
+# Per-session scratch for each LLM op's prompt-in / raw-response, keyed by BASE label — so the
+# diagnostics drawer can show what actually went to / came back from the model, not just the parsed
+# decision. Same inert-when-None discipline as _thoughts (no allocation on the production path).
+_llm_io: "contextvars.ContextVar[dict[str, dict] | None]" = contextvars.ContextVar(
+    "diag_llm_io", default=None)
 
 
 def bind_emitter(run_id: str):
     """Bind the emitter to ``run_id`` for the current context; returns a token for unbind_emitter.
     Also resets a fresh (empty) thoughts dict + label stack so neither leaks across sessions."""
     _thoughts.set({})
+    _llm_io.set({})
     _label_stack.set([])
     return _current.set(run_id)
 
@@ -44,6 +50,7 @@ def bind_emitter(run_id: str):
 def unbind_emitter(token) -> None:
     _current.reset(token)
     _thoughts.set(None)
+    _llm_io.set(None)
     _label_stack.set(None)
 
 
@@ -62,6 +69,17 @@ def record_thought(label: str, thought: str) -> None:
     d[base] = thought
 
 
+def record_llm_io(label: str, system: str, user: str, raw_response: str) -> None:
+    """Stash an LLM op's prompt-in / raw model response so step_end can attach it to the step,
+    keyed by BASE label. No-op when no session is bound (production path). Last write wins across
+    retry attempts (the accepted attempt's IO is what the console shows)."""
+    d = _llm_io.get()
+    if d is None:
+        return
+    base = label.split("#", 1)[0]
+    d[base] = {"prompt_system": system, "prompt_user": user, "raw_response": raw_response}
+
+
 def step_begin(name, llm_label=None) -> None:
     rid = _rid()
     if rid is not None:
@@ -77,12 +95,18 @@ def step_end(status, detail) -> None:
         return
     stack = _label_stack.get()
     label = stack.pop() if stack else None   # LIFO: pop THIS step's own label (not a nested child's)
-    thoughts = _thoughts.get() or {}
-    if label and label in thoughts:
-        detail = {**(detail or {}), "thought": thoughts[label]}
-        # Consume it: a later step reusing the same base label with no fresh <thought> must not
-        # re-attach this stale one.
-        thoughts.pop(label, None)
+    if label:
+        extra: dict = {}
+        io = _llm_io.get() or {}
+        if label in io:
+            extra.update(io.pop(label))          # prompt_system / prompt_user / raw_response
+        thoughts = _thoughts.get() or {}
+        if label in thoughts:
+            extra["thought"] = thoughts.pop(label)
+        # Consume on attach: a later step reusing the same base label with no fresh IO/<thought>
+        # must not re-attach this stale one.
+        if extra:
+            detail = {**(detail or {}), **extra}
     AGENT_SESSIONS.end_step(rid, status, detail)
 
 
