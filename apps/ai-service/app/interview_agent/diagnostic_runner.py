@@ -49,7 +49,7 @@ def start_agent_session(plan: dict, settings: Settings, label: str | None = None
     if AGENT_SESSIONS.active_count() >= _max_active(settings):
         raise TooManyActiveSessions()
     run_id = new_run_id()
-    label = label or f"{plan.get('round', '?')}·{(plan.get('persona') or {}).get('name', '?')}"
+    label = label or f"{plan.get('roundType', '?')}·{(plan.get('persona') or {}).get('name', '?')}"
     AGENT_SESSIONS.start(run_id, plan, label=label)
     transport = DiagnosticTransport(run_id, AGENT_SESSIONS)
     TRANSPORTS[run_id] = transport

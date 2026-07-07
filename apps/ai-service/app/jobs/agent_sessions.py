@@ -47,9 +47,9 @@ class AgentSessionStore:
                 "label": label,
                 "status": "running",
                 "plan_summary": {
-                    "round": plan.get("round"),
+                    "round": plan.get("roundType"),
                     "persona_name": (plan.get("persona") or {}).get("name"),
-                    "question_count": len(plan.get("questions") or []),
+                    "question_count": len(plan.get("questionLadders") or []),
                 },
                 "current_turn": 0,
                 "current_step": None,
