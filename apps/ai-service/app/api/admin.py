@@ -11,7 +11,7 @@ import asyncio
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from app.api.deps import get_exa, require_internal_key
@@ -187,3 +187,85 @@ async def interview_prep_run_status(run_id: str, after: int = Query(0, ge=0)) ->
     if snap is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown run_id")
     return snap
+
+
+# --- Interview-agent diagnostics console (interactive brain harness) ----------------------------
+# Drive the live interview brain by hand: start a session (POST /run → mints a run_id, kicks off the
+# in-process run_session behind a DiagnosticTransport), poll its turn/step tree (GET /runs/{id}),
+# and feed it typed candidate turns (POST /runs/{id}/turn) or force-end it (POST /runs/{id}/end).
+# The session runs in the background; the endpoints only produce inbox input + read snapshots. No
+# outcome is posted to interviewiq-api — this is a bench for watching the brain, not a live seat.
+from app.interview_agent.diagnostic_runner import (  # noqa: E402
+    TRANSPORTS, TooManyActiveSessions, start_agent_session,
+)
+from app.jobs.agent_sessions import AGENT_SESSIONS  # noqa: E402
+
+
+@router.post("/interview-agent/run")
+async def start_agent_run(plan: dict = Body(...), settings=Depends(get_settings)) -> dict:
+    """Start an interactive diagnostic interview session from an InterviewPlan dict. Returns the
+    run_id to poll. 429 if the concurrent-session cap is already reached."""
+    try:
+        run_id, _ = start_agent_session(plan, settings)
+    except TooManyActiveSessions:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="sessions_at_capacity")
+    return {"run_id": run_id, "status": "running"}
+
+
+@router.post("/interview-agent/runs/{run_id}/turn")
+async def submit_agent_turn(run_id: str, body: dict = Body(...)) -> dict:
+    """Feed one candidate turn (spoken text + optional artifact) or a silence window into a session
+    that is awaiting input. 404 if the run/transport is unknown; 409 if it is not currently awaiting
+    input (double-submit / out-of-turn). Async: returns as soon as the input is enqueued."""
+    transport = TRANSPORTS.get(run_id)
+    if transport is None or AGENT_SESSIONS.status_of(run_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run_not_found")
+    # Atomic accept: only when the session is parked awaiting input AND its inbox is drained. This
+    # whole check→flip runs in one handler tick with no await between, so a rapid second submit sees
+    # status == "running" (flipped below) and takes the 409 branch — no double-enqueue.
+    if AGENT_SESSIONS.status_of(run_id) != "awaiting_input" or not transport.inbox_empty():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="not_awaiting_input")
+    # Parse advance_seconds ONCE, null-safely, BEFORE flipping status — a bad value must 400 while
+    # the session is still cleanly awaiting_input (an explicit null or non-numeric string otherwise
+    # TypeErrors AFTER the status flip, wedging the session in "running" with an empty inbox).
+    # An explicit 0 is preserved (only None falls back to the 60.0 default).
+    raw = body.get("advance_seconds")
+    try:
+        advance_seconds = 60.0 if raw is None else float(raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="advance_seconds must be numeric")
+    AGENT_SESSIONS.set_status(run_id, "running")
+    if body.get("silence"):
+        transport.submit_silence(advance_seconds=advance_seconds)
+    else:
+        transport.submit_turn(text=body.get("text", ""), artifact=body.get("artifact"),
+                              advance_seconds=advance_seconds)
+    return {"status": "accepted"}
+
+
+@router.get("/interview-agent/runs/{run_id}")
+async def get_agent_run(run_id: str, after: int = Query(0, ge=0)) -> dict:
+    """Snapshot of one session (turn/step tree, transcript, status). Pass ?after=<last_seq> for only
+    new log lines. 404 if the run is unknown or has been evicted."""
+    snap = AGENT_SESSIONS.snapshot(run_id, after)
+    if snap is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run_not_found")
+    return snap
+
+
+@router.get("/interview-agent/runs")
+async def list_agent_runs() -> dict:
+    """Recent diagnostic sessions (newest first)."""
+    return {"runs": AGENT_SESSIONS.list_sessions()}
+
+
+@router.post("/interview-agent/runs/{run_id}/end")
+async def end_agent_run(run_id: str) -> dict:
+    """Force-end a session — pushes _END into its inbox; the brain aborts on its next read and the
+    runner records the terminal outcome. Async: does NOT wait for the session to reach terminal."""
+    transport = TRANSPORTS.get(run_id)
+    if transport is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run_not_found")
+    transport.submit_end()
+    return {"status": "accepted"}
