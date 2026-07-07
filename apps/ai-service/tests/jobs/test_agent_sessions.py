@@ -132,3 +132,23 @@ def test_mutators_noop_on_unknown_run_id():
     assert s.snapshot("ghost", 0) is None
     assert s.status_of("ghost") is None
     assert s.current_step("ghost") is None
+
+
+def test_request_cancel_cancels_live_task():
+    """/end force-terminates a session whose brain isn't parked at next_utterance by cancelling the
+    runner task; request_cancel returns True and cancels a live (not-done) task, False otherwise."""
+    import asyncio
+    async def _body():
+        s = AgentSessionStore()
+        s.start("r", {}, label="x")
+
+        async def _never():
+            await asyncio.Event().wait()  # blocks forever, like a hung LLM call
+        task = asyncio.ensure_future(_never())
+        s.attach_task("r", task)
+        assert s.request_cancel("r") is True
+        await asyncio.sleep(0)            # let the cancellation propagate
+        assert task.cancelled()
+        assert s.request_cancel("r") is False   # already done → nothing to cancel
+        assert s.request_cancel("nope") is False
+    asyncio.run(_body())

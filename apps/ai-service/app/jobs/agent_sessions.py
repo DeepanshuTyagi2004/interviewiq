@@ -225,6 +225,18 @@ class AgentSessionStore:
         with self._lock:
             self._tasks[run_id] = task
 
+    def request_cancel(self, run_id) -> bool:
+        """Cancel the session's runner task if it's still alive. Force-ends a session even when the
+        brain is NOT parked in next_utterance (e.g. blocked mid-LLM-call), where a queued _END would
+        never be consumed. The runner's `except CancelledError` marks the session 'aborted'. Returns
+        True if a live task was cancelled."""
+        with self._lock:
+            task = self._tasks.get(run_id)
+        if task is not None and not task.done():
+            task.cancel()
+            return True
+        return False
+
     def active_count(self) -> int:
         with self._lock:
             return sum(1 for r in self._runs.values() if r["status"] not in _TERMINAL)

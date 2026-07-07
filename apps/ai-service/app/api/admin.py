@@ -268,4 +268,10 @@ async def end_agent_run(run_id: str) -> dict:
     if transport is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run_not_found")
     transport.submit_end()
+    # If the brain is parked in next_utterance (awaiting_input), the queued _END aborts it
+    # gracefully. If it's mid-turn — e.g. blocked on a slow/hung LLM call — it never reads _END,
+    # so End would appear dead; cancel the runner task to force-terminate regardless of brain
+    # state (the runner's `except CancelledError` marks the session "aborted").
+    if AGENT_SESSIONS.status_of(run_id) != "awaiting_input":
+        AGENT_SESSIONS.request_cancel(run_id)
     return {"status": "accepted"}
