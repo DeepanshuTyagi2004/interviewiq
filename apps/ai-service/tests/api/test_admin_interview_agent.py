@@ -136,3 +136,34 @@ def test_turn_atomic_guard_409(minimal_plan_json):
     with pytest.raises(HTTPException) as ei2:
         asyncio.run(admin_mod.submit_agent_turn(rid, {"text": "x"}))
     assert ei2.value.status_code == 409
+
+
+def test_turn_with_null_advance_seconds_is_accepted_not_wedged(minimal_plan_json):
+    """Regression: an explicit ``advance_seconds: null`` must fall back to the 60.0 default and be
+    accepted — it must NOT 500 on ``float(None)`` AFTER the status flip, leaving the session wedged
+    in "running" with an empty inbox (unrecoverable except by force-end)."""
+    rid = "null-adv-rid"
+    AGENT_SESSIONS.start(rid, minimal_plan_json, label="null-adv")
+    AGENT_SESSIONS.set_status(rid, "awaiting_input")  # parked, inbox empty -> a turn is acceptable
+    TRANSPORTS[rid] = DiagnosticTransport(rid, AGENT_SESSIONS)
+
+    out = asyncio.run(admin_mod.submit_agent_turn(rid, {"text": "x", "advance_seconds": None}))
+    assert out == {"status": "accepted"}
+    # NOT wedged: the turn was actually enqueued (inbox non-empty) and status advanced to running.
+    assert AGENT_SESSIONS.status_of(rid) == "running"
+    assert TRANSPORTS[rid].inbox_empty() is False
+
+
+def test_turn_with_non_numeric_advance_seconds_is_400_and_stays_awaiting(minimal_plan_json):
+    """A non-numeric advance_seconds is rejected with 400 BEFORE the status flip, so the session is
+    left cleanly awaiting_input with an empty inbox (retryable), not wedged."""
+    rid = "bad-adv-rid"
+    AGENT_SESSIONS.start(rid, minimal_plan_json, label="bad-adv")
+    AGENT_SESSIONS.set_status(rid, "awaiting_input")
+    TRANSPORTS[rid] = DiagnosticTransport(rid, AGENT_SESSIONS)
+
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(admin_mod.submit_agent_turn(rid, {"text": "x", "advance_seconds": "soon"}))
+    assert ei.value.status_code == 400
+    assert AGENT_SESSIONS.status_of(rid) == "awaiting_input"  # untouched
+    assert TRANSPORTS[rid].inbox_empty() is True              # nothing enqueued

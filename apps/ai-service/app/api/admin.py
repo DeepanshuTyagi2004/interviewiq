@@ -225,8 +225,17 @@ async def submit_agent_turn(run_id: str, body: dict = Body(...)) -> dict:
     # status == "running" (flipped below) and takes the 409 branch — no double-enqueue.
     if AGENT_SESSIONS.status_of(run_id) != "awaiting_input" or not transport.inbox_empty():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="not_awaiting_input")
+    # Parse advance_seconds ONCE, null-safely, BEFORE flipping status — a bad value must 400 while
+    # the session is still cleanly awaiting_input (an explicit null or non-numeric string otherwise
+    # TypeErrors AFTER the status flip, wedging the session in "running" with an empty inbox).
+    # An explicit 0 is preserved (only None falls back to the 60.0 default).
+    raw = body.get("advance_seconds")
+    try:
+        advance_seconds = 60.0 if raw is None else float(raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="advance_seconds must be numeric")
     AGENT_SESSIONS.set_status(run_id, "running")
-    advance_seconds = float(body.get("advance_seconds", 60.0))
     if body.get("silence"):
         transport.submit_silence(advance_seconds=advance_seconds)
     else:

@@ -196,10 +196,6 @@ class AgentSessionStore:
             r = self._runs.get(run_id)
             return r["status"] if r else None
 
-    def inbox_empty(self, run_id) -> bool:
-        # transport owns the queue; the runner wires this. Default True until wired.
-        return True
-
     # ---- read ------------------------------------------------------------
     def snapshot(self, run_id, after) -> dict | None:
         with self._lock:
