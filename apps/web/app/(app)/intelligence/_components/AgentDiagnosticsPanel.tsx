@@ -9,6 +9,7 @@ import { TranscriptPanel } from "@/features/interview-live/work/TranscriptPanel"
 import { useJds } from "@/features/jobs";
 import { usePrepCandidates, usePrepRun, useStartPrepRun } from "@/features/interview-prep-bench";
 import {
+  isSessionTerminal,
   useAgentSession,
   useEndAgentSession,
   useStartAgentSession,
@@ -67,6 +68,16 @@ export function AgentDiagnosticsPanel() {
     if (!session.data) return;
     void navigator.clipboard.writeText(sessionToMarkdown(session.data, {}));
   };
+
+  // Spec §8.1: restart resets. Clear all run state back to the idle phase (JD/candidate pickers)
+  // so the admin can run another session without reloading the page. The JD/candidate selection
+  // is intentionally kept so a follow-up run against the same role is one click away.
+  const onReset = () => {
+    setSessionId(null);
+    setPrepRunId(null);
+  };
+
+  const sessionEnded = isSessionTerminal(session.data?.status);
 
   return (
     <div className="space-y-6">
@@ -165,10 +176,17 @@ export function AgentDiagnosticsPanel() {
               }
               onEnd={() => endSession.mutate(sessionId)}
             />
-            <Button variant="outline" size="sm" onClick={onCopyMarkdown}>
-              Copy as Markdown
-            </Button>
-            {(session.data.status === "completed" || session.data.ended_reason) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onCopyMarkdown}>
+                Copy as Markdown
+              </Button>
+              {sessionEnded && (
+                <Button variant="secondary" size="sm" onClick={onReset}>
+                  Start new session
+                </Button>
+              )}
+            </div>
+            {(sessionEnded || session.data.ended_reason) && (
               <p className="text-sm">
                 Ended: <strong>{session.data.ended_reason ?? session.data.status}</strong>
               </p>

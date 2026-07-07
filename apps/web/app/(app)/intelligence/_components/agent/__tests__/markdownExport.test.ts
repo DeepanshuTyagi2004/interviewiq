@@ -6,11 +6,11 @@ test("turnToMarkdown includes decisions, prompts and branch reason", () => {
   const turn: AgentTurn = {
     index: 1, kind: "main", candidate_text: "my answer",
     artifact_present_this_turn: false, artifact_available: false,
-    started_at: 0, finished_at: 1, duration_ms: 1000, elapsed_s_at_turn: 60,
+    started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:00:01Z", duration_ms: 1000, elapsed_s_at_turn: 60,
     steps: [
-      { name: "classify", status: "ok", llm_label: "iv-classify", started_at: 0, finished_at: 1,
+      { name: "classify", status: "ok", llm_label: "iv-classify", started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:00:01Z",
         duration_ms: 100, detail: { decision: "answer" } },
-      { name: "route", status: "ok", llm_label: null, started_at: 0, finished_at: 1,
+      { name: "route", status: "ok", llm_label: null, started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:00:01Z",
         duration_ms: 10, detail: { decision: "MOVE_ON", branch_reason: "answer adequate -> move on / wrap" } },
     ],
   };

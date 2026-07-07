@@ -8,8 +8,8 @@ export interface AgentStep {
   name: string;
   status: RunStepStatus;               // pending|running|ok|failed|skipped
   llm_label: string | null;
-  started_at: number | null;
-  finished_at: number | null;
+  started_at: string | null;           // ISO-8601 (ai-service _now_iso(), proxied 1:1)
+  finished_at: string | null;          // ISO-8601
   duration_ms: number | null;
   detail: Record<string, unknown>;
 }
@@ -20,8 +20,8 @@ export interface AgentTurn {
   artifact_present_this_turn: boolean;
   artifact_available: boolean;
   steps: AgentStep[];
-  started_at: number | null;
-  finished_at: number | null;
+  started_at: string | null;           // ISO-8601
+  finished_at: string | null;          // ISO-8601
   duration_ms: number | null;
   elapsed_s_at_turn: number;
 }
@@ -38,14 +38,14 @@ export interface AgentSession {
   result: unknown | null;
   ended_reason: string | null;
   error: { step?: string; type?: string; message?: string } | null;
-  started_at: number;
-  finished_at: number | null;
+  started_at: string;                   // ISO-8601
+  finished_at: string | null;           // ISO-8601
   _logs: RunLogEntry[];
   last_seq: number;
 }
 export interface AgentSessionSummary {
   run_id: string; label: string; status: AgentSessionStatus;
-  started_at: number; finished_at: number | null; turn_count: number;
+  started_at: string; finished_at: string | null; turn_count: number;  // ISO-8601
 }
 export interface SubmitTurnBody {
   text?: string;
