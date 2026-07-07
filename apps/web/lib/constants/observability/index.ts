@@ -15,3 +15,12 @@ export const INTERVIEW_PREP_BENCH_ENDPOINTS = {
   run: (id: string) => `/api/v1/intelligence/interview-prep/runs/${encodeURIComponent(id)}`,
   candidates: "/api/v1/intelligence/interview-prep/candidates",
 } as const;
+
+const INTERVIEW_AGENT_BASE = "/api/v1/intelligence/interview-agent";
+export const INTERVIEW_AGENT_ENDPOINTS = {
+  run: `${INTERVIEW_AGENT_BASE}/run`,
+  runs: `${INTERVIEW_AGENT_BASE}/runs`,
+  runOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}`,
+  turnOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}/turn`,
+  endOf: (id: string) => `${INTERVIEW_AGENT_BASE}/runs/${id}/end`,
+} as const;

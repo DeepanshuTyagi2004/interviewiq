@@ -9,6 +9,7 @@ import { AccessControlPanel } from "./_components/AccessControlPanel";
 import { QuestionBankPanel } from "./_components/QuestionBankPanel";
 import { ResumeBenchPanel } from "./_components/ResumeBenchPanel";
 import { InterviewPrepBenchPanel } from "./_components/InterviewPrepBenchPanel";
+import { AgentDiagnosticsPanel } from "./_components/AgentDiagnosticsPanel";
 
 export default function IntelligencePage() {
   return (
@@ -29,6 +30,7 @@ export default function IntelligencePage() {
               <TabsTrigger value="questions">Question bank</TabsTrigger>
               <TabsTrigger value="resume">Résumé bench</TabsTrigger>
               <TabsTrigger value="prep">Interview prep</TabsTrigger>
+              <TabsTrigger value="agent">Agent diagnostics</TabsTrigger>
             </TabsList>
           </div>
 
@@ -54,6 +56,10 @@ export default function IntelligencePage() {
 
           <TabsContent value="prep" className="mt-0">
             <InterviewPrepBenchPanel />
+          </TabsContent>
+
+          <TabsContent value="agent" className="mt-0">
+            <AgentDiagnosticsPanel />
           </TabsContent>
         </Tabs>
       </div>
