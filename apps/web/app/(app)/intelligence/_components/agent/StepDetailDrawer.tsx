@@ -48,6 +48,20 @@ export function StepDetailDrawer({
             <dd>{step.duration_ms}ms</dd>
           </div>
         )}
+        {d.llm_ms != null && (
+          <div className="flex gap-1">
+            <dt className="font-medium">Model time:</dt>
+            <dd>{String(d.llm_ms)}ms</dd>
+          </div>
+        )}
+        {(d.prompt_tokens != null || d.completion_tokens != null) && (
+          <div className="flex gap-1">
+            <dt className="font-medium">Tokens:</dt>
+            <dd>
+              {String(d.prompt_tokens ?? "?")} in / {String(d.completion_tokens ?? "?")} out
+            </dd>
+          </div>
+        )}
       </dl>
 
       {d.prompt_system != null && <MonoField label="System prompt" value={String(d.prompt_system)} />}

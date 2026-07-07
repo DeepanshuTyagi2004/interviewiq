@@ -17,6 +17,7 @@ import {
   useSubmitTurn,
 } from "@/features/agent-diagnostics";
 import { DecisionTimeline } from "./agent/DecisionTimeline";
+import { LatencySummary } from "./agent/LatencySummary";
 import { PipelineCanvas } from "./agent/PipelineCanvas";
 import { StepDetailDrawer } from "./agent/StepDetailDrawer";
 import { TurnComposer } from "./agent/TurnComposer";
@@ -273,6 +274,7 @@ export function AgentDiagnosticsPanel() {
             ) : (
               <p className="text-sm text-muted-foreground">No turns yet.</p>
             )}
+            <LatencySummary turns={session.data.turns} />
             <div className="max-h-[45vh] overflow-auto rounded-lg border border-border p-1">
               <DecisionTimeline
                 turns={session.data.turns}
