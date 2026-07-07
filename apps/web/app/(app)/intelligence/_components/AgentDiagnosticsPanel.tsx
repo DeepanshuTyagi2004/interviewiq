@@ -54,13 +54,21 @@ export function AgentDiagnosticsPanel() {
   // Pipeline-canvas / step-detail state: which turn's steps are shown on the canvas,
   // which step's detail (incl. `thought`) is open in the drawer, and free-text notes
   // keyed by AgentTurn.index (not array position) so they line up with what
-  // sessionToMarkdown looks up per turn.
-  const [selectedTurn, setSelectedTurn] = React.useState(() => session.data?.current_turn ?? 0);
+  // sessionToMarkdown looks up per turn. `manualTurn` records whether the admin took
+  // over the turn selector; `selectedTurn` only matters once they have.
+  const [selectedTurn, setSelectedTurn] = React.useState(0);
+  const [manualTurn, setManualTurn] = React.useState(false);
   const [selectedStep, setSelectedStep] = React.useState<AgentStep | null>(null);
   const [notes, setNotes] = React.useState<Record<number, string>>({});
 
   const turns = session.data?.turns ?? [];
-  const clampedTurnIdx = turns.length === 0 ? 0 : Math.min(Math.max(selectedTurn, 0), turns.length - 1);
+  // §8.3: while the session is live and the admin hasn't manually picked a turn, the
+  // canvas auto-follows whichever turn just ran (session.data.current_turn), so new
+  // turns surface as they arrive instead of the view staying pinned to turn 0. Once
+  // the admin picks a turn from the selector, their choice sticks. Derived during
+  // render (rather than synced via an effect) to avoid a cascading-render setState.
+  const effectiveTurn = manualTurn ? selectedTurn : (session.data?.current_turn ?? 0);
+  const clampedTurnIdx = turns.length === 0 ? 0 : Math.min(Math.max(effectiveTurn, 0), turns.length - 1);
   const currentTurn = turns[clampedTurnIdx];
 
   const plan = prep.data?.status === "completed" ? prep.data.result : null;
@@ -91,6 +99,7 @@ export function AgentDiagnosticsPanel() {
     setSessionId(null);
     setPrepRunId(null);
     setSelectedTurn(0);
+    setManualTurn(false);
     setSelectedStep(null);
     setNotes({});
   };
@@ -219,6 +228,7 @@ export function AgentDiagnosticsPanel() {
                     className={SELECT_CLASS}
                     value={clampedTurnIdx}
                     onChange={(e) => {
+                      setManualTurn(true);
                       setSelectedTurn(Number(e.target.value));
                       setSelectedStep(null);
                     }}
