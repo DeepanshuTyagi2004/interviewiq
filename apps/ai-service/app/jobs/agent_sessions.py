@@ -1,24 +1,35 @@
 """In-memory keyed store for interactive agent-diagnostic sessions. Sibling to
 pipeline_runs.PipelineRunStore, sharing its seq-cursor / ring-buffer / LRU conventions
-but modelling an interactive turn->step tree. Ephemeral: lost on restart. A session in a
-non-terminal status (running / awaiting_input) is NEVER evicted; evicting a terminal
-session cancels any attached (already-finished) task defensively."""
+(and its ISO-8601 timestamp format, so the frontend's RunLogStream / RunLogEntry types
+render identically) but modelling an interactive turn->step tree. Ephemeral: lost on
+restart. A session in a non-terminal status (running / awaiting_input) is NEVER evicted;
+evicting a terminal session cancels any attached, not-yet-done task defensively.
+
+Mutators fetch with ``self._runs.get(run_id)`` and no-op silently on an unknown/evicted
+run_id (mirroring pipeline_runs), so the runner driving these across ``await`` points can
+never crash on a session that was evicted between calls."""
 from __future__ import annotations
 
 import threading
-import time
 from collections import OrderedDict, deque
+from datetime import datetime, timezone
 from typing import Any
-
-from app.jobs.pipeline_runs import new_run_id  # reuse uuid hex id
 
 _MAX_RUNS = 25
 _MAX_LOGS = 2000
 _TERMINAL = {"completed", "failed", "abandoned", "aborted"}
 
 
-def _now() -> float:
-    return time.time()
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _duration_ms(start_iso: str | None, end_iso: str | None) -> int | None:
+    if not start_iso or not end_iso:
+        return None
+    start = datetime.fromisoformat(start_iso)
+    end = datetime.fromisoformat(end_iso)
+    return int((end - start).total_seconds() * 1000)
 
 
 class AgentSessionStore:
@@ -47,7 +58,7 @@ class AgentSessionStore:
                 "result": None,
                 "ended_reason": None,
                 "error": None,
-                "started_at": _now(),
+                "started_at": _now_iso(),
                 "finished_at": None,
                 "_logs": deque(maxlen=_MAX_LOGS),
                 "_seq": 0,
@@ -59,20 +70,22 @@ class AgentSessionStore:
         return {
             "index": index, "kind": kind, "candidate_text": candidate_text,
             "artifact_present_this_turn": present, "artifact_available": available,
-            "steps": [], "started_at": _now(), "finished_at": None,
+            "steps": [], "started_at": _now_iso(), "finished_at": None,
             "duration_ms": None, "elapsed_s_at_turn": elapsed,
         }
 
     def open_turn(self, run_id, kind, candidate_text, artifact_present_this_turn,
                   artifact_available, elapsed_s_at_turn) -> int:
         with self._lock:
-            r = self._runs[run_id]
+            r = self._runs.get(run_id)
+            if not r:
+                return -1
             # close the previous turn's timing
             if r["turns"]:
                 prev = r["turns"][-1]
                 if prev["finished_at"] is None:
-                    prev["finished_at"] = _now()
-                    prev["duration_ms"] = int((prev["finished_at"] - prev["started_at"]) * 1000)
+                    prev["finished_at"] = _now_iso()
+                    prev["duration_ms"] = _duration_ms(prev["started_at"], prev["finished_at"])
             idx = len(r["turns"])
             r["turns"].append(self._new_turn(idx, kind, candidate_text,
                                              artifact_present_this_turn, artifact_available,
@@ -83,25 +96,33 @@ class AgentSessionStore:
     # ---- steps -----------------------------------------------------------
     def begin_step(self, run_id, name, llm_label=None) -> None:
         with self._lock:
-            r = self._runs[run_id]
+            r = self._runs.get(run_id)
+            if not r:
+                return
             r["current_step"] = name
             r["turns"][-1]["steps"].append({
                 "name": name, "status": "running", "llm_label": llm_label,
-                "started_at": _now(), "finished_at": None, "duration_ms": None, "detail": {},
+                "started_at": _now_iso(), "finished_at": None, "duration_ms": None, "detail": {},
             })
 
     def end_step(self, run_id, status, detail) -> None:
         with self._lock:
-            step = self._runs[run_id]["turns"][-1]["steps"][-1]
+            r = self._runs.get(run_id)
+            if not r:
+                return
+            step = r["turns"][-1]["steps"][-1]
             step["status"] = status
-            step["finished_at"] = _now()
-            step["duration_ms"] = int((step["finished_at"] - step["started_at"]) * 1000)
+            step["finished_at"] = _now_iso()
+            step["duration_ms"] = _duration_ms(step["started_at"], step["finished_at"])
             step["detail"] = {**step.get("detail", {}), **(detail or {})}
-            self._runs[run_id]["current_step"] = None
+            r["current_step"] = None
 
     def emit_skipped(self, run_id, name) -> None:
         with self._lock:
-            self._runs[run_id]["turns"][-1]["steps"].append({
+            r = self._runs.get(run_id)
+            if not r:
+                return
+            r["turns"][-1]["steps"].append({
                 "name": name, "status": "skipped", "llm_label": None,
                 "started_at": None, "finished_at": None, "duration_ms": None, "detail": {},
             })
@@ -113,37 +134,49 @@ class AgentSessionStore:
             if not r:
                 return
             r["_seq"] += 1
-            r["_logs"].append({"seq": r["_seq"], "ts": _now(),
+            r["_logs"].append({"seq": r["_seq"], "ts": _now_iso(),
                                "level": level, "message": message})
 
     def append_transcript(self, run_id, speaker, text) -> None:
         with self._lock:
-            self._runs[run_id]["transcript"].append({"speaker": speaker, "text": text})
+            r = self._runs.get(run_id)
+            if not r:
+                return
+            r["transcript"].append({"speaker": speaker, "text": text})
 
     # ---- terminal --------------------------------------------------------
     def set_result(self, run_id, outcome, ended_reason) -> None:
         with self._lock:
-            r = self._runs[run_id]
+            r = self._runs.get(run_id)
+            if not r:
+                return
             r["result"] = outcome
             r["ended_reason"] = ended_reason
 
     def fail(self, run_id, step, error) -> None:
         with self._lock:
-            r = self._runs[run_id]
+            r = self._runs.get(run_id)
+            if not r:
+                return
             r["status"] = "failed"
             r["error"] = {"step": step, "type": type(error).__name__, "message": str(error)}
-            r["finished_at"] = _now()
+            r["finished_at"] = _now_iso()
 
     def finish(self, run_id, status) -> None:
         with self._lock:
-            r = self._runs[run_id]
+            r = self._runs.get(run_id)
+            if not r:
+                return
             r["status"] = status
-            r["finished_at"] = _now()
+            r["finished_at"] = _now_iso()
 
     # ---- status / tasks --------------------------------------------------
     def set_status(self, run_id, status) -> None:
         with self._lock:
-            self._runs[run_id]["status"] = status
+            r = self._runs.get(run_id)
+            if not r:
+                return
+            r["status"] = status
 
     def current_step(self, run_id) -> str | None:
         with self._lock:

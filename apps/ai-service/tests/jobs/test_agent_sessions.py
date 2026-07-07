@@ -1,4 +1,3 @@
-import pytest
 from app.jobs.agent_sessions import AgentSessionStore
 
 def test_start_seeds_opening_turn_zero():
@@ -72,3 +71,48 @@ def test_active_count_counts_only_non_terminal():
     s.start("b", {}, label="x"); s.set_status("b", "awaiting_input")
     s.start("c", {}, label="x"); s.finish("c", "completed")
     assert s.active_count() == 2
+
+
+class _DummyTask:
+    """Stand-in for an asyncio.Task: exposes the done()/cancel() the store relies on.
+    done() is False so the store's "cancel a not-yet-done task" eviction branch fires."""
+    def __init__(self):
+        self.cancel_called = False
+
+    def done(self):
+        return False
+
+    def cancel(self):
+        self.cancel_called = True
+        return True
+
+
+def test_eviction_cancels_attached_task_of_terminal_session():
+    s = AgentSessionStore()
+    s.start("victim", {}, label="x")           # oldest; make it terminal + attach a task
+    s.finish("victim", "completed")
+    task = _DummyTask()
+    s.attach_task("victim", task)
+    # push past _MAX_RUNS (25) so the oldest terminal session ("victim") is evicted
+    for i in range(25):
+        rid = f"t{i}"; s.start(rid, {}, label="x"); s.finish(rid, "completed")
+    assert s.snapshot("victim", 0) is None     # evicted
+    assert task.cancel_called is True          # eviction cancelled its attached task
+
+
+def test_mutators_noop_on_unknown_run_id():
+    s = AgentSessionStore()
+    # None of these may raise for an unknown/evicted run_id — they must no-op silently.
+    assert s.open_turn("ghost", "main", None, False, False, 0.0) == -1
+    s.begin_step("ghost", "step")
+    s.end_step("ghost", "ok", {})
+    s.emit_skipped("ghost", "scope")
+    s.append_transcript("ghost", "iv", "hi")
+    s.set_result("ghost", {}, "natural_complete")
+    s.fail("ghost", "step", RuntimeError("boom"))
+    s.finish("ghost", "completed")
+    s.set_status("ghost", "running")
+    s.log("ghost", "INFO", "msg")
+    assert s.snapshot("ghost", 0) is None
+    assert s.status_of("ghost") is None
+    assert s.current_step("ghost") is None
