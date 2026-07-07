@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - **No brain decision-logic changes.** Taps are additive and no-op when the diagnostic contextvar is unbound. The brain's existing 148 tests (`cd interviewiq-ai-service && pytest`) MUST stay green after every ai-service task.
+- **Two behavior-preserving return-value refactors are required** (verified necessary in Task A3): `_update_pacing` (session.py:144-162) and `_score_last_answer` (session.py:113-141) currently return `None`, holding the pacing `gate`/`directive` and grade `competency`/`coherence` as locals. Add return values so the emitter can record the real pacing/grade decisions. This is a **pure return-value addition** — it changes no control flow and no value passed to the brain (callers may ignore the returns); the 148-test suite guards it. (Refines spec §6.3's "additive taps".)
 - **Ephemeral store**: in-memory, `_MAX_RUNS = 25` LRU, but **never evict a non-terminal session** (`running`/`awaiting_input`); on eviction of a terminal session, no task remains. `MAX_ACTIVE_SESSIONS` default `3`.
 - **Auth**: ai-service `/admin/*` guarded by `require_internal_key` (header `X-Internal-Api-Key`). Spring `/api/v1/intelligence/**` is `hasRole("ADMIN")`. Browser never holds the internal key.
 - **Session status enum** (exact strings): `running | awaiting_input | completed | failed | abandoned | aborted`.
@@ -40,7 +41,7 @@
 **frontend (`interviewIQ-frontend`)**
 - Modify `lib/constants/observability/index.ts` — add `INTERVIEW_AGENT_ENDPOINTS`.
 - Create `features/agent-diagnostics/{types.ts,api.ts,hooks.ts,index.ts}`.
-- Modify `features/observability/hooks.ts` — generalize `useRunPolling` with an `isTerminal` override (or add `useSessionPolling`).
+- (No change to `features/observability/hooks.ts` — `useRunPolling` is hardcoded to `RunSnapshot` (`snap.logs`/`snap.last_seq`, terminal = `completed|failed`) and can't serve the 6-status `AgentSession` with `_logs`; ship a standalone `useAgentSession` poller instead.)
 - Create `app/(app)/intelligence/_components/AgentDiagnosticsPanel.tsx` + `_components/agent/{TurnComposer.tsx,DecisionTimeline.tsx,markdownExport.ts}`.
 - Modify `app/(app)/intelligence/page.tsx` — add the 7th tab.
 - Create `features/agent-diagnostics/__tests__/*` + component tests.
@@ -502,7 +503,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
-from app.interview_agent.types import UtteranceTiming, Artifact
+from app.interview_agent.types import UtteranceTiming, Artifact, ArtifactKind
 
 _ARTIFACT_KIND_DEFAULT = "code"
 
@@ -572,7 +573,7 @@ class DiagnosticTransport:
         # _TurnInput
         present = item.artifact is not None
         if present:
-            self._artifact = Artifact(kind=item.artifact.get("kind", _ARTIFACT_KIND_DEFAULT),
+            self._artifact = Artifact(kind=ArtifactKind(item.artifact.get("kind", _ARTIFACT_KIND_DEFAULT)),
                                       content=item.artifact.get("content", ""))
         elif item.artifact == {}:   # explicit clear
             self._artifact = None
@@ -596,7 +597,7 @@ class DiagnosticTransport:
         return self._activity_seconds
 ```
 
-> Note: `Artifact` field names — confirm against `app/interview_agent/types.py` (the executor must check the exact `Artifact` dataclass fields; adjust `kind`/`content` if the real fields differ). This is the one place the transport touches a brain type.
+> Verified: `Artifact(kind: ArtifactKind, content: str, language: str | None = None)` (types.py:100-107); `ArtifactKind` is a `(str, Enum)` with `CODE="code"`/`DIAGRAM="diagram"` (types.py:80-82). `kind` MUST be the enum — the brain calls `artifact.kind.value` on the PROBE_ARTIFACT path (session.py:384), so a raw string would `AttributeError`. That is why the construction wraps with `ArtifactKind(...)`.
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -652,7 +653,8 @@ def test_emit_routes_to_bound_session(monkeypatch):
     assert step["name"] == "classify" and step["detail"]["decision"] == "answer"
 
 def test_decide_with_reason_matches_bare_decide_and_labels():
-    from app.interview_agent.types import DecisionInputs, PacingDirective
+    from app.interview_agent.state import DecisionInputs   # TypedDict lives in state.py
+    from app.interview_agent.types import PacingDirective
     # sample a range of inputs; the action must equal bare decide, and reason is non-empty
     samples = [
         dict(turn_class="answer", requested_topic=None, topic_scope="in",
@@ -688,7 +690,8 @@ from __future__ import annotations
 import contextvars
 
 from app.interview_agent.graph import decide
-from app.interview_agent.types import Action, DecisionInputs
+from app.interview_agent.types import Action
+from app.interview_agent.state import DecisionInputs  # DecisionInputs is a TypedDict in state.py, NOT types.py
 from app.jobs.agent_sessions import AGENT_SESSIONS
 
 _current: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
@@ -787,21 +790,29 @@ else:
     emit.step_skipped("scope")
 
 # --- grade (around session.py:422-428) ---
+# REQUIRED refactor (verified): `_score_last_answer` currently returns None with competency/
+# coherence as locals (session.py:124). Change it to RETURN (competency, coherence, artifact_used)
+# — pure return-value add, existing callers ignore it. Adapt the arg names to the real call site.
 if turn_class == TurnClass.ANSWER:
     emit.step_begin("grade", llm_label="iv-grade")
-    ...  # existing _score_last_answer
-    emit.step_end("ok", {"decision": {"competency": comp, "coherence": coh},
-                         "artifact_present_this_turn": artifact_present,
-                         "artifact_used_in_grade": used, "state_delta": {...}})
+    competency, coherence, artifact_used = await _score_last_answer(scorer, settings, state, text, timing, artifact)
+    emit.step_end("ok", {"decision": {"competency": competency, "coherence": coherence},
+                         "artifact_present_this_turn": artifact is not None,
+                         "artifact_used_in_grade": artifact_used,
+                         "state_delta": {"rolling": state.rolling,
+                                         "last_competency": state.per_answer[-1].competency}})
 else:
     emit.step_skipped("grade")
 
 # --- pacing (around session.py:436) ---
+# REQUIRED refactor (verified): `_update_pacing` currently returns None with gate/directive as
+# locals (session.py:148,157). Change it to RETURN (gate, directive) — the PacingGate from
+# evaluate_gate and the resolved PacingDirective. Pure return-value add; it still sets
+# state.pacing_directive / state.ended_reason exactly as before.
 emit.step_begin("pacing")
-...  # existing _update_pacing (gate + optional judge)
+gate, directive = await _update_pacing(scorer, settings, state)
 emit.step_end("ok", {"decision": {"gate": gate.value, "directive": directive.value},
-                     "inputs": {"elapsed_s": state.elapsed_s, "rolling": state.rolling},
-                     "branch_reason": pacing_reason})
+                     "inputs": {"elapsed_s": state.elapsed_s, "rolling": state.rolling}})
 
 # --- route: swap decide -> decide_with_reason (around session.py:438-440) ---
 emit.step_begin("route")
@@ -839,7 +850,7 @@ git commit -m "feat(agent-diag): contextvar emitter + pure decide_with_reason + 
 - Test: `tests/interview_agent/test_diagnostic_runner.py`
 
 **Interfaces:**
-- Consumes: `run_session` (`session.py`), `DiagnosticTransport`, `AGENT_SESSIONS`, `bind_run`/`unbind_run` (pipeline_runs), `bind_emitter`/`unbind_emitter`, `new_run_id`, `build_llm_client`/`Settings`.
+- Consumes: `run_session` (`session.py` — it builds & closes its own LLM clients internally; the runner passes only `plan`+`settings`, no clients), `DiagnosticTransport`, `AGENT_SESSIONS`, `bind_run`/`unbind_run` (pipeline_runs), `bind_emitter`/`unbind_emitter`, `new_run_id`, `Settings`.
 - Produces:
   - `class TooManyActiveSessions(Exception)`.
   - `MAX_ACTIVE_SESSIONS` (from settings, default 3).
@@ -884,7 +895,7 @@ async def test_force_end_yields_aborted(minimal_plan, test_settings):
     assert AGENT_SESSIONS.status_of(rid) == "aborted"
 ```
 
-> `minimal_plan` / `test_settings` fixtures: reuse whatever the existing brain tests use to build a plan + settings (check `tests/interview_agent/conftest.py` — the brain suite already constructs plans for `run_session`). If none exists as a fixture, lift the smallest plan builder from an existing `run_session` test into `conftest.py` and parametrize it to a 1-question DSA round so the session reaches an end quickly.
+> Verified: there is NO `tests/interview_agent/conftest.py` and no fixture. `test_session.py:14-23` defines a module-level `PLAN` dict (2 ladders + 1 reserve) that drains to `NATURAL_COMPLETE`/`WRAP`, and `test_session.py:40-61` has `_install_stubs(monkeypatch, classify=, competency=, directive=, opening_intent=)` which monkeypatches `app.interview_agent.llm_ops` fns AND stubs `sess.build_llm_client -> None` so `run_session` never hits the network, plus builds `Settings` via `app.config.get_settings()`. Create `tests/interview_agent/conftest.py` exposing `minimal_plan` (copy `PLAN`) and `test_settings` (`get_settings()`), and reuse/replicate `_install_stubs` in the runner test so no real LLM is called.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -901,6 +912,7 @@ DiagnosticTransport, and records the terminal outcome. Does NOT post to the outc
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 
 from app.config import Settings
@@ -948,8 +960,9 @@ async def _run(run_id, transport, plan, settings) -> None:
     emit_tok = emit.bind_emitter(run_id)
     try:
         outcome = await run_session(transport, plan, settings)
-        # SessionOutcome -> dict (reuse whatever serializer outcome.py exposes; else __dict__)
-        doc = outcome if isinstance(outcome, dict) else getattr(outcome, "__dict__", {})
+        # SessionOutcome is a frozen dataclass (types.py:135) -> asdict recurses nested dataclasses.
+        # ended_reason is an EndedReason (str, Enum), so JSON + == "abandoned" both work.
+        doc = dataclasses.asdict(outcome)
         ended_reason = doc.get("ended_reason")
         AGENT_SESSIONS.set_result(run_id, doc, ended_reason)
         AGENT_SESSIONS.finish(run_id, terminal_status(ended_reason))
@@ -967,7 +980,7 @@ async def _run(run_id, transport, plan, settings) -> None:
         TRANSPORTS.pop(run_id, None)
 ```
 
-> `SessionOutcome` serialization: check `outcome.py` — if `SessionOutcome` is a dataclass, use `dataclasses.asdict`; if it exposes a `to_dict()`/`model_dump()`, use that. The `ended_reason` key must be present in the serialized doc (spec §6.5). Adjust the `doc = ...` line accordingly.
+> Verified: `SessionOutcome` is a frozen `@dataclass` (types.py:135-145) with an `ended_reason: EndedReason` field; no `to_dict`/`model_dump`. Use `dataclasses.asdict(outcome)` (recurses into nested `PerAnswerScore`/`NegativeEvent`). `EndedReason` is a `(str, Enum)` so it serializes and `== "abandoned"` compares as a string.
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -1006,7 +1019,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 
-HEADERS = {"X-Internal-Api-Key": "test-internal-key"}  # match the test settings override
+HEADERS = {"X-Internal-Api-Key": "x"}  # root tests/conftest.py:11 sets INTERNAL_API_KEY="x"; get_settings is @lru_cache
 
 @pytest.mark.asyncio
 async def test_run_then_poll_then_atomic_turn(minimal_plan_json):
@@ -1040,14 +1053,14 @@ async def test_missing_internal_key_is_401(minimal_plan_json):
         assert r.status_code == 401
 ```
 
-> Fixtures: reuse the ai-service test settings override that sets `internal_api_key="test-internal-key"` (the existing prep endpoint tests in `tests/api/` already do this — copy their conftest pattern). `minimal_plan_json` = the same minimal plan as Task A4, JSON-serializable.
+> Verified: there is NO `tests/api/` dir and NO conftest setting `"test-internal-key"`. Root `tests/conftest.py:11` does `os.environ.setdefault("INTERNAL_API_KEY", "x")` and `get_settings` is `@lru_cache`, so the effective key is `"x"` — send that header (the 401 test still holds: omitting the header ≠ `"x"`). Reuse `_install_stubs` (test_session.py) so `/run` starts a stubbed, no-network session. `minimal_plan_json` = the `PLAN` dict from `test_session.py:14-23` (already JSON-serializable). Put both in `tests/interview_agent/conftest.py` (auto-discovered under `tests/`), or an `app.dependency_overrides[require_internal_key]=lambda:True` bypass per `tests/test_questions_endpoints.py:7-8` for the non-401 cases.
 
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `pytest tests/api/test_admin_interview_agent.py -q`
 Expected: FAIL — 404 on `/admin/interview-agent/run` (route not defined).
 
-- [ ] **Step 3: Implement the endpoints** (append to `app/api/admin.py`)
+- [ ] **Step 3: Implement the endpoints** (append to `app/api/admin.py`). FIRST add `Body` to the existing fastapi import — admin.py:14 currently imports `APIRouter, Depends, HTTPException, Query, Request, status` and **`Body` is missing** (the `plan: dict = Body(...)` param NameErrors without it). `Query`/`HTTPException`/`Depends`/`status` and the module-level `get_settings()` are already available; `router` is the existing `APIRouter(prefix="/admin", ...)`.
 
 ```python
 # --- Agent diagnostics (interactive brain harness) --------------------------------
@@ -1134,63 +1147,71 @@ git commit -m "feat(agent-diag): /admin/interview-agent endpoints (run/turn/runs
 
 ```java
 // --- Agent diagnostics (interactive brain harness) -------------------------------------
+// Mirror the prep methods (AiServiceClient.java:314-346): .retrieve().body(String.class) then
+// objectMapper.readTree(...). objectMapper is the existing `private final ObjectMapper objectMapper`
+// field (tools.jackson.databind — Jackson 3, readTree throws only unchecked JacksonException).
 /** Start an interactive diagnostic interview session on the ai-service. */
 public JsonNode startAgentRun(JsonNode plan) {
-    JsonNode body = restClient.post()
+    String body = restClient.post()
             .uri(baseUrl + "/admin/interview-agent/run")
             .header("X-Internal-Api-Key", internalApiKey)
             .contentType(MediaType.APPLICATION_JSON)
             .body(plan)
             .retrieve()
-            .body(JsonNode.class);
-    if (body == null) throw new RestClientException("ai-service /admin/interview-agent/run returned empty body");
-    return body;
+            .body(String.class);
+    if (body == null || body.isBlank())
+        throw new RestClientException("ai-service /admin/interview-agent/run returned an empty body");
+    return objectMapper.readTree(body);
 }
 
 /** Submit a candidate turn (or silence/end) to a diagnostic session. */
 public JsonNode submitAgentTurn(String runId, JsonNode turn) {
-    return restClient.post()
+    String body = restClient.post()
             .uri(baseUrl + "/admin/interview-agent/runs/{runId}/turn", runId)
             .header("X-Internal-Api-Key", internalApiKey)
             .contentType(MediaType.APPLICATION_JSON)
             .body(turn)
             .retrieve()
-            .body(JsonNode.class);
+            .body(String.class);
+    return objectMapper.readTree(body);
 }
 
 /** Snapshot of a diagnostic session + incremental logs (entries with seq > after). */
 public JsonNode getAgentRun(String runId, long after) {
-    return restClient.get()
+    String body = restClient.get()
             .uri(baseUrl + "/admin/interview-agent/runs/{runId}?after={after}", runId, after)
             .header("X-Internal-Api-Key", internalApiKey)
             .retrieve()
-            .body(JsonNode.class);
+            .body(String.class);
+    return objectMapper.readTree(body);
 }
 
 /** Recent diagnostic sessions (newest first). */
 public JsonNode listAgentRuns() {
-    return restClient.get()
+    String body = restClient.get()
             .uri(baseUrl + "/admin/interview-agent/runs")
             .header("X-Internal-Api-Key", internalApiKey)
             .retrieve()
-            .body(JsonNode.class);
+            .body(String.class);
+    return objectMapper.readTree(body);
 }
 
 /** Force-end a diagnostic session. */
 public JsonNode endAgentRun(String runId) {
-    return restClient.post()
+    String body = restClient.post()
             .uri(baseUrl + "/admin/interview-agent/runs/{runId}/end", runId)
             .header("X-Internal-Api-Key", internalApiKey)
             .retrieve()
-            .body(JsonNode.class);
+            .body(String.class);
+    return objectMapper.readTree(body);
 }
 ```
 
-> Confirm the exact `restClient` builder style + imports (`JsonNode`, `MediaType`, `RestClientException`) match the surrounding prep methods; copy their idiom verbatim.
+> Verified: fields are `restClient`, `objectMapper`, `baseUrl`, `internalApiKey`. Imports: `JsonNode`/`ObjectMapper` = `tools.jackson.databind.*` (Jackson 3, NOT `com.fasterxml`), `MediaType` = `org.springframework.http.MediaType`, `RestClientException` = `org.springframework.web.client.RestClientException`. Jackson-3 `readTree` throws unchecked, so no `try/catch` is needed.
 
 - [ ] **Step 2: Compile**
 
-Run: `cd /Users/salescode/Desktop/project/interviewiq-backend && ./mvnw -q compile` (use the repo's actual build cmd; check JAVA_HOME per memory `jdk25-build-java-home`).
+Run: `cd /Users/salescode/Desktop/project/interviewiq-backend && JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home ./mvnw -q compile` — JDK 25 required; the machine default is JDK 17 with `JAVA_HOME` unset, so a bare `mvnw` FAILS to produce release-25 bytecode.
 Expected: BUILD SUCCESS.
 
 - [ ] **Step 3: Commit**
@@ -1215,44 +1236,54 @@ git commit -m "feat(agent-diag): AiServiceClient methods for /admin/interview-ag
 - [ ] **Step 1: Write the failing MockMvc test**
 
 ```java
-// AdminInterviewAgentControllerTest.java  (mirror the prep controller test if one exists)
-@WebMvcTest(AdminInterviewAgentController.class)
+// AdminInterviewAgentControllerTest.java — mirror AdminInterviewPrepControllerTest EXACTLY.
+@WebMvcTest(controllers = AdminInterviewAgentController.class,
+            properties = "spring.mvc.apiversion.use.path-segment=1")     // else /api/v1 version won't resolve
+@Import(AdminInterviewAgentControllerTest.TestSecurityConfig.class)
 class AdminInterviewAgentControllerTest {
     @Autowired MockMvc mvc;
-    @MockitoBean AiServiceClient aiService;   // or @MockBean per the repo's Spring version
+    @Autowired ObjectMapper objectMapper;                 // tools.jackson.databind.ObjectMapper (autowired, not `new`)
+    @MockitoBean AiServiceClient aiService;               // org.springframework.test.context.bean.override.mockito.MockitoBean
 
-    @Test @WithMockUser(roles = "ADMIN")
+    @Test
     void start_run_proxies_and_returns_body() throws Exception {
-        given(aiService.startAgentRun(any())).willReturn(new ObjectMapper().readTree("{\"run_id\":\"r1\",\"status\":\"running\"}"));
-        mvc.perform(post("/api/v1/intelligence/interview-agent/run").contentType(APPLICATION_JSON).content("{}"))
+        when(aiService.startAgentRun(any()))
+            .thenReturn(objectMapper.readTree("{\"run_id\":\"r1\",\"status\":\"running\"}"));
+        mvc.perform(post("/api/v1/intelligence/interview-agent/run")
+                .with(jwt()).contentType(APPLICATION_JSON).content("{}"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.run_id").value("r1"));
     }
 
-    @Test @WithMockUser(roles = "ADMIN")
+    @Test
     void unknown_run_maps_to_404_run_not_found() throws Exception {
-        given(aiService.getAgentRun(eq("nope"), anyLong()))
-            .willThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "nf", null, null, null));
-        mvc.perform(get("/api/v1/intelligence/interview-agent/runs/nope"))
+        when(aiService.getAgentRun(eq("nope"), anyLong()))
+            .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "nf", null, null, null));
+        mvc.perform(get("/api/v1/intelligence/interview-agent/runs/nope").with(jwt()))
            .andExpect(status().isNotFound())
            .andExpect(jsonPath("$.code").value("run_not_found"));
     }
 
-    @Test @WithMockUser(roles = "ADMIN")
+    @Test
     void aiservice_down_maps_to_502() throws Exception {
-        given(aiService.listAgentRuns()).willThrow(new RestClientException("down"));
-        mvc.perform(get("/api/v1/intelligence/interview-agent/runs"))
+        when(aiService.listAgentRuns()).thenThrow(new RestClientException("down"));
+        mvc.perform(get("/api/v1/intelligence/interview-agent/runs").with(jwt()))
            .andExpect(status().isBadGateway())
            .andExpect(jsonPath("$.code").value("ai_service_unreachable"));
     }
+
+    // Copy VERBATIM from AdminInterviewPrepControllerTest: a mock(JwtDecoder.class) bean + a
+    // permissive SecurityFilterChain (csrf disabled, anyRequest().authenticated(), oauth2 jwt()).
+    @TestConfiguration @EnableWebSecurity
+    static class TestSecurityConfig { /* mock JwtDecoder bean + SecurityFilterChain bean */ }
 }
 ```
 
-> Match the repo's test conventions exactly: `@MockitoBean` vs `@MockBean`, security test setup, and `ApiError` JSON field names (`code`/`message`) — read `AdminInterviewPrepControllerTest.java` if it exists and mirror it.
+> Verified: `AdminInterviewPrepControllerTest.java` exists and uses `@MockitoBean` (`org.springframework.test.context.bean.override.mockito.MockitoBean`), `@WebMvcTest(..., properties="spring.mvc.apiversion.use.path-segment=1")`, `@Import(...TestSecurityConfig.class)`, `.with(jwt())` on every request (static import `SecurityMockMvcRequestPostProcessors.jwt`), an autowired `tools.jackson.databind.ObjectMapper`, and `when(...).thenReturn(...)`. Do NOT use `@WithMockUser`. `ApiError` = `record ApiError(String code, String message)` in `...dtos`. `HttpClientErrorException.TooManyRequests` exists in spring-web 7.0.7 (429 branch is valid).
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `./mvnw -q -Dtest=AdminInterviewAgentControllerTest test`
+Run: `JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home ./mvnw -q -Dtest=AdminInterviewAgentControllerTest test`
 Expected: FAIL — controller class missing.
 
 - [ ] **Step 3: Implement the controller** (mirror `AdminInterviewPrepController` incl. the 3-way catch)
@@ -1307,7 +1338,7 @@ public class AdminInterviewAgentController {
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `./mvnw -q -Dtest=AdminInterviewAgentControllerTest test`
+Run: `JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home ./mvnw -q -Dtest=AdminInterviewAgentControllerTest test`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Commit**
@@ -1423,7 +1454,7 @@ export * from "./hooks";
 
 - [ ] **Step 4: Typecheck**
 
-Run: `npm run typecheck` (or `npx tsc --noEmit`).
+Run: `npx tsc --noEmit` (there is NO `npm run typecheck` script; `tsconfig` sets `noEmit`).
 Expected: no new errors. (`api.ts`/`hooks.ts` don't exist yet — `index.ts` will error until C1/C2; either add C1/C2 in the same commit or comment the barrel exports until then. Prefer committing C0+C1+C2 together — see below.)
 
 - [ ] **Step 5: (defer commit to after C2 so the barrel resolves)**
@@ -1471,8 +1502,8 @@ export function endAgentSession(runId: string) {
 ### Task C2: Hooks + generalized poller
 
 **Files:**
-- Modify: `features/observability/hooks.ts` (add optional `isTerminal` override to `useRunPolling`, keeping the default behavior for prep)
-- Create: `features/agent-diagnostics/hooks.ts`
+- (No modification to `features/observability/hooks.ts` — `useRunPolling` is typed to `RunSnapshot` (`snap.logs`/`snap.last_seq`, terminal = `completed|failed`) and cannot serve the 6-status `AgentSession` with `_logs`. Ship a standalone poller.)
+- Create: `features/agent-diagnostics/hooks.ts` (contains `useAgentSession`, the standalone poll-until-terminal hook)
 - Test: `features/agent-diagnostics/__tests__/hooks.test.ts` (or the repo's test location)
 
 **Interfaces:**
@@ -1772,6 +1803,9 @@ import { sessionToMarkdown } from "./agent/markdownExport";
 import { TurnComposer } from "./agent/TurnComposer";
 import { DecisionTimeline } from "./agent/DecisionTimeline";
 
+// copied verbatim from InterviewPrepBenchPanel.tsx:10-11
+const SELECT_CLASS = "rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
 export function AgentDiagnosticsPanel() {
   const jds = useJds();
   const candidates = usePrepCandidates();
@@ -1792,9 +1826,26 @@ export function AgentDiagnosticsPanel() {
     <div className="space-y-4">
       {!sessionId && (
         <div className="flex gap-2 items-end">
-          {/* JD + candidate selects — mirror InterviewPrepBenchPanel */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Job description</span>
+            <select className={SELECT_CLASS} value={jdId ?? ""} onChange={(e) => setJdId(e.target.value)}>
+              <option value="">{jds.isLoading ? "Loading roles…" : "Select a role"}</option>
+              {(jds.data ?? []).map((jd) => (
+                <option key={jd.id} value={jd.id}>{jd.companyName} — {jd.title} ({jd.level})</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Candidate (optional)</span>
+            <select className={SELECT_CLASS} value={candidateId ?? ""} onChange={(e) => setCandidateId(e.target.value)}>
+              <option value="">{candidates.isLoading ? "Loading candidates…" : "No candidate (JD-only grounding)"}</option>
+              {(candidates.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.email ? ` — ${c.email}` : ""}</option>
+              ))}
+            </select>
+          </label>
           <button disabled={!jdId} onClick={() =>
-            startPrep.mutate({ jd_id: jdId!, candidate_id: candidateId },
+            startPrep.mutate({ jobDescriptionId: jdId!, candidateId },
               { onSuccess: (r) => setPrepRunId(r.run_id) })}>Run prep</button>
           {plan ? (
             <button onClick={() =>
@@ -1848,7 +1899,7 @@ export function AgentDiagnosticsPanel() {
 
 - [ ] **Step 7: Run component tests + typecheck + build**
 
-Run: `npx vitest run app/\(app\)/intelligence/_components && npm run typecheck && npm run build`
+Run: `npx vitest run app/\(app\)/intelligence/_components && npx tsc --noEmit && npm run build`
 Expected: tests PASS, typecheck clean, build succeeds.
 
 - [ ] **Step 8: Commit**
@@ -1877,8 +1928,8 @@ git commit -m "feat(agent-diag): Agent Diagnostics panel (prep->session, compose
 
 ### Task D2: Full regression gate
 - [ ] `cd interviewiq-ai-service && pytest -q` → green at the Task A0 baseline count.
-- [ ] `cd interviewiq-backend && ./mvnw -q test` → green.
-- [ ] `cd interviewIQ-frontend && npm run typecheck && npm run build` → clean.
+- [ ] `cd interviewiq-backend && JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home ./mvnw -q test` → green.
+- [ ] `cd interviewIQ-frontend && npx tsc --noEmit && npm run build` → clean.
 - [ ] Request code review (superpowers:requesting-code-review) on the three branches' diffs before merge.
 
 ---
