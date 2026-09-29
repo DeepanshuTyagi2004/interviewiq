@@ -1,0 +1,9 @@
+.git
+.idea
+.mvn/wrapper/maven-wrapper.jar
+target
+*.iml
+*.log
+.DS_Store
+Dockerfile
+.env

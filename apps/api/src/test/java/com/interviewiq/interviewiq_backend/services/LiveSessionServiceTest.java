@@ -1,0 +1,195 @@
+package com.interviewiq.interviewiq_backend.services;
+
+import com.interviewiq.interviewiq_backend.dtos.LiveSessionResponse;
+import com.interviewiq.interviewiq_backend.integrations.livekit.LiveKitTokenService;
+import com.interviewiq.interviewiq_backend.models.InterviewSession;
+import com.interviewiq.interviewiq_backend.models.SessionStatus;
+import com.interviewiq.interviewiq_backend.repositories.InterviewSessionRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class LiveSessionServiceTest {
+
+    private static final UUID USER = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+    @Mock InterviewSessionRepository sessionRepository;
+    @Mock LiveKitTokenService liveKit;
+    @InjectMocks LiveSessionService service;
+
+    private InterviewSession session(SessionStatus status) {
+        InterviewSession s = new InterviewSession();
+        s.setCandidateId(USER);
+        s.setStatus(status);
+        return s;
+    }
+
+    @Test
+    void startLive_fromPrepReady_mintsTokenFlipsToLiveAndReturnsConnection() {
+        InterviewSession s = session(SessionStatus.PREP_READY);
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.of(s));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(liveKit.roomName(sid)).thenReturn("interview-" + sid);
+        when(liveKit.mintCandidateToken(sid, USER)).thenReturn("jwt-token");
+        when(liveKit.livekitUrl()).thenReturn("wss://x.livekit.cloud");
+
+        LiveSessionResponse resp = service.startLive(USER, sid);
+
+        assertEquals("wss://x.livekit.cloud", resp.livekitUrl());
+        assertEquals("jwt-token", resp.token());
+        assertEquals("interview-" + sid, resp.roomName());
+        assertEquals(SessionStatus.LIVE_IN_PROGRESS, resp.status());
+        assertEquals(SessionStatus.LIVE_IN_PROGRESS, s.getStatus());
+        assertNotNull(s.getLiveStartedAt());
+        assertEquals("interview-" + sid, s.getLivekitRoom());
+        verify(sessionRepository).save(s);
+    }
+
+    @Test
+    void startLive_whenAlreadyLive_returnsFreshTokenWithoutChangingStartedAt() {
+        InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
+        java.time.Instant started = java.time.Instant.parse("2020-01-01T00:00:00Z");
+        s.setLiveStartedAt(started);
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.of(s));
+        when(liveKit.roomName(sid)).thenReturn("interview-" + sid);
+        when(liveKit.mintCandidateToken(sid, USER)).thenReturn("jwt-2");
+        when(liveKit.livekitUrl()).thenReturn("wss://x.livekit.cloud");
+
+        LiveSessionResponse resp = service.startLive(USER, sid);
+
+        assertEquals("jwt-2", resp.token());
+        assertEquals(started, s.getLiveStartedAt(), "must not reset liveStartedAt on resume");
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void startLive_whenNotReady_throwsConflict() {
+        InterviewSession s = session(SessionStatus.SCHEDULED);
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.of(s));
+
+        InterviewSessionException ex =
+                assertThrows(InterviewSessionException.class, () -> service.startLive(USER, sid));
+        assertEquals(409, ex.status().value());
+    }
+
+    @Test
+    void startLive_whenNotOwned_throwsNotFound() {
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.empty());
+
+        InterviewSessionException ex =
+                assertThrows(InterviewSessionException.class, () -> service.startLive(USER, sid));
+        assertEquals(404, ex.status().value());
+    }
+
+    @Test
+    void getLive_whenLive_returnsToken_elseStatusOnly() {
+        UUID sid = UUID.randomUUID();
+        InterviewSession live = session(SessionStatus.LIVE_IN_PROGRESS);
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.of(live));
+        when(liveKit.roomName(sid)).thenReturn("interview-" + sid);
+        when(liveKit.mintCandidateToken(sid, USER)).thenReturn("jwt-3");
+        when(liveKit.livekitUrl()).thenReturn("wss://x.livekit.cloud");
+
+        LiveSessionResponse r1 = service.getLive(USER, sid);
+        assertEquals("jwt-3", r1.token());
+        assertEquals(SessionStatus.LIVE_IN_PROGRESS, r1.status());
+
+        InterviewSession ready = session(SessionStatus.PREP_READY);
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.of(ready));
+        LiveSessionResponse r2 = service.getLive(USER, sid);
+        assertNull(r2.token());
+        assertEquals(SessionStatus.PREP_READY, r2.status());
+    }
+
+    @Test
+    void getLive_whenNotOwned_throwsNotFound() {
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findByIdAndCandidateId(sid, USER)).thenReturn(Optional.empty());
+
+        InterviewSessionException ex =
+                assertThrows(InterviewSessionException.class, () -> service.getLive(USER, sid));
+        assertEquals(404, ex.status().value());
+    }
+
+    @Test
+    void recordOutcome_persistsJsonbAndFlipsToCompleted() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        String body = "{\"session_id\":\"" + sid + "\",\"ended_reason\":\"natural_complete\","
+                + "\"live_score_final\":0.66,\"duration_s\":1830.0,\"per_answer_evidence\":[],"
+                + "\"negative_events\":[],\"arc_completed\":true,\"extensions_granted\":0,"
+                + "\"derived_topics\":[]}";
+        svc.recordOutcome(sid, om.readTree(body));
+
+        assertEquals(SessionStatus.COMPLETED, s.getStatus());
+        assertEquals("natural_complete", s.getEndedReason());
+        assertEquals(0.66, s.getLiveScoreFinal());
+        assertEquals(1830, s.getDurationS());
+        assertNotNull(s.getLiveEndedAt());
+        assertTrue(s.getOutcome().contains("\"session_id\""));
+    }
+
+    @Test
+    void recordOutcome_abortedTechnical_flipsToAborted() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.LIVE_IN_PROGRESS);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        svc.recordOutcome(sid, om.readTree(
+                "{\"ended_reason\":\"aborted_technical\",\"live_score_final\":0.0,\"duration_s\":120.0}"));
+
+        assertEquals(SessionStatus.ABORTED_TECHNICAL, s.getStatus());
+    }
+
+    @Test
+    void recordOutcome_unknownSession_throwsNotFound() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
+        UUID sid = UUID.randomUUID();
+        when(sessionRepository.findById(sid)).thenReturn(Optional.empty());
+        assertThrows(InterviewSessionException.class,
+                () -> svc.recordOutcome(sid, om.readTree("{\"ended_reason\":\"early_weak\"}")));
+    }
+
+    @Test
+    void recordOutcome_onAlreadyCompletedSession_isNoOp() {
+        tools.jackson.databind.ObjectMapper om = tools.jackson.databind.json.JsonMapper.builder().build();
+        LiveSessionService svc = new LiveSessionService(sessionRepository, liveKit);
+        UUID sid = UUID.randomUUID();
+        InterviewSession s = session(SessionStatus.COMPLETED);
+        String originalOutcome = "{\"ended_reason\":\"natural_complete\"}";
+        java.time.Instant originalEndedAt = java.time.Instant.parse("2020-01-01T00:00:00Z");
+        s.setOutcome(originalOutcome);
+        s.setLiveEndedAt(originalEndedAt);
+        when(sessionRepository.findById(sid)).thenReturn(Optional.of(s));
+
+        svc.recordOutcome(sid, om.readTree("{\"ended_reason\":\"aborted_technical\"}"));
+
+        assertEquals(SessionStatus.COMPLETED, s.getStatus());
+        assertEquals(originalOutcome, s.getOutcome());
+        assertEquals(originalEndedAt, s.getLiveEndedAt());
+        verify(sessionRepository, never()).save(any());
+    }
+}
