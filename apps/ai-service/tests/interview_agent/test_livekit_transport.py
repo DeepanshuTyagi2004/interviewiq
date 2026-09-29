@@ -1,0 +1,230 @@
+import asyncio
+
+from app.interview_agent import transport as transport_module
+from app.interview_agent.transport import LiveKitTransport
+from app.interview_agent.types import ArtifactKind, UtteranceTiming
+
+
+class FakeRoom:
+    """Minimal stand-in; the real room is injected only via the `send` callable + handle_incoming."""
+
+
+def _make():
+    sent: list[dict] = []
+    async def send(payload: dict) -> None:
+        sent.append(payload)
+    t = LiveKitTransport(FakeRoom(), send=send)
+    return t, sent
+
+
+def test_say_emits_speaking_and_utterance():
+    t, sent = _make()
+    asyncio.run(t.say("hello there"))
+    types = [m["type"] for m in sent]
+    assert types == ["speaking", "interviewer_utterance", "speaking"]
+    assert sent[0]["speaking"] is True and sent[2]["speaking"] is False
+    assert sent[1]["text"] == "hello there"
+
+
+def test_answer_message_becomes_next_utterance():
+    t, sent = _make()
+    async def scenario():
+        await t.handle_incoming({"type": "answer", "text": "my answer", "tStart": 1.0, "tEnd": 4.0})
+        return await t.next_utterance()
+    item = asyncio.run(scenario())
+    assert item is not None
+    text, timing = item
+    assert text == "my answer"
+    assert timing.t_start == 1.0 and timing.t_end == 4.0
+
+
+def test_artifact_snapshot_roundtrips():
+    t, _ = _make()
+    async def scenario():
+        await t.handle_incoming({"type": "artifact", "kind": "code", "content": "def f(): pass", "language": "python"})
+        return await t.current_artifact()
+    art = asyncio.run(scenario())
+    assert art is not None and art.kind == ArtifactKind.CODE
+    assert art.content == "def f(): pass" and art.language == "python"
+
+
+def test_proctor_pause_withholds_next_utterance_until_resume():
+    t, sent = _make()
+    async def scenario():
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        # an answer arrives while paused; next_utterance must NOT return it yet
+        await t.handle_incoming({"type": "answer", "text": "late", "tStart": 0.0, "tEnd": 1.0})
+        try:
+            await asyncio.wait_for(t.next_utterance(), timeout=0.2)
+            returned_while_paused = True
+        except asyncio.TimeoutError:
+            returned_while_paused = False
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_restored"})
+        item = await asyncio.wait_for(t.next_utterance(), timeout=1.0)
+        return returned_while_paused, item
+    withheld, item = asyncio.run(scenario())
+    assert withheld is False, "utterance must be withheld while paused"
+    assert item is not None and item[0] == "late"
+    kinds = [m["type"] for m in sent]
+    assert "pause" in kinds and "acknowledge_violation" in kinds and "resume" in kinds
+
+
+def test_end_session_marks_disconnected():
+    """end_session() is teardown-only now (Fix 1): it must NOT emit an `ended` message (the frozen
+    brain calls it from a `finally` BEFORE run_session returns, so it never knows the real end
+    reason — the worker sends the authoritative `ended` message itself, after the fact). It must
+    still unblock anything parked in next_utterance()."""
+    t, sent = _make()
+
+    async def scenario():
+        await t.end_session()
+        return await asyncio.wait_for(t.next_utterance(), 1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+    assert [m for m in sent if m["type"] == "ended"] == []
+
+
+def test_pause_wait_capped_by_pause_max_s_returns_none(monkeypatch):
+    """A pause that is never resumed and sees no disconnect event must still terminate rather than
+    hang next_utterance() forever — PAUSE_MAX_S bounds the wait so the driver's silence handling can
+    take over. Monkeypatch the module constant down to keep the test fast."""
+    monkeypatch.setattr(transport_module, "PAUSE_MAX_S", 0.05)
+    t, _ = _make()
+
+    async def scenario():
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        return await asyncio.wait_for(t.next_utterance(), timeout=1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+
+
+def test_answer_arriving_while_paused_is_withheld_until_resume():
+    """The exact mid-wait race: next_utterance() is already parked (unpaused) inside the queue
+    wait when a pause fires. Under the pre-fix code, an answer arriving after that point is
+    enqueued unconditionally and immediately delivered to the already-parked call, bypassing the
+    pause. The fix gates on the enqueue side, so the parked call must keep waiting until resume
+    flushes the buffered answer through."""
+    t, sent = _make()
+
+    async def scenario():
+        task = asyncio.ensure_future(t.next_utterance())
+        await asyncio.sleep(0)  # let the task start and park on the (currently unpaused) queue
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        await t.handle_incoming({"type": "answer", "text": "late", "tStart": 0.0, "tEnd": 1.0})
+        timed_out = False
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=0.2)
+        except asyncio.TimeoutError:
+            timed_out = True
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_restored"})
+        item = await asyncio.wait_for(task, timeout=1.0)
+        return timed_out, item
+
+    timed_out, item = asyncio.run(scenario())
+    assert timed_out is True, "answer received mid-wait during a pause must be withheld, not delivered"
+    assert item is not None and item[0] == "late"
+    kinds = [m["type"] for m in sent]
+    assert "pause" in kinds and "resume" in kinds
+
+
+def test_mark_disconnected_returns_none_promptly():
+    t, _ = _make()
+
+    async def scenario():
+        t.mark_disconnected()
+        return await asyncio.wait_for(t.next_utterance(), timeout=1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+
+
+def test_disconnect_while_paused_returns_none_promptly():
+    """A candidate who disconnects mid-violation (paused, never resumes) must not hang the interview
+    forever: next_utterance() is parked on the pause gate when mark_disconnected() fires, and it must
+    return None promptly rather than waiting indefinitely for a resume that will never come."""
+    t, sent = _make()
+
+    async def scenario():
+        await t.handle_incoming({"type": "proctor", "event": "fullscreen_exit"})
+        task = asyncio.ensure_future(t.next_utterance())
+        await asyncio.sleep(0)  # let the task start and park on the pause gate
+        t.mark_disconnected()
+        return await asyncio.wait_for(task, timeout=1.0)
+
+    result = asyncio.run(scenario())
+    assert result is None
+    kinds = [m["type"] for m in sent]
+    assert "pause" in kinds
+
+
+def test_malformed_incoming_message_does_not_raise():
+    t, _ = _make()
+
+    async def scenario():
+        await t.handle_incoming({"type": "artifact", "kind": "bogus"})
+        await t.handle_incoming({"type": "answer"})
+        await t.handle_incoming({"type": "answer", "text": "ok", "tStart": 0.0, "tEnd": 1.0})
+        return await asyncio.wait_for(t.next_utterance(), timeout=1.0)
+
+    item = asyncio.run(scenario())
+    assert item is not None and item[0] == "ok"
+
+
+# ----------------------------- Task 7: activity tracking (code != inactivity) -----------------------------
+
+
+def _make_with_clock(start: float = 0.0):
+    """A LiveKitTransport wired to a controllable fake clock so tests can assert
+    `seconds_since_activity()` deterministically instead of racing a real wall clock."""
+    sent: list[dict] = []
+    clock = {"t": start}
+
+    def now() -> float:
+        return clock["t"]
+
+    async def send(payload: dict) -> None:
+        sent.append(payload)
+
+    t = LiveKitTransport(FakeRoom(), send=send, now=now)
+    return t, sent, clock
+
+
+def test_seconds_since_activity_grows_with_the_clock():
+    t, _, clock = _make_with_clock(start=100.0)
+    assert t.seconds_since_activity() == 0.0
+    clock["t"] = 130.0
+    assert t.seconds_since_activity() == 30.0
+
+
+def test_artifact_message_refreshes_activity():
+    """Code/diagram edits ARE activity — this is the crux of Task 7."""
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 40.0
+    assert t.seconds_since_activity() == 40.0
+
+    async def scenario():
+        await t.handle_incoming({"type": "artifact", "kind": "code", "content": "def f(): pass"})
+    asyncio.run(scenario())
+    assert t.seconds_since_activity() == 0.0
+
+    clock["t"] = 45.0
+    assert t.seconds_since_activity() == 5.0
+
+
+def test_answer_message_refreshes_activity():
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 20.0
+
+    async def scenario():
+        await t.handle_incoming({"type": "answer", "text": "hi", "tStart": 0.0, "tEnd": 1.0})
+    asyncio.run(scenario())
+    assert t.seconds_since_activity() == 0.0
+
+
+def test_push_utterance_refreshes_activity():
+    t, _, clock = _make_with_clock(start=0.0)
+    clock["t"] = 15.0
+    t.push_utterance("hi", UtteranceTiming(0.0, 1.0, 0.3))
+    assert t.seconds_since_activity() == 0.0

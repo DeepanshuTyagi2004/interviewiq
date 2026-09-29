@@ -1,0 +1,70 @@
+{
+  "source": "amazon-leadership-principles",
+  "url": "https://www.amazon.jobs/content/en/our-workplace/leadership-principles",
+  "company_tags": ["amazon"],
+  "category": "amazon-lp",
+  "questions": [
+    { "principle": "Customer Obsession", "title": "Tell me about a time you went above and beyond for a customer." },
+    { "principle": "Customer Obsession", "title": "Describe a time you used customer feedback to drive a change or improvement." },
+    { "principle": "Customer Obsession", "title": "Tell me about a time you had to balance the needs of the customer against the needs of the business." },
+    { "principle": "Customer Obsession", "title": "Give an example of when you sacrificed short-term gains for a better long-term customer experience." },
+
+    { "principle": "Ownership", "title": "Tell me about a time you took on something significant outside your area of responsibility." },
+    { "principle": "Ownership", "title": "Describe a time you had to make a decision without your manager's approval." },
+    { "principle": "Ownership", "title": "Tell me about a time you saw a problem nobody owned and stepped up to fix it." },
+    { "principle": "Ownership", "title": "Give an example of a long-term project you owned end to end." },
+
+    { "principle": "Invent and Simplify", "title": "Tell me about a time you invented a new solution to a hard problem." },
+    { "principle": "Invent and Simplify", "title": "Describe a time you simplified a complex process or system." },
+    { "principle": "Invent and Simplify", "title": "Tell me about the most innovative idea you have implemented." },
+
+    { "principle": "Are Right, A Lot", "title": "Tell me about a time you were wrong and how you handled it." },
+    { "principle": "Are Right, A Lot", "title": "Describe a decision you made with incomplete data that turned out to be right." },
+    { "principle": "Are Right, A Lot", "title": "Tell me about a time you had to change your mind based on new information." },
+
+    { "principle": "Learn and Be Curious", "title": "Tell me about a time you taught yourself a new skill to get a job done." },
+    { "principle": "Learn and Be Curious", "title": "Describe a time your curiosity led you to a better outcome." },
+    { "principle": "Learn and Be Curious", "title": "Tell me about something you learned recently outside of work." },
+
+    { "principle": "Hire and Develop the Best", "title": "Tell me about a time you helped a struggling teammate improve." },
+    { "principle": "Hire and Develop the Best", "title": "Describe a time you gave someone difficult feedback that helped them grow." },
+    { "principle": "Hire and Develop the Best", "title": "Tell me about a time you mentored someone and it benefited the team." },
+
+    { "principle": "Insist on the Highest Standards", "title": "Tell me about a time you refused to compromise on quality." },
+    { "principle": "Insist on the Highest Standards", "title": "Describe a time you raised the bar for your team." },
+    { "principle": "Insist on the Highest Standards", "title": "Tell me about a time you were not satisfied with the status quo and pushed for better." },
+
+    { "principle": "Think Big", "title": "Tell me about a time you proposed a bold, ambitious idea." },
+    { "principle": "Think Big", "title": "Describe a time you challenged a conventional approach to think bigger." },
+    { "principle": "Think Big", "title": "Tell me about the largest-scope project you have driven." },
+
+    { "principle": "Bias for Action", "title": "Tell me about a time you made a quick decision under pressure." },
+    { "principle": "Bias for Action", "title": "Describe a calculated risk you took and what happened." },
+    { "principle": "Bias for Action", "title": "Tell me about a time you acted without having all the information." },
+
+    { "principle": "Frugality", "title": "Tell me about a time you accomplished more with fewer resources." },
+    { "principle": "Frugality", "title": "Describe a time you found a creative low-cost solution to a problem." },
+
+    { "principle": "Earn Trust", "title": "Tell me about a time you earned the trust of a team or stakeholder." },
+    { "principle": "Earn Trust", "title": "Describe a time you had to rebuild trust after a mistake." },
+    { "principle": "Earn Trust", "title": "Tell me about a time you received tough feedback and how you responded." },
+
+    { "principle": "Dive Deep", "title": "Tell me about a time you dug into the details to uncover the root cause of a problem." },
+    { "principle": "Dive Deep", "title": "Describe a time data analysis changed your decision." },
+    { "principle": "Dive Deep", "title": "Tell me about a time your audit or deep dive surfaced something others missed." },
+
+    { "principle": "Have Backbone; Disagree and Commit", "title": "Tell me about a time you disagreed with your manager and how you handled it." },
+    { "principle": "Have Backbone; Disagree and Commit", "title": "Describe a time you committed to a decision you initially disagreed with." },
+    { "principle": "Have Backbone; Disagree and Commit", "title": "Tell me about a time you challenged a decision you believed was wrong." },
+
+    { "principle": "Deliver Results", "title": "Tell me about a time you delivered under a tight deadline." },
+    { "principle": "Deliver Results", "title": "Describe a time you overcame a major obstacle to deliver a result." },
+    { "principle": "Deliver Results", "title": "Tell me about a time you failed to meet a commitment and what you learned." },
+
+    { "principle": "Strive to be Earth's Best Employer", "title": "Tell me about a time you made your work environment better for your team." },
+    { "principle": "Strive to be Earth's Best Employer", "title": "Describe a time you supported a teammate's growth or wellbeing." },
+
+    { "principle": "Success and Scale Bring Broad Responsibility", "title": "Tell me about a time you considered the broader impact of a decision beyond your immediate goal." },
+    { "principle": "Success and Scale Bring Broad Responsibility", "title": "Describe a time you weighed long-term consequences against short-term wins." }
+  ]
+}
