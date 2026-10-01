@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
-import { SectionLabel } from "@/components/patterns";
-import { cn } from "@/lib/utils/cn";
+import { LookPill } from "@/components/observability/ConsoleCard";
+import { OUTLINE_PILL } from "@/components/observability/status";
 import {
   useBrief,
   type BriefDoc,
@@ -11,17 +10,20 @@ import {
   type FinalExperience,
   type FinalRound,
 } from "@/features/intelligence";
+import { ExpandableRow } from "./ExpandableRow";
+import { BRIEF_STATUS_PILL, CONFIDENCE_PILL, lookFor } from "./pills";
 import {
-  CONFIDENCE_CLASS,
+  ExtLink,
   JsonViewer,
-  Pill,
   RoundTrust,
   SourceFunnel,
-  STATUS_CLASS,
   ThoughtBlock,
+  TopicChip,
+  UrlList,
+  ViewerSection,
 } from "./viewers";
 
-/** A persisted brief (already generated). Single-open accordion; the full doc + interview
+/** A persisted brief (already generated). Single-open accordion row; the full doc + interview
  *  experience are lazily fetched when expanded, and it fills the area + scrolls as one. */
 export function GeneratedBriefCard({
   summary,
@@ -41,38 +43,27 @@ export function GeneratedBriefCard({
   );
 
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40"
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <ChevronRight
-            className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-          />
-          <span className="truncate font-mono text-sm">{label}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          {conf ? <Pill className={CONFIDENCE_CLASS[conf] ?? CONFIDENCE_CLASS.low}>{conf}</Pill> : null}
-          <Pill className={STATUS_CLASS[status] ?? STATUS_CLASS.skipped}>{status}</Pill>
-        </span>
-      </button>
-
-      {open ? (
-        <div className="space-y-5 border-t border-border px-4 py-4">
-          {isLoading ? (
-            <p className="text-xs text-muted-foreground">Loading brief…</p>
-          ) : isError || !data ? (
-            <p className="text-sm text-muted-foreground">
-              No brief stored for this JD, or it failed to generate.
-            </p>
-          ) : (
-            <BriefBody doc={data} />
-          )}
-        </div>
-      ) : null}
-    </div>
+    <ExpandableRow
+      label={label}
+      open={open}
+      onToggle={onToggle}
+      pills={
+        <>
+          {conf ? <LookPill look={lookFor(CONFIDENCE_PILL, conf, OUTLINE_PILL)}>{conf}</LookPill> : null}
+          <LookPill look={lookFor(BRIEF_STATUS_PILL, status, OUTLINE_PILL)}>{status}</LookPill>
+        </>
+      }
+    >
+      {isLoading ? (
+        <p className="m-0 text-xs text-muted-foreground">Loading brief…</p>
+      ) : isError || !data ? (
+        <p className="m-0 text-sm text-muted-foreground">
+          No brief stored for this JD, or it failed to generate.
+        </p>
+      ) : (
+        <BriefBody doc={data} />
+      )}
+    </ExpandableRow>
   );
 }
 
@@ -90,141 +81,163 @@ function BriefBody({ doc }: { doc: BriefDoc }) {
   // inferred_round_count lumps in process_guide + template; show the inferred-only remainder.
   const inferredOnly = Math.max(0, (inf ?? 0) - (pg ?? 0));
   const matched = exp?.level_matched_round_count;
+  const hasFields = Boolean(
+    (exp?.dominant_topics && exp.dominant_topics.length > 0) ||
+      exp?.difficulty_calibration ||
+      exp?.interviewer_style_notes ||
+      (exp?.red_flags && exp.red_flags.length > 0) ||
+      exp?.company_specific_patterns,
+  );
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        {models?.extract ? <span>extract/aggregate: <span className="font-mono">{models.extract}</span></span> : null}
-        {models?.search ? <span>search: <span className="font-mono">{models.search}</span></span> : null}
-        {version ? <span>query: <span className="font-mono">{version}</span></span> : null}
-        {generatedAt ? <span>{fmtDate(generatedAt)}</span> : null}
+      <div className="space-y-2">
+        <dl className="m-0 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11.5px]">
+          {models?.extract ? <Meta term="extract/aggregate" value={models.extract} /> : null}
+          {models?.search ? <Meta term="search" value={models.search} /> : null}
+          {version ? <Meta term="query" value={version} /> : null}
+          {generatedAt ? <Meta term="generated" value={fmtDate(generatedAt)} /> : null}
+        </dl>
+
+        {rounds.length > 0 && (ev !== undefined || matched !== undefined) ? (
+          <p className="m-0 text-xs text-muted-foreground">
+            <Num>{ev ?? 0}</Num>
+            {" evidence-backed"}
+            {pg ? (
+              <>
+                {" · "}
+                <Num>{pg}</Num>
+                {" from guides"}
+              </>
+            ) : null}
+            {" · "}
+            <Num>{inferredOnly}</Num>
+            {" inferred"}
+            {matched !== undefined ? (
+              <>
+                {" · "}
+                <Num>
+                  {matched}/{rounds.length}
+                </Num>
+                {" on-level"}
+              </>
+            ) : null}
+            {exp?.template_used ? " · includes industry-standard templates" : null}
+          </p>
+        ) : null}
       </div>
 
-      {rounds.length > 0 && (ev !== undefined || matched !== undefined) ? (
-        <p className="text-xs text-muted-foreground">
-          {ev ?? 0} evidence-backed
-          {pg ? <> · {pg} from guides</> : null} · {inferredOnly} inferred
-          {matched !== undefined ? <> · {matched}/{rounds.length} on-level</> : null}
-          {exp?.template_used ? <> · includes industry-standard templates</> : null}
-        </p>
-      ) : null}
-
-      <Section label="Final interview experience">
+      <ViewerSection label="Final interview experience">
         {rounds.length > 0 ? (
           <div className="space-y-2">
-            {rounds.map((r, i) => (
-              <RoundRow key={i} round={r} />
-            ))}
-            {exp?.dominant_topics && exp.dominant_topics.length > 0 ? (
-              <Field label="Dominant topics">{exp.dominant_topics.join(", ")}</Field>
-            ) : null}
-            {exp?.difficulty_calibration ? (
-              <Field label="Difficulty">{exp.difficulty_calibration}</Field>
-            ) : null}
-            {exp?.interviewer_style_notes ? (
-              <Field label="Interviewer style">{exp.interviewer_style_notes}</Field>
-            ) : null}
-            {exp?.red_flags && exp.red_flags.length > 0 ? (
-              <Field label="Watch out for">
-                <ul className="list-disc space-y-0.5 pl-4">
-                  {exp.red_flags.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-              </Field>
-            ) : null}
-            {exp?.company_specific_patterns ? (
-              <Field label="Company-specific">{exp.company_specific_patterns}</Field>
+            <ol className="m-0 list-none space-y-2 p-0">
+              {rounds.map((r, i) => (
+                <RoundRow key={i} round={r} />
+              ))}
+            </ol>
+            {hasFields ? (
+              <dl className="m-0 divide-y divide-line rounded-[10px] border border-line-2">
+                {exp?.dominant_topics && exp.dominant_topics.length > 0 ? (
+                  <Field label="Dominant topics">{exp.dominant_topics.join(", ")}</Field>
+                ) : null}
+                {exp?.difficulty_calibration ? (
+                  <Field label="Difficulty">{exp.difficulty_calibration}</Field>
+                ) : null}
+                {exp?.interviewer_style_notes ? (
+                  <Field label="Interviewer style">{exp.interviewer_style_notes}</Field>
+                ) : null}
+                {exp?.red_flags && exp.red_flags.length > 0 ? (
+                  <Field label="Watch out for">
+                    <ul className="m-0 list-disc space-y-0.5 pl-4">
+                      {exp.red_flags.map((f) => (
+                        <li key={f}>{f}</li>
+                      ))}
+                    </ul>
+                  </Field>
+                ) : null}
+                {exp?.company_specific_patterns ? (
+                  <Field label="Company-specific">{exp.company_specific_patterns}</Field>
+                ) : null}
+              </dl>
             ) : null}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No round-by-round experience in this brief.</p>
+          <p className="m-0 text-sm text-muted-foreground">No round-by-round experience in this brief.</p>
         )}
-      </Section>
+      </ViewerSection>
 
       {funnel.length > 0 ? (
-        <Section label="Source funnel">
+        <ViewerSection label="Source funnel">
           <SourceFunnel entries={funnel} />
-        </Section>
+        </ViewerSection>
       ) : null}
 
       {exp?.aggregate_thought ? (
-        <Section label="Aggregation reasoning">
+        <ViewerSection label="Aggregation reasoning">
           <ThoughtBlock text={exp.aggregate_thought} />
-        </Section>
+        </ViewerSection>
       ) : null}
 
       {sources.length > 0 ? (
-        <Section label={`All collected sources (${sources.length})`}>
-          <ol className="space-y-1">
-            {sources.map((url, n) => (
-              <li key={url} className="flex items-center gap-2 text-xs">
-                <span className="shrink-0 tabular-nums text-muted-foreground">{n + 1}.</span>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="truncate font-mono text-primary underline-offset-4 hover:underline"
-                >
-                  {url}
-                </a>
-              </li>
-            ))}
-          </ol>
-        </Section>
+        <ViewerSection label={`All collected sources (${sources.length})`}>
+          <UrlList urls={sources} truncate />
+        </ViewerSection>
       ) : null}
 
-      <Section label="Full brief (MongoDB)">
-        <JsonViewer value={doc} />
-      </Section>
+      <ViewerSection label="Full brief (MongoDB)">
+        <JsonViewer value={doc} label="Full brief JSON" />
+      </ViewerSection>
     </>
   );
 }
 
 function RoundRow({ round }: { round: FinalRound }) {
+  const n = round.round_number;
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">
-          Round {round.round_number ?? "?"}
-          {round.type ? <span className="text-muted-foreground"> · {round.type}</span> : null}
-        </span>
-        {round.difficulty ? <Pill className={CONFIDENCE_CLASS.low}>{round.difficulty}</Pill> : null}
-        <RoundTrust round={round} />
+    <li className="grid grid-cols-[36px_minmax(0,1fr)] gap-3.5 rounded-[10px] border border-line-2 p-3.5 sm:p-4">
+      <span
+        aria-hidden
+        className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-line-3 font-mono text-[13px] tabular-nums"
+      >
+        {n != null ? String(n).padStart(2, "0") : "—"}
+      </span>
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          <h4 className="m-0 text-[15px] font-normal tracking-[-0.01em]">
+            <span className="sr-only">Round {n ?? "?"}: </span>
+            {round.type ?? `Round ${n ?? "?"}`}
+          </h4>
+          <span className="flex flex-wrap items-center gap-1.5">
+            {round.difficulty ? <LookPill look={OUTLINE_PILL}>{round.difficulty}</LookPill> : null}
+            <RoundTrust round={round} />
+          </span>
+        </div>
+        {round.format ? <p className="m-0 text-[12.5px] leading-[1.5] text-faint">{round.format}</p> : null}
+        {round.topics && round.topics.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {round.topics.map((t) => (
+              <TopicChip key={t}>{t}</TopicChip>
+            ))}
+          </div>
+        ) : null}
+        {round.problems && round.problems.length > 0 ? (
+          <ul className="m-0 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+            {round.problems.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        ) : null}
+        {round.evidence_urls && round.evidence_urls.length > 0 ? (
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {round.evidence_urls.map((url) => (
+              <ExtLink key={url} href={url} className="truncate font-mono text-[11.5px]">
+                {hostname(url)}
+              </ExtLink>
+            ))}
+          </div>
+        ) : null}
       </div>
-      {round.format ? <p className="mt-1.5 text-sm text-muted-foreground">{round.format}</p> : null}
-      {round.topics && round.topics.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {round.topics.map((t) => (
-            <Pill key={t} className="border-border bg-background text-muted-foreground">
-              {t}
-            </Pill>
-          ))}
-        </div>
-      ) : null}
-      {round.problems && round.problems.length > 0 ? (
-        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
-          {round.problems.map((p, i) => (
-            <li key={i}>{p}</li>
-          ))}
-        </ul>
-      ) : null}
-      {round.evidence_urls && round.evidence_urls.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-          {round.evidence_urls.map((url) => (
-            <a
-              key={url}
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="truncate text-xs text-primary underline-offset-4 hover:underline"
-            >
-              {hostname(url)}
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    </li>
   );
 }
 
@@ -236,20 +249,24 @@ function hostname(url: string): string {
   }
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Meta({ term, value }: { term: string; value: string }) {
   return (
-    <div className="space-y-1.5">
-      <SectionLabel>{label}</SectionLabel>
-      {children}
+    <div className="flex min-w-0 gap-1.5">
+      <dt className="text-faint">{term}</dt>
+      <dd className="m-0 text-foreground [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }
 
+function Num({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono tabular-nums text-foreground">{children}</span>;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="text-sm">
-      <span className="font-medium">{label}: </span>
-      <span className="text-muted-foreground">{children}</span>
+    <div className="grid gap-1 px-3.5 py-2.5 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4 sm:px-4">
+      <dt className="iq-eyebrow pt-0.5">{label}</dt>
+      <dd className="m-0 text-[13px] leading-[1.5]">{children}</dd>
     </div>
   );
 }

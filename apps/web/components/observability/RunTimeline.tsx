@@ -1,13 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { RunStep, RunStepStatus } from "@/features/observability";
+import type { RunStep } from "@/features/observability";
+import { LookPill } from "./ConsoleCard";
+import { STEP_DOT, STEP_PILL, formatDuration, prettyStepName } from "./status";
 
-/** Ordered step list for a run; each step expands to show its full-transparency detail. */
+/**
+ * Ordered step list for a run, as hairline rows (sits inside a card). A step with detail expands
+ * to show its full-transparency payload; one without detail is a plain row.
+ */
 export function RunTimeline({ steps }: { steps: RunStep[] }) {
   const [open, setOpen] = React.useState<Set<string>>(new Set());
+  const baseId = React.useId();
 
   const toggle = (name: string) =>
     setOpen((prev) => {
@@ -17,41 +23,65 @@ export function RunTimeline({ steps }: { steps: RunStep[] }) {
       return next;
     });
 
+  if (steps.length === 0) {
+    return <p className="m-0 px-4 py-6 text-sm text-muted-foreground sm:px-5">No steps reported yet.</p>;
+  }
+
   return (
-    <ol className="space-y-2">
+    <ol className="m-0 list-none divide-y divide-line p-0">
       {steps.map((step) => {
         const hasDetail = step.detail && Object.keys(step.detail).length > 0;
         const isOpen = open.has(step.name);
+        const detailId = `${baseId}-${step.name}`;
+        const row = (
+          <>
+            <span
+              aria-hidden
+              data-motion={step.status === "running" ? true : undefined}
+              className={cn("h-2 w-2 shrink-0 rounded-full", STEP_DOT[step.status])}
+            />
+            <span className="min-w-0 flex-1 truncate text-sm">{prettyStepName(step.name)}</span>
+            {step.duration_ms != null ? (
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {formatDuration(step.duration_ms)}
+              </span>
+            ) : null}
+            <LookPill look={STEP_PILL[step.status]}>{STEP_PILL[step.status].label}</LookPill>
+            {hasDetail ? (
+              <ChevronRight
+                aria-hidden
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0 text-faint transition-transform duration-200 ease-iq motion-reduce:transition-none",
+                  isOpen && "rotate-90",
+                )}
+              />
+            ) : (
+              <span aria-hidden className="w-3.5 shrink-0" />
+            )}
+          </>
+        );
         return (
-          <li key={step.name} className="rounded-xl border border-border bg-card">
-            <button
-              type="button"
-              onClick={() => hasDetail && toggle(step.name)}
-              className={cn(
-                "flex w-full items-center gap-3 px-4 py-3 text-left",
-                hasDetail ? "cursor-pointer" : "cursor-default",
-              )}
-              aria-expanded={isOpen}
-            >
-              <StatusDot status={step.status} />
-              <span className="flex-1 font-medium">{prettyName(step.name)}</span>
-              {step.duration_ms != null && (
-                <span className="tabular-nums text-xs text-muted-foreground">
-                  {formatDuration(step.duration_ms)}
-                </span>
-              )}
-              <StatusBadge status={step.status} />
-              {hasDetail && (
-                <span className="ml-1 text-xs text-muted-foreground">{isOpen ? "▾" : "▸"}</span>
-              )}
-            </button>
-            {isOpen && hasDetail && (
-              <div className="space-y-3 border-t border-border px-4 py-3">
+          <li key={step.name}>
+            {hasDetail ? (
+              <button
+                type="button"
+                onClick={() => toggle(step.name)}
+                aria-expanded={isOpen}
+                aria-controls={isOpen ? detailId : undefined}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-5"
+              >
+                {row}
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 sm:px-5">{row}</div>
+            )}
+            {isOpen && hasDetail ? (
+              <div id={detailId} className="space-y-3 border-t border-line px-4 pb-4 pt-3 sm:px-5">
                 {Object.entries(step.detail).map(([key, value]) => (
                   <DetailField key={key} label={key} value={value} />
                 ))}
               </div>
-            )}
+            ) : null}
           </li>
         );
       })}
@@ -61,18 +91,21 @@ export function RunTimeline({ steps }: { steps: RunStep[] }) {
 
 function DetailField({ label, value }: { label: string; value: unknown }) {
   return (
-    <div className="space-y-1">
-      <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <DetailValue value={value} />
+    <div className="space-y-1.5">
+      <p className="iq-eyebrow m-0">{label}</p>
+      <DetailValue label={label} value={value} />
     </div>
   );
 }
 
-function DetailValue({ value }: { value: unknown }) {
-  if (value == null) return <p className="text-sm text-muted-foreground">—</p>;
+const PRE =
+  "m-0 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-[8px] bg-panel p-3 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+function DetailValue({ label, value }: { label: string; value: unknown }) {
+  if (value == null) return <p className="m-0 text-sm text-faint">—</p>;
   if (typeof value === "object") {
     return (
-      <pre className="max-h-80 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+      <pre tabIndex={0} role="region" aria-label={label} className={PRE}>
         {JSON.stringify(value, null, 2)}
       </pre>
     );
@@ -80,42 +113,10 @@ function DetailValue({ value }: { value: unknown }) {
   const str = String(value);
   if (str.length > 120 || str.includes("\n")) {
     return (
-      <pre className="max-h-80 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+      <pre tabIndex={0} role="region" aria-label={label} className={PRE}>
         {str}
       </pre>
     );
   }
-  return <p className="font-mono text-sm">{str}</p>;
-}
-
-function StatusDot({ status }: { status: RunStepStatus }) {
-  const cls: Record<RunStepStatus, string> = {
-    pending: "bg-muted-foreground/30",
-    running: "bg-primary animate-pulse",
-    ok: "bg-emerald-500",
-    failed: "bg-destructive",
-    skipped: "bg-muted-foreground/30",
-  };
-  return <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", cls[status])} aria-hidden />;
-}
-
-function StatusBadge({ status }: { status: RunStepStatus }) {
-  const label: Record<RunStepStatus, string> = {
-    pending: "Pending",
-    running: "Running",
-    ok: "OK",
-    failed: "Failed",
-    skipped: "Skipped",
-  };
-  const variant = status === "failed" ? "destructive" : status === "ok" ? "secondary" : "outline";
-  return <Badge variant={variant}>{label[status]}</Badge>;
-}
-
-function prettyName(name: string): string {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  return <p className="m-0 font-mono text-[13px] [overflow-wrap:anywhere]">{str}</p>;
 }

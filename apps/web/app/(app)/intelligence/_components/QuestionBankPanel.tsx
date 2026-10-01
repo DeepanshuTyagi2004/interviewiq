@@ -1,21 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { MonoPill } from "@/components/patterns";
+import { CardEmpty, ConsoleCard, HeaderCount, LookPill } from "@/components/observability/ConsoleCard";
+import { HairlineHead, HairlineTable, Td, Th, Tr } from "@/components/observability/HairlineTable";
+import { OUTLINE_PILL } from "@/components/observability/status";
 import { useQuestions, type Question } from "@/features/intelligence";
-
-const selectClass =
-  "h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+import { cn } from "@/lib/utils/cn";
+import { SELECT_CLASS } from "./fields";
+import { DIFFICULTY_PILL } from "./pills";
+import { ExtLink } from "./viewers";
 
 const ROUND_OPTIONS = [
   { value: "", label: "All rounds" },
@@ -31,14 +27,6 @@ const DIFFICULTY_OPTIONS = [
   { value: "medium", label: "Medium" },
   { value: "hard", label: "Hard" },
 ];
-
-function difficultyVariant(
-  d: Question["difficulty"],
-): "default" | "secondary" | "destructive" | "outline" {
-  if (d === "easy") return "secondary";
-  if (d === "hard") return "destructive";
-  return "outline";
-}
 
 function roundLabel(r: Question["round_type"]) {
   if (r === "dsa") return "DSA";
@@ -60,14 +48,20 @@ export function QuestionBankPanel() {
     limit: 200,
   });
 
+  const countLabel = data
+    ? (data.returned ?? data.questions.length) < data.count
+      ? `Showing ${data.returned ?? data.questions.length} of ${data.count} ingested`
+      : `${data.count} questions ingested`
+    : "0 questions ingested";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div role="group" aria-label="Filter questions" className="flex flex-wrap items-center gap-2">
         <select
           value={roundType}
           onChange={(e) => setRoundType(e.target.value)}
-          className={selectClass}
+          className={cn(SELECT_CLASS, "w-auto min-w-[150px]")}
           aria-label="Round type"
         >
           {ROUND_OPTIONS.map((o) => (
@@ -80,7 +74,7 @@ export function QuestionBankPanel() {
         <select
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value)}
-          className={selectClass}
+          className={cn(SELECT_CLASS, "w-auto min-w-[150px]")}
           aria-label="Difficulty"
         >
           {DIFFICULTY_OPTIONS.map((o) => (
@@ -94,140 +88,125 @@ export function QuestionBankPanel() {
           value={company}
           onChange={(e) => setCompany(e.target.value)}
           placeholder="Filter by company…"
-          className="h-9 w-48"
+          className="h-9 w-full sm:w-56"
           aria-label="Company filter"
         />
-
-        <span className="ml-auto text-sm text-muted-foreground">
-          {data
-            ? (data.returned ?? data.questions.length) < data.count
-              ? `Showing ${data.returned ?? data.questions.length} of ${data.count} ingested`
-              : `${data.count} questions ingested`
-            : "0 questions ingested"}
-        </span>
       </div>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full rounded-md" />
-          ))}
-        </div>
-      )}
+      <ConsoleCard
+        title="Question bank"
+        meta={<HeaderCount>{countLabel}</HeaderCount>}
+      >
+        {/* Loading */}
+        {isLoading ? (
+          <div className="space-y-2 p-4 sm:px-5" aria-busy="true" aria-label="Loading questions">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
+        ) : null}
 
-      {/* Error */}
-      {isError && (
-        <p role="alert" className="text-sm text-destructive">
-          Could not load the question bank.
-        </p>
-      )}
+        {/* Error */}
+        {isError ? (
+          <p role="alert" className="m-0 px-4 py-6 text-sm text-destructive sm:px-5">
+            Could not load the question bank.
+          </p>
+        ) : null}
 
-      {/* Empty state */}
-      {!isLoading && !isError && data?.questions.length === 0 && (
-        <p className="py-12 text-center text-sm text-muted-foreground">
-          No questions match the current filters.
-        </p>
-      )}
+        {/* Empty state */}
+        {!isLoading && !isError && (data?.questions.length ?? 0) === 0 ? (
+          <CardEmpty
+            title="No questions match the current filters."
+            hint="Widen the filters, or run “Collect questions” from the Live ingestion tab to fill the bank."
+          />
+        ) : null}
 
-      {/* Table */}
-      {!isLoading && !isError && (data?.questions.length ?? 0) > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[260px]">Title</TableHead>
-                <TableHead className="w-32">Round</TableHead>
-                <TableHead className="w-28">Difficulty</TableHead>
-                <TableHead className="min-w-[180px]">Topics</TableHead>
-                <TableHead className="min-w-[160px]">Companies</TableHead>
-                <TableHead className="min-w-[120px]">Source</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        {/* Table */}
+        {!isLoading && !isError && (data?.questions.length ?? 0) > 0 ? (
+          <HairlineTable label="Questions" className="min-w-[920px]">
+            <HairlineHead>
+              <Th className="min-w-[260px]">Title</Th>
+              <Th className="w-36">Round</Th>
+              <Th className="w-28">Difficulty</Th>
+              <Th className="min-w-[180px]">Topics</Th>
+              <Th className="min-w-[160px]">Companies</Th>
+              <Th className="min-w-[120px]">Source</Th>
+            </HairlineHead>
+            <tbody>
               {data!.questions.map((q) => {
                 const extraTopics = q.topic_tags.length > 3 ? q.topic_tags.length - 3 : 0;
                 const extraCompanies = q.company_tags.length > 3 ? q.company_tags.length - 3 : 0;
                 return (
-                  <TableRow key={q.slug}>
+                  <Tr key={q.slug}>
                     {/* Title */}
-                    <TableCell className="font-medium">
+                    <Td>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <a
-                          href={q.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary underline-offset-4 hover:underline"
-                        >
+                        <ExtLink href={q.url} className="text-sm">
                           {q.title}
-                        </a>
+                        </ExtLink>
                         {q.round_type === "lld" && q.is_machine_coding === true && (
-                          <Badge variant="outline" className="text-[10px]">
-                            machine coding
-                          </Badge>
+                          <LookPill look={OUTLINE_PILL}>machine coding</LookPill>
                         )}
                       </div>
-                    </TableCell>
+                    </Td>
 
                     {/* Round */}
-                    <TableCell>
-                      <Badge variant="secondary">{roundLabel(q.round_type)}</Badge>
-                    </TableCell>
+                    <Td>
+                      <MonoPill tone="soft">{roundLabel(q.round_type)}</MonoPill>
+                    </Td>
 
                     {/* Difficulty */}
-                    <TableCell>
+                    <Td>
                       {q.difficulty ? (
-                        <Badge variant={difficultyVariant(q.difficulty)}>
-                          {q.difficulty}
-                        </Badge>
+                        <LookPill look={DIFFICULTY_PILL[q.difficulty] ?? OUTLINE_PILL}>{q.difficulty}</LookPill>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-faint">—</span>
                       )}
-                    </TableCell>
+                    </Td>
 
                     {/* Topics */}
-                    <TableCell className="text-sm text-muted-foreground">
+                    <Td className="text-[13px] text-muted-foreground">
                       {q.topic_tags.length === 0 ? (
-                        <span className="text-xs">—</span>
+                        <span className="text-xs text-faint">—</span>
                       ) : (
                         <>
                           {q.topic_tags.slice(0, 3).join(", ")}
                           {extraTopics > 0 && (
-                            <span className="ml-1 text-xs text-muted-foreground">
+                            <span className="ml-1 font-mono text-[11px] tabular-nums text-faint">
                               +{extraTopics}
                             </span>
                           )}
                         </>
                       )}
-                    </TableCell>
+                    </Td>
 
                     {/* Companies */}
-                    <TableCell className="text-sm text-muted-foreground">
+                    <Td className="text-[13px] text-muted-foreground">
                       {q.company_tags.length === 0 ? (
-                        <span className="text-xs">—</span>
+                        <span className="text-xs text-faint">—</span>
                       ) : (
                         <>
                           {q.company_tags.slice(0, 3).join(", ")}
                           {extraCompanies > 0 && (
-                            <span className="ml-1 text-xs text-muted-foreground">
+                            <span className="ml-1 font-mono text-[11px] tabular-nums text-faint">
                               +{extraCompanies}
                             </span>
                           )}
                         </>
                       )}
-                    </TableCell>
+                    </Td>
 
                     {/* Sources */}
-                    <TableCell className="text-xs text-muted-foreground">
+                    <Td className="font-mono text-[11.5px] text-muted-foreground">
                       {q.sources.join(", ") || "—"}
-                    </TableCell>
-                  </TableRow>
+                    </Td>
+                  </Tr>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+            </tbody>
+          </HairlineTable>
+        ) : null}
+      </ConsoleCard>
     </div>
   );
 }

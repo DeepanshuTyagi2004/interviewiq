@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
-import { SectionLabel } from "@/components/patterns";
-import { cn } from "@/lib/utils/cn";
+import { LookPill } from "@/components/observability/ConsoleCard";
+import { OUTLINE_PILL } from "@/components/observability/status";
 import type { ComboDetail, FinalExperience } from "@/features/intelligence";
-import { CONFIDENCE_CLASS, JsonViewer, Pill, SourceFunnel, STATUS_CLASS, TextViewer, ThoughtBlock } from "./viewers";
+import { ExpandableRow } from "./ExpandableRow";
+import { BRIEF_STATUS_PILL, CONFIDENCE_PILL, lookFor } from "./pills";
+import { JsonViewer, SourceFunnel, TextViewer, ThoughtBlock, UrlList, ViewerSection } from "./viewers";
 
 /** One JD's full verbose trace: the prompt(s) sent to Perplexity, raw response(s),
- *  citations, and the exact document stored in MongoDB. Single-open accordion — when
+ *  citations, and the exact document stored in MongoDB. Single-open accordion row — when
  *  expanded it fills the Combinations area and scrolls as one. */
 export function ComboDetailCard({
   detail,
@@ -31,123 +32,96 @@ export function ComboDetailCard({
   const levelMatched = finalExp?.level_matched_round_count;
 
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40"
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <ChevronRight
-            className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-          />
-          <span className="truncate font-mono text-sm">{detail.combo}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1.5">
+    <ExpandableRow
+      label={detail.combo}
+      open={open}
+      onToggle={onToggle}
+      pills={
+        <>
           {detail.data_confidence ? (
-            <Pill className={CONFIDENCE_CLASS[detail.data_confidence] ?? CONFIDENCE_CLASS.low}>
+            <LookPill look={lookFor(CONFIDENCE_PILL, detail.data_confidence, OUTLINE_PILL)}>
               {detail.data_confidence}
-            </Pill>
+            </LookPill>
           ) : null}
-          <Pill className={STATUS_CLASS[status] ?? STATUS_CLASS.skipped}>{status}</Pill>
-        </span>
-      </button>
-
-      {open ? (
-        <div className="space-y-5 border-t border-border px-4 py-4">
-          {detail.error ? (
-          <Section label="Error">
-            <TextViewer text={detail.error} className="border-destructive/30 bg-destructive/5" />
-          </Section>
-        ) : null}
-
-        {detail.jd_summary ? (
-          <Section label="JD context sent to Perplexity">
-            <TextViewer text={detail.jd_summary} />
-          </Section>
-        ) : null}
-
-        {requests.map((req, i) => {
-          const multi = requests.length > 1;
-          const heading = multi
-            ? i === 0
-              ? "Perplexity request"
-              : "Perplexity request (retry / follow-up)"
-            : "Perplexity request";
-          return (
-            <div key={i} className="space-y-3 rounded-lg border border-border/60 p-3">
-              <SectionLabel>{heading}</SectionLabel>
-              {req.prompt ? (
-                <Section label="Prompt sent">
-                  <TextViewer text={req.prompt} />
-                </Section>
-              ) : null}
-              {req.raw_response ? (
-                <Section label="Raw response">
-                  <TextViewer text={req.raw_response} />
-                </Section>
-              ) : null}
-              {req.citations && req.citations.length > 0 ? (
-                <Section label={`Citations (${req.citations.length})`}>
-                  <ol className="space-y-1">
-                    {req.citations.map((url, n) => (
-                      <li key={url} className="flex gap-2 text-xs">
-                        <span className="shrink-0 tabular-nums text-muted-foreground">{n + 1}.</span>
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="break-all font-mono text-primary underline-offset-4 hover:underline"
-                        >
-                          {url}
-                        </a>
-                      </li>
-                    ))}
-                  </ol>
-                </Section>
-              ) : null}
-            </div>
-          );
-        })}
-
-          {funnel.length > 0 ? (
-            <Section
-              label={
-                typeof levelMatched === "number" && roundCount > 0
-                  ? `Source funnel (${levelMatched}/${roundCount} rounds on-level)`
-                  : "Source funnel"
-              }
-            >
-              <SourceFunnel entries={funnel} />
-            </Section>
-          ) : null}
-
-          {finalExp?.aggregate_thought ? (
-            <Section label="Aggregation reasoning">
-              <ThoughtBlock text={finalExp.aggregate_thought} />
-            </Section>
-          ) : null}
-
-          {detail.stored_doc ? (
-            <Section label="Stored in MongoDB (interview_briefs)">
-              <JsonViewer value={detail.stored_doc} />
-            </Section>
-          ) : null}
-
-          {requests.length === 0 && !detail.error ? (
-            <p className="text-xs text-muted-foreground">Waiting for Perplexity…</p>
-          ) : null}
-        </div>
+          <LookPill look={lookFor(BRIEF_STATUS_PILL, status, OUTLINE_PILL)}>{status}</LookPill>
+        </>
+      }
+    >
+      {detail.error ? (
+        <ViewerSection label="Error">
+          <TextViewer text={detail.error} label="Error" tone="error" />
+        </ViewerSection>
       ) : null}
-    </div>
-  );
-}
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <SectionLabel>{label}</SectionLabel>
-      {children}
-    </div>
+      {detail.jd_summary ? (
+        <ViewerSection label="JD context sent to Perplexity">
+          <TextViewer text={detail.jd_summary} label="JD context" />
+        </ViewerSection>
+      ) : null}
+
+      {requests.map((req, i) => {
+        const multi = requests.length > 1;
+        const heading = multi
+          ? i === 0
+            ? "Perplexity request"
+            : "Perplexity request (retry / follow-up)"
+          : "Perplexity request";
+        return (
+          <section key={i} className="min-w-0 space-y-4 rounded-[10px] border border-line-2 p-3.5 sm:p-4">
+            <h3 className="m-0 flex items-center gap-2 text-sm font-normal">
+              {heading}
+              {multi ? (
+                <span className="font-mono text-[11.5px] tabular-nums text-faint">
+                  {i + 1}/{requests.length}
+                </span>
+              ) : null}
+            </h3>
+            {req.prompt ? (
+              <ViewerSection label="Prompt sent" level={4}>
+                <TextViewer text={req.prompt} label="Prompt sent" />
+              </ViewerSection>
+            ) : null}
+            {req.raw_response ? (
+              <ViewerSection label="Raw response" level={4}>
+                <TextViewer text={req.raw_response} label="Raw response" />
+              </ViewerSection>
+            ) : null}
+            {req.citations && req.citations.length > 0 ? (
+              <ViewerSection label={`Citations (${req.citations.length})`} level={4}>
+                <UrlList urls={req.citations} />
+              </ViewerSection>
+            ) : null}
+          </section>
+        );
+      })}
+
+      {funnel.length > 0 ? (
+        <ViewerSection
+          label={
+            typeof levelMatched === "number" && roundCount > 0
+              ? `Source funnel (${levelMatched}/${roundCount} rounds on-level)`
+              : "Source funnel"
+          }
+        >
+          <SourceFunnel entries={funnel} />
+        </ViewerSection>
+      ) : null}
+
+      {finalExp?.aggregate_thought ? (
+        <ViewerSection label="Aggregation reasoning">
+          <ThoughtBlock text={finalExp.aggregate_thought} />
+        </ViewerSection>
+      ) : null}
+
+      {detail.stored_doc ? (
+        <ViewerSection label="Stored in MongoDB (interview_briefs)">
+          <JsonViewer value={detail.stored_doc} label="Stored document JSON" />
+        </ViewerSection>
+      ) : null}
+
+      {requests.length === 0 && !detail.error ? (
+        <p className="m-0 text-xs text-muted-foreground">Waiting for Perplexity…</p>
+      ) : null}
+    </ExpandableRow>
   );
 }

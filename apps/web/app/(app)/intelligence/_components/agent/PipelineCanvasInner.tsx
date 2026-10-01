@@ -30,8 +30,10 @@ export default function PipelineCanvasInner({
     [turn, onSelectStep]
   );
 
+  // Token palette for react-flow's own chrome (edges, handles, attribution) via its CSS variables,
+  // so the canvas follows light/dark with the rest of the app.
   return (
-    <div className="h-64">
+    <div className="h-44 [--xy-attribution-background-color:transparent] [--xy-edge-stroke-width:1.25] [--xy-edge-stroke:hsl(var(--line-4))] [--xy-handle-background-color:hsl(var(--line-4))] [--xy-handle-border-color:hsl(var(--card))]">
       <ReactFlowProvider>
         <ReactFlow
           nodes={nodes}
@@ -46,7 +48,7 @@ export default function PipelineCanvasInner({
           fitView
           onNodeClick={handleNodeClick}
         >
-          <Background />
+          <Background color="hsl(var(--line-3))" gap={16} size={1} />
         </ReactFlow>
       </ReactFlowProvider>
     </div>

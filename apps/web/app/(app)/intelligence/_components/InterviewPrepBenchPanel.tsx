@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/patterns";
+import { EmptyState, FormField } from "@/components/patterns";
+import { ConsoleCard } from "@/components/observability/ConsoleCard";
 import { RunConsole } from "@/components/observability/RunConsole";
 import { useJds } from "@/features/jobs";
 import { usePrepCandidates, usePrepRun, useStartPrepRun } from "@/features/interview-prep-bench";
-
-const SELECT_CLASS =
-  "rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+import { SELECT_CLASS } from "./fields";
 
 /**
  * Admin test-bench for the interview-prep (Pipeline 1) pipeline: pick a JD + round (+ optional
@@ -23,6 +22,7 @@ export function InterviewPrepBenchPanel() {
   const [runId, setRunId] = React.useState<string | null>(null);
   const start = useStartPrepRun();
   const run = usePrepRun(runId);
+  const ids = React.useId();
 
   const canRun = Boolean(jobDescriptionId) && !start.isPending;
 
@@ -36,67 +36,72 @@ export function InterviewPrepBenchPanel() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-        <p className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-          Interview-prep prompts are <strong className="text-foreground">v1 drafts</strong> — real
-          persona, question-ladder, and candidate-probe prompts, schema-validated. They&rsquo;re
-          product IP still open to tuning, so treat a generated plan as a working draft, not final
-          production copy.
-        </p>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Job description</span>
-            <select
-              className={SELECT_CLASS}
-              value={jobDescriptionId}
-              onChange={(e) => setJobDescriptionId(e.target.value)}
-            >
-              <option value="">{jdsLoading ? "Loading roles…" : "Select a role"}</option>
-              {(jds ?? []).map((jd) => (
-                <option key={jd.id} value={jd.id}>
-                  {jd.companyName} — {jd.title} ({jd.level})
-                </option>
-              ))}
-            </select>
-          </label>
+    <div className="space-y-4">
+      <ConsoleCard title="Generate a plan">
+        <div className="space-y-4 p-4 sm:p-5">
+          <p className="m-0 rounded-[8px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
+            Interview-prep prompts are <strong className="font-medium text-foreground">v1 drafts</strong>
+            {" — real "}
+            persona, question-ladder, and candidate-probe prompts, schema-validated. They&rsquo;re
+            product IP still open to tuning, so treat a generated plan as a working draft, not final
+            production copy.
+          </p>
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+            <FormField label="Job description" htmlFor={`${ids}-jd`} className="min-w-0 md:w-[320px]">
+              <select
+                id={`${ids}-jd`}
+                className={SELECT_CLASS}
+                value={jobDescriptionId}
+                onChange={(e) => setJobDescriptionId(e.target.value)}
+              >
+                <option value="">{jdsLoading ? "Loading roles…" : "Select a role"}</option>
+                {(jds ?? []).map((jd) => (
+                  <option key={jd.id} value={jd.id}>
+                    {jd.companyName} — {jd.title} ({jd.level})
+                  </option>
+                ))}
+              </select>
+            </FormField>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Candidate (optional)</span>
-            <select
-              className={SELECT_CLASS}
-              value={candidateId}
-              onChange={(e) => setCandidateId(e.target.value)}
-            >
-              <option value="">
-                {candidatesLoading ? "Loading candidates…" : "No candidate (JD-only grounding)"}
-              </option>
-              {(candidates ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.email ? ` — ${c.email}` : ""}
+            <FormField label="Candidate (optional)" htmlFor={`${ids}-candidate`} className="min-w-0 md:w-[320px]">
+              <select
+                id={`${ids}-candidate`}
+                className={SELECT_CLASS}
+                value={candidateId}
+                onChange={(e) => setCandidateId(e.target.value)}
+              >
+                <option value="">
+                  {candidatesLoading ? "Loading candidates…" : "No candidate (JD-only grounding)"}
                 </option>
-              ))}
-            </select>
-          </label>
+                {(candidates ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.email ? ` — ${c.email}` : ""}
+                  </option>
+                ))}
+              </select>
+            </FormField>
 
-          <Button onClick={onStart} disabled={!canRun}>
-            {start.isPending ? "Starting…" : "Generate plan"}
-          </Button>
+            <Button onClick={onStart} disabled={!canRun} className="self-start md:self-auto">
+              {start.isPending ? "Starting…" : "Generate plan"}
+            </Button>
+          </div>
+          {start.isError && (
+            <p role="alert" className="m-0 text-sm text-destructive">
+              {(start.error as Error).message}
+            </p>
+          )}
         </div>
-        {start.isError && (
-          <span className="text-sm text-destructive">{(start.error as Error).message}</span>
-        )}
-      </div>
+      </ConsoleCard>
 
       {run.data ? (
         <RunConsole snapshot={run.data} resultTitle="Generated InterviewPlan" />
       ) : runId ? (
-        <p className="text-sm text-muted-foreground">Starting run…</p>
+        <p className="m-0 text-sm text-muted-foreground">Starting run…</p>
       ) : (
         <EmptyState
           title="No run yet"
-          hint="Pick a role and round, then “Generate plan” to watch the pipeline run end to end."
+          hint="Pick a role (the backend assigns the first round), then “Generate plan” to watch the pipeline run end to end."
         />
       )}
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
+import { HairlineHead, HairlineTable, Td, Th, Tr } from "@/components/observability/HairlineTable";
 import type { AgentTurn } from "@/features/agent-diagnostics";
 
 /**
@@ -26,34 +28,28 @@ export function LatencySummary({ turns }: { turns: AgentTurn[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
-      <div className="mb-2 flex items-center justify-between text-sm font-medium">
-        <span>Latency by step</span>
-        <span className="text-xs font-normal text-muted-foreground">session total {fmt(sessionTotal)}</span>
-      </div>
-      <table className="w-full text-xs">
-        <thead className="text-muted-foreground">
-          <tr>
-            <th className="text-left font-normal">Step</th>
-            <th className="text-right font-normal">n</th>
-            <th className="text-right font-normal">total</th>
-            <th className="text-right font-normal">avg</th>
-            <th className="text-right font-normal">max</th>
-          </tr>
-        </thead>
+    <ConsoleCard title="Latency by step" meta={<HeaderCount>session total {fmt(sessionTotal)}</HeaderCount>}>
+      <HairlineTable label="Latency by step" className="min-w-[420px] text-[13px]">
+        <HairlineHead>
+          <Th className="py-2.5">Step</Th>
+          <Th className="py-2.5 text-right">n</Th>
+          <Th className="py-2.5 text-right">total</Th>
+          <Th className="py-2.5 text-right">avg</Th>
+          <Th className="py-2.5 text-right">max</Th>
+        </HairlineHead>
         <tbody>
           {rows.map(([name, a]) => (
-            <tr key={name} className="border-t border-border/50">
-              <td className="py-0.5">{name}</td>
-              <td className="text-right tabular-nums">{a.count}</td>
-              <td className="text-right font-medium tabular-nums">{fmt(a.total)}</td>
-              <td className="text-right tabular-nums">{fmt(a.total / a.count)}</td>
-              <td className="text-right tabular-nums">{fmt(a.max)}</td>
-            </tr>
+            <Tr key={name}>
+              <Td className="py-2 font-mono text-[12.5px]">{name}</Td>
+              <Td className="py-2 text-right font-mono tabular-nums text-muted-foreground">{a.count}</Td>
+              <Td className="py-2 text-right font-mono tabular-nums">{fmt(a.total)}</Td>
+              <Td className="py-2 text-right font-mono tabular-nums text-muted-foreground">{fmt(a.total / a.count)}</Td>
+              <Td className="py-2 text-right font-mono tabular-nums text-muted-foreground">{fmt(a.max)}</Td>
+            </Tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </HairlineTable>
+    </ConsoleCard>
   );
 }
 

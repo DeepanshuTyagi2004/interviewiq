@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useId, useState } from "react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SectionLabel, EmptyState } from "@/components/patterns";
+import { FormField, MonoPill } from "@/components/patterns";
+import { CardEmpty, ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
 import { ApiFetchError } from "@/lib/api-client/client";
 import {
   useAddCompany,
@@ -19,6 +17,9 @@ import {
   useSeedCompanies,
   type CreateCompanyInput,
 } from "@/features/intelligence";
+import { SELECT_CLASS } from "./fields";
+import { RemoveCompanyButton } from "./RemoveCompanyButton";
+import { ExtLink } from "./viewers";
 
 const LEVELS = [
   { value: "fresher", label: "Fresher" },
@@ -47,12 +48,9 @@ const emptyJd = (): DraftJd => ({
   description: "",
 });
 
-const levelClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-
 export function CompaniesPanel() {
   return (
-    <div className="space-y-8">
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start">
       <AddCompanyForm />
       <Catalogue />
     </div>
@@ -63,6 +61,7 @@ function AddCompanyForm() {
   const [company, setCompany] = useState("");
   const [jds, setJds] = useState<DraftJd[]>([emptyJd()]);
   const add = useAddCompany();
+  const formId = useId();
 
   const update = (i: number, patch: Partial<DraftJd>) =>
     setJds((prev) => prev.map((jd, idx) => (idx === i ? { ...jd, ...patch } : jd)));
@@ -98,95 +97,123 @@ function AddCompanyForm() {
   const valid = company.trim() && jds.some((jd) => jd.title.trim());
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <SectionLabel>Add a company + JDs</SectionLabel>
+    <ConsoleCard title="Add a company + JDs">
+      <form onSubmit={onSubmit} className="space-y-5 p-4 sm:p-5" aria-label="Add a company and its JDs">
+        <FormField label="Company" htmlFor={`${formId}-company`} className="max-w-md">
+          <Input
+            id={`${formId}-company`}
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="e.g. Stripe"
+            autoComplete="off"
+          />
+        </FormField>
 
-      <div className="max-w-md space-y-2">
-        <Label htmlFor="company">Company</Label>
-        <Input
-          id="company"
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          placeholder="e.g. Stripe"
-          autoComplete="off"
-        />
-      </div>
+        <div className="space-y-3 rounded-[10px] bg-panel p-3 sm:p-4">
+          <p className="iq-eyebrow m-0">
+            JDs · <span className="tabular-nums">{jds.length}</span>
+          </p>
+          {jds.map((jd, i) => {
+            const id = (field: string) => `${formId}-jd${i}-${field}`;
+            return (
+              <div
+                key={i}
+                role="group"
+                aria-labelledby={id("label")}
+                className="iq-float min-w-0 space-y-3 p-3.5 sm:p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p id={id("label")} className="m-0 font-mono text-[11.5px] tabular-nums text-faint">
+                    JD {String(i + 1).padStart(2, "0")}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeRow(i)}
+                    disabled={jds.length === 1}
+                    aria-label={`Remove JD ${i + 1}`}
+                  >
+                    <Trash2 aria-hidden />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <FormField label="JD title" htmlFor={id("title")} className="sm:col-span-3">
+                    <Input
+                      id={id("title")}
+                      value={jd.title}
+                      onChange={(e) => update(i, { title: e.target.value })}
+                      placeholder="e.g. Software Engineer, New Grad"
+                    />
+                  </FormField>
+                  <FormField label="Level" htmlFor={id("level")}>
+                    <select
+                      id={id("level")}
+                      value={jd.level}
+                      onChange={(e) => update(i, { level: e.target.value })}
+                      className={SELECT_CLASS}
+                    >
+                      {LEVELS.map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label="Specialization" htmlFor={id("spec")}>
+                    <select
+                      id={id("spec")}
+                      value={jd.specialization}
+                      onChange={(e) => update(i, { specialization: e.target.value })}
+                      className={SELECT_CLASS}
+                    >
+                      {SPECIALIZATIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label="Role (optional)" htmlFor={id("role")}>
+                    <Input
+                      id={id("role")}
+                      value={jd.role}
+                      onChange={(e) => update(i, { role: e.target.value })}
+                      placeholder="e.g. software-engineer"
+                    />
+                  </FormField>
+                </div>
+                <FormField label="JD content" htmlFor={id("content")}>
+                  <Textarea
+                    id={id("content")}
+                    value={jd.description}
+                    onChange={(e) => update(i, { description: e.target.value })}
+                    rows={4}
+                    className="min-h-[96px]"
+                    placeholder="Paste the full JD content — responsibilities, requirements, qualifications. This is stored and fed to Perplexity as search context."
+                  />
+                </FormField>
+              </div>
+            );
+          })}
+          <Button type="button" variant="outline" size="sm" onClick={addRow}>
+            <Plus aria-hidden /> Add JD
+          </Button>
+        </div>
 
-      <div className="space-y-3">
-        {jds.map((jd, i) => (
-          <div key={i} className="space-y-3 rounded-lg border border-border bg-card p-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem_9rem_8rem_auto]">
-              <Input
-                value={jd.title}
-                onChange={(e) => update(i, { title: e.target.value })}
-                placeholder="JD title (e.g. Software Engineer, New Grad)"
-                aria-label="JD title"
-              />
-              <select
-                value={jd.level}
-                onChange={(e) => update(i, { level: e.target.value })}
-                className={levelClass}
-                aria-label="Level"
-              >
-                {LEVELS.map((l) => (
-                  <option key={l.value} value={l.value}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={jd.specialization}
-                onChange={(e) => update(i, { specialization: e.target.value })}
-                className={levelClass}
-                aria-label="Specialization"
-              >
-                {SPECIALIZATIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <Input
-                value={jd.role}
-                onChange={(e) => update(i, { role: e.target.value })}
-                placeholder="role (opt.)"
-                aria-label="Role"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeRow(i)}
-                disabled={jds.length === 1}
-                aria-label="Remove JD"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-            <Textarea
-              value={jd.description}
-              onChange={(e) => update(i, { description: e.target.value })}
-              rows={4}
-              placeholder="Paste the full JD content — responsibilities, requirements, qualifications. This is stored and fed to Perplexity as search context."
-              aria-label="JD content"
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={addRow}>
-          <Plus className="size-4" /> Add JD
-        </Button>
-        <Button type="submit" disabled={!valid || add.isPending}>
-          {add.isPending ? "Adding…" : "Add company & ingest"}
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Each JD becomes an ingestion target keyed by company + role + level + specialization. Adding
-        triggers a run; the per-JD prompt, response, and stored document show in the Live ingestion tab.
-      </p>
-    </form>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="m-0 max-w-md text-xs leading-[1.5] text-muted-foreground">
+            Each JD becomes an ingestion target keyed by company + role + level + specialization.
+            Adding triggers a run; the per-JD prompt, response, and stored document show in the Live
+            ingestion tab.
+          </p>
+          <Button type="submit" disabled={!valid || add.isPending} className="shrink-0">
+            {add.isPending ? "Adding…" : "Add company & ingest"}
+          </Button>
+        </div>
+      </form>
+    </ConsoleCard>
   );
 }
 
@@ -203,90 +230,103 @@ function Catalogue() {
     });
   }
 
-  const seedButton = (
-    <Button variant="outline" size="sm" onClick={onSeed} disabled={seed.isPending}>
-      {seed.isPending ? "Loading…" : "Load starter companies"}
-    </Button>
-  );
-
-  if (isLoading) return <Skeleton className="h-40 w-full rounded-xl" />;
-  if (isError || !data) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        Could not load the catalogue.
-      </p>
-    );
-  }
-
-  function onDelete(company: string) {
+  function onDelete(company: string, done: () => void) {
     del.mutate(company, {
-      onSuccess: () => toast.success(`Removed ${company}.`),
+      onSuccess: () => {
+        done();
+        toast.success(`Removed ${company}.`);
+      },
       onError: () => toast.error("Could not remove company."),
     });
   }
 
+  const count = data?.length ?? 0;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Catalogue ({data.length} companies)</SectionLabel>
-        {seedButton}
-      </div>
-      {data.length === 0 ? (
-        <EmptyState title="No companies yet" hint="Add a company above to start collecting interview intelligence." />
-      ) : (
-        <div className="space-y-3">
-          {data.map((c) => (
-            <Card key={c.company}>
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm font-semibold">{c.company}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete(c.company)}
-                    disabled={del.isPending}
-                  >
-                    <Trash2 className="size-4" /> Remove
-                  </Button>
-                </div>
-                <ul className="space-y-2">
-                  {c.jds.map((jd) => (
-                    <li key={jd.id ?? `${jd.role}-${jd.level}`}>
-                      <details className="rounded-md border border-border">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
-                          <span className="truncate">{jd.title || "(untitled)"}</span>
-                          <span className="flex shrink-0 items-center gap-2">
-                            {jd.specialization ? (
-                              <Badge variant="outline">{jd.specialization}</Badge>
-                            ) : null}
-                            <Badge variant="outline">{jd.role}</Badge>
-                            <Badge variant="secondary">{jd.level}</Badge>
-                          </span>
-                        </summary>
-                        <div className="space-y-2 border-t border-border px-3 py-3">
-                          {jd.jdUrl ? (
-                            <a
-                              href={jd.jdUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block break-all font-mono text-xs text-primary underline-offset-4 hover:underline"
-                            >
-                              {jd.jdUrl}
-                            </a>
-                          ) : null}
-                          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                            {jd.description || "No JD content yet."}
-                          </p>
-                        </div>
-                      </details>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+    <ConsoleCard
+      title="Catalogue"
+      meta={
+        <>
+          {data ? <HeaderCount>{count} {count === 1 ? "company" : "companies"}</HeaderCount> : null}
+          <Button variant="outline" size="sm" onClick={onSeed} disabled={seed.isPending}>
+            {seed.isPending ? "Loading…" : "Load starter companies"}
+          </Button>
+        </>
+      }
+    >
+      {isLoading ? (
+        <div className="space-y-2 p-4 sm:px-5" aria-busy="true" aria-label="Loading the catalogue">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError || !data ? (
+        <p role="alert" className="m-0 px-4 py-6 text-sm text-destructive sm:px-5">
+          Could not load the catalogue.
+        </p>
+      ) : data.length === 0 ? (
+        <CardEmpty
+          title="No companies yet"
+          hint="Add a company to start collecting interview intelligence, or load the starter catalogue."
+        />
+      ) : (
+        <ul className="m-0 list-none divide-y divide-line p-0">
+          {data.map((c) => (
+            <li key={c.company} className="space-y-3 px-4 py-4 sm:px-5">
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-primary text-[12px] font-medium uppercase text-primary-foreground"
+                >
+                  {c.company.charAt(0)}
+                </span>
+                <h3 className="m-0 min-w-0 flex-1 truncate font-mono text-[13.5px] font-normal">{c.company}</h3>
+                <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-faint">
+                  {c.jds.length} {c.jds.length === 1 ? "JD" : "JDs"}
+                </span>
+                <RemoveCompanyButton
+                  company={c.company}
+                  jdCount={c.jds.length}
+                  pending={del.isPending}
+                  onConfirm={(done) => onDelete(c.company, done)}
+                />
+              </div>
+              <ul className="m-0 list-none space-y-1.5 p-0">
+                {c.jds.map((jd) => (
+                  <li key={jd.id ?? `${jd.role}-${jd.level}`}>
+                    <details className="group rounded-[8px] border border-line-2 open:border-line-3">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[8px] px-3 py-2.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <ChevronRight
+                            aria-hidden
+                            className="h-3.5 w-3.5 shrink-0 text-faint transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                          />
+                          <span className="min-w-0 truncate">{jd.title || "(untitled)"}</span>
+                        </span>
+                        <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+                          {jd.specialization ? <MonoPill tone="ghost">{jd.specialization}</MonoPill> : null}
+                          {jd.role ? <MonoPill tone="ghost">{jd.role}</MonoPill> : null}
+                          <MonoPill tone="soft">{jd.level}</MonoPill>
+                        </span>
+                      </summary>
+                      <div className="space-y-2 border-t border-line px-3 py-3">
+                        {jd.jdUrl ? (
+                          <ExtLink href={jd.jdUrl} className="block font-mono text-xs [overflow-wrap:anywhere]">
+                            {jd.jdUrl}
+                          </ExtLink>
+                        ) : null}
+                        <p className="m-0 whitespace-pre-wrap text-[13px] leading-[1.55] text-muted-foreground">
+                          {jd.description || "No JD content yet."}
+                        </p>
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </ConsoleCard>
   );
 }

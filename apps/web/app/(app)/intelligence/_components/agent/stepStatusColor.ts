@@ -2,13 +2,18 @@ import type { Edge, Node } from "@xyflow/react";
 import type { AgentTurn } from "@/features/agent-diagnostics";
 import type { RunStepStatus } from "@/features/observability";
 
-export const STEP_STATUS_COLOR: Record<RunStepStatus | "idle", string> = {
-  idle: "#e5e7eb",
-  pending: "#e5e7eb",
-  running: "#fde68a",
-  ok: "#86efac",
-  failed: "#fca5a5",
-  skipped: "#d1d5db",
+/**
+ * Node chrome per step status, in the token palette (was raw hex fills). Same semantics:
+ * idle = not reached this turn, pending = queued, running = live (brand), ok = done (ink hairline),
+ * failed = destructive, skipped = muted panel. Brand/destructive are the only accents.
+ */
+export const STEP_STATUS_CLASS: Record<RunStepStatus | "idle", string> = {
+  idle: "border-dashed border-line-3 bg-card text-faint",
+  pending: "border-line-3 bg-card text-muted-foreground",
+  running: "border-brand bg-card text-foreground ring-2 ring-brand/20",
+  ok: "border-foreground bg-card text-foreground",
+  failed: "border-destructive bg-destructive/10 text-destructive",
+  skipped: "border-line-2 bg-panel text-faint",
 };
 
 /** Fixed interview pipeline — order and membership never change per-turn. */
@@ -37,7 +42,8 @@ export type PipelineNodeData = {
   status: RunStepStatus | "idle";
 };
 
-const X_GAP = 160;
+// Tight enough that fitView keeps the mono labels legible across the card width.
+const X_GAP = 116;
 
 /**
  * Pure mapping from one AgentTurn to react-flow nodes for the fixed pipeline.

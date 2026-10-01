@@ -2,13 +2,15 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/patterns";
+import { EmptyState, FormField, MonoPill, type MonoPillTone } from "@/components/patterns";
+import { ConsoleCard } from "@/components/observability/ConsoleCard";
 import { RunConsole } from "@/components/observability/RunConsole";
 import { RunLogStream } from "@/components/observability/RunLogStream";
 import { TranscriptPanel } from "@/features/interview-live/work/TranscriptPanel";
 import { useJds } from "@/features/jobs";
+import { cn } from "@/lib/utils/cn";
 import { usePrepCandidates, usePrepRun, useStartPrepRun } from "@/features/interview-prep-bench";
-import type { AgentStep } from "@/features/agent-diagnostics";
+import type { AgentSessionStatus, AgentStep } from "@/features/agent-diagnostics";
 import {
   isSessionTerminal,
   useAgentSession,
@@ -22,10 +24,17 @@ import { PipelineCanvas } from "./agent/PipelineCanvas";
 import { StepDetailDrawer } from "./agent/StepDetailDrawer";
 import { TurnComposer } from "./agent/TurnComposer";
 import { sessionToMarkdown } from "./agent/markdownExport";
+import { SELECT_CLASS, TEXTAREA_CLASS } from "./fields";
 
-// Copied verbatim from InterviewPrepBenchPanel.tsx.
-const SELECT_CLASS =
-  "rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+/** Session status → pill tone: live states in brand, failure in alert, finished quiet. */
+const SESSION_TONE: Record<AgentSessionStatus, MonoPillTone> = {
+  running: "brand",
+  awaiting_input: "brand",
+  completed: "soft",
+  failed: "alert",
+  abandoned: "ghost",
+  aborted: "ghost",
+};
 
 /**
  * Admin test-bench for the live-interview agent's decision engine. Phase machine:
@@ -106,76 +115,82 @@ export function AgentDiagnosticsPanel() {
   };
 
   const sessionEnded = isSessionTerminal(session.data?.status);
+  const ids = React.useId();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {!sessionId && (
-        <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-          <p className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-            Drives the live-interview agent outside a real session: generate an InterviewPlan,
-            then step through turns to inspect every decision the agent makes — clarify vs.
-            advance, silence handling, and why it chooses to end.
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted-foreground">Job description</span>
-              <select
-                className={SELECT_CLASS}
-                value={jobDescriptionId}
-                onChange={(e) => setJobDescriptionId(e.target.value)}
-              >
-                <option value="">{jds.isLoading ? "Loading roles…" : "Select a role"}</option>
-                {(jds.data ?? []).map((jd) => (
-                  <option key={jd.id} value={jd.id}>
-                    {jd.companyName} — {jd.title} ({jd.level})
+        <ConsoleCard title="New session">
+          <div className="space-y-4 p-4 sm:p-5">
+            <p className="m-0 rounded-[8px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
+              Drives the live-interview agent outside a real session: generate an InterviewPlan,
+              then step through turns to inspect every decision the agent makes — clarify vs.
+              advance, silence handling, and why it chooses to end.
+            </p>
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+              <FormField label="Job description" htmlFor={`${ids}-jd`} className="min-w-0 md:w-[320px]">
+                <select
+                  id={`${ids}-jd`}
+                  className={SELECT_CLASS}
+                  value={jobDescriptionId}
+                  onChange={(e) => setJobDescriptionId(e.target.value)}
+                >
+                  <option value="">{jds.isLoading ? "Loading roles…" : "Select a role"}</option>
+                  {(jds.data ?? []).map((jd) => (
+                    <option key={jd.id} value={jd.id}>
+                      {jd.companyName} — {jd.title} ({jd.level})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Candidate (optional)" htmlFor={`${ids}-candidate`} className="min-w-0 md:w-[320px]">
+                <select
+                  id={`${ids}-candidate`}
+                  className={SELECT_CLASS}
+                  value={candidateId}
+                  onChange={(e) => setCandidateId(e.target.value)}
+                >
+                  <option value="">
+                    {candidates.isLoading ? "Loading candidates…" : "No candidate (JD-only grounding)"}
                   </option>
-                ))}
-              </select>
-            </label>
+                  {(candidates.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.email ? ` — ${c.email}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
 
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted-foreground">Candidate (optional)</span>
-              <select
-                className={SELECT_CLASS}
-                value={candidateId}
-                onChange={(e) => setCandidateId(e.target.value)}
-              >
-                <option value="">
-                  {candidates.isLoading ? "Loading candidates…" : "No candidate (JD-only grounding)"}
-                </option>
-                {(candidates.data ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.email ? ` — ${c.email}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="flex flex-wrap gap-2">
+                {/* Once a plan exists, starting the session is the next step, so it takes the brand. */}
+                <Button variant={plan != null ? "outline" : "default"} onClick={onRunPrep} disabled={!canRunPrep}>
+                  {startPrep.isPending ? "Starting…" : "Run prep"}
+                </Button>
 
-            <Button onClick={onRunPrep} disabled={!canRunPrep}>
-              {startPrep.isPending ? "Starting…" : "Run prep"}
-            </Button>
-
-            {plan != null && (
-              <Button variant="secondary" onClick={onStartSession} disabled={startSession.isPending}>
-                {startSession.isPending ? "Starting session…" : "Start session"}
-              </Button>
+                {plan != null && (
+                  <Button onClick={onStartSession} disabled={startSession.isPending}>
+                    {startSession.isPending ? "Starting session…" : "Start session"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            {startPrep.isError && (
+              <p role="alert" className="m-0 text-sm text-destructive">{(startPrep.error as Error).message}</p>
+            )}
+            {startSession.isError && (
+              <p role="alert" className="m-0 text-sm text-destructive">{(startSession.error as Error).message}</p>
             )}
           </div>
-          {startPrep.isError && (
-            <span className="text-sm text-destructive">{(startPrep.error as Error).message}</span>
-          )}
-          {startSession.isError && (
-            <span className="text-sm text-destructive">{(startSession.error as Error).message}</span>
-          )}
-        </div>
+        </ConsoleCard>
       )}
 
       {!sessionId && prepRunId && (
         prep.data ? (
           <RunConsole snapshot={prep.data} resultTitle="Generated InterviewPlan" />
         ) : (
-          <p className="text-sm text-muted-foreground">Starting run…</p>
+          <p className="m-0 text-sm text-muted-foreground">Starting run…</p>
         )
       )}
 
@@ -187,113 +202,143 @@ export function AgentDiagnosticsPanel() {
       )}
 
       {sessionId && session.data && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr]">
-          <div className="space-y-3">
-            <div className="h-[42vh] min-h-64">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="iq-eyebrow m-0">Session</p>
+                <p className="m-0 mt-1 truncate text-[15px] tracking-[-0.01em]">{session.data.label}</p>
+              </div>
+              <MonoPill tone={SESSION_TONE[session.data.status] ?? "ghost"} className="gap-1.5">
+                {session.data.status === "running" || session.data.status === "awaiting_input" ? (
+                  <span
+                    aria-hidden
+                    data-motion
+                    className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
+                  />
+                ) : null}
+                {session.data.status.replace(/_/g, " ")}
+              </MonoPill>
+            </div>
+            {/* TranscriptPanel is shared with the live room; the frame around it is ours. */}
+            <div className="h-[42vh] min-h-64 rounded-[10px] border border-line-2 p-3">
               <TranscriptPanel
                 entries={session.data.transcript}
                 interviewerName={String(session.data.plan_summary.persona_name ?? "Interviewer")}
               />
             </div>
-            <TurnComposer
-              status={session.data.status}
-              onSubmit={(body) => submitTurn.mutate({ runId: sessionId, body })}
-              onSilence={(advanceSeconds) =>
-                submitTurn.mutate({
-                  runId: sessionId,
-                  body: { silence: true, advance_seconds: advanceSeconds },
-                })
-              }
-              onEnd={() => endSession.mutate(sessionId)}
-            />
+            <div className="rounded-[10px] border border-line-2 p-3 sm:p-4">
+              <TurnComposer
+                status={session.data.status}
+                onSubmit={(body) => submitTurn.mutate({ runId: sessionId, body })}
+                onSilence={(advanceSeconds) =>
+                  submitTurn.mutate({
+                    runId: sessionId,
+                    body: { silence: true, advance_seconds: advanceSeconds },
+                  })
+                }
+                onEnd={() => endSession.mutate(sessionId)}
+              />
+            </div>
             {submitTurn.isError && (
-              <span className="text-sm text-destructive">
+              <p role="alert" className="m-0 text-sm text-destructive">
                 Turn failed: {(submitTurn.error as Error).message}
-              </span>
+              </p>
             )}
             {endSession.isError && (
-              <span className="text-sm text-destructive">
+              <p role="alert" className="m-0 text-sm text-destructive">
                 End failed: {(endSession.error as Error).message}
-              </span>
+              </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={onCopyMarkdown}>
                 Copy as Markdown
               </Button>
               {sessionEnded && (
-                <Button variant="secondary" size="sm" onClick={onReset}>
+                <Button variant="strong" size="sm" onClick={onReset}>
                   Start new session
                 </Button>
               )}
             </div>
             {(sessionEnded || session.data.ended_reason) && (
-              <p className="text-sm">
-                Ended: <strong>{session.data.ended_reason ?? session.data.status}</strong>
+              <p className="m-0 text-sm text-muted-foreground">
+                Ended: <span className="font-mono text-[13px] text-foreground">{session.data.ended_reason ?? session.data.status}</span>
               </p>
             )}
           </div>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {selectedStep && (
               <StepDetailDrawer step={selectedStep} onClose={() => setSelectedStep(null)} />
             )}
             {turns.length > 0 ? (
-              <>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-muted-foreground">Turn</span>
-                  <select
-                    className={SELECT_CLASS}
-                    value={clampedTurnIdx}
-                    onChange={(e) => {
-                      setManualTurn(true);
-                      setSelectedTurn(Number(e.target.value));
-                      setSelectedStep(null);
-                    }}
-                  >
-                    {turns.map((t, i) => (
-                      <option key={t.index} value={i}>
-                        Turn {t.index} — {t.kind}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <ConsoleCard
+                title="Pipeline"
+                meta={
+                  <label className="flex items-center gap-2 text-xs text-faint">
+                    Turn
+                    <select
+                      className={cn(SELECT_CLASS, "h-8 w-auto min-w-[140px] text-[13px]")}
+                      value={clampedTurnIdx}
+                      onChange={(e) => {
+                        setManualTurn(true);
+                        setSelectedTurn(Number(e.target.value));
+                        setSelectedStep(null);
+                      }}
+                    >
+                      {turns.map((t, i) => (
+                        <option key={t.index} value={i}>
+                          Turn {t.index} — {t.kind}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                }
+              >
                 <PipelineCanvas turn={currentTurn} onSelectStep={(step) => setSelectedStep(step ?? null)} />
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-muted-foreground">Notes for turn {currentTurn?.index ?? clampedTurnIdx}</span>
-                  <textarea
-                    className="w-full rounded-md border border-border bg-background p-2 text-sm"
-                    rows={3}
-                    value={(currentTurn && notes[currentTurn.index]) ?? ""}
-                    onChange={(e) => {
-                      const idx = currentTurn?.index ?? clampedTurnIdx;
-                      const value = e.target.value;
-                      setNotes((prev) => ({ ...prev, [idx]: value }));
-                    }}
-                  />
-                </label>
-              </>
+                <div className="border-t border-line p-4 sm:px-5">
+                  <FormField label={`Notes for turn ${currentTurn?.index ?? clampedTurnIdx}`} htmlFor={`${ids}-notes`}>
+                    <textarea
+                      id={`${ids}-notes`}
+                      className={TEXTAREA_CLASS}
+                      rows={3}
+                      value={(currentTurn && notes[currentTurn.index]) ?? ""}
+                      onChange={(e) => {
+                        const idx = currentTurn?.index ?? clampedTurnIdx;
+                        const value = e.target.value;
+                        setNotes((prev) => ({ ...prev, [idx]: value }));
+                      }}
+                    />
+                  </FormField>
+                </div>
+              </ConsoleCard>
             ) : (
-              <p className="text-sm text-muted-foreground">No turns yet.</p>
+              <p className="m-0 text-sm text-muted-foreground">No turns yet.</p>
             )}
             <LatencySummary turns={session.data.turns} />
-            <div className="max-h-[45vh] overflow-auto rounded-lg border border-border p-1">
-              <DecisionTimeline
-                turns={session.data.turns}
-                onSelectStep={(turnIndex, stepIndex) =>
-                  setSelectedStep(
-                    session.data?.turns.find((t) => t.index === turnIndex)?.steps[stepIndex] ?? null,
-                  )
-                }
-              />
-            </div>
-            <div className="max-h-64 overflow-auto">
-              <RunLogStream logs={session.data._logs} />
-            </div>
+            <ConsoleCard title="Decision timeline">
+              <div
+                role="region"
+                aria-label="Decision timeline steps"
+                tabIndex={0}
+                className="max-h-[45vh] overflow-auto [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <DecisionTimeline
+                  turns={session.data.turns}
+                  onSelectStep={(turnIndex, stepIndex) =>
+                    setSelectedStep(
+                      session.data?.turns.find((t) => t.index === turnIndex)?.steps[stepIndex] ?? null,
+                    )
+                  }
+                />
+              </div>
+            </ConsoleCard>
+            <RunLogStream logs={session.data._logs} className="h-64" />
           </div>
         </div>
       )}
 
       {sessionId && !session.data && (
-        <p className="text-sm text-muted-foreground">Starting session…</p>
+        <p className="m-0 text-sm text-muted-foreground">Starting session…</p>
       )}
     </div>
   );

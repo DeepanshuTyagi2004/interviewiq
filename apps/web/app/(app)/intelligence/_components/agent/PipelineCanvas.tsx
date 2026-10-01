@@ -5,7 +5,7 @@ import type { AgentStep, AgentTurn } from "@/features/agent-diagnostics";
 // react-flow reads browser-only layout APIs; must not render during SSR/`next build`.
 const PipelineCanvasInner = dynamic(() => import("./PipelineCanvasInner"), {
   ssr: false,
-  loading: () => <div className="h-64 bg-muted animate-pulse rounded" />,
+  loading: () => <div data-motion className="h-44 animate-pulse bg-panel" />,
 });
 
 /**

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { ListChecks, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { StatRow, StatTile, SectionLabel } from "@/components/patterns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatRow, StatTile } from "@/components/patterns";
+import { CardEmpty, ConsoleCard, HeaderCount, LookPill } from "@/components/observability/ConsoleCard";
 import {
   useBriefs,
   useClearBriefs,
@@ -19,14 +20,7 @@ import { ApiFetchError } from "@/lib/api-client/client";
 import { LogStream } from "./LogStream";
 import { ComboDetailCard } from "./ComboDetailCard";
 import { GeneratedBriefCard } from "./GeneratedBriefCard";
-
-const STATUS_VARIANT: Record<RunStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  running: "default",
-  completed: "secondary",
-  failed: "destructive",
-  cancelled: "outline",
-  idle: "outline",
-};
+import { RUN_STATUS_PILL } from "./pills";
 
 export function LiveIngestionPanel() {
   const { data, isLoading } = useScrapeStatus();
@@ -72,26 +66,35 @@ export function LiveIngestionPanel() {
   const showGenerated = combos.length === 0;
 
   return (
-    <div className="space-y-6">
-      {/* status + run button */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Badge variant={STATUS_VARIANT[status]} className="uppercase tracking-wide">
+    <div className="space-y-4">
+      {/* status + run controls */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
+          <LookPill look={RUN_STATUS_PILL[status]} className="gap-1.5">
+            {running ? (
+              <span
+                aria-hidden
+                data-motion
+                className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
+              />
+            ) : null}
             {status}
-          </Badge>
+          </LookPill>
           {data?.stage ? (
-            <span className="text-sm text-muted-foreground">
-              stage: <span className="font-mono">{data.stage}</span>
+            <span className="text-muted-foreground">
+              stage <span className="font-mono text-foreground">{data.stage}</span>
             </span>
           ) : null}
           {data?.trigger ? (
-            <span className="text-xs text-muted-foreground">via {data.trigger}</span>
+            <span className="text-faint">
+              via <span className="font-mono">{data.trigger}</span>
+            </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            className="text-destructive hover:text-destructive"
+            className="text-destructive hover:border-destructive hover:text-destructive"
             disabled={busy || clear.isPending}
             onClick={() => {
               if (!window.confirm("Delete ALL generated briefs from MongoDB? The catalogue is kept. This can't be undone.")) return;
@@ -102,12 +105,12 @@ export function LiveIngestionPanel() {
             }}
             title="Delete all generated interview briefs (MongoDB). The JD catalogue is untouched."
           >
-            <Trash2 className="size-4" /> {clear.isPending ? "Clearing…" : "Clear briefs"}
+            <Trash2 aria-hidden /> {clear.isPending ? "Clearing…" : "Clear briefs"}
           </Button>
           {running ? (
             <Button
               variant="outline"
-              className="text-destructive hover:text-destructive"
+              className="text-destructive hover:border-destructive hover:text-destructive"
               disabled={stop.isPending}
               onClick={() =>
                 stop.mutate(undefined, {
@@ -118,9 +121,17 @@ export function LiveIngestionPanel() {
               }
               title="Stop the run — it halts after the current JD finishes"
             >
-              <Square className="size-4" /> {stop.isPending ? "Stopping…" : "Stop"}
+              <Square aria-hidden /> {stop.isPending ? "Stopping…" : "Stop"}
             </Button>
           ) : null}
+          <Button
+            variant="strong"
+            onClick={() => runMutation(collect, "Collecting question sets…")}
+            disabled={busy}
+            title="Collect DSA / System-Design / LLD interview questions from public sources into the bank"
+          >
+            <ListChecks aria-hidden /> Collect questions
+          </Button>
           <Button
             onClick={() => runMutation(trigger, "Ingestion started.")}
             disabled={busy}
@@ -128,82 +139,76 @@ export function LiveIngestionPanel() {
           >
             {running ? (
               <>
-                <RotateCw className="size-4 animate-spin" /> Running…
+                <RotateCw aria-hidden className="animate-spin motion-reduce:animate-none" /> Running…
               </>
             ) : (
               <>
-                <Play className="size-4" /> Run ingestion
+                <Play aria-hidden /> Run ingestion
               </>
             )}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => runMutation(collect, "Collecting question sets…")}
-            disabled={busy}
-            title="Collect DSA / System-Design / LLD interview questions from public sources into the bank"
-          >
-            <ListChecks className="size-4" /> Collect questions
           </Button>
         </div>
       </div>
 
       {data?.error ? (
-        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Run failed: {data.error}
+        <p role="alert" className="m-0 rounded-[10px] bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Run failed: <span className="font-mono text-[13px]">{data.error}</span>
         </p>
       ) : null}
 
       <Counters status={data} />
 
-      {showGenerated ? (
-        <section className="space-y-2">
-          <SectionLabel>Generated briefs ({generated.length})</SectionLabel>
-          {briefsQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading already-generated briefs…</p>
-          ) : generated.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No briefs generated yet. Click “Run ingestion” to create the per-JD round-by-round briefs;
-              the live prompts, responses, citations and stored documents appear here.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {generated.map((b) => {
-                const key = `${b.company}/${b.role}/${b.level}/${b.specialization}`;
-                return (
-                  <GeneratedBriefCard
-                    key={key}
-                    summary={b}
-                    open={openKey === key}
-                    onToggle={() => toggle(key)}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
-      ) : (
-        <section className="space-y-2">
-          <SectionLabel>Combinations ({combos.length})</SectionLabel>
-          <div className="space-y-2">
-            {combos.map((c) => (
-              <ComboDetailCard
-                key={c.combo}
-                detail={c}
-                open={openKey === c.combo}
-                onToggle={() => toggle(c.combo)}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+        {showGenerated ? (
+          <ConsoleCard
+            title="Generated briefs"
+            meta={<HeaderCount>{generated.length} {generated.length === 1 ? "brief" : "briefs"}</HeaderCount>}
+          >
+            {briefsQuery.isLoading ? (
+              <div className="space-y-2 p-4 sm:px-5" aria-busy="true" aria-label="Loading already-generated briefs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <Skeleton key={i} className="h-9 w-full" />
+                ))}
+              </div>
+            ) : generated.length === 0 ? (
+              <CardEmpty
+                title="No briefs generated yet"
+                hint="Click “Run ingestion” to create the per-JD round-by-round briefs; the live prompts, responses, citations and stored documents appear here."
               />
-            ))}
-          </div>
-        </section>
-      )}
+            ) : (
+              <ul className="m-0 list-none divide-y divide-line p-0">
+                {generated.map((b) => {
+                  const key = `${b.company}/${b.role}/${b.level}/${b.specialization}`;
+                  return (
+                    <li key={key}>
+                      <GeneratedBriefCard summary={b} open={openKey === key} onToggle={() => toggle(key)} />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </ConsoleCard>
+        ) : (
+          <ConsoleCard
+            title="Combinations"
+            meta={<HeaderCount>{combos.length} in this run</HeaderCount>}
+          >
+            <ul className="m-0 list-none divide-y divide-line p-0">
+              {combos.map((c) => (
+                <li key={c.combo}>
+                  <ComboDetailCard detail={c} open={openKey === c.combo} onToggle={() => toggle(c.combo)} />
+                </li>
+              ))}
+            </ul>
+          </ConsoleCard>
+        )}
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <SectionLabel>Live logs</SectionLabel>
-          {isLoading ? <span className="text-xs text-muted-foreground">Connecting…</span> : null}
-        </div>
-        <LogStream logs={data?.logs ?? []} />
-      </section>
+        <LogStream
+          logs={data?.logs ?? []}
+          meta={isLoading ? "Connecting…" : undefined}
+          className="h-96 xl:sticky xl:top-[68px] xl:h-[min(34rem,calc(100vh-15rem))]"
+        />
+      </div>
     </div>
   );
 }

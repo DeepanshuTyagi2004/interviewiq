@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { AgentTurn } from "@/features/agent-diagnostics";
-import { PIPELINE_EDGES, PIPELINE_STEPS, stepsToNodes } from "./stepStatusColor";
+import { PIPELINE_EDGES, PIPELINE_STEPS, STEP_STATUS_CLASS, stepsToNodes } from "./stepStatusColor";
 
 function makeTurn(steps: AgentTurn["steps"]): AgentTurn {
   return {
@@ -61,5 +61,25 @@ describe("PIPELINE_EDGES", () => {
       expect(edge.source).toBe(PIPELINE_STEPS[i]);
       expect(edge.target).toBe(PIPELINE_STEPS[i + 1]);
     });
+  });
+});
+
+describe("STEP_STATUS_CLASS", () => {
+  const STATUSES = ["idle", "pending", "running", "ok", "failed", "skipped"] as const;
+
+  it("styles every node status, including idle", () => {
+    for (const s of STATUSES) expect(STEP_STATUS_CLASS[s]).toBeTruthy();
+  });
+
+  it("keeps the semantics: brand = running, destructive = failed, ink = done, faint = idle/skipped", () => {
+    expect(STEP_STATUS_CLASS.running).toContain("border-brand");
+    expect(STEP_STATUS_CLASS.failed).toContain("border-destructive");
+    expect(STEP_STATUS_CLASS.ok).toContain("border-foreground");
+    expect(STEP_STATUS_CLASS.idle).toContain("text-faint");
+    expect(STEP_STATUS_CLASS.skipped).toContain("text-faint");
+  });
+
+  it("uses token classes only — no raw hex colours", () => {
+    for (const s of STATUSES) expect(STEP_STATUS_CLASS[s]).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
 });

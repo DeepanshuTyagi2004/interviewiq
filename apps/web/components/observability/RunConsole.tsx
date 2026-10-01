@@ -1,15 +1,15 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MonoPill } from "@/components/patterns";
+import type { RunSnapshot, RunStatus } from "@/features/observability";
+import { ConsoleCard } from "./ConsoleCard";
 import { RunLogStream } from "./RunLogStream";
 import { RunTimeline } from "./RunTimeline";
-import type { RunSnapshot, RunStatus } from "@/features/observability";
 
 /**
- * Full-transparency view of one pipeline run: header (status + timing + error), the step timeline
- * (expandable per-step detail), the live log stream, and the final artifact. Pipeline-agnostic —
- * both the résumé and interview-prep consoles render this with their own run snapshot.
+ * Full-transparency view of one pipeline run: a card with the run header (label, run id, status),
+ * any error and the expandable step timeline; then the live log stream and the final artifact.
+ * Pipeline-agnostic — both the résumé and interview-prep consoles render this with their own run.
  */
 export function RunConsole({
   snapshot,
@@ -18,60 +18,69 @@ export function RunConsole({
   snapshot: RunSnapshot;
   resultTitle?: string;
 }) {
+  const hasResult = snapshot.result != null;
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-          <div className="min-w-0">
-            <CardTitle className="truncate">{snapshot.label}</CardTitle>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">{snapshot.run_id}</p>
+    <div className="space-y-3">
+      <ConsoleCard
+        aria-label={`Run ${snapshot.label}`}
+        title={
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-[15px] tracking-[-0.01em]">{snapshot.label}</span>
+            <span className="truncate font-mono text-[11.5px] text-faint">{snapshot.run_id}</span>
+          </span>
+        }
+        meta={<RunStatusPill status={snapshot.status} currentStep={snapshot.current_step} />}
+      >
+        {snapshot.error ? (
+          <div role="alert" className="border-b border-line bg-destructive/[0.06] px-4 py-3 text-sm sm:px-5">
+            <span className="text-destructive">
+              Failed{snapshot.error.step ? ` at ${snapshot.error.step}` : ""}
+            </span>
+            {snapshot.error.message ? (
+              <p className="m-0 mt-1 font-mono text-xs text-foreground [overflow-wrap:anywhere]">
+                {snapshot.error.message}
+              </p>
+            ) : null}
           </div>
-          <RunStatusBadge status={snapshot.status} currentStep={snapshot.current_step} />
-        </CardHeader>
-        {snapshot.error && (
-          <CardContent>
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <span className="font-semibold text-destructive">
-                Failed{snapshot.error.step ? ` at ${snapshot.error.step}` : ""}
-              </span>
-              {snapshot.error.message && (
-                <p className="mt-1 font-mono text-xs text-foreground">{snapshot.error.message}</p>
-              )}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">Steps</h3>
+        ) : null}
+        <p className="iq-eyebrow m-0 px-4 pb-1 pt-4 sm:px-5">
+          Steps · <span className="tabular-nums">{snapshot.steps.length}</span>
+        </p>
         <RunTimeline steps={snapshot.steps} />
-      </section>
+      </ConsoleCard>
 
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">Logs</h3>
+      <div className={hasResult ? "grid grid-cols-1 gap-3 xl:grid-cols-2 xl:items-start" : undefined}>
         <RunLogStream logs={snapshot.logs} />
-      </section>
-
-      {snapshot.result != null && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">{resultTitle}</h3>
-          <pre className="max-h-[32rem] overflow-auto rounded-xl border border-border bg-card p-4 font-mono text-xs whitespace-pre-wrap">
-            {JSON.stringify(snapshot.result, null, 2)}
-          </pre>
-        </section>
-      )}
+        {hasResult ? (
+          <ConsoleCard title={resultTitle}>
+            <pre
+              tabIndex={0}
+              role="region"
+              aria-label={resultTitle}
+              className="m-0 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words bg-panel p-4 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
+            >
+              {JSON.stringify(snapshot.result, null, 2)}
+            </pre>
+          </ConsoleCard>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function RunStatusBadge({ status, currentStep }: { status: RunStatus; currentStep: string | null }) {
+function RunStatusPill({ status, currentStep }: { status: RunStatus; currentStep: string | null }) {
   if (status === "running") {
     return (
-      <Badge variant="default" className="shrink-0">
+      <MonoPill tone="brand" className="gap-1.5">
+        <span
+          aria-hidden
+          data-motion
+          className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
+        />
         Running{currentStep ? ` · ${currentStep}` : ""}
-      </Badge>
+      </MonoPill>
     );
   }
-  if (status === "failed") return <Badge variant="destructive" className="shrink-0">Failed</Badge>;
-  return <Badge variant="secondary" className="shrink-0">Completed</Badge>;
+  if (status === "failed") return <MonoPill tone="alert">Failed</MonoPill>;
+  return <MonoPill tone="soft">Completed</MonoPill>;
 }

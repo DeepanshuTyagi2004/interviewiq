@@ -2,9 +2,14 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/patterns";
+import { EmptyState, FormField } from "@/components/patterns";
+import { ConsoleCard } from "@/components/observability/ConsoleCard";
 import { RunConsole } from "@/components/observability/RunConsole";
 import { useResumeRun, useStartResumeRun } from "@/features/resume-bench";
+
+/** File input styled to match the console: an outlined "Choose file" chip, muted file name. */
+const FILE_INPUT_CLASS =
+  "block w-full min-w-0 rounded-md text-[13px] text-muted-foreground file:mr-3 file:h-8 file:cursor-pointer file:rounded-md file:border file:border-solid file:border-line-3 file:bg-card file:px-3 file:text-[13px] file:text-foreground file:transition-colors hover:file:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 /**
  * Admin test-bench for the résumé-parse pipeline: upload a PDF, start an instrumented run, and
@@ -15,6 +20,7 @@ export function ResumeBenchPanel() {
   const [runId, setRunId] = React.useState<string | null>(null);
   const start = useStartResumeRun();
   const run = useResumeRun(runId);
+  const inputId = React.useId();
 
   const onStart = () => {
     if (!file) return;
@@ -22,26 +28,33 @@ export function ResumeBenchPanel() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
-        />
-        <Button onClick={onStart} disabled={!file || start.isPending}>
-          {start.isPending ? "Starting…" : "Run parse"}
-        </Button>
+    <div className="space-y-4">
+      <ConsoleCard title="Run a parse">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
+          <FormField label="Résumé (PDF)" htmlFor={inputId} className="min-w-0 sm:max-w-sm sm:flex-1">
+            <input
+              id={inputId}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className={FILE_INPUT_CLASS}
+            />
+          </FormField>
+          <Button onClick={onStart} disabled={!file || start.isPending} className="self-start sm:self-auto">
+            {start.isPending ? "Starting…" : "Run parse"}
+          </Button>
+        </div>
         {start.isError && (
-          <span className="text-sm text-destructive">{(start.error as Error).message}</span>
+          <p role="alert" className="m-0 border-t border-line px-4 py-3 text-sm text-destructive sm:px-5">
+            {(start.error as Error).message}
+          </p>
         )}
-      </div>
+      </ConsoleCard>
 
       {run.data ? (
         <RunConsole snapshot={run.data} resultTitle="Parsed profile (draft)" />
       ) : runId ? (
-        <p className="text-sm text-muted-foreground">Starting run…</p>
+        <p className="m-0 text-sm text-muted-foreground">Starting run…</p>
       ) : (
         <EmptyState
           title="No run yet"

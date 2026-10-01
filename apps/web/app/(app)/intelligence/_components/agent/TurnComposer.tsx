@@ -1,13 +1,10 @@
 "use client";
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { AgentSessionStatus, SubmitTurnBody } from "@/features/agent-diagnostics";
-
-// Match the dark-theme token classes used elsewhere (SELECT_CLASS in the panel). Without these a
-// bare <textarea> renders as a white box with near-invisible text against the dark shell.
-const FIELD =
-  "w-full rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50";
+import { TEXTAREA_CLASS } from "../fields";
 
 export function TurnComposer({ status, onSubmit, onSilence, onEnd }: {
   status: AgentSessionStatus;
@@ -31,7 +28,7 @@ export function TurnComposer({ status, onSubmit, onSilence, onEnd }: {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -43,38 +40,48 @@ export function TurnComposer({ status, onSubmit, onSilence, onEnd }: {
         }}
         disabled={!enabled}
         rows={2}
+        aria-label="Candidate turn"
         placeholder={enabled ? "Candidate turn…  (Enter to send · Shift+Enter for a newline)" : "Waiting for the agent…"}
-        className={FIELD}
+        className={TEXTAREA_CLASS}
       />
-      <details>
-        <summary className="cursor-pointer text-sm text-muted-foreground">Artifact (code/diagram)</summary>
+      <details className="group">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden
+            className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+          />
+          Artifact (code/diagram)
+        </summary>
         <textarea
           value={artifact}
           onChange={(e) => setArtifact(e.target.value)}
           disabled={!enabled}
           rows={4}
+          aria-label="Artifact"
           placeholder="Paste code or a diagram summary (grades on DSA/LLD/SD rounds)…"
-          className={cn(FIELD, "mt-1 font-mono")}
+          className={cn(TEXTAREA_CLASS, "mt-2 font-mono text-xs")}
         />
       </details>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1 text-sm text-muted-foreground">
-          advance
+        <label className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          Advance
           <input
             type="number"
             value={advance}
             min={0}
             onChange={(e) => setAdvance(Number(e.target.value))}
             disabled={!enabled}
-            className="w-16 rounded-md border border-border bg-background text-foreground px-2 py-1 text-sm disabled:opacity-50"
+            className="h-8 w-16 rounded-md border border-input bg-card px-2 font-mono text-[13px] tabular-nums text-foreground transition-colors focus-visible:border-foreground focus-visible:outline-none disabled:opacity-50"
           />
           s
         </label>
-        <Button size="sm" onClick={send} disabled={!enabled}>Send</Button>
-        <Button size="sm" variant="outline" onClick={() => onSilence(advance)} disabled={!enabled}>
-          Simulate silence
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onEnd}>End</Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={onEnd}>End</Button>
+          <Button size="sm" variant="outline" onClick={() => onSilence(advance)} disabled={!enabled}>
+            Simulate silence
+          </Button>
+          <Button size="sm" onClick={send} disabled={!enabled}>Send</Button>
+        </div>
       </div>
     </div>
   );
