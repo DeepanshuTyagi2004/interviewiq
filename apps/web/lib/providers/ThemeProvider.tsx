@@ -1,28 +1,26 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 
-type Theme = "light" | "dark" | "system";
-const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void }>({
-  theme: "system",
-  setTheme: () => {},
-});
+/** Storage key shared with the original landing-page design, so a visitor's choice carries over. */
+export const THEME_STORAGE_KEY = "iq-theme";
 
+/**
+ * Light by default (per the design), with a persisted light/dark toggle. next-themes injects a
+ * pre-paint script, so the saved theme applies without a flash. Class-based to match Tailwind's
+ * `darkMode: ["class"]`.
+ */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("system");
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const resolved =
-      theme === "system"
-        ? window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light"
-        : theme;
-    root.classList.toggle("dark", resolved === "dark");
-  }, [theme]);
-
-  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      storageKey={THEME_STORAGE_KEY}
+    >
+      {children}
+    </NextThemesProvider>
+  );
 }
 
-export const useTheme = () => useContext(ThemeContext);
+export { useTheme } from "next-themes";

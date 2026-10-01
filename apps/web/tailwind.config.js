@@ -17,6 +17,25 @@ module.exports = {
   	},
   	extend: {
   		colors: {
+  			frame: 'hsl(var(--frame))',
+  			panel: 'hsl(var(--panel))',
+  			faint: {
+  				DEFAULT: 'hsl(var(--faint))',
+  				'2': 'hsl(var(--faint-2))'
+  			},
+  			line: {
+  				DEFAULT: 'hsl(var(--line))',
+  				'2': 'hsl(var(--line-2))',
+  				'3': 'hsl(var(--line-3))',
+  				'4': 'hsl(var(--line-4))'
+  			},
+  			'ink-hover': 'hsl(var(--ink-hover))',
+  			inv: 'hsl(var(--inv))',
+  			brand: {
+  				DEFAULT: 'hsl(var(--brand))',
+  				hover: 'hsl(var(--brand-hover))',
+  				foreground: 'hsl(var(--brand-foreground))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
@@ -67,6 +86,15 @@ module.exports = {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+  		},
+  		boxShadow: {
+  			hairline: '0 1px 2px rgba(0,0,0,.05)',
+  			float: '0 20px 50px -20px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.05)',
+  			lift: '0 20px 40px -20px rgba(0,0,0,.2)',
+  			hero: '0 30px 60px -20px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.06)'
+  		},
+  		transitionTimingFunction: {
+  			iq: 'cubic-bezier(.2,.7,.2,1)'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
