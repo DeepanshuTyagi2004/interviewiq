@@ -1,4 +1,4 @@
 export default function ContactPage() {
   // TODO: contact form
-  return <main className="p-8">Contact</main>;
+  return <section className="p-8">Contact</section>;
 }

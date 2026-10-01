@@ -1,69 +1,70 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { ROUTES } from "@/lib/constants/shared";
+import { ClosingCta } from "./_components/landing/ClosingCta";
+import { LIST_DEBRIEF, LIST_INTERVIEW, LIST_RESEARCH } from "./_components/landing/content";
+import { DebriefPanel } from "./_components/landing/DebriefPanel";
+import { Faq } from "./_components/landing/Faq";
+import { FeatureRow } from "./_components/landing/FeatureRow";
+import { CompanyLogos, Hero } from "./_components/landing/Hero";
+import { HowItWorks } from "./_components/landing/HowItWorks";
+import { InterviewDemo } from "./_components/landing/InterviewDemo";
+import { LandingMotion } from "./_components/landing/LandingMotion";
+import { Personas } from "./_components/landing/Personas";
+import { ReadinessTimeline } from "./_components/landing/ReadinessTimeline";
+import { ResearchPanel } from "./_components/landing/ResearchPanel";
+import { Universities } from "./_components/landing/Universities";
+import { WhyCards } from "./_components/landing/WhyCards";
 
-const VALUE_PROPS = [
-  {
-    title: "Voice-driven mock interviews",
-    body: "A personalized AI interviewer conducts role- and company-specific loops, end to end.",
-  },
-  {
-    title: "Full candidate context",
-    body: "Connect GitHub, your résumé and coding profiles so every question fits who you are.",
-  },
-  {
-    title: "Structured feedback",
-    body: "Get a descriptive debrief after each session — what you showed, in your own data.",
-  },
-];
+export const metadata: Metadata = {
+  title: "InterviewIQ — Rehearse the interview you're actually walking into",
+  description:
+    "An AI interviewer that knows your résumé and your target company's real process. Practise round by round, get a debrief after every round, and track your readiness.",
+};
 
 export default function MarketingHomePage() {
   return (
-    <main className="relative">
-      {/* Subtle dot-grid background, monochrome. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.4] [background-image:radial-gradient(hsl(var(--border))_1px,transparent_1px)] [background-size:22px_22px]"
+    <>
+      <Hero />
+      <CompanyLogos />
+      <FeatureRow
+        id="product"
+        className="pt-20 sm:pt-24"
+        eyebrow="COMPANY RESEARCH"
+        title="Practise the process you'll really face"
+        body="Turn scattered interview experiences into one clear, round-by-round process for your company and role — so every practice session counts."
+        items={LIST_RESEARCH}
+        cta={{ label: "Explore company research", href: ROUTES.jobs }}
+        panel={<ResearchPanel />}
       />
-
-      <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 py-24 text-center sm:py-32">
-        <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-          AI-powered mock interviews
-        </span>
-        <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
-          Practice interviews that feel real.
-        </h1>
-        <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-          Unlimited, role-specific, voice-based mock interviews with a
-          personalized AI interviewer — built for your next placement.
-        </p>
-        <div className="mt-8 flex items-center gap-3">
-          <Link
-            href={ROUTES.login}
-            className="rounded-md border border-border bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Get started
-          </Link>
-          <Link
-            href={ROUTES.pricing}
-            className="rounded-md border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            View pricing
-          </Link>
-        </div>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-4 pb-24 sm:pb-32">
-        <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
-          {VALUE_PROPS.map((vp) => (
-            <div key={vp.title} className="bg-card p-6">
-              <h3 className="text-sm font-semibold tracking-tight text-foreground">
-                {vp.title}
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">{vp.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </main>
+      <FeatureRow
+        id="interview"
+        className="pt-24 sm:pt-[120px]"
+        eyebrow="THE INTERVIEW"
+        title="A spoken interview that adapts to you"
+        body="It greets you, asks about your own projects, and takes you through the round one question at a time — reading your code and diagrams as you work."
+        items={LIST_INTERVIEW}
+        cta={{ label: "See a sample interview", href: ROUTES.login }}
+        panel={<InterviewDemo />}
+        panelRight
+      />
+      <FeatureRow
+        id="debrief"
+        className="pt-24 sm:pt-[120px]"
+        eyebrow="DEBRIEF"
+        title="Know exactly what a strong answer looked like"
+        body="Every round ends with a question-by-question breakdown — what you said, what great sounded like, and what to study before your next attempt."
+        items={LIST_DEBRIEF}
+        cta={{ label: "See a sample debrief", href: ROUTES.login }}
+        panel={<DebriefPanel />}
+      />
+      <HowItWorks />
+      <ReadinessTimeline />
+      <WhyCards />
+      <Universities />
+      <Personas />
+      <ClosingCta />
+      <Faq />
+      <LandingMotion />
+    </>
   );
 }
