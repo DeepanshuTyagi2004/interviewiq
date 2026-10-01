@@ -1,0 +1,88 @@
+import Link from "next/link";
+import type { JdDetail } from "@/features/jobs";
+import { ROUTES } from "@/lib/constants/shared";
+import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
+import { isLiveJd, levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
+import { confidenceWord } from "./insights";
+
+const READINESS_STEPS = 4;
+
+/**
+ * Readiness for this JD. Loop progress isn't tracked yet, so this is always the empty
+ * "Not started" meter: never a made-up level.
+ */
+export function ReadinessMeter() {
+  return (
+    <div role="group" aria-label="Readiness" className="flex w-full flex-col gap-2 sm:w-[240px]">
+      <p className="m-0 flex justify-between gap-3 text-[13px]">
+        <span className="text-faint">Readiness</span>
+        <span>Not started</span>
+      </p>
+      <div aria-hidden className="grid grid-cols-4 gap-1">
+        {Array.from({ length: READINESS_STEPS }, (_, i) => (
+          <span key={i} className="h-1.5 rounded-[3px] bg-line-4" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** "Bengaluru, India · Fresher · Backend · Data depth high · 12 sources": real fields only. */
+export function roadmapMeta(jd: JdDetail, headquarters: string | null | undefined): string {
+  const confidence = confidenceWord(jd.dataConfidence ?? jd.interviewProcess?.data_confidence);
+  return [
+    headquarters?.trim() || null,
+    levelLabel(jd.level),
+    jd.specialization ? specializationLabel(jd.specialization) : null,
+    confidence ? `Data depth ${confidence}` : "No interview data yet",
+    jd.sources.length > 0 ? plural(jd.sources.length, "source") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export interface RoadmapHeaderProps {
+  jd: JdDetail;
+  headquarters?: string | null;
+}
+
+/** Breadcrumb, company tile, "Company · JD title", the meta line and the readiness meter. */
+export function RoadmapHeader({ jd, headquarters }: RoadmapHeaderProps) {
+  const crumb = "rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  return (
+    <>
+      <nav aria-label="Breadcrumb">
+        <ol className="m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-1 p-0 text-[13px] text-faint">
+          <li className="flex items-center gap-2">
+            <Link href={ROUTES.jobs} className={crumb}>
+              Companies
+            </Link>
+            <span aria-hidden>›</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Link href={`${ROUTES.jobs}?company=${encodeURIComponent(jd.company)}`} className={crumb}>
+              {jd.companyName}
+            </Link>
+            <span aria-hidden>›</span>
+          </li>
+          <li aria-current="page" className="min-w-0 text-foreground">
+            {jd.title}
+          </li>
+        </ol>
+      </nav>
+
+      <div className="mt-[18px] flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
+        <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <CompanyTile name={jd.companyName} live={isLiveJd(jd)} size="lg" />
+          <div className="min-w-0">
+            <h1 className="m-0 text-balance text-[28px] font-normal leading-[1.1] tracking-[-0.045em] sm:text-[34px]">
+              {jd.companyName} · {jd.title}
+            </h1>
+            <p className="m-0 mt-1 text-[13.5px] leading-[1.5] text-muted-foreground">{roadmapMeta(jd, headquarters)}</p>
+          </div>
+        </div>
+        <ReadinessMeter />
+      </div>
+    </>
+  );
+}

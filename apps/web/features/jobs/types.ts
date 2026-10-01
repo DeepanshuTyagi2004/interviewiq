@@ -1,5 +1,6 @@
 /** JD library types. Top-level JD fields are camelCase (backend DTOs); `interviewProcess`
- *  is the AI service's `consolidated_process` passed through as-is (snake_case). */
+ *  is the brief's round-by-round process from the AI service (snake_case) — the public fields of
+ *  `final_experience` for current briefs, or the legacy `consolidated_process`. */
 
 export type DataAvailability = "rich" | "available" | "limited" | "none";
 
@@ -22,6 +23,11 @@ export type ConsolidatedRound = {
   format?: string | null;
   dominant_topics?: string[];
   difficulty?: string | null;
+  /** The staged pipeline's `final_experience` round shape names its topics `topics`, and adds
+   *  how many on-level sources attest the round. Optional: present only on that shape. */
+  topics?: string[];
+  support_count?: number | null;
+  source_count_total?: number | null;
 };
 
 export type InterviewProcess = {
