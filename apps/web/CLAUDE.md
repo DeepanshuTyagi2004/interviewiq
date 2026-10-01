@@ -223,7 +223,7 @@ The API (`apps/api`) owns the **entire** Google OAuth handshake and the email + 
 
 ## Design & aesthetics — the InterviewIQ design (Claude Design) + Vercel craft
 
-**The source of truth for look and layout is the Claude Design export in `InterviewIQ Landing Page/`** — `InterviewIQ Website v5.dc.html` (marketing), `InterviewIQ Auth.dc.html` (sign-in/up + onboarding) and `InterviewIQ App.dc.html` (app shell + screens). Implement new screens from those files first. Where the design is silent, fall back to the Vercel/Geist craft below.
+**The source of truth for look and layout is the Claude Design export in `InterviewIQ Landing Page/`** (a local folder at the repo root, gitignored — not in the remote) — `InterviewIQ Website v5.dc.html` (marketing), `InterviewIQ Auth.dc.html` (sign-in/up + onboarding) and `InterviewIQ App.dc.html` (app shell + screens). Implement new screens from those files first. Where the design is silent, fall back to the Vercel/Geist craft below.
 
 **Built so far from the design:** marketing landing (`app/(marketing)`), auth + onboarding (`app/(auth)`, `app/(onboarding)`), the app shell (`components/layout/app-shell/` — top bar, ⌘K search, the menu revealed behind the page card, `M` to toggle) and the dashboard. Screens in the App design that need data the backend doesn't have yet (scores, ranks, leaderboards, readiness) render **honest empty states** ("—", "coming soon"), never the design's sample numbers.
 

@@ -393,7 +393,6 @@ interviewiq/
 │       └── app/resume/         résumé parsing
 ├── packages/contracts/         openapi.yaml: the web ↔ api ↔ ai-service contract
 ├── infra/                      docker-compose (local stack) + env template
-├── InterviewIQ Landing Page/   Claude Design source files (landing, auth, app)
 └── docs/                       product overview
 ```
 
@@ -514,11 +513,8 @@ pnpm --filter @interviewiq/web test            # one app only
 
 ## Design system
 
-The UI comes from a **Claude Design** export in [`InterviewIQ Landing Page/`](./InterviewIQ%20Landing%20Page):
-
-- `InterviewIQ Website v5.dc.html`: the marketing landing page
-- `InterviewIQ Auth.dc.html`: sign in, sign up and onboarding
-- `InterviewIQ App.dc.html`: the app shell and its screens
+The UI is built from a **Claude Design** export that covers the marketing site, auth and
+onboarding, and the app shell with its screens. The export is kept locally, outside the repo.
 
 | Token | Use |
 | --- | --- |

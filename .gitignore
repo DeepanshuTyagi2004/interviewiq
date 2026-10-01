@@ -22,7 +22,5 @@ coverage/
 .claude/
 .superpowers/
 
-# design reference media — large screen recordings and third-party site references used while
-# designing; kept locally, not published (the .dc.html design sources ARE committed)
-InterviewIQ Landing Page/uploads/
-InterviewIQ Landing Page/scraps/
+# Claude Design export (design sources + reference recordings) — kept locally, not published
+InterviewIQ Landing Page/

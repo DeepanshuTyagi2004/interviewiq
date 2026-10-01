@@ -1,6 +1,6 @@
 /**
  * Landing-page copy and illustration data — verbatim from the Claude Design file
- * (`InterviewIQ Landing Page/InterviewIQ Website v5.dc.html`). Keep edits here so the
+ * (`InterviewIQ Landing Page/InterviewIQ Website v5.dc.html`, a local gitignored export). Keep edits here so the
  * section components stay presentational.
  */
 

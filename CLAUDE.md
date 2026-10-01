@@ -57,7 +57,7 @@ Tooling: **pnpm workspaces + Turborepo** for the JS apps; the Python service kee
 
 ## Tech stack (confirmed)
 
-**Frontend (`apps/web`):** Next.js 16 (App Router), React 19, TypeScript, Tailwind 3.x (NOT 4), shadcn/ui (classic 2.10 CLI — latest 4.x is Tailwind-4-centric) + Geist fonts/design tokens, TanStack Query v5, Zod, react-hook-form. **Auth is backend-owned — no NextAuth/Auth.js.** Frontend holds an in-memory access token + an httpOnly refresh cookie. UI follows the Claude Design export in `InterviewIQ Landing Page/` (see `apps/web/CLAUDE.md`).
+**Frontend (`apps/web`):** Next.js 16 (App Router), React 19, TypeScript, Tailwind 3.x (NOT 4), shadcn/ui (classic 2.10 CLI — latest 4.x is Tailwind-4-centric) + Geist fonts/design tokens, TanStack Query v5, Zod, react-hook-form. **Auth is backend-owned — no NextAuth/Auth.js.** Frontend holds an in-memory access token + an httpOnly refresh cookie. UI follows the Claude Design export in `InterviewIQ Landing Page/` — a local, gitignored folder (see `apps/web/CLAUDE.md`).
 
 **Backend (`apps/api`):** Node.js 22+, Express 5, TypeScript (ESM), Drizzle ORM + node-postgres (Supabase), MongoDB native driver (Atlas), jose (HS256 JWT), zod (config), pino (logs), livekit-server-sdk. Schema via Drizzle migrations in `apps/api/drizzle/` (applied at startup). **Backend-owned auth: Google OAuth or email + password (scrypt via `node:crypto`) + custom JWT.** Verification/reset links are logged to the console until a mail provider is chosen. Tests: Vitest + supertest against in-process PGlite + mongodb-memory-server.
 
