@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--frame:#d6d5d0;--card:#ffffff;--panel:#f2f1ed;--ink:#1a1a1a;--on-ink:#ffffff;--ink-hover:#000000;--muted:#5c5c58;--faint:#8d8d89;--faint2:#b3b2ad;--line:#efeee9;--line2:#e6e5e0;--line3:#dcdbd6;--line4:#cfcec8;--hover:#f4f4f1;--inv:#1a1a1a;--accent:#ff5c1f;--accent-hover:#f04d10;--on-accent:#141413;--accent-soft:rgba(255,92,31,.16);--b1:#ffffff;--b2:#9d9c97;--b4:#6f6e6a}
+:root[data-theme="dark"]{--frame:#0d0d0c;--card:#161615;--panel:#1f1f1d;--ink:#f0efeb;--on-ink:#141413;--ink-hover:#ffffff;--muted:#a8a7a2;--faint:#7d7c77;--faint2:#55544f;--line:#262624;--line2:#2d2d2b;--line3:#363633;--line4:#44433f;--hover:#222220;--inv:#0a0a09;--accent:#ff5c1f;--accent-hover:#ff7a45;--on-accent:#141413;--accent-soft:rgba(255,92,31,.18);--b1:#4a4a46;--b2:#1b1b19;--b4:#7a7974}
+body{margin:0;background:var(--frame);color:var(--ink);font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box;transition:background-color .35s ease,border-color .35s ease,color .35s ease}
+a{color:var(--ink);text-decoration:none}
+a:hover{color:var(--ink)}
+::selection{background:var(--ink);color:var(--on-ink)}
+input{font-family:'Geist',sans-serif}
+@keyframes iq-wave{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+@keyframes iq-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes iq-breathe{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes iq-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes iq-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes iq-drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(8%,-10%) scale(1.15)}66%{transform:translate(-6%,8%) scale(.9)}}
+</style>
+</helmet>
+
+<div style="background:var(--frame);color:var(--ink);min-height:100vh;overflow:hidden">
+
+<div ref="{{ cursorRef }}" style="position:fixed;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:1px solid #fff;mix-blend-mode:difference;pointer-events:none;z-index:100;opacity:0;transition:width .25s,height .25s,margin .25s,background .25s"></div>
+
+<!-- NAV -->
+<header style="position:sticky;top:0;z-index:50;background:var(--frame)">
+  <div style="height:68px;padding:0 32px;display:flex;align-items:center;gap:clamp(20px,3vw,40px)">
+    <a href="#top" style="display:flex;align-items:center;gap:9px;flex:none">
+      <div style="display:flex;gap:2px;align-items:flex-end;height:15px"><span style="width:4px;height:15px;background:var(--ink)"></span><span style="width:4px;height:10px;background:var(--ink)"></span><span style="width:4px;height:5px;background:var(--accent)"></span></div>
+      <span style="font-weight:500;font-size:17px;letter-spacing:-.035em">interviewIQ</span>
+    </a>
+    <nav style="flex:1;min-width:0;height:20px;line-height:20px;overflow:hidden;display:flex;flex-wrap:wrap;column-gap:clamp(14px,2vw,26px);row-gap:20px;font-size:14px;white-space:nowrap">
+      <a href="#product">Product <span style="font-size:10px;color:var(--faint)">⌄</span></a>
+      <a href="#how">Solutions <span style="font-size:10px;color:var(--faint)">⌄</span></a>
+      <a href="#universities">Universities</a>
+      <a href="#faq">FAQ</a>
+      <a href="#companies">Companies</a>
+    </nav>
+    <div style="display:flex;gap:10px;align-items:center;flex:none">
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle theme" title="Toggle theme" style="position:relative;width:62px;height:32px;border-radius:999px;border:1px solid var(--line4);background:var(--card);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--faint)">
+        <span style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--accent);transform:{{ knobX }};transition:transform .35s cubic-bezier(.2,.7,.2,1),background-color .35s"></span>
+        <span style="position:relative;width:30px;text-align:center;color:{{ sunColor }}">☀</span><span style="position:relative;width:30px;text-align:center;color:{{ moonColor }}">☾</span>
+      </button>
+      <a href="InterviewIQ Auth.dc.html#signin" style="font-size:14px;padding:8px 10px">Log in</a>
+      <a href="#universities" style="font-size:13.5px;padding:7px 13px;border:1px solid var(--ink);border-radius:5px" style-hover="background:var(--hover)">Book a demo</a>
+      <a href="InterviewIQ Auth.dc.html#signup" style="font-size:13.5px;padding:8px 14px;background:var(--accent);color:var(--on-accent);border-radius:5px" style-hover="background:var(--accent-hover);color:var(--on-accent)">Start free</a>
+    </div>
+  </div>
+</header>
+
+<main style="margin:0 12px;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line3)">
+
+<!-- HERO -->
+<section id="top" data-screen-label="Hero" style="max-width:1280px;margin:0 auto;padding:0 24px">
+  <div style="max-width:860px;margin:0 auto;padding:88px 0 56px;display:flex;flex-direction:column;align-items:center;text-align:center">
+    <h1 data-intro="0" style="margin:0;font-size:clamp(42px,5.8vw,76px);line-height:1.02;letter-spacing:-.045em;font-weight:400;text-wrap:balance">Rehearse the interview you're actually walking into</h1>
+    <p data-intro="1" style="margin:22px 0 0;font-size:17px;line-height:1.55;color:var(--muted);max-width:560px;text-wrap:pretty">Spend less time guessing, more time practising — with an AI interviewer that knows your résumé and your target company's real process.</p>
+    <div data-intro="2" style="margin-top:14px;font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:50%;border:1px solid var(--faint);display:inline-flex;align-items:center;justify-content:center;font-size:7px">✓</span>Free to start, no card required</div>
+    <div data-intro="3" style="margin-top:32px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:8px">
+        <input placeholder="Enter email" style="flex:1;min-width:0;height:46px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input>
+        <a href="InterviewIQ Auth.dc.html#signup" style="height:46px;display:flex;align-items:center;padding:0 18px;background:var(--accent);color:var(--on-accent);border-radius:5px;font-size:14px;white-space:nowrap" style-hover="background:var(--accent-hover);color:var(--on-accent)">Start for free</a>
+      </div>
+      <div style="font-size:12px;color:var(--faint)">or</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <a href="InterviewIQ Auth.dc.html#signup" style="height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line3);border-radius:5px;font-size:13.5px" style-hover="border-color:var(--ink)">Sign up with Google</a>
+        <a href="InterviewIQ Auth.dc.html#ob1" style="height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line3);border-radius:5px;font-size:13.5px" style-hover="border-color:var(--ink)">Start with your résumé</a>
+      </div>
+      <div style="font-size:11.5px;color:var(--faint)">By signing up, I agree to InterviewIQ's <a href="#" style="color:var(--muted);text-decoration:underline">Terms</a> and <a href="#" style="color:var(--muted);text-decoration:underline">Privacy Policy</a>.</div>
+    </div>
+  </div>
+
+  <div data-intro="4" style="position:relative;background:var(--panel);height:520px;overflow:hidden;display:flex;align-items:center;justify-content:center">
+    <div style="position:absolute;left:28px;top:24px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">CONNECTED SOURCES</div>
+    <div style="position:relative;width:min(460px,86%);height:100%">
+      <sc-for list="{{ stack }}" as="sk" hint-placeholder-count="5">
+        <div style="position:absolute;left:0;right:0;top:50%;height:92px;margin-top:-46px;background:var(--card);border-radius:10px;display:flex;align-items:center;gap:18px;padding:0 20px;transform:{{ sk.transform }};opacity:{{ sk.opacity }};z-index:{{ sk.z }};box-shadow:{{ sk.shadow }};transition:transform .8s cubic-bezier(.2,.7,.2,1),opacity .8s,box-shadow .8s">
+          <div style="width:52px;height:52px;flex:none;border-radius:9px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:13px">{{ sk.icon }}</div>
+          <div style="flex:1;min-width:0;text-align:left"><div style="font-size:24px;letter-spacing:-.03em">{{ sk.name }}</div><div style="font-size:12.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sk.detail }}</div></div>
+          <span style="font-size:13px;padding:6px 12px;border-radius:5px;background:{{ sk.pillBg }};color:{{ sk.pillFg }};transition:background-color .6s,color .6s">{{ sk.status }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS -->
+<section id="companies" style="max-width:1280px;margin:0 auto;padding:64px 24px 24px">
+  <div style="text-align:center;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">REAL INTERVIEW PROCESSES, RESEARCHED FOR</div>
+  <div style="margin-top:28px;display:flex;flex-wrap:wrap;justify-content:center;gap:20px 56px;align-items:center">
+    <sc-for list="{{ companies }}" as="c" hint-placeholder-count="8">
+      <span style="font-size:22px;font-weight:600;letter-spacing:-.045em;color:{{ c.color }}">{{ c.name }}</span>
+    </sc-for>
+  </div>
+</section>
+
+<!-- ROW 1 · research: panel left -->
+<section id="product" data-screen-label="Research" style="max-width:1280px;margin:0 auto;padding:96px 24px 0;display:flex;flex-wrap:wrap;gap:56px;align-items:stretch">
+  <div data-reveal="1" style="flex:1 1 440px;min-width:0;background:var(--panel);padding:48px 36px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:520px">
+    <div style="display:flex;align-items:center;background:var(--card);border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);padding:6px 8px;gap:4px">
+      <span style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.06em;color:var(--faint);padding:0 8px;line-height:1.2">SHARED<br>SOURCES</span>
+      <sc-for list="{{ sources }}" as="so" hint-placeholder-count="4">
+        <span style="width:34px;height:34px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:10.5px">{{ so }}</span>
+      </sc-for>
+    </div>
+    <div style="width:1px;height:32px;background:var(--line4)"></div>
+    <div style="width:100%;max-width:380px;background:var(--card);border-radius:10px;box-shadow:0 20px 50px -20px rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.05);padding:18px;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--faint);padding:0 4px 6px">MEESHO · SDE I BACKEND</div>
+      <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 6px;border-radius:6px;background:{{ r.bg }}">
+          <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--faint)">{{ r.n }}</span>
+          <span style="font-size:13.5px;color:{{ r.fg }}">{{ r.title }}</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.05em;padding:3px 7px;border-radius:4px;background:{{ r.pillBg }};color:{{ r.pillFg }}">{{ r.status }}</span>
+        </div>
+      </sc-for>
+      <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;font-size:12.5px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Experiences</span><span data-count="142">142</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Difficulty</span><span>Medium–hard</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Data depth</span><span>High</span></div>
+      </div>
+      <div style="height:3px;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,var(--ink),var(--faint),var(--line2))"></div>
+    </div>
+  </div>
+  <div style="flex:1 1 380px;min-width:0;padding:24px 0;display:flex;flex-direction:column;gap:20px">
+    <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">COMPANY RESEARCH</div>
+    <h2 data-reveal="1" style="margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400;max-width:480px">Practise the process you'll really face</h2>
+    <p style="margin:0;font-size:15.5px;line-height:1.55;color:var(--muted);max-width:460px">Turn scattered interview experiences into one clear, round-by-round process for your company and role — so every practice session counts.</p>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:40px">
+      <sc-for list="{{ list1 }}" as="li" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;font-size:14px;line-height:1.45;color:var(--muted)"><span style="width:16px;flex:none;text-align:center;color:var(--ink)">{{ li.icon }}</span><span><a href="#" style="text-decoration:underline;text-underline-offset:3px">{{ li.b }}</a> {{ li.t }}</span></div>
+      </sc-for>
+      <a href="#" style="margin-top:14px;align-self:flex-start;font-size:14px;padding:9px 16px;border:1px solid var(--ink);border-radius:5px" style-hover="background:var(--hover)">Explore company research</a>
+    </div>
+  </div>
+</section>
+
+<!-- ROW 2 · interview: text left -->
+<section data-screen-label="Interview" style="max-width:1280px;margin:0 auto;padding:120px 24px 0;display:flex;flex-wrap:wrap-reverse;gap:56px;align-items:stretch">
+  <div style="flex:1 1 380px;min-width:0;padding:24px 0;display:flex;flex-direction:column;gap:20px">
+    <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">THE INTERVIEW</div>
+    <h2 data-reveal="1" style="margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400;max-width:480px">A spoken interview that adapts to you</h2>
+    <p style="margin:0;font-size:15.5px;line-height:1.55;color:var(--muted);max-width:460px">It greets you, asks about your own projects, and takes you through the round one question at a time — reading your code and diagrams as you work.</p>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:40px">
+      <sc-for list="{{ list2 }}" as="li" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;font-size:14px;line-height:1.45;color:var(--muted)"><span style="width:16px;flex:none;text-align:center;color:var(--ink)">{{ li.icon }}</span><span><a href="#" style="text-decoration:underline;text-underline-offset:3px">{{ li.b }}</a> {{ li.t }}</span></div>
+      </sc-for>
+      <a href="#" style="margin-top:14px;align-self:flex-start;font-size:14px;padding:9px 16px;border:1px solid var(--ink);border-radius:5px" style-hover="background:var(--hover)">See a sample interview</a>
+    </div>
+  </div>
+  <div data-reveal="1" style="flex:1 1 440px;min-width:0;background:var(--panel);padding:48px 36px;display:flex;align-items:center;justify-content:center;min-height:520px">
+    <div style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--faint) 45%,var(--ink) 85%);box-shadow:0 6px 20px rgba(0,0,0,.15)"></div>
+        <div style="font-size:17px">Round 2 · Problem Solving</div>
+        <div style="height:22px;display:flex;align-items:center">{{ waveBig }}</div>
+      </div>
+      <div style="width:100%;background:var(--inv);color:#FFFFFF;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 50px -20px rgba(0,0,0,.4)">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#a3a39e"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent)">{{ pulse }}</span>Interviewer · speaking<span style="margin-left:auto;font-family:'Geist Mono',monospace;color:#FFFFFF">{{ timer }}</span></div>
+        <div style="font-size:14.5px;line-height:1.5;color:#EFEEE9">“Three pods, 50k requests a second. Where does the rate-limit state live?”</div>
+        <div style="height:1px;background:#2e2e2c"></div>
+        <div style="font-size:12px;color:#a3a39e">You</div>
+        <div style="font-size:14px;line-height:1.5;color:#d6d5d0;min-height:42px"><span ref="{{ typeRef }}"></span><span style="display:inline-block;width:2px;height:15px;background:#FFFFFF;vertical-align:-3px;margin-left:1px">{{ caret }}</span></div>
+      </div>
+      <div style="width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ signals }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--card);border-radius:8px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05)"><div style="font-size:11px;color:var(--faint)">{{ s.label }}</div><div style="font-size:17px;margin-top:2px;font-family:'Geist Mono',monospace">{{ s.value }}</div></div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROW 3 · debrief: panel left -->
+<section data-screen-label="Debrief" style="max-width:1280px;margin:0 auto;padding:120px 24px 0;display:flex;flex-wrap:wrap;gap:56px;align-items:stretch">
+  <div data-reveal="1" style="flex:1 1 440px;min-width:0;background:var(--panel);padding:48px 36px;display:flex;align-items:center;justify-content:center;min-height:520px">
+    <div style="width:100%;max-width:460px;background:var(--card);border-radius:10px;box-shadow:0 20px 50px -20px rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.05);overflow:hidden">
+      <div style="padding:18px 20px;display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line)">
+        <span style="font-size:44px;letter-spacing:-.05em;line-height:1" data-count="74">74</span><span style="font-size:12.5px;color:var(--faint)">/ 100 · pass mark 70</span>
+        <span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.06em;padding:4px 8px;border-radius:4px;background:var(--accent);color:var(--on-accent)">PASSED</span>
+      </div>
+      <div style="padding:10px 0;font-family:'Geist Mono',monospace;font-size:12px;line-height:1.95">
+        <sc-for list="{{ diff }}" as="d" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);padding:0 20px 0 14px;background:{{ d.bg }};color:{{ d.color }};text-decoration:{{ d.deco }}"><span style="color:var(--faint2)">{{ d.sign }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.text }}</span></div>
+        </sc-for>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:var(--faint);margin-right:4px">Learn next</span>
+        <span style="font-size:12px;padding:4px 9px;border-radius:4px;background:var(--panel)">Distributed counters</span>
+        <span style="font-size:12px;padding:4px 9px;border-radius:4px;background:var(--panel)">Token bucket</span>
+        <span style="font-size:12px;padding:4px 9px;border-radius:4px;background:var(--panel)">Thinking aloud</span>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1 1 380px;min-width:0;padding:24px 0;display:flex;flex-direction:column;gap:20px">
+    <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">DEBRIEF</div>
+    <h2 data-reveal="1" style="margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400;max-width:480px">Know exactly what a strong answer looked like</h2>
+    <p style="margin:0;font-size:15.5px;line-height:1.55;color:var(--muted);max-width:460px">Every round ends with a question-by-question breakdown — what you said, what great sounded like, and what to study before your next attempt.</p>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:40px">
+      <sc-for list="{{ list3 }}" as="li" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;font-size:14px;line-height:1.45;color:var(--muted)"><span style="width:16px;flex:none;text-align:center;color:var(--ink)">{{ li.icon }}</span><span><a href="#" style="text-decoration:underline;text-underline-offset:3px">{{ li.b }}</a> {{ li.t }}</span></div>
+      </sc-for>
+      <a href="#" style="margin-top:14px;align-self:flex-start;font-size:14px;padding:9px 16px;border:1px solid var(--ink);border-radius:5px" style-hover="background:var(--hover)">See a sample debrief</a>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS · three layers -->
+<section id="how" data-screen-label="How it works" style="max-width:1280px;margin:120px auto 0;padding:0 24px">
+  <div style="background:var(--panel);padding:80px 32px 72px;display:flex;flex-direction:column;align-items:center">
+    <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">HOW IT WORKS</div>
+    <h2 data-reveal="1" style="margin:14px 0 0;font-size:clamp(34px,3.8vw,52px);letter-spacing:-.045em;font-weight:400;text-align:center">One process. Three steps.</h2>
+    <p style="margin:14px 0 0;font-size:15px;line-height:1.55;color:var(--muted);text-align:center;max-width:460px">Research shapes the interview. The interview drives the debrief. Every debrief makes the next attempt sharper.</p>
+    <div style="margin-top:48px;width:100%;max-width:1000px;padding:24px;border:1px dashed var(--line4);border-radius:18px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px">
+        <sc-for list="{{ layers }}" as="ly" hint-placeholder-count="3">
+          <div data-reveal="1" style="background:var(--card);border-radius:10px;padding:26px 22px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)" style-hover="box-shadow:0 20px 40px -20px rgba(0,0,0,.2)">
+            <div style="font-size:26px;letter-spacing:-.035em">{{ ly.title }}</div>
+            <div style="font-size:13.5px;line-height:1.5;color:var(--muted);max-width:240px">{{ ly.body }}</div>
+            <div style="height:170px;display:flex;align-items:center;justify-content:center">{{ ly.art }}</div>
+            <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px">
+              <sc-for list="{{ ly.tags }}" as="tg" hint-placeholder-count="3"><span style="font-size:12px;padding:5px 10px;border-radius:5px;border:1px solid var(--line2);color:var(--muted)">{{ tg }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- READINESS -->
+<section id="readiness" data-screen-label="Readiness" style="max-width:1280px;margin:0 auto;padding:120px 24px 0">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">READINESS</div>
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400;max-width:560px">Track how ready you are, role by role</h2>
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:var(--muted);max-width:400px">Readiness rises as you clear rounds of the official process — from getting started to interview-ready.</p>
+  </div>
+  <div data-reveal="1" style="margin-top:40px;background:var(--panel);padding:40px 36px">
+    <div style="background:var(--card);border-radius:10px;box-shadow:0 20px 50px -24px rgba(0,0,0,.18);overflow-x:auto">
+      <div style="min-width:760px">
+        <div style="display:grid;grid-template-columns:200px repeat(8,minmax(0,1fr));border-bottom:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--faint)">
+          <div style="padding:14px 18px">ROLE</div>
+          <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="8"><div style="padding:14px 0;text-align:center;color:{{ w.color }}">{{ w.label }}</div></sc-for>
+        </div>
+        <div style="position:relative">
+          <div style="position:absolute;top:0;bottom:0;left:calc(200px + (100% - 200px) * 0.6875);width:1px;background:var(--ink);opacity:.4"></div>
+          <sc-for list="{{ tracks }}" as="tr" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:200px minmax(0,1fr);align-items:center;height:66px;border-bottom:1px solid var(--line)">
+              <div style="padding:0 18px"><div style="font-size:13.5px">{{ tr.role }}</div><div style="font-size:11.5px;color:var(--faint);margin-top:2px">{{ tr.level }}</div></div>
+              <div style="position:relative;height:100%">
+                <div style="position:absolute;top:20px;height:26px;left:{{ tr.left }};width:{{ tr.width }};border-radius:5px;background:{{ tr.bg }};display:flex;align-items:center;gap:5px;padding:0 10px;font-size:11.5px;color:{{ tr.color }};white-space:nowrap;overflow:hidden">
+                  <sc-for list="{{ tr.segs }}" as="sg" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:2px;background:{{ sg }}"></span></sc-for>
+                  <span style="flex:none;margin-left:4px">{{ tr.label }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE CARDS -->
+<section style="max-width:1280px;margin:120px auto 0;padding:0 24px">
+  <div style="background:var(--panel);padding:80px 32px">
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">WHY INTERVIEWIQ</div>
+      <h2 data-reveal="1" style="margin:14px 0 0;font-size:clamp(34px,3.8vw,52px);letter-spacing:-.045em;font-weight:400">Practice that actually prepares you</h2>
+      <p style="margin:14px 0 0;font-size:15px;color:var(--muted)">Generic practice asks questions. InterviewIQ runs the real interview.</p>
+    </div>
+    <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px;max-width:1100px;margin-left:auto;margin-right:auto">
+      <sc-for list="{{ features }}" as="ft" hint-placeholder-count="4">
+        <div data-reveal="1" style="background:var(--card);border-radius:8px;padding:24px 22px 28px;display:flex;flex-direction:column;gap:10px;min-height:220px" style-hover="box-shadow:0 20px 40px -20px rgba(0,0,0,.2)">
+          <span style="width:26px;height:26px;border-radius:6px;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:12px">{{ ft.icon }}</span>
+          <div style="margin-top:14px;font-size:17px;letter-spacing:-.02em;line-height:1.25">{{ ft.title }}</div>
+          <div style="font-size:13px;line-height:1.5;color:var(--muted)">{{ ft.body }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- UNIVERSITIES -->
+<section id="universities" data-screen-label="Universities" style="max-width:1280px;margin:0 auto;padding:140px 24px 0;display:flex;flex-wrap:wrap;gap:56px">
+  <div style="flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:20px">
+    <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)" data-scramble="1">INTERVIEWIQ FOR UNIVERSITIES</div>
+    <h2 data-reveal="1" style="margin:0;font-size:clamp(36px,4vw,56px);line-height:1.02;letter-spacing:-.045em;font-weight:400;max-width:520px">Don't change your placement process. Just add InterviewIQ.</h2>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:var(--muted);max-width:420px">Realistic practice for every student, for the companies coming to your campus — running alongside what you already do.</p>
+    <a href="#start" style="margin-top:16px;align-self:flex-start;font-size:14px;padding:10px 18px;border:1px solid var(--ink);border-radius:5px" style-hover="background:var(--hover)">Book a university pilot</a>
+  </div>
+  <div style="flex:1 1 440px;min-width:0;display:flex;flex-direction:column">
+    <sc-for list="{{ uni }}" as="u" hint-placeholder-count="4">
+      <div style="border-bottom:1px solid var(--line2)">
+        <button onClick="{{ u.onClick }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:22px 0;background:transparent;border:0;cursor:pointer;font-family:'Geist',sans-serif;font-size:18px;letter-spacing:-.02em;color:var(--ink);text-align:left">{{ u.title }}<span style="font-size:20px;font-weight:300;color:var(--faint)">{{ u.sign }}</span></button>
+        <div style="display:grid;grid-template-rows:{{ u.rows }};transition:grid-template-rows .45s cubic-bezier(.2,.7,.2,1)"><div style="overflow:hidden"><p style="margin:0 0 22px;font-size:14px;line-height:1.55;color:var(--muted);max-width:520px">{{ u.body }}</p></div></div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<!-- BIG NUMBER + PERSONAS -->
+<section data-screen-label="Who it's for" style="max-width:1280px;margin:0 auto;padding:140px 24px 0">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:380px">
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400">Mock interviews, whenever you're ready</h2>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:var(--muted)">No waiting for a senior, a coach or a slot. Unlimited practice, on your schedule.</p>
+    </div>
+    <div data-reveal="1" style="font-size:clamp(110px,17vw,240px);line-height:.8;letter-spacing:-.07em;font-weight:400"><span data-count="24">24</span>/7</div>
+  </div>
+  <div style="margin-top:72px;overflow:hidden">
+    <div style="display:flex;gap:0;transform:{{ carTransform }};transition:transform .7s cubic-bezier(.2,.7,.2,1)">
+      <sc-for list="{{ personas }}" as="pe" hint-placeholder-count="5">
+        <div style="flex:0 0 300px;padding:0 28px 0 0;margin-right:28px;border-right:1px solid var(--line2);display:flex;flex-direction:column;gap:14px;min-height:330px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint)">{{ pe.role }}</div>
+          <div style="width:88px;height:88px;border-radius:6px;background:{{ pe.bg }};color:{{ pe.fg }};display:flex;align-items:center;justify-content:center;font-size:30px;letter-spacing:-.04em">{{ pe.mono }}</div>
+          <div style="font-size:18px;letter-spacing:-.02em">{{ pe.who }}</div>
+          <div style="font-size:13.5px;line-height:1.5;color:var(--muted)">{{ pe.body }}</div>
+          <div style="margin-top:auto;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em">{{ pe.status }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:8px">
+    <button onClick="{{ carPrev }}" style="width:34px;height:34px;border:1px solid var(--ink);border-radius:5px;background:var(--card);cursor:pointer;font-size:14px;color:var(--ink)" style-hover="background:var(--hover)">←</button>
+    <button onClick="{{ carNext }}" style="width:34px;height:34px;border:1px solid var(--ink);border-radius:5px;background:var(--card);cursor:pointer;font-size:14px;color:var(--ink)" style-hover="background:var(--hover)">→</button>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="start" data-screen-label="CTA" style="max-width:1280px;margin:120px auto 0;padding:0 24px">
+  <div style="position:relative;overflow:hidden;background:var(--frame);min-height:480px;display:flex;align-items:center">
+    <div style="position:absolute;inset:0">{{ blobs }}</div>
+    <div style="position:relative;padding:64px 48px;max-width:560px;display:flex;flex-direction:column;gap:18px">
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(36px,4.2vw,58px);line-height:1.02;letter-spacing:-.045em;font-weight:400">It's time to rehearse the real interview, not random questions</h2>
+      <p style="margin:0;font-size:14.5px;line-height:1.55;color:var(--muted);max-width:400px">Everything you need to walk in prepared — the company's process, a real interviewer, and a debrief after every round.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;margin-top:6px">
+        <input placeholder="Enter email" style="height:44px;padding:0 14px;border:1px solid var(--line4);border-radius:5px;font-size:14px;outline:none;background:var(--card);color:var(--ink);background:var(--card)"></input>
+        <a href="InterviewIQ Auth.dc.html#signup" style="height:44px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--on-accent);border-radius:5px;font-size:14px" style-hover="background:var(--accent-hover);color:var(--on-accent)">Get started for free</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" data-screen-label="FAQ" style="max-width:1280px;margin:0 auto;padding:140px 24px;display:flex;flex-wrap:wrap;gap:56px">
+  <h2 data-reveal="1" style="flex:1 1 320px;margin:0;font-size:clamp(32px,3.4vw,46px);line-height:1.06;letter-spacing:-.04em;font-weight:400">Frequently asked questions</h2>
+  <div style="flex:1.4 1 480px;min-width:0;display:flex;flex-direction:column">
+    <sc-for list="{{ faqs }}" as="q" hint-placeholder-count="6">
+      <div style="border-bottom:1px solid var(--line2)">
+        <button onClick="{{ q.onClick }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 0;background:transparent;border:0;cursor:pointer;font-family:'Geist',sans-serif;font-size:16px;color:var(--ink);text-align:left">{{ q.q }}<span style="font-size:18px;font-weight:300;transition:transform .35s;transform:{{ q.rot }}">+</span></button>
+        <div style="display:grid;grid-template-rows:{{ q.rows }};transition:grid-template-rows .45s cubic-bezier(.2,.7,.2,1)"><div style="overflow:hidden"><p style="margin:0 0 22px;font-size:14px;line-height:1.6;color:var(--muted);max-width:600px">{{ q.a }}</p></div></div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer style="background:var(--frame)">
+  <div style="max-width:1280px;margin:0 auto;padding:80px 24px 48px;display:flex;flex-wrap:wrap;gap:56px">
+    <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:40px">
+      <div style="display:flex;gap:14px;align-items:flex-end;height:150px"><span style="width:40px;height:150px;background:var(--ink)"></span><span style="width:40px;height:100px;background:var(--ink)"></span><span style="width:40px;height:50px;background:var(--accent)"></span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted)"><span style="color:var(--ink)">InterviewIQ © 2026</span><a href="#" style="color:var(--muted)">Privacy Policy</a><a href="#" style="color:var(--muted)">Terms</a></div>
+    </div>
+    <div style="flex:2.4 1 560px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:36px 24px">
+      <sc-for list="{{ footer }}" as="col" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
+          <span style="font-weight:500;margin-bottom:4px">{{ col.title }}</span>
+          <sc-for list="{{ col.links }}" as="lk" hint-placeholder-count="4"><a href="#" style="color:var(--muted)">{{ lk }}</a></sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#ff5c1f&quot;,&quot;#3d5afe&quot;,&quot;#3dffb0&quot;,&quot;#8b5cf6&quot;],&quot;default&quot;:&quot;#ff5c1f&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;animate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;customCursor&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { sec: 14 * 60 + 7, tick: 0, stackI: 0, uni: 0, faq: 0, car: 0, theme: (() => { try { return localStorage.getItem('iq-theme') || this.props.defaultTheme || 'light'; } catch (e) { return this.props.defaultTheme || 'light'; } })() };
+  applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('iq-theme', t); } catch (e) {} }
+  cursorRef = React.createRef();
+  typeRef = React.createRef();
+
+  componentDidMount() {
+    const anim = this.props.animate ?? true;
+    this.applyTheme(this.state.theme);
+    this.iv = setInterval(() => this.setState(s => ({ sec: anim ? s.sec + 1 : s.sec, tick: s.tick + 1, stackI: anim && s.tick % 2 === 1 ? (s.stackI + 1) % 5 : s.stackI })), 1000);
+    if (anim) { this.intro(); this.reveals(); this.typeLoop(); }
+    else if (this.typeRef.current) this.typeRef.current.textContent = this.answer;
+    this.cursor();
+  }
+  componentWillUnmount() {
+    clearInterval(this.iv); clearTimeout(this.tt); cancelAnimationFrame(this.craf);
+    window.removeEventListener('mousemove', this.onMove);
+    this.io && this.io.disconnect();
+  }
+  answer = 'Move it to a shared store like Redis — INCR the key with a TTL per window, so every pod sees the same count.';
+  typeLoop() {
+    let i = 0;
+    const step = () => {
+      const el = this.typeRef.current; if (!el) return;
+      i++; el.textContent = this.answer.slice(0, i);
+      this.tt = setTimeout(i >= this.answer.length ? () => { i = 0; step(); } : step, i >= this.answer.length ? 2600 : 28 + Math.random() * 50);
+    };
+    step();
+  }
+  intro() {
+    document.querySelectorAll('[data-intro]').forEach(el => {
+      el.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'translateY(22px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 1000, delay: 80 + (+el.dataset.intro) * 120, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'both' });
+    });
+  }
+  reveals() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const scramble = (el) => { const fin = el.dataset.final || el.textContent; el.dataset.final = fin; let f = 0; const iv = setInterval(() => { el.textContent = fin.split('').map((c, i) => i < f || c === ' ' ? c : chars[(Math.random() * 26) | 0]).join(''); f += .6; if (f > fin.length) { clearInterval(iv); el.textContent = fin; } }, 28); };
+    const count = (el) => { const end = +el.dataset.count, t0 = performance.now(); const st = (t) => { const p = Math.min(1, (t - t0) / 1400); el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(st); }; requestAnimationFrame(st); };
+    const els = document.querySelectorAll('[data-reveal],[data-scramble],[data-count]');
+    const vh = window.innerHeight;
+    els.forEach(el => { if (el.hasAttribute('data-reveal') && el.getBoundingClientRect().top > vh * .92) Object.assign(el.style, { opacity: '0', transform: 'translateY(26px)', filter: 'blur(8px)', transition: 'opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1), filter .9s' }); });
+    this.io = new IntersectionObserver(es => es.forEach(en => {
+      if (!en.isIntersecting) return; const el = en.target;
+      if (el.hasAttribute('data-reveal')) Object.assign(el.style, { opacity: '1', transform: 'none', filter: 'none' });
+      if (el.hasAttribute('data-scramble')) scramble(el);
+      if (el.hasAttribute('data-count')) count(el);
+      this.io.unobserve(el);
+    }), { threshold: .12 });
+    els.forEach(el => this.io.observe(el));
+  }
+  cursor() {
+    if (!(this.props.customCursor ?? false) || window.matchMedia('(pointer: coarse)').matches) return;
+    const c = this.cursorRef.current; if (!c) return;
+    let x = 0, y = 0, cx = 0, cy = 0, big = false;
+    this.onMove = (e) => { x = e.clientX; y = e.clientY; c.style.opacity = '1'; const hot = !!e.target.closest('a,button,input'); if (hot !== big) { big = hot; c.style.width = c.style.height = hot ? '52px' : '28px'; c.style.margin = hot ? '-26px 0 0 -26px' : '-14px 0 0 -14px'; c.style.background = hot ? '#FFF' : 'transparent'; } };
+    window.addEventListener('mousemove', this.onMove);
+    const f = () => { cx += (x - cx) * .2; cy += (y - cy) * .2; c.style.transform = `translate(${cx}px,${cy}px)`; this.craf = requestAnimationFrame(f); }; f();
+  }
+
+  applyAccent() {
+    const hex = (this.props.accent || '#ff5c1f').replace('#', '');
+    if (this._acc === hex) return; this._acc = hex;
+    const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    const lin = c => { c /= 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+    const L = .2126 * lin(r) + .7152 * lin(g) + .0722 * lin(b);
+    const onDark = (L + .05) / (.0078 + .05), onWhite = 1.05 / (L + .05);
+    const mix = (t, k) => '#' + [r, g, b].map(c => Math.round(c + (t - c) * k).toString(16).padStart(2, '0')).join('');
+    const st = document.documentElement.style;
+    st.setProperty('--accent', '#' + hex);
+    st.setProperty('--on-accent', onDark >= onWhite ? '#141413' : '#ffffff');
+    st.setProperty('--accent-hover', L > .4 ? mix(0, .08) : mix(255, .12));
+    st.setProperty('--accent-soft', `rgba(${r},${g},${b},.16)`);
+  }
+  renderVals() {
+    this.applyAccent();
+    const h = React.createElement, anim = this.props.animate ?? true, A = v => anim ? v : 'none';
+    const mm = String(Math.floor(this.state.sec / 60)).padStart(2, '0'), ss = String(this.state.sec % 60).padStart(2, '0');
+    const wave = (n, ht, color) => h('span', { style: { display: 'inline-flex', gap: 2, alignItems: 'center', height: ht } }, Array.from({ length: n }, (_, i) => h('span', { key: i, style: { width: 2, height: ht * (0.3 + 0.7 * Math.abs(Math.sin(i * 1.7) * Math.cos(i * .6))), background: color, borderRadius: 1, animation: A(`iq-wave ${0.7 + (i % 5) * .15}s ease-in-out ${i * .05}s infinite`) } })));
+    const blink = bg => h('span', { style: { display: 'block', width: '100%', height: '100%', background: bg, animation: A('iq-blink 1s step-end infinite') } });
+
+    const box = { position: 'relative', width: 200, height: 160 };
+    const art1 = h('div', { style: box }, [0, 1, 2, 3].map(i => h('div', { key: i, style: { position: 'absolute', left: '50%', top: '50%', animation: A(`iq-bob 4s ease-in-out ${i * .25}s infinite`) } },
+      h('div', { style: { position: 'absolute', width: 96, height: 96, left: -48, top: -48 + 28 - i * 20, transform: 'rotateX(60deg) rotateZ(45deg)', border: '1px solid var(--ink)', background: i === 3 ? 'var(--ink)' : 'var(--on-ink)', borderRadius: 6 } }))));
+    const art2 = h('div', { style: box }, [50, 94, 140].map((d, i) => h('div', { key: i, style: { position: 'absolute', left: '50%', top: '50%', width: d, height: d, marginLeft: -d / 2, marginTop: -d / 2, borderRadius: '50%', border: `1px ${i === 0 ? 'solid' : 'dashed'} var(--ink)`, opacity: 1 - i * .25, animation: A(`iq-spin ${14 + i * 8}s linear infinite${i === 1 ? ' reverse' : ''}`) } },
+      i > 0 && h('span', { style: { position: 'absolute', left: '50%', top: -4, width: 7, height: 7, marginLeft: -3.5, borderRadius: '50%', background: 'var(--ink)' } }))).concat(h('div', { key: 'c', style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', fontFamily: "'Geist Mono',monospace", fontSize: 10 } }, 'YOU')));
+    const art3 = h('div', { style: box }, Array.from({ length: 48 }, (_, i) => h('span', { key: i, style: { position: 'absolute', left: '50%', top: '50%', width: 2, height: 0, transform: `rotate(${i * 7.5}deg)` } },
+      h('span', { style: { position: 'absolute', left: 0, bottom: 38, width: 2, height: 8 + 24 * Math.abs(Math.sin(i * .9)), background: 'var(--ink)', opacity: .3 + .7 * Math.abs(Math.cos(i * .4)), borderRadius: 1, transformOrigin: 'bottom', animation: A(`iq-wave ${0.9 + (i % 6) * .15}s ease-in-out ${i * .03}s infinite`) } }))));
+
+    const blobs = h('div', { style: { position: 'absolute', inset: 0, filter: 'blur(60px)' } }, [
+      ['var(--accent)', '58%', '-12%', '58%', 0], ['var(--b2)', '75%', '40%', '50%', 4], ['var(--line)', '40%', '55%', '45%', 8], ['var(--b4)', '90%', '-5%', '35%', 2]
+    ].map(([bg, l, t, s, d], i) => h('div', { key: i, style: { position: 'absolute', left: l, top: t, width: s, paddingBottom: s, borderRadius: '50%', background: bg, opacity: .9, animation: A(`iq-drift ${18 + i * 3}s ease-in-out -${d}s infinite`) } })));
+
+    const SRC = [['CV', 'Résumé', 'B.Tech CSE · 2 internships · parsed'], ['GH', 'GitHub', 'order-tracking-svc · Go · Kafka'], ['LC', 'LeetCode', '412 solved · weak: sliding window'], ['IN', 'LinkedIn', 'Backend intern · logistics startup'], ['PF', 'Portfolio', '3 projects · 1 deployed API']];
+    const jit = b => Math.max(5, Math.min(98, b + Math.round(Math.sin(this.state.tick * .9 + b) * 5)));
+    const personas = [
+      ['STUDENTS', 'ST', 'Campus placements', 'Rehearse the exact process of the companies coming to your campus.', 'AVAILABLE NOW', 'var(--accent)', 'var(--on-accent)'],
+      ['PLACEMENT CELLS', 'TPO', 'Universities', 'Unlimited realistic practice for the whole batch, with readiness at a glance.', 'PILOT · FALL 2026', 'var(--panel)', 'var(--ink)'],
+      ['PROFESSIONALS', 'PR', 'Job switchers', 'Focused, company-specific mock interviews that fit a working week.', 'COMING SOON', 'var(--panel)', 'var(--ink)'],
+      ['COMPANIES', 'CO', 'Hiring teams', 'A shortlist of candidates who have already cleared your process.', 'LATER', 'var(--panel)', 'var(--ink)'],
+      ['BOOTCAMPS', 'BC', 'Training partners', 'Give learners real interview rehearsal at the end of every track.', 'LATER', 'var(--panel)', 'var(--ink)'],
+    ];
+    const faqs = [
+      ['Is interview-ready a certification?', 'No. It is always shown as readiness from mock interviews on InterviewIQ — never a certification or an endorsement by the company.'],
+      ['Which companies can I practise for?', 'We launched with Meesho, and the research engine is building more companies and roles continuously. Each company page shows how much data is behind it.'],
+      ['What happens if I don’t pass a round?', 'You get the full debrief, then retake after 1–2 weeks — enough time to act on the feedback.'],
+      ['Can I change the rounds?', 'Yes. Edited rounds become standalone practice with full analysis, but don’t count towards readiness.'],
+      ['Do I need GitHub or LeetCode?', 'No. A résumé is enough to start; connected sources just give the interviewer more of your own work to ask about.'],
+      ['How is it proctored?', 'Interviews run full-screen. Leaving full-screen or switching tabs pauses the round until you return.'],
+    ];
+    const uni = [
+      ['Batch readiness at a glance', 'See every student’s readiness level for the companies coming to campus, and where the batch needs help.'],
+      ['Aligned to your placement calendar', 'Prioritise the processes of the companies visiting this season.'],
+      ['Fair and proctored', 'Pass marks, cooldowns and full-screen proctoring mean readiness reflects real preparation.'],
+      ['Onboarding in a week', 'Students sign up in one click with their résumé. We handle the rest.'],
+    ];
+    return {
+      cursorRef: this.cursorRef, typeRef: this.typeRef,
+      toggleTheme: () => { const t = this.state.theme === 'dark' ? 'light' : 'dark'; this.applyTheme(t); this.setState({ theme: t }); },
+      knobX: this.state.theme === 'dark' ? 'translateX(30px)' : 'translateX(0)',
+      sunColor: this.state.theme === 'dark' ? 'var(--faint)' : 'var(--on-accent)',
+      moonColor: this.state.theme === 'dark' ? 'var(--on-accent)' : 'var(--faint)',
+      timer: `${mm}:${ss}`, caret: blink('var(--inv)'),
+      pulse: h('span', { style: { display: 'block', width: '100%', height: '100%', borderRadius: '50%', background: 'inherit', animation: A('iq-breathe 1.4s ease-in-out infinite') } }),
+      waveBig: wave(34, 22, 'var(--ink)'),
+      blobs,
+      stack: SRC.map(([icon, name, detail], i) => {
+        let o = i - this.state.stackI; if (o > 2) o -= 5; if (o < -2) o += 5; const a = Math.abs(o);
+        return { icon, name, detail, status: o === 0 ? 'Connected' : 'Connect', pillBg: o === 0 ? 'var(--accent)' : 'var(--line)', pillFg: o === 0 ? 'var(--on-accent)' : 'var(--ink)', transform: `translateY(${o * 70}px) scale(${1 - a * .09})`, opacity: String(a > 1 ? .35 : a === 1 ? .75 : 1), z: String(10 - a), shadow: o === 0 ? '0 30px 60px -20px rgba(0,0,0,.28),0 1px 2px rgba(0,0,0,.06)' : '0 1px 2px rgba(0,0,0,.05)' };
+      }),
+      companies: ['Meesho', 'Flipkart', 'Razorpay', 'Swiggy', 'CRED', 'PhonePe', 'Zepto', 'Groww'].map((name, i) => ({ name, color: i === 0 ? 'var(--ink)' : 'var(--faint2)' })),
+      sources: ['r/', 'LC', 'GD', 'YT'],
+      rounds: [['01', 'Online Assessment', 'PASSED'], ['02', 'Problem Solving', 'OCT 04'], ['03', 'System Design (LLD)', 'LOCKED'], ['04', 'Hiring Manager', 'LOCKED']].map(([n, title, status], i) => ({ n, title, status, bg: i === 1 ? 'var(--panel)' : 'transparent', fg: i > 1 ? 'var(--faint)' : 'var(--ink)', pillBg: i === 0 ? 'var(--line2)' : i === 1 ? 'var(--accent)' : 'transparent', pillFg: i === 1 ? 'var(--on-accent)' : i === 0 ? 'var(--ink)' : 'var(--faint)' })),
+      list1: [{ icon: '◎', b: 'Company research', t: 'from experiences candidates share, filtered by country, level and role' }, { icon: '↳', b: 'Round-by-round roadmaps', t: 'with topics, difficulty and interviewer style' }, { icon: '⌘', b: 'Source-linked insights', t: 'so you know how much data is behind every page' }],
+      list2: [{ icon: '◐', b: 'Voice interviewer', t: 'that builds on your own résumé and projects' }, { icon: '⌗', b: 'Code editor and whiteboard', t: 'read live as you work' }, { icon: '↻', b: 'Adaptive difficulty', t: '— hints when stuck, harder follow-ups when flying' }],
+      list3: [{ icon: '±', b: 'Question breakdown', t: 'with what you said next to a strong answer' }, { icon: '◇', b: 'Eight live signals', t: 'including clarity, hesitation and filler words' }, { icon: '→', b: 'Pass to unlock', t: 'the next round, or retake after 1–2 weeks' }],
+      signals: [['Correct', 82], ['Approach', 76], ['Clarity', 88], ['Fillers', 38]].map(([label, v]) => ({ label, value: label === 'Fillers' ? String(Math.round(jit(v) / 3.5)) : (jit(v) / 10).toFixed(1) })),
+      diff: [[' ', 'Q3 · Where does the state live?', 'ctx'], ['−', 'Keep the deque on each server…', 'del'], ['−', '…and maybe sync them periodically?', 'del'], ['+', 'Move state to a shared store (Redis).', 'add'], ['+', 'INCR the key, EXPIRE with the window TTL.', 'add'], ['+', 'Call out: one network hop vs. correctness.', 'add'], [' ', 'Note: strong recovery after the hint.', 'ctx']].map(([sign, text, k]) => ({ sign, text, bg: k === 'add' ? 'var(--panel)' : 'transparent', color: k === 'add' ? 'var(--ink)' : k === 'del' ? 'var(--faint2)' : 'var(--muted)', deco: k === 'del' ? 'line-through' : 'none' })),
+      layers: [
+        { title: 'Research', body: 'The company’s real process for your role, round by round.', art: art1, tags: ['Rounds', 'Difficulty', 'Red flags'] },
+        { title: 'Interview', body: 'A spoken, proctored round that builds on your background.', art: art2, tags: ['Voice', 'Code', 'Whiteboard'] },
+        { title: 'Debrief', body: 'Scores, strong answers and what to study next.', art: art3, tags: ['Breakdown', 'Signals', 'Learn next'] },
+      ],
+      weeks: ['SEP 01', 'SEP 08', 'SEP 15', 'SEP 22', 'SEP 29', 'OCT 06', 'OCT 13', 'OCT 20'].map((label, i) => ({ label, color: i === 5 ? 'var(--ink)' : 'var(--faint)' })),
+      tracks: [
+        { role: 'Meesho · SDE I', level: 'Nearly ready', left: '2%', width: '70%', segs: ['var(--accent)', 'var(--accent)', 'var(--accent)', 'var(--faint)'], label: '3 / 4', bg: 'var(--ink)', color: 'var(--on-ink)' },
+        { role: 'Flipkart · SDE I', level: 'Progressing', left: '20%', width: '56%', segs: ['var(--ink)', 'var(--ink)', 'var(--line4)', 'var(--line4)'], label: '2 / 5', bg: 'var(--line2)', color: 'var(--ink)' },
+        { role: 'Razorpay · Backend', level: 'Getting started', left: '44%', width: '46%', segs: ['var(--ink)', 'var(--line2)', 'var(--line2)', 'var(--line2)'], label: '0 / 4', bg: 'var(--panel)', color: 'var(--muted)' },
+        { role: 'Practice · DSA', level: 'Doesn’t count', left: '8%', width: '84%', segs: ['var(--line2)', 'var(--line2)', 'var(--line2)', 'var(--line2)'], label: 'Custom', bg: 'var(--panel)', color: 'var(--faint)' },
+      ],
+      features: [
+        { icon: '◎', title: 'Built on the real process', body: 'Rounds, topics and difficulty researched from real candidate experiences.' },
+        { icon: '◐', title: 'Personal by default', body: 'Questions come from your résumé and projects — nothing to memorise.' },
+        { icon: '↻', title: 'Adapts in real time', body: 'Hints, harder follow-ups and course-correction, like a real interviewer.' },
+        { icon: '◇', title: 'Readiness you can trust', body: 'Pass marks, cooldowns and proctoring make every level mean something.' },
+      ],
+      uni: uni.map(([title, body], i) => { const o = this.state.uni === i; return { title, body, sign: o ? '−' : '+', rows: o ? '1fr' : '0fr', onClick: () => this.setState({ uni: o ? -1 : i }) }; }),
+      personas: personas.map(([role, mono, who, body, status, bg, fg]) => ({ role, mono, who, body, status, bg, fg })),
+      carTransform: `translateX(-${this.state.car * 328}px)`,
+      carPrev: () => this.setState(s => ({ car: Math.max(0, s.car - 1) })),
+      carNext: () => this.setState(s => ({ car: Math.min(2, s.car + 1) })),
+      faqs: faqs.map(([q, a], i) => { const o = this.state.faq === i; return { q, a, rows: o ? '1fr' : '0fr', rot: o ? 'rotate(45deg)' : 'none', onClick: () => this.setState({ faq: o ? -1 : i }) }; }),
+      footer: [
+        { title: 'Get started', links: ['Start free', 'Book a demo', 'Log in'] },
+        { title: 'Product', links: ['Company research', 'Interview', 'Debrief', 'Readiness'] },
+        { title: 'Solutions', links: ['Students', 'Universities', 'Professionals'] },
+        { title: 'Company', links: ['About', 'Careers', 'Contact'] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

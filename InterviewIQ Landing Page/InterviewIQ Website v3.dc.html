@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0c0c0c;color:#0c0c0c;font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+a:hover{color:#0c0c0c}
+::selection{background:#0c0c0c;color:#fff}
+input,textarea{font-family:'Geist',sans-serif}
+@keyframes iq-rise{from{opacity:0;transform:translateY(35%);filter:blur(14px)}to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes iq-wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 -10% 0 0)}}
+@keyframes iq-marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes iq-wave{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+@keyframes iq-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes iq-breathe{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes iq-fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="background:#0c0c0c;position:relative">
+
+<!-- CURSOR -->
+<div ref="{{ cursorRef }}" style="position:fixed;left:0;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:1px solid #fff;mix-blend-mode:difference;pointer-events:none;z-index:100;opacity:0;transition:width .25s,height .25s,margin .25s,background .25s,opacity .3s"></div>
+
+<!-- STICKY PILL -->
+<a href="#start" style="position:fixed;right:20px;bottom:20px;z-index:60;display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0c0c0c;color:#fff;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;border:1px solid #2a2a2a" style-hover="background:#3a3a3a;color:#fff">START PRACTICING <span style="color:#8a8a8a">— FREE</span></a>
+
+<!-- NAV -->
+<header style="position:sticky;top:0;z-index:50;background:#fafafa;border-bottom:1px solid #e2e2e2">
+  <div style="height:52px;padding:0 24px;display:flex;align-items:center;gap:24px">
+    <a href="#top" style="display:flex;align-items:center;gap:10px;flex:none">
+      <div style="display:flex;gap:2px;align-items:flex-end;height:14px"><span style="width:4px;height:14px;background:#0c0c0c"></span><span style="width:4px;height:9px;background:#0c0c0c"></span><span style="width:4px;height:5px;background:#0c0c0c"></span></div>
+      <span style="font-weight:600;font-size:16px;letter-spacing:-.03em">interviewIQ<sup style="font-size:9px">®</sup></span>
+      <span style="font-size:10.5px;padding:3px 7px;background:#0c0c0c;color:#fff;letter-spacing:.01em">Mock interviews, for real</span>
+    </a>
+    <nav style="flex:1;min-width:0;height:52px;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:clamp(12px,2.2vw,48px);font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;flex-wrap:nowrap;white-space:nowrap">
+      <a href="#how">HOW IT WORKS</a>
+      <a href="#interview">THE INTERVIEW</a>
+      <a href="#readiness">READINESS <sup style="color:#0c0c0c">NEW</sup></a>
+      <a href="#universities">UNIVERSITIES</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a href="#" style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;flex:none">LOG IN</a>
+    <div style="display:flex;flex-direction:column;gap:4px;flex:none"><span style="width:18px;height:1.5px;background:#0c0c0c"></span><span style="width:12px;height:1.5px;background:#0c0c0c;margin-left:6px"></span></div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section id="top" data-screen-label="Hero" style="position:relative;min-height:calc(100vh - 52px);background:#0b0b0b;color:#fff;overflow:hidden;display:flex;flex-direction:column">
+  <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block"></canvas>
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 80% 70% at 50% 45%,transparent 30%,rgba(11,11,11,.85) 100%);pointer-events:none"></div>
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+
+  <div style="position:relative;padding:22px 24px 0;display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#bdbdbd">
+    <span>2026 — PILOT SEASON</span>
+    <span style="display:flex;align-items:center;gap:10px">UNIVERSITY PILOTS FOR FALL <span style="display:flex;gap:2px"><span style="width:3px;height:11px;background:#fff"></span><span style="width:3px;height:11px;background:#fff"></span><span style="width:3px;height:11px;background:#fff"></span><span style="width:3px;height:11px;background:#3a3a3a"></span><span style="width:3px;height:11px;background:#3a3a3a"></span></span> 2 LEFT</span>
+  </div>
+  <div style="position:relative;padding:44px 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#bdbdbd">
+    <span style="padding:0 24px;display:flex;gap:10px"><span style="color:#6a6a6a">01</span>COMPANY-SPECIFIC</span>
+    <span style="padding:0 24px;display:flex;gap:10px"><span style="color:#6a6a6a">02</span>BUILT ON YOUR RÉSUMÉ</span>
+    <span style="padding:0 24px;display:flex;gap:10px"><span style="color:#6a6a6a">03</span>SPOKEN &amp; PROCTORED</span>
+    <span style="padding:0 24px;display:flex;gap:10px;justify-content:flex-end">↓ SCROLL</span>
+  </div>
+
+  <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 0 0">
+    <div style="position:relative;padding:0 2vw;line-height:.82">{{ wordmark }}</div>
+    <div style="position:relative;margin-top:-4.2vw;padding-left:25%;pointer-events:none">{{ heroScript }}</div>
+  </div>
+
+  <div style="position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;padding:24px 0 0">
+    <div></div>
+    <div style="grid-column:span 2;padding:0 24px;display:flex;flex-direction:column;gap:22px;max-width:640px" data-reveal="1">
+      <p style="margin:0;font-size:17px;line-height:1.5;color:#e4e4e4;text-wrap:pretty">An AI interviewer that knows your background and how your target company interviews — and takes you through its full process, round by round, until you're ready for the real one.</p>
+      <a href="#start" style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 18px;background:#fff;color:#0c0c0c;font-family:'Geist Mono',monospace;font-size:11.5px;letter-spacing:.08em;max-width:420px;transition:background .3s,color .3s" style-hover="background:#cfcfcf;color:#0c0c0c">START WITH YOUR RÉSUMÉ <span style="font-size:16px">+</span></a>
+    </div>
+    <div style="padding:0 24px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;text-align:right;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#bdbdbd">
+      <span style="display:flex;align-items:center;gap:8px;color:#fff">{{ liveDot }}LIVE NOW</span>
+      <span>MEESHO · SDE I BACKEND</span>
+      <span style="color:#6a6a6a">4 ROUNDS · RESEARCHED FROM 142 EXPERIENCES</span>
+    </div>
+  </div>
+
+  <div style="position:relative;margin-top:36px;border-top:1px solid rgba(255,255,255,.1);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);align-items:center;height:64px">
+    <div style="padding:0 24px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#8a8a8a">PROCESSES IN THE LIBRARY</div>
+    <div style="overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)">{{ logoMarquee }}</div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS (light) -->
+<section id="how" data-screen-label="How it works" style="position:relative;background:#efefef;color:#0c0c0c">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(0,0,0,.07) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:flex;flex-wrap:wrap">
+    <div style="flex:1 1 260px;min-width:0;padding:88px 24px 64px">
+      <div style="position:sticky;top:120px;display:flex;flex-direction:column;gap:22px;min-height:560px">
+        <div style="display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span></span><span data-scramble="1">[IQ—PRACTICE / अभ्यास]</span></div>
+        <h2 data-reveal="1" style="margin:0;font-size:clamp(44px,5vw,72px);line-height:.92;letter-spacing:-.05em;font-weight:600">How it<br>works</h2>
+        <p data-reveal="1" style="margin:0;font-size:14px;line-height:1.55;color:#4a4a4a;max-width:260px">Three steps, repeated until you're ready: see the real process, sit the round, learn from the debrief.</p>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:12px;line-height:1.5"><div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em">NOT GENERIC PRACTICE</div><div style="color:#4a4a4a">Built around one company, one role.</div></div>
+          <a href="#start" style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 18px;background:#0c0c0c;color:#fff;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;max-width:240px;transition:background .3s" style-hover="background:#3a3a3a;color:#fff">PICK A COMPANY <span style="font-size:16px">+</span></a>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:3 1 600px;min-width:0;padding:88px 0 40px">
+      <!-- 001 -->
+      <div style="padding:0 24px 80px">
+        <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#4a4a4a" data-scramble="1">001 / ROADMAP</div>
+        <h3 data-reveal="1" style="margin:10px 0 28px;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.04em;font-weight:500;line-height:1">The company's real process</h3>
+        <div data-reveal="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1px;background:#d9d9d9">
+          <div style="background:#e4e4e2;height:300px;padding:28px;display:flex;flex-direction:column;justify-content:center;gap:8px">
+            <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:{{ r.bg }};color:{{ r.color }};font-size:13.5px;border:1px solid {{ r.border }}">
+                <span style="font-family:'Geist Mono',monospace;font-size:11px;opacity:.6">{{ r.n }}</span>{{ r.title }}<span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.04em">{{ r.status }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#141414;height:300px;padding:24px;display:flex;flex-direction:column;gap:10px;font-family:'Geist Mono',monospace;font-size:11.5px;color:#8a8a8a;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;color:#fff;margin-bottom:6px">{{ liveDot }}research.meesho.sde1</div>
+            <sc-for list="{{ feed }}" as="f" hint-placeholder-count="6">
+              <div style="display:flex;gap:12px;white-space:nowrap;overflow:hidden"><span style="color:#4a4a4a">{{ f.t }}</span><span style="color:{{ f.color }};overflow:hidden;text-overflow:ellipsis">{{ f.text }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px;padding-top:22px">
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:#4a4a4a">We research how each company really interviews for each role — rounds, topics, difficulty, interviewer style and red flags — and every insight is tied to its sources.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start"><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Rounds</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Difficulty</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Interviewer style</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Red flags</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Customisable</span></div>
+        </div>
+      </div>
+      <!-- 002 -->
+      <div style="padding:0 24px 80px">
+        <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#4a4a4a" data-scramble="1">002 / INTERVIEW</div>
+        <h3 data-reveal="1" style="margin:10px 0 28px;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.04em;font-weight:500;line-height:1">A spoken round, not a chat</h3>
+        <div data-reveal="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1px;background:#d9d9d9">
+          <div style="background:#141414;height:300px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;color:#fff">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9a9a9a 40%,#1a1a1a 80%);box-shadow:0 0 40px rgba(255,255,255,.2)"></div>
+              <div><div style="font-size:14px">AI Interviewer</div><div style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#8a8a8a;letter-spacing:.04em">SPEAKING · 14:02</div></div>
+            </div>
+            <div style="height:40px;display:flex;align-items:center">{{ waveformBig }}</div>
+            <div style="font-size:15px;line-height:1.45;color:#e4e4e4">“Your GitHub shows an order-tracking service with a queue. Why a queue instead of direct writes?”</div>
+          </div>
+          <div style="background:#fafafa;height:300px;padding:22px 0;font-family:'Geist Mono',monospace;font-size:12px;line-height:1.85;display:grid;grid-template-columns:40px minmax(0,1fr);overflow:hidden">
+            <div style="text-align:right;padding-right:12px;color:#bdbdbd">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11</div>
+            <div style="white-space:pre;color:#4a4a4a;overflow:hidden"><span style="color:#0c0c0c;font-weight:500">def</span> allow(self, user_id):
+    now = time.monotonic()
+    q = self.hits[user_id]
+    <span style="color:#0c0c0c;font-weight:500">while</span> q <span style="color:#0c0c0c;font-weight:500">and</span> now - q[0] &gt; w:
+        q.popleft()
+    <span style="color:#0c0c0c;font-weight:500">if</span> len(q) &lt; self.limit:
+        q.append(now)
+        <span style="color:#0c0c0c;font-weight:500">return</span> True
+    <span style="color:#0c0c0c;font-weight:500">return</span> False
+
+<span style="color:#0c0c0c"># interviewer is reading…</span><span style="display:inline-block;width:7px;height:14px;background:#0c0c0c;vertical-align:-2px;margin-left:3px">{{ cursorBlink }}</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px;padding-top:22px">
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:#4a4a4a">It greets you, asks about your own projects, explains the format, then one question at a time — with a code editor and whiteboard it reads as you work.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start"><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Voice</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Code editor</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Whiteboard</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Adaptive</span><span style="font-size:12px;padding:5px 9px;border:1px solid #cfcfcf">Proctored</span></div>
+        </div>
+      </div>
+      <!-- 003 -->
+      <div style="padding:0 24px 40px">
+        <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#4a4a4a" data-scramble="1">003 / DEBRIEF</div>
+        <h3 data-reveal="1" style="margin:10px 0 28px;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.04em;font-weight:500;line-height:1">A debrief, not just a number</h3>
+        <div data-reveal="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1px;background:#d9d9d9">
+          <div style="background:#e4e4e2;height:300px;padding:28px;display:flex;flex-direction:column;justify-content:space-between">
+            <div style="display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.04em;color:#4a4a4a"><span>ROUND 2 · SCORE</span><span style="color:#0c0c0c">PASSED</span></div>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:110px;font-weight:600;letter-spacing:-.06em;line-height:.8" data-count="74">74</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#4a4a4a">/ 100</span></div>
+            <div style="position:relative;height:4px;background:#cfcfcf"><div style="position:absolute;left:0;top:0;bottom:0;width:74%;background:#0c0c0c"></div><div style="position:absolute;left:70%;top:-6px;bottom:-6px;width:1px;background:#0c0c0c"></div></div>
+            <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.04em;color:#4a4a4a;display:flex;justify-content:space-between"><span>PASS MARK 70</span><span>ROUND 3 UNLOCKED →</span></div>
+          </div>
+          <div style="background:#141414;height:300px;padding:24px;display:flex;flex-direction:column;gap:12px;color:#fff;overflow:hidden">
+            <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">WHAT A STRONG ANSWER LOOKED LIKE</div>
+            <div style="font-size:14px;line-height:1.5;color:#e4e4e4">Move state to a shared store — atomic INCR with a TTL per window — and call out the latency-versus-correctness tradeoff.</div>
+            <div style="margin-top:auto;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">LEARN NEXT</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:12px;padding:5px 9px;border:1px solid #333">Distributed counters</span><span style="font-size:12px;padding:5px 9px;border:1px solid #333">Token bucket</span><span style="font-size:12px;padding:5px 9px;border:1px solid #333">Thinking aloud</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px;padding-top:22px">
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:#4a4a4a">Question by question: what you said, what a strong answer looked like, and what to study before your next attempt. Pass and the next round unlocks; miss and retake in 1–2 weeks.</p>
+          <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;align-self:end">AFTER EVERY ROUND</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSIDE THE INTERVIEW (dark) -->
+<section id="interview" data-screen-label="Interview" style="position:relative;background:#0c0c0c;color:#fff;overflow:hidden">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);align-items:center;padding:96px 0 48px">
+    <div style="padding:0 24px;display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#fff"></span><span style="width:3px;height:10px;background:#fff"></span><span style="width:3px;height:10px;background:#fff"></span></span><span data-scramble="1">[IQ—LIVE / साक्षात्कार]</span></div>
+    <div style="overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)">{{ bigMarquee }}</div>
+  </div>
+
+  <div style="position:relative;padding:0 24px">
+    <div ref="{{ mockRef }}" style="max-width:1200px;margin:0 auto;border:1px solid #2a2a2a;background:#101010;box-shadow:0 60px 120px -30px rgba(0,0,0,.9);transform-origin:50% 0;will-change:transform">
+      <div style="height:44px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid #222;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.04em;color:#8a8a8a">
+        <span style="color:#fff">MEESHO / SDE I BACKEND / ROUND 2 OF 4</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px">{{ liveDot }}PROCTORED · FULL-SCREEN</span>
+        <span style="color:#fff;padding:3px 8px;border:1px solid #333">{{ timer }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr) minmax(0,250px);min-height:460px">
+        <div style="border-right:1px solid #222;padding:20px;display:flex;flex-direction:column;gap:16px;font-size:13px;line-height:1.5">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9a9a9a 40%,#1a1a1a 80%)"></div>
+            <div><div style="font-size:13.5px">AI Interviewer</div><div style="height:18px;display:flex;align-items:center">{{ waveform }}</div></div>
+          </div>
+          <div style="color:#bdbdbd"><span style="display:block;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:#6a6a6a;margin-bottom:3px">INTERVIEWER</span>Design a rate limiter for your order-tracking API.</div>
+          <div style="padding:10px 12px;background:#1a1a1a;color:#e4e4e4"><span style="display:block;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:#6a6a6a;margin-bottom:3px">YOU</span>Sliding window per user, a deque of timestamps…</div>
+          <div style="color:#bdbdbd"><span style="display:block;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:#ffffff;margin-bottom:3px">FOLLOW-UP · HARDER</span>Now it's three pods at 50k req/s. Where does the state live?</div>
+          <div style="margin-top:auto;padding:10px 12px;border:1px dashed #333;color:#8a8a8a;font-size:12px"><span style="display:block;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:#bdbdbd;margin-bottom:3px">HINT · GENTLE</span>Think about what happens with more than one server.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;min-width:0">
+          <div style="height:36px;display:flex;border-bottom:1px solid #222;font-family:'Geist Mono',monospace;font-size:11px">
+            <span style="padding:0 14px;display:flex;align-items:center;color:#fff;border-bottom:1px solid #fff;margin-bottom:-1px">limiter.py</span>
+            <span style="padding:0 14px;display:flex;align-items:center;color:#6a6a6a">whiteboard</span>
+          </div>
+          <div style="flex:1;padding:16px 0;font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.8;display:grid;grid-template-columns:40px minmax(0,1fr);overflow:hidden">
+            <div style="text-align:right;padding-right:12px;color:#3a3a3a">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13</div>
+            <div style="white-space:pre;color:#9a9a9a;overflow:hidden"><span style="color:#fff">import</span> redis
+
+r = redis.Redis()
+
+<span style="color:#fff">def</span> <span style="color:#e4e4e4">allow</span>(user_id, limit=100, window=60):
+    key = f"rl:{user_id}"
+    <span style="color:#fff">with</span> r.pipeline() <span style="color:#fff">as</span> p:
+        p.incr(key)
+        p.expire(key, window, nx=True)
+        count, _ = p.execute()
+    <span style="color:#fff">return</span> count &lt;= limit
+
+<span style="color:#5a5a5a"># shared across all pods</span><span style="display:inline-block;width:7px;height:15px;background:#fff;vertical-align:-3px;margin-left:3px">{{ cursorBlinkDark }}</span></div>
+          </div>
+        </div>
+        <div style="border-left:1px solid #222;padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#6a6a6a">LIVE SIGNALS</div>
+          <sc-for list="{{ signals }}" as="s" hint-placeholder-count="7">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:#bdbdbd">{{ s.label }}</span><span style="font-family:'Geist Mono',monospace;color:#fff">{{ s.value }}</span></div>
+              <div style="height:2px;background:#222"><div style="height:100%;width:{{ s.pct }};background:{{ s.color }};transition:width 1s"></div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;margin-top:96px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));border-top:1px solid #222">
+    <sc-for list="{{ adapt }}" as="a" hint-placeholder-count="4">
+      <div data-reveal="1" style="padding:36px 24px 56px;display:flex;flex-direction:column;gap:18px;border-right:1px solid #222" style-hover="background:#141414">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:24px;font-weight:500;letter-spacing:-.03em">{{ a.state }}</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:{{ a.color }}">{{ a.action }}</span></div>
+        <div style="font-size:14px;line-height:1.5;color:#9a9a9a">{{ a.quote }}</div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<!-- STEPS (light) -->
+<section data-screen-label="Journey" style="position:relative;background:#efefef">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(0,0,0,.07) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:flex;flex-wrap:wrap;padding:96px 0">
+    <div style="flex:1 1 260px;min-width:0;padding:0 24px;display:flex;flex-direction:column;gap:22px;min-height:520px">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span></span><span data-scramble="1">[IQ—JOURNEY / तैयारी]</span></div>
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(44px,5vw,72px);line-height:.92;letter-spacing:-.05em;font-weight:600">From résumé<br>to ready</h2>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:#4a4a4a;max-width:260px">Sign up in one click. A résumé is enough to start.</p>
+      <div style="margin-top:auto;font-size:17px;font-weight:500;line-height:1.35;letter-spacing:-.01em;max-width:300px">Most people rehearse the real interview inside the real interview. <span style="color:#7a7a7a">We'd rather you didn't.</span></div>
+    </div>
+    <div style="flex:3 1 600px;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;padding:0 24px">
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+        <div onMouseEnter="{{ st.onEnter }}" style="min-height:250px;padding:22px;display:flex;flex-direction:column;background:{{ st.bg }};color:{{ st.fg }};transition:background .5s,color .5s;cursor:default">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:11px;background:{{ st.numBg }};color:{{ st.numFg }};transition:background .5s">{{ st.n }}</span>
+            <span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;opacity:.7">{{ st.tag }}</span>
+          </div>
+          <div style="margin-top:auto;font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.15">{{ st.title }}</div>
+          <div style="margin-top:10px;font-size:13px;line-height:1.5;opacity:.7">{{ st.body }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAND -->
+<section style="background:#fafafa;color:#0c0c0c;border-top:1px solid #dcdcdc;border-bottom:1px solid #dcdcdc">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))">
+    <div style="padding:40px 24px;border-right:1px solid #dcdcdc"><div style="font-size:clamp(44px,5vw,68px);font-weight:500;letter-spacing:-.04em;line-height:1"><span data-count="24">24</span>/7</div><div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;margin-top:14px">AVAILABLE, UNLIMITED</div></div>
+    <div style="padding:40px 24px;border-right:1px solid #dcdcdc"><div style="font-size:clamp(44px,5vw,68px);font-weight:500;letter-spacing:-.04em;line-height:1"><span data-count="142">142</span>+</div><div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;margin-top:14px">EXPERIENCES BEHIND MEESHO SDE I</div></div>
+    <div style="padding:40px 24px;border-right:1px solid #dcdcdc"><div style="font-size:clamp(44px,5vw,68px);font-weight:500;letter-spacing:-.04em;line-height:1"><span data-count="8">8</span></div><div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;margin-top:14px">SIGNALS ANALYSED LIVE</div></div>
+    <div style="padding:40px 24px"><div style="font-size:clamp(44px,5vw,68px);font-weight:500;letter-spacing:-.04em;line-height:1">1–<span data-count="2">2</span> wk</div><div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;margin-top:14px">RETAKE COOLDOWN</div></div>
+  </div>
+</section>
+
+<!-- READINESS (light) -->
+<section id="readiness" data-screen-label="Readiness" style="position:relative;background:#fafafa">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(0,0,0,.06) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:flex;flex-wrap:wrap;padding:96px 0">
+    <div style="flex:1 1 260px;min-width:0;padding:0 24px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span></span><span data-scramble="1">[IQ—READINESS / स्तर]</span></div>
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(44px,5vw,72px);line-height:.92;letter-spacing:-.05em;font-weight:600">Interview-<br>ready.</h2>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:#4a4a4a;max-width:260px">Your readiness for each role rises as you clear rounds of the official process.</p>
+    </div>
+    <div style="flex:3 1 600px;min-width:0;padding:0 24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:1px;background:#dcdcdc;border:1px solid #dcdcdc">
+        <sc-for list="{{ levels }}" as="lv" hint-placeholder-count="4">
+          <div style="padding:22px;min-height:170px;display:flex;flex-direction:column;gap:8px;background:{{ lv.bg }};color:{{ lv.fg }}">
+            <div style="display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em"><span style="opacity:.6">{{ lv.n }}</span><span style="color:{{ lv.tagColor }}">{{ lv.tag }}</span></div>
+            <div style="margin-top:auto;height:3px;background:{{ lv.track }}"><div style="height:100%;width:{{ lv.fill }};background:{{ lv.bar }}"></div></div>
+            <div style="font-size:18px;font-weight:500;letter-spacing:-.02em;margin-top:8px">{{ lv.name }}</div>
+            <div style="font-size:12.5px;opacity:.65">{{ lv.desc }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">
+        <div data-reveal="1" style="background:#0c0c0c;color:#fff;padding:28px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em"><span style="color:#8a8a8a">READINESS REPORT</span><span style="padding:4px 8px;background:#fff;color:#0c0c0c">INTERVIEW-READY</span></div>
+          <div><div style="font-size:26px;font-weight:500;letter-spacing:-.03em">Meesho · SDE I Backend</div><div style="font-size:13px;color:#8a8a8a;margin-top:4px">Aarav S. · 4 of 4 official rounds cleared</div></div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ report }}" as="rp" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #222;font-size:13.5px"><span style="color:#bdbdbd">{{ rp.round }}</span><span style="font-family:'Geist Mono',monospace">{{ rp.score }}</span></div>
+            </sc-for>
+          </div>
+          <div style="font-size:11px;line-height:1.5;color:#6a6a6a;border-top:1px solid #222;padding-top:12px">Readiness from mock interviews on InterviewIQ. Never a certification or an endorsement by the company.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px;background:#dcdcdc;border:1px solid #dcdcdc">
+          <sc-for list="{{ rules }}" as="ru" hint-placeholder-count="5">
+            <div style="background:#fafafa;padding:18px 20px;display:grid;grid-template-columns:36px minmax(0,1fr);gap:8px" style-hover="background:#f0f0f0">
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#0c0c0c">{{ ru.n }}</span>
+              <div><div style="font-size:14.5px;font-weight:500">{{ ru.title }}</div><div style="font-size:13px;color:#5a5a5a;margin-top:2px">{{ ru.body }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCES (light) -->
+<section id="universities" data-screen-label="Who it's for" style="position:relative;background:#efefef;border-top:1px solid #dcdcdc">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(0,0,0,.07) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:flex;flex-wrap:wrap;padding:96px 0">
+    <div style="flex:1 1 260px;min-width:0;padding:0 24px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span></span><span data-scramble="1">[IQ—FOR / किसके लिए]</span></div>
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(44px,5vw,72px);line-height:.92;letter-spacing:-.05em;font-weight:600">Who it's<br>for</h2>
+    </div>
+    <div style="flex:3 1 600px;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))">
+      <sc-for list="{{ audiences }}" as="au" hint-placeholder-count="3">
+        <div data-reveal="1" style="padding:0 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#6a6a6a">{{ au.n }}</span><sc-if value="{{ au.hot }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:3px 8px;border-radius:999px;background:#0c0c0c;color:#fff;font-family:'Geist Mono',monospace;letter-spacing:.06em">PILOT OPEN</span></sc-if></div>
+          <div style="font-size:28px;font-weight:500;letter-spacing:-.035em">{{ au.who }}</div>
+          <div style="font-size:13.5px;line-height:1.55;color:#4a4a4a;min-height:64px">{{ au.body }}</div>
+          <div style="display:flex;align-items:baseline;gap:8px;padding:10px 0 18px;border-bottom:1px solid #d4d4d4"><span style="font-size:44px;font-weight:500;letter-spacing:-.04em">{{ au.price }}</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#6a6a6a">{{ au.priceNote }}</span></div>
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#6a6a6a">WHAT'S INCLUDED</div>
+          <sc-for list="{{ au.items }}" as="it" hint-placeholder-count="4">
+            <div style="display:flex;gap:10px;font-size:13.5px;align-items:center"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #0c0c0c;display:flex;align-items:center;justify-content:center;font-size:8px;flex:none">✓</span>{{ it }}</div>
+          </sc-for>
+          <a href="#start" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 16px;background:{{ au.btnBg }};color:{{ au.btnFg }};border:1px solid #0c0c0c;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;transition:background .3s,color .3s" style-hover="background:#0c0c0c;color:#fff;border-color:#0c0c0c">{{ au.cta }} <span style="font-size:15px">+</span></a>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ (light) -->
+<section id="faq" data-screen-label="FAQ" style="position:relative;background:#fafafa">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(0,0,0,.06) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:flex;flex-wrap:wrap;padding:96px 0">
+    <div style="flex:1 1 260px;min-width:0;padding:0 24px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span><span style="width:3px;height:10px;background:#0c0c0c"></span></span><span data-scramble="1">[IQ—FAQ / प्रश्न]</span></div>
+      <h2 data-reveal="1" style="margin:0;font-size:clamp(44px,5vw,72px);line-height:.92;letter-spacing:-.05em;font-weight:600">Quick<br>answers.</h2>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:#4a4a4a;max-width:260px">The questions we hear most from students and placement cells.</p>
+    </div>
+    <div style="flex:3 1 600px;min-width:0;padding:0 24px;display:flex;flex-direction:column">
+      <sc-for list="{{ faqs }}" as="q" hint-placeholder-count="6">
+        <div style="border-top:1px solid #dcdcdc">
+          <button onClick="{{ q.onClick }}" style="width:100%;display:flex;align-items:center;gap:16px;padding:22px 0;background:transparent;border:0;cursor:pointer;text-align:left;color:#0c0c0c">
+            <span style="font-family:'Geist Mono',monospace;font-size:10.5px;padding:3px 6px;background:#ececec">{{ q.n }}</span>
+            <span style="flex:1;font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.05em">{{ q.q }}</span>
+            <span style="font-size:18px;font-weight:300;transition:transform .35s;transform:{{ q.rot }}">+</span>
+          </button>
+          <div style="display:grid;grid-template-rows:{{ q.rows }};transition:grid-template-rows .45s cubic-bezier(.2,.7,.2,1)">
+            <div style="overflow:hidden"><p style="margin:0 0 24px 44px;font-size:14.5px;line-height:1.6;color:#3a3a3a;max-width:640px">{{ q.a }}</p></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT (dark) -->
+<section id="start" data-screen-label="Contact" style="position:relative;background:#0c0c0c;color:#fff;overflow:hidden">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 100%;pointer-events:none"></div>
+  <div style="position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);align-items:center;padding:96px 0 56px">
+    <div style="padding:0 24px;display:flex;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em"><span style="display:flex;gap:2px"><span style="width:3px;height:10px;background:#fff"></span><span style="width:3px;height:10px;background:#fff"></span><span style="width:3px;height:10px;background:#fff"></span></span><span data-scramble="1">[IQ—CONTACT / संपर्क]</span></div>
+    <div style="overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)">{{ talkMarquee }}</div>
+  </div>
+  <div style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));padding:0 0 96px">
+    <div style="padding:0 24px;display:flex;flex-direction:column;gap:28px">
+      <div><div style="font-size:24px;font-weight:500;letter-spacing:-.02em">pilots@interviewiq.ai</div><div style="font-size:13px;color:#8a8a8a;margin-top:6px">For placement cells and TPOs</div></div>
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em;color:#6a6a6a;display:flex;flex-direction:column;gap:6px">LOCAL TIME<span style="color:#fff;font-size:13px">{{ istTime }} IST</span></div>
+    </div>
+    <div style="padding:0 24px;display:flex;flex-direction:column;gap:22px;grid-column:span 2">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:22px">
+        <label style="display:flex;flex-direction:column;gap:8px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">NAME<input placeholder="Ananya Iyer" style="background:transparent;border:0;border-bottom:1px solid #333;color:#fff;font-size:15px;padding:8px 0;outline:none" style-focus="border-bottom-color:#fff"></input></label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">COLLEGE<input placeholder="Institute of Technology, Pune" style="background:transparent;border:0;border-bottom:1px solid #333;color:#fff;font-size:15px;padding:8px 0;outline:none" style-focus="border-bottom-color:#fff"></input></label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">EMAIL<input placeholder="tpo@college.edu" style="background:transparent;border:0;border-bottom:1px solid #333;color:#fff;font-size:15px;padding:8px 0;outline:none" style-focus="border-bottom-color:#fff"></input></label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#8a8a8a">BATCH SIZE<input placeholder="e.g. 450 students" style="background:transparent;border:0;border-bottom:1px solid #333;color:#fff;font-size:15px;padding:8px 0;outline:none" style-focus="border-bottom-color:#fff"></input></label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-top:8px">
+        <a href="#" style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 18px;background:#fff;color:#0c0c0c;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;min-width:280px;transition:background .3s,color .3s" style-hover="background:#cfcfcf;color:#0c0c0c">BOOK A UNIVERSITY PILOT <span style="font-size:16px">+</span></a>
+        <span style="font-size:12px;color:#6a6a6a">Students: <a href="#" style="color:#fff">start free with your résumé →</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer style="position:relative;border-top:1px solid #222">
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:40px 0 0;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.06em">
+      <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px"><span style="color:#6a6a6a">PRODUCT</span><a href="#how">HOW IT WORKS</a><a href="#interview">THE INTERVIEW</a><a href="#readiness">READINESS</a></div>
+      <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px"><span style="color:#6a6a6a">FOR</span><a href="#universities">STUDENTS</a><a href="#universities">PROFESSIONALS</a><a href="#universities">PLACEMENT CELLS</a></div>
+      <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px"><span style="color:#6a6a6a">COMPANY</span><a href="#">ABOUT</a><a href="#">CAREERS</a><a href="#faq">FAQ</a></div>
+      <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px;align-items:flex-end;text-align:right;color:#6a6a6a"><span>EST. 2026</span><span>BENGALURU, IN</span></div>
+    </div>
+    <div style="position:relative;padding:40px 0 0;line-height:.8;overflow:hidden">
+      <div data-reveal="1" style="font-size:16.5vw;font-weight:600;letter-spacing:-.07em;padding:0 1.5vw;color:#fff;white-space:nowrap">interviewIQ</div>
+      <div style="position:absolute;right:4vw;bottom:2vw;font-family:'Mrs Saint Delafield',cursive;font-size:7vw;color:#fff;line-height:1;transform:rotate(-4deg)">rehearsed, for real</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 24px 28px;border-top:1px solid #222;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#6a6a6a">
+      <span>© 2026 INTERVIEWIQ. ALL RIGHTS RESERVED.</span><span>PRIVACY · TERMS</span>
+    </div>
+  </footer>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;animate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;customCursor&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { sec: 14 * 60 + 7, step: 0, faq: 0, tick: 0 };
+  canvasRef = React.createRef();
+  cursorRef = React.createRef();
+  mockRef = React.createRef();
+
+  componentDidMount() {
+    const anim = () => this.props.animate ?? true;
+    this.iv = setInterval(() => this.setState(s => ({ sec: anim() ? s.sec + 1 : s.sec, tick: s.tick + 1, step: anim() && s.tick % 3 === 2 && !this.hoverStep ? (s.step + 1) % 4 : s.step })), 1000);
+    this.initCanvas();
+    this.initReveals();
+    this.initCursor();
+    this.onScroll = () => this.scrollZoom();
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    this.scrollZoom();
+  }
+  componentWillUnmount() {
+    clearInterval(this.iv); cancelAnimationFrame(this.raf); cancelAnimationFrame(this.craf);
+    window.removeEventListener('scroll', this.onScroll);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('mousemove', this.onMove);
+    this.io && this.io.disconnect(); this.cio && this.cio.disconnect();
+  }
+
+  initCanvas() {
+    const cv = this.canvasRef.current; if (!cv) return;
+    const ctx = cv.getContext('2d');
+    let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2), visible = true;
+    const size = () => { w = cv.clientWidth; h = cv.clientHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    this.onResize = size; window.addEventListener('resize', size); size();
+    this.cio = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }); this.cio.observe(cv);
+    let mx = 0, my = 0;
+    cv.parentElement.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width - .5; my = (e.clientY - r.top) / r.height - .5; });
+    const N = 44, M = 150;
+    const draw = (t) => {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w * (0.46 + mx * 0.04), cy = h * (0.56 + my * 0.04);
+      const scale = Math.max(w, h) / 1400;
+      const g = ctx.createRadialGradient(w * .38, h * .22, 0, w * .38, h * .22, 90 * scale * 1.6);
+      g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(.35, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(w * .38, h * .22, 150 * scale * 1.6, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < N; i++) {
+        const k = i / N;
+        const base = (26 + i * 17 + i * i * 0.45) * scale * 1.4;
+        const phase = t * 0.00018 * (1 + (i % 4) * 0.25) + i * 0.13;
+        const fade = Math.pow(1 - k, 0.6);
+        for (let j = 0; j < M; j++) {
+          const a = (j / M) * Math.PI * 2 + phase;
+          const wob = 1 + 0.07 * Math.sin(a * 3 + t * 0.0007 + i * 0.35);
+          const r = base * wob;
+          const x = cx + Math.cos(a) * r * 1.3;
+          const y = cy + Math.sin(a) * r * 0.62 + Math.sin(a * 2 + i * 0.25 + t * 0.0004) * i * 1.4 * scale;
+          const depth = (Math.sin(a + 0.6) + 1) / 2;
+          const alpha = (0.06 + 0.55 * depth * depth) * fade;
+          if (alpha < 0.03) continue;
+          const s = (0.7 + depth * 1.5) * (0.6 + k);
+          ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
+          ctx.fillRect(x, y, s, s);
+        }
+      }
+    };
+    const loop = (t) => { if (visible) draw(t); if (anim()) this.raf = requestAnimationFrame(loop); };
+    const anim = () => this.props.animate ?? true;
+    if (anim()) this.raf = requestAnimationFrame(loop); else draw(0);
+  }
+
+  initReveals() {
+    const anim = this.props.animate ?? true;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/—';
+    const scramble = (el) => {
+      const final = el.dataset.final || el.textContent; el.dataset.final = final;
+      let f = 0; const iv = setInterval(() => {
+        el.textContent = final.split('').map((c, i) => i < f || c === ' ' || c.charCodeAt(0) > 255 ? c : chars[(Math.random() * chars.length) | 0]).join('');
+        f += 1; if (f > final.length) { clearInterval(iv); el.textContent = final; }
+      }, 26);
+    };
+    const count = (el) => {
+      const end = +el.dataset.count, t0 = performance.now(), d = 1400;
+      const step = (t) => { const p = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - p, 3); el.textContent = Math.round(end * e); if (p < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    };
+    if (!anim) return;
+    const els = document.querySelectorAll('[data-reveal],[data-scramble],[data-count]');
+    const vh = window.innerHeight;
+    els.forEach(el => {
+      if (el.hasAttribute('data-reveal') && el.getBoundingClientRect().top > vh * 0.9) {
+        el.style.opacity = '0'; el.style.transform = 'translateY(28px)'; el.style.filter = 'blur(10px)';
+        el.style.transition = 'opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1), filter 1s cubic-bezier(.2,.7,.2,1)';
+      }
+    });
+    this.io = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) return;
+        const el = en.target;
+        if (el.hasAttribute('data-reveal')) { el.style.opacity = '1'; el.style.transform = 'none'; el.style.filter = 'none'; }
+        if (el.hasAttribute('data-scramble')) scramble(el);
+        if (el.hasAttribute('data-count')) count(el);
+        this.io.unobserve(el);
+      });
+    }, { threshold: 0.15 });
+    els.forEach(el => this.io.observe(el));
+  }
+
+  initCursor() {
+    if (!(this.props.customCursor ?? true) || window.matchMedia('(pointer: coarse)').matches) return;
+    const c = this.cursorRef.current; if (!c) return;
+    let x = 0, y = 0, cx = 0, cy = 0, big = false;
+    this.onMove = (e) => {
+      x = e.clientX; y = e.clientY; c.style.opacity = '1';
+      const hot = !!e.target.closest('a,button,input');
+      if (hot !== big) { big = hot; c.style.width = c.style.height = hot ? '56px' : '30px'; c.style.margin = hot ? '-28px 0 0 -28px' : '-15px 0 0 -15px'; c.style.background = hot ? '#fff' : 'transparent'; }
+    };
+    window.addEventListener('mousemove', this.onMove);
+    const follow = () => { cx += (x - cx) * 0.2; cy += (y - cy) * 0.2; c.style.transform = `translate(${cx}px,${cy}px)`; this.craf = requestAnimationFrame(follow); };
+    follow();
+  }
+
+  scrollZoom() {
+    const el = this.mockRef.current; if (!el) return;
+    if (!(this.props.animate ?? true)) { el.style.transform = 'none'; return; }
+    const r = el.getBoundingClientRect(), vh = window.innerHeight;
+    const p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.85)));
+    el.style.transform = `perspective(1400px) rotateX(${(1 - p) * 14}deg) scale(${0.86 + p * 0.14})`;
+    el.style.opacity = String(0.4 + p * 0.6);
+  }
+
+  renderVals() {
+    const h = React.createElement, anim = this.props.animate ?? true;
+    const RED = '#ffffff';
+    const mm = String(Math.floor(this.state.sec / 60)).padStart(2, '0'), ss = String(this.state.sec % 60).padStart(2, '0');
+    const wave = (n, ht, color, gap) => h('div', { style: { display: 'flex', gap, alignItems: 'center', height: ht } },
+      Array.from({ length: n }, (_, i) => { const b = 0.3 + 0.7 * Math.abs(Math.sin(i * 1.7) * Math.cos(i * 0.6)); return h('span', { key: i, style: { width: 2, height: ht * b, background: color, animation: anim ? `iq-wave ${0.7 + (i % 5) * 0.15}s ease-in-out ${i * 0.04}s infinite` : 'none' } }); }));
+    const marquee = (items, style, dur, gap) => h('div', { style: { display: 'flex', width: 'max-content', animation: anim ? `iq-marq ${dur}s linear infinite` : 'none' } },
+      [0, 1].map(k => h('div', { key: k, 'aria-hidden': k === 1, style: { display: 'flex', alignItems: 'center', gap, paddingRight: gap } }, items.map((it, i) => h('span', { key: i, style }, it)))));
+    const word = 'interviewIQ';
+    const wordmark = h('div', { style: { display: 'flex', fontSize: 'clamp(90px,16.4vw,420px)', fontWeight: 600, letterSpacing: '-.07em', color: '#f4f4f4', whiteSpace: 'nowrap', justifyContent: 'center' } },
+      word.split('').map((ch, i) => h('span', { key: i, style: { display: 'inline-block', animation: anim ? `iq-rise 1.2s cubic-bezier(.2,.7,.2,1) ${0.15 + i * 0.05}s both` : 'none', color: i >= 9 ? '#fff' : undefined } }, ch)));
+    const heroScript = h('div', { style: { fontFamily: "'Mrs Saint Delafield',cursive", fontSize: 'clamp(48px,7.4vw,150px)', color: RED, lineHeight: 1, transform: 'rotate(-3deg)', display: 'inline-block', animation: anim ? 'iq-wipe 1.8s cubic-bezier(.6,.1,.3,1) 1s both' : 'none', textShadow: '0 2px 30px rgba(0,0,0,.4)' } }, 'rehearse the real one.');
+    const dot = h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: RED, display: 'inline-block', animation: anim ? 'iq-breathe 1.4s ease-in-out infinite' : 'none' } });
+    const blink = (bg) => h('span', { style: { display: 'block', width: '100%', height: '100%', background: bg, animation: anim ? 'iq-blink 1s step-end infinite' : 'none' } });
+    const ist = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000);
+    const jit = (base) => Math.max(5, Math.min(98, base + Math.round(Math.sin(this.state.tick * 0.9 + base) * 6)));
+    const steps = [
+      ['01', 'ONBOARD', 'Upload your résumé', 'We fill in your profile. Connect GitHub and LeetCode for a richer one — optional.'],
+      ['02', 'CHOOSE', 'Pick a company and role', 'See its real interview process laid out, round by round. Customise if you want.'],
+      ['03', 'INTERVIEW', 'Take the round', 'Schedule it. On the day, the AI interviewer takes you through it — spoken, proctored.'],
+      ['04', 'IMPROVE', 'Debrief, then next round', 'Pass and move on. Not yet? Retake in 1–2 weeks with a plan for what to study.'],
+    ];
+    const lvl = [['Getting started', 'Process set up, no rounds cleared', 'done', '8%'], ['Progressing', 'Some rounds cleared', 'done', '45%'], ['Nearly ready', 'One round left', 'current', '75%'], ['Interview-ready', 'Every official round cleared', 'next', '100%']];
+    const faqs = [
+      ['Is interview-ready a certification?', 'No. It is always presented as readiness from mock interviews on InterviewIQ — never a certification or an endorsement by the company.'],
+      ['Which companies can I practise for?', 'We launched with Meesho. Our research engine is building processes for more companies and roles continuously, and each company page is honest about how much data is behind it.'],
+      ['What happens if I don’t pass a round?', 'You get the full debrief, then retake the round after 1–2 weeks — enough time to work on the feedback. The cooldown is also what makes readiness mean something.'],
+      ['Can I change the rounds?', 'Yes — add, remove or change rounds. Edited rounds become standalone practice: full analysis, but they don’t count towards your readiness for that role.'],
+      ['Do I need GitHub or LeetCode?', 'No. A résumé is enough to start. Connecting sources just gives the interviewer more of your own work to ask about.'],
+      ['How is it proctored?', 'Interviews run full-screen. Leaving full-screen or switching tabs pauses the interview until you return.'],
+    ];
+    return {
+      canvasRef: this.canvasRef, cursorRef: this.cursorRef, mockRef: this.mockRef,
+      wordmark, heroScript, liveDot: dot,
+      timer: `${mm}:${ss}`,
+      istTime: ist.toTimeString().slice(0, 5),
+      waveform: wave(26, 18, '#bdbdbd', 2),
+      waveformBig: wave(48, 40, '#e4e4e4', 3),
+      cursorBlink: blink('#fafafa'), cursorBlinkDark: blink('#101010'),
+      logoMarquee: marquee(['Meesho · live', 'Flipkart', 'Razorpay', 'Swiggy', 'Zomato', 'CRED', 'PhonePe', 'Zepto', 'Groww'].map((n, i) => i === 0 ? h('span', { style: { color: '#fff' } }, n) : n), { fontSize: 17, fontWeight: 600, letterSpacing: '-.03em', color: '#6a6a6a', whiteSpace: 'nowrap' }, 32, 64),
+      bigMarquee: marquee(['Inside the interview.', 'Inside the interview.'], { fontSize: 'clamp(64px,9vw,150px)', fontWeight: 600, letterSpacing: '-.055em', whiteSpace: 'nowrap', lineHeight: 1 }, 26, 64),
+      talkMarquee: marquee(['Bring it to your campus.', 'Bring it to your campus.'], { fontSize: 'clamp(64px,9vw,150px)', fontWeight: 600, letterSpacing: '-.055em', whiteSpace: 'nowrap', lineHeight: 1 }, 26, 64),
+      rounds: [['01', 'Online Assessment', '82 · PASSED', 'done'], ['02', 'Problem Solving', 'OCT 04', 'next'], ['03', 'System Design (LLD)', 'LOCKED', 'lock'], ['04', 'Hiring Manager', 'LOCKED', 'lock']].map(([n, title, status, s]) => ({
+        n, title, status, bg: s === 'next' ? '#0c0c0c' : s === 'done' ? '#fafafa' : 'transparent', color: s === 'next' ? '#fff' : s === 'done' ? '#0c0c0c' : '#8a8a8a', border: s === 'lock' ? '#cfcfcf' : 'transparent' })),
+      feed: [
+        { t: '14:02', text: '+ r/developersIndia · SDE1 off-campus, 4 rounds', color: '#e4e4e4' },
+        { t: '14:03', text: '→ round 3 = LLD · rate limiter, parking lot', color: '#9a9a9a' },
+        { t: '14:05', text: '+ LeetCode Discuss · fresher · Bengaluru', color: '#e4e4e4' },
+        { t: '14:06', text: '! red flag: coding before clarifying', color: '#ffffff' },
+        { t: '14:08', text: '→ style: collaborative, pushes edge cases', color: '#9a9a9a' },
+        { t: '14:09', text: '= 142 experiences · depth HIGH', color: '#6a6a6a' },
+      ],
+      signals: [['Correctness', 82], ['Approach', 76], ['Depth', 61], ['Communication', 88], ['Clarity', 80], ['Hesitation', 24], ['Filler words', 38]].map(([label, v]) => { const p = jit(v); return { label, value: (p / 10).toFixed(1), pct: p + '%', color: label === 'Filler words' || label === 'Hesitation' ? RED : '#fff' }; }),
+      adapt: [
+        { state: 'Stuck?', action: 'HINT', color: '#bdbdbd', quote: 'It gives a hint — from gentle to direct.' },
+        { state: 'Doing well?', action: 'PUSH', color: '#fff', quote: 'It pushes with harder follow-ups.' },
+        { state: 'Struggling?', action: 'EASE OFF', color: '#bdbdbd', quote: 'It eases off and rebuilds from a small example.' },
+        { state: 'Off track?', action: 'STEER', color: '#ffffff', quote: 'It steers you back to the question.' },
+      ],
+      steps: steps.map(([n, tag, title, body], i) => {
+        const on = this.state.step === i;
+        return { n, tag, title, body, bg: on ? '#0c0c0c' : '#fafafa', fg: on ? '#fff' : '#0c0c0c', numBg: on ? RED : '#ececec', numFg: '#0c0c0c',
+          onEnter: () => { this.hoverStep = true; this.setState({ step: i }); clearTimeout(this.ht); this.ht = setTimeout(() => { this.hoverStep = false; }, 4000); } };
+      }),
+      levels: lvl.map(([name, desc, s, fill], i) => ({ n: '0' + (i + 1), name, desc, fill, bg: s === 'current' ? '#0c0c0c' : '#fafafa', fg: s === 'current' ? '#fff' : s === 'next' ? '#8a8a8a' : '#0c0c0c', tag: s === 'current' ? 'YOU ARE HERE' : s === 'done' ? 'CLEARED' : 'GOAL', tagColor: s === 'current' ? RED : s === 'done' ? '#6a6a6a' : '#8a8a8a', track: s === 'current' ? '#2a2a2a' : '#e2e2e2', bar: s === 'current' ? RED : s === 'next' ? '#cfcfcf' : '#0c0c0c' })),
+      report: [{ round: 'Online Assessment', score: '82' }, { round: 'Problem Solving', score: '74' }, { round: 'System Design (LLD)', score: '79' }, { round: 'Hiring Manager', score: '86' }],
+      rules: [
+        { n: '01', title: 'The real process', body: 'Only the official, unedited process counts.' },
+        { n: '02', title: 'A pass mark every round', body: 'You can’t skip ahead.' },
+        { n: '03', title: 'Retake cooldowns', body: '1–2 weeks between attempts. No brute-forcing.' },
+        { n: '04', title: 'Proctored', body: 'Full-screen, no tab switching.' },
+        { n: '05', title: 'Personal questions', body: 'Drawn from your background — can’t be memorised.' },
+      ],
+      audiences: [
+        { n: '001 / STUDENTS', who: 'Campus placements', body: 'Realistic practice for the specific companies coming to your campus.', price: 'Free', priceNote: 'TO START', items: ['Company-specific roadmaps', 'Spoken AI interviews', 'Debrief after every round', 'Readiness report'], cta: 'START PRACTICING', btnBg: 'transparent', btnFg: '#0c0c0c', hot: false },
+        { n: '002 / UNIVERSITIES', who: 'Placement cells', body: 'Interview readiness for the whole batch — and visibility into it.', price: 'Pilot', priceNote: 'FALL 2026', items: ['Unlimited practice for every student', 'Batch readiness dashboard', 'Companies coming to campus', 'Onboarding support'], cta: 'BOOK A PILOT', btnBg: '#0c0c0c', btnFg: '#fff', hot: true },
+        { n: '003 / PROFESSIONALS', who: 'Job switchers', body: 'Focused, company-specific preparation that fits around a job.', price: 'Free', priceNote: 'TO START', items: ['Practise on your schedule', 'Experienced-level processes', 'Interview score + leaderboards', 'Readiness report'], cta: 'PICK A COMPANY', btnBg: 'transparent', btnFg: '#0c0c0c', hot: false },
+      ],
+      faqs: faqs.map(([q, a], i) => { const open = this.state.faq === i; return { n: String(i + 1).padStart(2, '0'), q: q.toUpperCase(), a, rows: open ? '1fr' : '0fr', rot: open ? 'rotate(45deg)' : 'none', onClick: () => this.setState({ faq: open ? -1 : i }) }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

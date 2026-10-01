@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--frame:#d6d5d0;--card:#ffffff;--panel:#f2f1ed;--ink:#1a1a1a;--on-ink:#ffffff;--ink-hover:#000000;--muted:#5c5c58;--faint:#8d8d89;--faint2:#b3b2ad;--line:#efeee9;--line2:#e6e5e0;--line3:#dcdbd6;--line4:#cfcec8;--hover:#f4f4f1;--inv:#1a1a1a;--menu-bg:var(--frame);--menu-fg:#1a1a1a;--menu-muted:#5c5c58;--menu-chip:rgba(0,0,0,.07);--menu-chip2:rgba(0,0,0,.14);--menu-active:#1a1a1a;--menu-hover:#000000;--menu-shadow:rgba(0,0,0,.28);--accent:#ff5c1f;--accent-hover:#f04d10;--on-accent:#141413;--accent-soft:rgba(255,92,31,.16)}
+:root[data-theme="dark"]{--frame:#0d0d0c;--card:#161615;--panel:#1f1f1d;--ink:#f0efeb;--on-ink:#141413;--ink-hover:#ffffff;--muted:#a8a7a2;--faint:#7d7c77;--faint2:#55544f;--line:#262624;--line2:#2d2d2b;--line3:#363633;--line4:#44433f;--hover:#222220;--inv:#0a0a09;--menu-bg:var(--frame);--menu-shadow:rgba(0,0,0,.7);--menu-fg:#efeee9;--menu-muted:#9d9c97;--menu-chip:rgba(255,255,255,.08);--menu-chip2:rgba(255,255,255,.14);--menu-active:var(--accent);--menu-hover:var(--accent);--accent:#ff5c1f;--accent-hover:#ff7a45;--on-accent:#141413;--accent-soft:rgba(255,92,31,.18)}
+body{margin:0;background:var(--frame);color:var(--ink);font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box;transition:background-color .35s ease,border-color .35s ease,color .35s ease}
+a{color:var(--ink);text-decoration:none}
+a:hover{color:var(--ink)}
+input{font-family:'Geist',sans-serif}
+input::placeholder{color:var(--faint)}
+@keyframes iq-wave{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+@keyframes iq-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes iq-breathe{0%,100%{opacity:.3}50%{opacity:1}}
+</style>
+</helmet>
+
+<div style="background:var(--frame);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column">
+
+<!-- TOP BAR -->
+<header style="height:64px;padding:0 20px 0 28px;display:flex;align-items:center;gap:24px;flex:none">
+  <a href="InterviewIQ Website v5.dc.html" style="display:flex;align-items:center;gap:9px;width:196px;flex:none">
+    <div style="display:flex;gap:2px;align-items:flex-end;height:15px"><span style="width:4px;height:15px;background:var(--ink)"></span><span style="width:4px;height:10px;background:var(--ink)"></span><span style="width:4px;height:5px;background:var(--accent)"></span></div>
+    <span style="font-weight:500;font-size:17px;letter-spacing:-.035em">interviewIQ</span>
+  </a>
+  <div style="flex:1;min-width:0;max-width:440px;height:38px;border:1px solid var(--line4);border-radius:6px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 12px;font-size:13.5px;color:var(--faint)"><span>⌕</span><span style="flex:1;white-space:nowrap;overflow:hidden">Search companies, roles, debriefs</span><span style="font-family:'Geist Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--line3);border-radius:4px">⌘K</span></div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex:none">
+    <button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="position:relative;width:62px;height:32px;border-radius:999px;border:1px solid var(--line4);background:var(--card);cursor:pointer;padding:0;display:flex;align-items:center;font-size:13px">
+      <span style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--accent);transform:{{ knobX }};transition:transform .35s cubic-bezier(.2,.7,.2,1),background-color .35s"></span>
+      <span style="position:relative;width:30px;text-align:center;color:{{ sunColor }}">☀</span><span style="position:relative;width:30px;text-align:center;color:{{ moonColor }}">☾</span>
+    </button>
+    <span style="position:relative;width:34px;height:34px;border-radius:6px;border:1px solid var(--line4);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px">◔<span style="position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span></span>
+    <button onClick="{{ goProfile }}" style="width:34px;height:34px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:12.5px;cursor:pointer">AS</button>
+  </div>
+</header>
+
+<div style="position:relative;flex:1;min-height:0;margin:0 12px 12px;border-radius:14px;background:var(--menu-bg);overflow:hidden">
+
+<!-- MENU (revealed behind card) -->
+<div style="position:absolute;left:0;top:0;bottom:0;width:300px">
+  <div style="height:100%;padding:32px 30px 26px;display:flex;flex-direction:column;color:var(--menu-fg)">
+    <div style="display:flex;align-items:center;gap:14px;opacity:{{ menuHeadOpacity }};transform:{{ menuHeadTransform }};transition:opacity .5s ease .1s,transform .5s cubic-bezier(.2,.7,.2,1) .1s">
+      <span style="width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;flex:none">AS</span>
+      <div style="min-width:0"><div style="font-size:17px;letter-spacing:-.02em">Aarav Sharma</div><div style="font-size:12.5px;color:var(--menu-muted);display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>Active · Meesho SDE I</div></div>
+    </div>
+    <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding:20px 0;scrollbar-width:thin"><div style="margin:auto 0;display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+        <button onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:16px;padding:10px 0;border:0;outline:none;background:none;color:{{ n.fg }};font-family:'Geist',sans-serif;font-size:18px;font-weight:{{ n.weight }};letter-spacing:-.02em;cursor:pointer;text-align:left;opacity:{{ n.opacity }};transform:{{ n.transform }};transition:opacity .45s ease {{ n.delay }},transform .5s cubic-bezier(.2,.7,.2,1) {{ n.delay }},color .2s" style-hover="color:var(--menu-hover)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:{{ n.iconFg }};transition:color .2s"><path d="{{ n.d }}"></path></svg>{{ n.label }}<span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--menu-muted)">{{ n.badge }}</span>
+        </button>
+      </sc-for>
+    </div></div>
+    <div style="flex:none;display:flex;flex-direction:column;gap:16px;opacity:{{ menuHeadOpacity }};transition:opacity .5s ease .35s">
+      <div style="padding:14px;border-radius:10px;background:var(--menu-chip);display:flex;flex-direction:column;gap:8px;max-width:220px">
+        <div style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--menu-muted)">READINESS · MEESHO SDE I</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px"><sc-for list="{{ readySegsDark }}" as="rs" hint-placeholder-count="4"><span style="height:4px;border-radius:2px;background:{{ rs }}"></span></sc-for></div>
+        <div style="font-size:12px;color:var(--menu-muted)">{{ readyLevel }} · {{ clearedLabel }}</div>
+      </div>
+      <a href="InterviewIQ Auth.dc.html#signin" style="display:flex;align-items:center;gap:16px;font-size:16px;color:var(--menu-fg)" style-hover="color:var(--menu-hover)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>Sign out</a>
+    </div>
+  </div>
+</div>
+
+<div style="position:absolute;inset:0;border-radius:22px;background:var(--card);opacity:{{ ghostOpacity }};transform:{{ ghostTransform }};transform-origin:0 0;transition:transform .75s cubic-bezier(.7,0,.2,1),opacity .75s;pointer-events:none;z-index:1"></div>
+
+<!-- MAIN CARD -->
+<main ref="{{ mainRef }}" style="position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;background:var(--card);border-radius:{{ cardRadius }};border:1px solid var(--line3);overflow:hidden;transform:{{ cardTransform }};transform-origin:0 0;box-shadow:{{ cardShadow }};transition:transform .75s cubic-bezier(.7,0,.2,1),border-radius .75s,box-shadow .75s,background-color .35s">
+<div style="height:58px;flex:none;display:flex;align-items:center;gap:14px;padding:0 24px;border-bottom:1px solid var(--line)">
+  <button onClick="{{ toggleMenu }}" aria-label="Open menu" style="outline:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--line3);background:var(--card);cursor:pointer;display:grid;grid-template-columns:repeat(2,5px);gap:5px;place-content:center;padding:0" style-hover="border-color:var(--ink)"><span style="width:5px;height:5px;border-radius:50%;background:var(--ink)"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--ink)"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--ink)"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span></button>
+  <span style="font-size:14.5px;letter-spacing:-.01em">{{ screenTitle }}</span>
+  <span style="margin-left:auto;font-size:12px;color:var(--faint);display:flex;gap:6px;align-items:center">Menu<span style="font-family:'Geist Mono',monospace;font-size:10.5px;padding:2px 6px;border:1px solid var(--line3);border-radius:4px">M</span></span>
+</div>
+<div data-anim="1" data-scroll="1" style="flex:1;min-height:0;overflow-y:auto;padding:36px 40px 56px">
+
+<!-- DASHBOARD -->
+<sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">WEDNESDAY, 30 SEP</div>
+      <h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400;line-height:1.05">Good evening, Aarav</h1>
+      <p style="margin:8px 0 0;font-size:15px;color:var(--muted)">{{ dashSub }}</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onClick="{{ goCompanies }}" style="height:40px;padding:0 16px;border:1px solid var(--ink);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer" style-hover="background:var(--hover)">Browse companies</button>
+      <button onClick="{{ goRoom }}" style="height:40px;padding:0 16px;border:0;border-radius:5px;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer" style-hover="background:var(--accent-hover)">Enter interview room</button>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:12px">
+    <div style="flex:2 1 420px;min-width:0;background:var(--inv);color:#FFFFFF;border-radius:10px;padding:26px;display:flex;flex-direction:column;gap:18px;min-height:250px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:#9d9c97"><span>{{ nextEyebrow }}</span><span style="display:flex;align-items:center;gap:6px;color:#FFFFFF"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent)">{{ pulse }}</span>{{ countdown }}</span></div>
+      <div style="font-size:30px;letter-spacing:-.035em;line-height:1.1">{{ nextTitle }}</div>
+      <div style="font-size:14px;color:#c9c8c3;line-height:1.5;max-width:520px">{{ nextBody }}</div>
+      <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <sc-for list="{{ nextMeta }}" as="nm" hint-placeholder-count="3"><span style="font-size:12px;padding:5px 10px;border-radius:5px;border:1px solid #3a3a37;color:#dcdbd6">{{ nm }}</span></sc-for>
+        <button onClick="{{ nextAction }}" style="margin-left:auto;height:38px;padding:0 16px;border:0;border-radius:5px;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer">{{ nextCta }} →</button>
+      </div>
+    </div>
+    <div style="flex:1 1 260px;min-width:0;background:var(--panel);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">READINESS · MEESHO SDE I</div>
+      <div style="font-size:28px;letter-spacing:-.035em">{{ readyLevel }}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px"><sc-for list="{{ readySegs }}" as="rs" hint-placeholder-count="4"><span style="height:6px;border-radius:3px;background:{{ rs }}"></span></sc-for></div>
+      <div style="font-size:13px;color:var(--muted)">{{ clearedLabel }} of the official process cleared.</div>
+      <button onClick="{{ goRole }}" style="margin-top:auto;align-self:flex-start;border:0;background:none;padding:0;font-family:'Geist',sans-serif;font-size:13.5px;color:var(--ink);text-decoration:underline;cursor:pointer">View roadmap</button>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px">
+    <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12.5px;color:var(--faint)">{{ st.label }}</div>
+        <div style="font-size:34px;letter-spacing:-.045em;line-height:1"><span data-count="{{ st.value }}">{{ st.value }}</span><span style="font-size:15px;color:var(--faint)">{{ st.suffix }}</span></div>
+        <div style="font-size:12px;color:var(--muted)">{{ st.note }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px">
+    <div style="border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line);font-size:14px">Recent interviews<button onClick="{{ goDebrief }}" style="border:0;background:none;padding:0;font-family:'Geist',sans-serif;font-size:13px;color:var(--muted);cursor:pointer">All debriefs →</button></div>
+      <sc-for list="{{ recent }}" as="rc" hint-placeholder-count="4">
+        <button onClick="{{ rc.onClick }}" style="width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:14px 20px;border:0;border-bottom:1px solid var(--line);background:var(--card);cursor:pointer;text-align:left;font-family:'Geist',sans-serif;color:var(--ink)" style-hover="background:var(--hover)">
+          <span style="min-width:0"><span style="display:block;font-size:14px">{{ rc.title }}</span><span style="display:block;font-size:12px;color:var(--faint);margin-top:2px">{{ rc.meta }}</span></span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;padding:3px 7px;border-radius:4px;background:{{ rc.pillBg }};color:{{ rc.pillFg }}">{{ rc.tag }}</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:14px;width:28px;text-align:right">{{ rc.score }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line);font-size:14px">Leaderboard · RVCE<button onClick="{{ goLeaderboard }}" style="border:0;background:none;padding:0;font-family:'Geist',sans-serif;font-size:13px;color:var(--muted);cursor:pointer">View all →</button></div>
+      <sc-for list="{{ lbMini }}" as="l" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 20px;border-bottom:1px solid var(--line);background:{{ l.bg }};font-size:14px">
+          <span style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--faint)">{{ l.rank }}</span><span>{{ l.name }}</span><span style="font-family:'Geist Mono',monospace">{{ l.score }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<!-- COMPANIES -->
+<sc-if value="{{ isCompanies }}" hint-placeholder-val="{{ false }}">
+  <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">COMPANY LIBRARY</div>
+  <h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400">Companies</h1>
+  <p style="margin:8px 0 0;font-size:15px;color:var(--muted);max-width:560px">Real interview processes, researched from experiences candidates share. Each page is honest about how much data is behind it.</p>
+  <div style="margin-top:28px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search companies or roles" style="flex:1 1 280px;height:42px;padding:0 14px;border:1px solid var(--line3);border-radius:6px;font-size:14px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input>
+    <div style="display:flex;padding:3px;border:1px solid var(--line3);border-radius:6px;gap:2px">
+      <sc-for list="{{ filters }}" as="fl" hint-placeholder-count="3"><button onClick="{{ fl.onClick }}" style="border:0;border-radius:4px;padding:8px 14px;font-family:'Geist',sans-serif;font-size:13px;cursor:pointer;background:{{ fl.bg }};color:{{ fl.fg }}">{{ fl.label }}</button></sc-for>
+    </div>
+  </div>
+  <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:12px">
+    <sc-for list="{{ companyCards }}" as="cc" hint-placeholder-count="8">
+      <div style="border:1px solid {{ cc.border }};border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px;min-height:200px;background:var(--card)" style-hover="box-shadow:0 20px 40px -24px rgba(0,0,0,.25)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:40px;height:40px;border-radius:8px;background:{{ cc.monoBg }};color:{{ cc.monoFg }};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">{{ cc.mono }}</span>
+          <div style="flex:1;min-width:0"><div style="font-size:16px">{{ cc.name }}</div><div style="font-size:12px;color:var(--faint)">{{ cc.roles }}</div></div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.06em;padding:4px 7px;border-radius:4px;background:{{ cc.pillBg }};color:{{ cc.pillFg }}">{{ cc.status }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--faint)">Data depth</span><span>{{ cc.depth }}</span></div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px"><sc-for list="{{ cc.bars }}" as="b" hint-placeholder-count="5"><span style="height:4px;border-radius:2px;background:{{ b }}"></span></sc-for></div>
+          <div style="font-size:12px;color:var(--muted)">{{ cc.exp }}</div>
+        </div>
+        <button onClick="{{ cc.onClick }}" style="margin-top:auto;height:36px;border-radius:5px;border:1px solid {{ cc.btnBorder }};background:{{ cc.btnBg }};color:{{ cc.btnFg }};font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">{{ cc.cta }}</button>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<!-- ROLE / ROADMAP -->
+<sc-if value="{{ isRole }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;gap:8px;font-size:13px;color:var(--faint)"><button onClick="{{ goCompanies }}" style="border:0;background:none;padding:0;font-family:'Geist',sans-serif;font-size:13px;color:var(--faint);cursor:pointer">Companies</button>›<span>Meesho</span>›<span style="color:var(--ink)">SDE I Backend</span></div>
+  <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;align-items:center;gap:16px">
+      <span style="width:56px;height:56px;border-radius:10px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600">M</span>
+      <div><h1 style="margin:0;font-size:34px;letter-spacing:-.045em;font-weight:400;line-height:1.1">Meesho · SDE I Backend</h1><div style="font-size:13.5px;color:var(--muted);margin-top:4px">Bengaluru · Fresher · Official process · 142 experiences · Data depth high</div></div>
+    </div>
+    <div style="min-width:220px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--faint)">Readiness</span><span>{{ readyLevel }}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px"><sc-for list="{{ readySegs }}" as="rs" hint-placeholder-count="4"><span style="height:6px;border-radius:3px;background:{{ rs }}"></span></sc-for></div>
+    </div>
+  </div>
+  <div style="margin-top:28px;display:flex;gap:24px;border-bottom:1px solid var(--line2)">
+    <sc-for list="{{ roleTabs }}" as="rt" hint-placeholder-count="2"><button onClick="{{ rt.onClick }}" style="border:0;background:none;padding:0 0 12px;margin-bottom:-1px;border-bottom:1.5px solid {{ rt.border }};font-family:'Geist',sans-serif;font-size:14px;color:{{ rt.fg }};cursor:pointer">{{ rt.label }}</button></sc-for>
+  </div>
+
+  <sc-if value="{{ roleProcess }}" hint-placeholder-val="{{ true }}">
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:18px;align-items:center;padding:20px;border-radius:10px;border:1px solid {{ r.border }};background:{{ r.bg }}">
+          <span style="width:40px;height:40px;border-radius:8px;border:1px solid {{ r.numBorder }};background:{{ r.numBg }};color:{{ r.numFg }};display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:13px">{{ r.mark }}</span>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:16px;color:{{ r.titleColor }}">{{ r.title }}</div>
+            <div style="font-size:12.5px;color:var(--faint)">{{ r.meta }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px"><sc-for list="{{ r.topics }}" as="tp" hint-placeholder-count="3"><span style="font-size:11.5px;padding:3px 8px;border-radius:4px;background:var(--panel);color:var(--muted)">{{ tp }}</span></sc-for></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+            <span style="font-size:12.5px;color:var(--muted)">{{ r.status }}</span>
+            <sc-if value="{{ r.hasCta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.onClick }}" style="height:36px;padding:0 14px;border-radius:5px;border:1px solid {{ r.ctaBorder }};background:{{ r.ctaBg }};color:{{ r.ctaFg }};font-family:'Geist',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap">{{ r.cta }}</button></sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:16px;padding:18px 20px;border-radius:10px;background:var(--panel);display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+      <button onClick="{{ toggleCustom }}" aria-label="Customise process" style="position:relative;width:40px;height:22px;border-radius:999px;border:0;background:{{ customTrack }};cursor:pointer;padding:0;flex:none"><span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--card);transform:{{ customKnob }};transition:transform .3s"></span></button>
+      <div style="flex:1;min-width:240px"><div style="font-size:14px">Customise this process</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">{{ customNote }}</div></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ roleInsights }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px">
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">MOST-ASKED TOPICS</div>
+        <sc-for list="{{ topics }}" as="t" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:130px minmax(0,1fr) 36px;gap:10px;align-items:center;font-size:13px"><span>{{ t.name }}</span><span style="height:5px;border-radius:3px;background:var(--line2);overflow:hidden"><span style="display:block;height:100%;width:{{ t.pct }};background:var(--ink)"></span></span><span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--faint);text-align:right">{{ t.pct }}</span></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:8px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">INTERVIEWER STYLE</div>
+          <div style="font-size:15px;line-height:1.5">Collaborative, but pushes hard on edge cases and scale. Expect follow-ups that build on your own projects.</div>
+        </div>
+        <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">RED FLAGS</div>
+          <sc-for list="{{ redFlags }}" as="rf" hint-placeholder-count="3"><div style="display:flex;gap:10px;font-size:13.5px;line-height:1.45"><span style="color:var(--faint)">!</span>{{ rf }}</div></sc-for>
+        </div>
+      </div>
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">SOURCES · 142</div>
+        <sc-for list="{{ srcList }}" as="sl" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;border-bottom:1px solid var(--line)"><span>{{ sl.name }}</span><span style="font-family:'Geist Mono',monospace;color:var(--muted)">{{ sl.n }}</span></div></sc-for>
+        <div style="font-size:12px;color:var(--faint);margin-top:4px">Last updated 2 days ago</div>
+      </div>
+    </div>
+  </sc-if>
+</sc-if>
+
+<!-- INTERVIEW ROOM -->
+<sc-if value="{{ isRoom }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ preCheck }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:620px;margin:24px auto 0;display:flex;flex-direction:column;gap:18px">
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">MEESHO · SDE I BACKEND · ROUND 2 OF 4</div>
+      <h1 style="margin:0;font-size:38px;letter-spacing:-.045em;font-weight:400;line-height:1.05">Before you start</h1>
+      <p style="margin:0;font-size:15px;line-height:1.5;color:var(--muted)">Problem Solving · live coding · 60 minutes. The interview runs full-screen; leaving it pauses the round.</p>
+      <div style="display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+        <sc-for list="{{ checks }}" as="ck" hint-placeholder-count="4">
+          <button onClick="{{ ck.onClick }}" style="display:flex;align-items:center;gap:14px;padding:16px 18px;border:0;border-bottom:1px solid var(--line);background:var(--card);cursor:pointer;text-align:left;font-family:'Geist',sans-serif;color:var(--ink)" style-hover="background:var(--hover)">
+            <span style="width:22px;height:22px;flex:none;border-radius:5px;border:1px solid var(--ink);background:{{ ck.bg }};color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-size:12px">{{ ck.mark }}</span>
+            <span style="flex:1"><span style="display:block;font-size:14.5px">{{ ck.label }}</span><span style="display:block;font-size:12.5px;color:var(--faint)">{{ ck.sub }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+      <button onClick="{{ startInterview }}" style="height:48px;border:0;border-radius:5px;background:{{ startBg }};color:var(--on-accent);font-family:'Geist',sans-serif;font-size:14.5px;cursor:pointer">{{ startLabel }}</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ live }}" hint-placeholder-val="{{ false }}">
+    <div style="border:1px solid var(--line3);border-radius:10px;overflow:hidden;background:var(--card)">
+      <div style="height:48px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line2);font-size:13px">
+        <span>Meesho · Round 2 · Problem Solving</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent)">{{ pulse }}</span>Proctored · full-screen</span>
+        <span style="font-family:'Geist Mono',monospace;padding:4px 9px;border:1px solid var(--line3);border-radius:5px">{{ timer }}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;min-height:480px">
+        <div style="flex:1 1 260px;min-width:0;border-right:1px solid var(--line2);padding:18px;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#8d8d89 45%,#1a1a1a 85%)"></span><div><div>AI Interviewer</div><div style="height:16px;display:flex;align-items:center">{{ wave }}</div></div></div>
+          <sc-for list="{{ transcript }}" as="tr" hint-placeholder-count="4">
+            <div style="padding:10px 12px;border-radius:8px;background:{{ tr.bg }};color:{{ tr.fg }}"><span style="display:block;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--faint);margin-bottom:3px">{{ tr.who }}</span>{{ tr.text }}</div>
+          </sc-for>
+        </div>
+        <div style="flex:2 1 380px;min-width:0;display:flex;flex-direction:column">
+          <div style="height:38px;display:flex;align-items:center;gap:4px;padding:0 10px;border-bottom:1px solid var(--line2);font-size:12.5px">
+            <sc-for list="{{ editorTabs }}" as="et" hint-placeholder-count="2"><button onClick="{{ et.onClick }}" style="border:0;border-radius:5px;padding:5px 10px;background:{{ et.bg }};color:{{ et.fg }};font-family:'Geist',sans-serif;font-size:12.5px;cursor:pointer">{{ et.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ codeTab }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;padding:16px 0;font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.85;display:grid;grid-template-columns:40px minmax(0,1fr);overflow:hidden">
+              <div style="text-align:right;padding-right:12px;color:var(--faint2)">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11</div>
+              <div style="white-space:pre;color:var(--muted);overflow:hidden"><span style="color:var(--ink)">import</span> redis
+r = redis.Redis()
+
+<span style="color:var(--ink)">def</span> allow(user_id, limit=100, window=60):
+    key = f"rl:{user_id}"
+    <span style="color:var(--ink)">with</span> r.pipeline() <span style="color:var(--ink)">as</span> p:
+        p.incr(key)
+        p.expire(key, window, nx=True)
+        count, _ = p.execute()
+    <span style="color:var(--ink)">return</span> count &lt;= limit<span style="display:inline-block;width:7px;height:15px;background:var(--ink);vertical-align:-3px;margin-left:2px">{{ caret }}</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ boardTab }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;position:relative;background-image:radial-gradient(var(--line3) 1px,transparent 1px);background-size:18px 18px;min-height:360px">
+              <div style="position:absolute;left:8%;top:18%;padding:12px 16px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);font-size:13px">Client</div>
+              <div style="position:absolute;left:36%;top:18%;padding:12px 16px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);font-size:13px">API gateway</div>
+              <div style="position:absolute;left:66%;top:8%;padding:10px 14px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);font-size:12.5px">Pod 1</div>
+              <div style="position:absolute;left:66%;top:28%;padding:10px 14px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);font-size:12.5px">Pod 2</div>
+              <div style="position:absolute;left:66%;top:48%;padding:10px 14px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);font-size:12.5px">Pod 3</div>
+              <div style="position:absolute;left:40%;top:66%;padding:12px 16px;border:1.5px dashed var(--ink);border-radius:8px;background:var(--panel);font-size:13px">Redis · shared counter</div>
+              <div style="position:absolute;left:21%;top:24%;width:14%;height:1.5px;background:var(--ink)"></div>
+              <div style="position:absolute;left:54%;top:24%;width:11%;height:1.5px;background:var(--ink)"></div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="flex:1 1 200px;min-width:0;border-left:1px solid var(--line2);padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint)">LIVE SIGNALS</div>
+          <sc-for list="{{ signals }}" as="sg" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--muted)">{{ sg.label }}</span><span style="font-family:'Geist Mono',monospace">{{ sg.value }}</span></div><div style="height:3px;background:var(--line2);border-radius:2px"><div style="height:100%;width:{{ sg.pct }};background:var(--accent);border-radius:2px;transition:width 1s"></div></div></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--line2);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onClick="{{ toggleMute }}" style="height:38px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">{{ muteLabel }}</button>
+        <button onClick="{{ askHint }}" style="height:38px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">Ask for a hint</button>
+        <button onClick="{{ endInterview }}" style="margin-left:auto;height:38px;padding:0 16px;border:0;border-radius:5px;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">End interview &amp; get debrief</button>
+      </div>
+    </div>
+  </sc-if>
+</sc-if>
+
+<!-- DEBRIEF -->
+<sc-if value="{{ isDebrief }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">{{ dbEyebrow }}</div>
+      <h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400">{{ dbTitle }}</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px">
+      <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:64px;letter-spacing:-.06em;line-height:.9">{{ dbScore }}</span><span style="font-size:13px;color:var(--faint)">/ 100<br>pass mark 70</span></div>
+      <button onClick="{{ goRole }}" style="height:40px;padding:0 16px;border:0;border-radius:5px;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer">{{ dbCta }}</button>
+    </div>
+  </div>
+  <div style="margin-top:28px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start">
+    <div style="flex:1 1 260px;min-width:0;border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+      <sc-for list="{{ questions }}" as="q" hint-placeholder-count="5">
+        <button onClick="{{ q.onClick }}" style="width:100%;display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:14px 16px;border:0;border-bottom:1px solid var(--line);background:{{ q.bg }};cursor:pointer;text-align:left;font-family:'Geist',sans-serif;color:var(--ink)">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--faint)">{{ q.n }}</span><span style="font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.title }}</span><span style="font-family:'Geist Mono',monospace;font-size:13px">{{ q.score }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="flex:2.2 1 440px;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:17px;letter-spacing:-.02em">{{ qTitle }}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px">
+          <div style="padding:16px;border-radius:8px;background:var(--panel);font-size:13.5px;line-height:1.55;color:var(--muted)"><div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint);margin-bottom:6px">WHAT YOU SAID</div>{{ qSaid }}</div>
+          <div style="padding:16px;border-radius:8px;border:1px solid var(--ink);font-size:13.5px;line-height:1.55"><div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;margin-bottom:6px">A STRONG ANSWER</div>{{ qStrong }}</div>
+        </div>
+        <div style="font-size:13.5px;line-height:1.55;color:var(--muted)"><span style="color:var(--ink)">Feedback — </span>{{ qFeedback }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px">
+        <sc-for list="{{ debriefSignals }}" as="ds" hint-placeholder-count="8">
+          <div style="border:1px solid var(--line2);border-radius:8px;padding:14px"><div style="font-size:12px;color:var(--faint)">{{ ds.label }}</div><div style="font-size:22px;letter-spacing:-.03em;margin-top:4px;font-family:'Geist Mono',monospace">{{ ds.value }}</div></div>
+        </sc-for>
+      </div>
+      <div style="border-radius:10px;background:var(--panel);padding:18px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="font-size:13px;color:var(--muted);margin-right:6px">Learn next</span>
+        <sc-for list="{{ learnNext }}" as="ln" hint-placeholder-count="4"><span style="font-size:12.5px;padding:5px 10px;border-radius:5px;background:var(--card)">{{ ln }}</span></sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- READINESS -->
+<sc-if value="{{ isReadiness }}" hint-placeholder-val="{{ false }}">
+  <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">READINESS</div>
+  <h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400">Your readiness</h1>
+  <div style="margin-top:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+    <sc-for list="{{ levels }}" as="lv" hint-placeholder-count="4">
+      <div style="padding:20px;background:{{ lv.bg }};color:{{ lv.fg }};display:flex;flex-direction:column;gap:6px;min-height:120px">
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;opacity:.7">{{ lv.tag }}</span>
+        <span style="margin-top:auto;font-size:17px;letter-spacing:-.02em">{{ lv.name }}</span>
+        <span style="font-size:12px;opacity:.7">{{ lv.desc }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:12px;background:var(--panel);border-radius:10px;padding:40px 24px;display:flex;justify-content:center">
+    <div style="width:100%;max-width:460px;background:var(--card);border-radius:12px;box-shadow:0 30px 60px -30px rgba(0,0,0,.3);padding:26px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint)">READINESS REPORT</span><span style="font-size:12px;padding:4px 9px;border-radius:4px;background:var(--accent);color:var(--on-accent)">{{ readyLevel }}</span></div>
+      <div><div style="font-size:24px;letter-spacing:-.03em">Meesho · SDE I Backend</div><div style="font-size:13px;color:var(--faint);margin-top:3px">Aarav Sharma · {{ clearedLabel }} official rounds cleared</div></div>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ report }}" as="rp" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:13.5px"><span style="color:{{ rp.fg }}">{{ rp.round }}</span><span style="font-family:'Geist Mono',monospace;color:{{ rp.fg }}">{{ rp.score }}</span></div></sc-for>
+      </div>
+      <div style="display:flex;gap:8px"><button style="flex:1;height:38px;border-radius:5px;border:1px solid var(--line3);background:var(--card);color:{{ shareFg }};font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">Copy share link</button><button style="flex:1;height:38px;border-radius:5px;border:1px solid var(--line3);background:var(--card);color:{{ shareFg }};font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">Download PDF</button></div>
+      <div style="font-size:11.5px;line-height:1.5;color:var(--faint)">{{ shareNote }} Readiness from mock interviews on InterviewIQ — never a certification or an endorsement by the company.</div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- LEADERBOARD -->
+<sc-if value="{{ isLeaderboard }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+    <div><div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">INTERVIEW SCORE</div><h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400">Leaderboard</h1></div>
+    <div style="display:flex;padding:3px;border:1px solid var(--line3);border-radius:6px;gap:2px">
+      <sc-for list="{{ lbTabs }}" as="lt" hint-placeholder-count="2"><button onClick="{{ lt.onClick }}" style="border:0;border-radius:4px;padding:8px 16px;font-family:'Geist',sans-serif;font-size:13px;cursor:pointer;background:{{ lt.bg }};color:{{ lt.fg }}">{{ lt.label }}</button></sc-for>
+    </div>
+  </div>
+  <div style="margin-top:24px;border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:60px minmax(0,2fr) minmax(0,1.5fr) 100px 80px;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line2);font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint)"><span>RANK</span><span>NAME</span><span>COLLEGE</span><span>INTERVIEWS</span><span style="text-align:right">SCORE</span></div>
+    <sc-for list="{{ lbRows }}" as="r" hint-placeholder-count="8">
+      <div style="display:grid;grid-template-columns:60px minmax(0,2fr) minmax(0,1.5fr) 100px 80px;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:{{ r.bg }};font-size:14px;align-items:center">
+        <span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--faint)">{{ r.rank }}</span>
+        <span style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:{{ r.avBg }};color:{{ r.avFg }};display:flex;align-items:center;justify-content:center;font-size:10.5px">{{ r.ini }}</span>{{ r.name }}</span>
+        <span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.college }}</span>
+        <span style="font-family:'Geist Mono',monospace;color:var(--muted)">{{ r.n }}</span>
+        <span style="font-family:'Geist Mono',monospace;text-align:right">{{ r.score }}</span>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<!-- PROFILE -->
+<sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+  <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">PROFILE</div>
+  <h1 style="margin:10px 0 0;font-size:38px;letter-spacing:-.045em;font-weight:400">Aarav Sharma</h1>
+  <div style="margin-top:28px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start">
+    <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:22px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:14px"><span style="width:52px;height:52px;border-radius:50%;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-size:18px">AS</span><div><div style="font-size:16px">Aarav Sharma</div><div style="font-size:12.5px;color:var(--faint)">B.Tech CSE · RVCE · 2027</div></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="padding:14px;border-radius:8px;background:var(--panel)"><div style="font-size:12px;color:var(--faint)">Profile score</div><div style="font-size:26px;letter-spacing:-.04em">812</div></div>
+          <div style="padding:14px;border-radius:8px;background:var(--panel)"><div style="font-size:12px;color:var(--faint)">Interview score</div><div style="font-size:26px;letter-spacing:-.04em">768</div></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px"><sc-for list="{{ profileSkills }}" as="ps" hint-placeholder-count="6"><span style="font-size:12px;padding:4px 9px;border-radius:4px;border:1px solid var(--line3)">{{ ps }}</span></sc-for></div>
+      </div>
+      <div style="border:1px solid var(--line2);border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px">
+        <span style="width:38px;height:44px;border-radius:5px;border:1px solid var(--line3);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:10px;color:var(--faint)">PDF</span>
+        <div style="flex:1"><div style="font-size:14px">aarav_sharma_resume.pdf</div><div style="font-size:12px;color:var(--faint)">Uploaded 12 Sep · parsed</div></div>
+        <button style="height:34px;padding:0 12px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13px;cursor:pointer">Replace</button>
+      </div>
+    </div>
+    <div style="flex:1.4 1 380px;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <div style="border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line);font-size:14px">Connected sources</div>
+        <sc-for list="{{ profileSources }}" as="ps" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line)">
+            <span style="width:34px;height:34px;border-radius:7px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:11px">{{ ps.icon }}</span>
+            <div style="flex:1;min-width:0"><div style="font-size:14px">{{ ps.name }}</div><div style="font-size:12px;color:var(--faint)">{{ ps.detail }}</div></div>
+            <button onClick="{{ ps.onClick }}" style="height:32px;padding:0 12px;border-radius:5px;border:1px solid var(--ink);background:{{ ps.bg }};color:{{ ps.fg }};font-family:'Geist',sans-serif;font-size:12.5px;cursor:pointer">{{ ps.btn }}</button>
+          </div>
+        </sc-for>
+      </div>
+      <div style="border:1px solid var(--line2);border-radius:10px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line);font-size:14px">Preferences</div>
+        <sc-for list="{{ prefs }}" as="pf" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line)">
+            <div style="flex:1"><div style="font-size:14px">{{ pf.label }}</div><div style="font-size:12px;color:var(--faint)">{{ pf.sub }}</div></div>
+            <button onClick="{{ pf.onClick }}" aria-label="{{ pf.label }}" style="position:relative;width:40px;height:22px;border-radius:999px;border:0;background:{{ pf.track }};cursor:pointer;padding:0"><span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--card);transform:{{ pf.knob }};transition:transform .3s"></span></button>
+          </div>
+        </sc-for>
+      </div>
+      <a href="InterviewIQ Auth.dc.html#signin" style="align-self:flex-start;font-size:13.5px;color:var(--muted);text-decoration:underline">Log out</a>
+    </div>
+  </div>
+</sc-if>
+
+</div>
+
+<!-- SCHEDULE MODAL -->
+<sc-if value="{{ showSchedule }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeSchedule }}" style="position:absolute;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);display:flex;align-items:flex-start;justify-content:center;padding:96px 20px;z-index:20">
+    <div onClick="{{ stop }}" style="width:100%;max-width:460px;background:var(--card);border-radius:12px;box-shadow:0 40px 80px -20px rgba(0,0,0,.5);padding:26px;display:flex;flex-direction:column;gap:18px">
+      <div><div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--faint)">SCHEDULE · ROUND 2</div><div style="font-size:22px;letter-spacing:-.03em;margin-top:6px">Problem Solving · 60 min</div></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        <sc-for list="{{ days }}" as="d" hint-placeholder-count="5"><button onClick="{{ d.onClick }}" style="padding:10px 0;border-radius:6px;border:1px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};font-family:'Geist',sans-serif;cursor:pointer"><span style="display:block;font-size:11px;opacity:.7">{{ d.dow }}</span><span style="display:block;font-size:17px">{{ d.date }}</span></button></sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        <sc-for list="{{ times }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.onClick }}" style="height:38px;border-radius:6px;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.fg }};font-family:'Geist Mono',monospace;font-size:12.5px;cursor:pointer">{{ t.label }}</button></sc-for>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onClick="{{ closeSchedule }}" style="flex:1;height:42px;border-radius:5px;border:1px solid var(--line3);background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer">Cancel</button>
+        <button onClick="{{ confirmSchedule }}" style="flex:2;height:42px;border-radius:5px;border:0;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer">Confirm {{ slotLabel }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:40;cursor:pointer"></div></sc-if>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#ff5c1f&quot;,&quot;#3d5afe&quot;,&quot;#3dffb0&quot;,&quot;#8b5cf6&quot;],&quot;default&quot;:&quot;#ff5c1f&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;animate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dashboard&quot;,&quot;companies&quot;,&quot;role&quot;,&quot;room&quot;,&quot;debrief&quot;,&quot;readiness&quot;,&quot;leaderboard&quot;,&quot;profile&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  mainRef = React.createRef();
+  state = {
+    screen: (() => { const ok = ['dashboard', 'companies', 'role', 'room', 'debrief', 'readiness', 'leaderboard', 'profile']; const h = (location.hash || '').slice(1); if (ok.includes(h)) return h; try { const v = localStorage.getItem('iq-app-screen'); if (ok.includes(v)) return v; } catch (e) {} return this.props.startScreen || 'dashboard'; })(),
+    theme: (() => { try { return localStorage.getItem('iq-theme') || 'light'; } catch (e) { return 'light'; } })(),
+    sec: 0, tick: 0, search: '', filter: 0, roleTab: 0, custom: false,
+    showSchedule: false, day: 1, time: 1, scheduled: false, checks: [false, false, false, false], live: false,
+    cleared: 1, q: 0, menuOpen: false, lbTab: 1, codeTab: true, muted: false, hints: 0, notify: {},
+    src: { gh: true, lc: true, li: false, pf: false }, prefs: [true, true, false],
+  };
+  componentDidMount() {
+    this.applyTheme(this.state.theme);
+    this.iv = setInterval(() => this.setState(s => ({ tick: s.tick + 1, sec: s.live ? s.sec + 1 : s.sec })), 1000);
+    this.animIn();
+    this.onKey = e => { const t = e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA') return; if (e.key === 'Escape') this.setState({ menuOpen: false }); if (e.key === 'm' || e.key === 'M') { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); this.setState(x => ({ menuOpen: !x.menuOpen })); } };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { clearInterval(this.iv); window.removeEventListener('keydown', this.onKey); }
+  applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('iq-theme', t); } catch (e) {} }
+  animIn() {
+    if (!(this.props.animate ?? true)) return;
+    requestAnimationFrame(() => {
+      const m = this.mainRef.current; if (!m) return;
+      const el = m.querySelector('[data-anim]');
+      el && el.animate([{ opacity: 0, transform: 'translateY(14px)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 550, easing: 'cubic-bezier(.2,.7,.2,1)' });
+      m.querySelectorAll('[data-count]').forEach(c => { const end = +c.dataset.count, t0 = performance.now(); const st = t => { const p = Math.min(1, (t - t0) / 1100); c.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(st); }; requestAnimationFrame(st); });
+    });
+  }
+  go(screen) {
+    this.setState({ screen, showSchedule: false, menuOpen: false });
+    try { localStorage.setItem('iq-app-screen', screen); history.replaceState(null, '', '#' + screen); } catch (e) {}
+    const sc = this.mainRef.current && this.mainRef.current.querySelector('[data-scroll]'); if (sc) sc.scrollTop = 0;
+    this.animIn();
+  }
+  applyAccent() {
+    const hex = (this.props.accent || '#ff5c1f').replace('#', '');
+    if (this._acc === hex) return; this._acc = hex;
+    const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    const lin = c => { c /= 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+    const L = .2126 * lin(r) + .7152 * lin(g) + .0722 * lin(b);
+    const onDark = (L + .05) / (.0078 + .05), onWhite = 1.05 / (L + .05);
+    const mix = (t, k) => '#' + [r, g, b].map(c => Math.round(c + (t - c) * k).toString(16).padStart(2, '0')).join('');
+    const st = document.documentElement.style;
+    st.setProperty('--accent', '#' + hex);
+    st.setProperty('--on-accent', onDark >= onWhite ? '#141413' : '#ffffff');
+    st.setProperty('--accent-hover', L > .4 ? mix(0, .08) : mix(255, .12));
+    st.setProperty('--accent-soft', `rgba(${r},${g},${b},.16)`);
+  }
+  renderVals() {
+    this.applyAccent();
+    const h = React.createElement, s = this.state, anim = this.props.animate ?? true, A = v => anim ? v : 'none', dark = s.theme === 'dark';
+    const scr = s.screen;
+    const on = (a) => a ? 'var(--ink)' : 'var(--card)', onFg = (a) => a ? 'var(--on-ink)' : 'var(--ink)';
+    const levelNames = ['Getting started', 'Progressing', 'Nearly ready', 'Interview-ready'];
+    const lvl = s.cleared === 0 ? 0 : s.cleared >= 4 ? 3 : s.cleared === 3 ? 2 : 1;
+    const days = [['THU', '1 Oct'], ['FRI', '2 Oct'], ['SAT', '3 Oct'], ['SUN', '4 Oct'], ['MON', '5 Oct']];
+    const times = ['09:00', '10:00', '11:30', '14:00', '16:30', '19:00'];
+    const slot = `${days[s.day][1]} · ${times[s.time]}`;
+    const r2Done = s.cleared >= 2;
+    const jit = b => Math.max(5, Math.min(98, b + Math.round(Math.sin(s.tick * .9 + b) * 6)));
+    const mm = String(Math.floor(s.sec / 60)).padStart(2, '0'), ss = String(s.sec % 60).padStart(2, '0');
+    const allChecked = s.checks.every(Boolean);
+    const ICONS = { dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', companies: 'M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M3 21h18M8 7h4M8 11h4M8 15h4', role: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14', room: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v3M8 21h8', debrief: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4', readiness: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', leaderboard: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3', profile: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0' };
+    const NAV = [['dashboard', '◧', 'Dashboard', ''], ['companies', '◎', 'Companies', ''], ['role', '↳', 'Roadmap', ''], ['room', '◐', 'Interview room', s.scheduled && !r2Done ? '1' : ''], ['debrief', '±', 'Debriefs', ''], ['readiness', '◇', 'Readiness', ''], ['leaderboard', '≡', 'Leaderboard', '#48'], ['profile', '○', 'Profile', '']];
+    const Q1 = [
+      ['Two-sum variant with duplicates', '8.8', 'Hash map of value to index, handle duplicates by checking before insert.', 'Single pass with a hash map; call out O(n) time and how duplicates change the check order.', 'Clean and fast. Say the complexity out loud.'],
+      ['Merge overlapping intervals', '8.1', 'Sort by start, then merge while scanning.', 'Sort by start, merge in one pass; mention O(n log n) and edge cases like touching intervals.', 'Correct. Test touching intervals explicitly.'],
+      ['Minimum platforms needed', '7.9', 'Sort arrivals and departures, two pointers.', 'Two sorted arrays with two pointers, or a sweep line; explain why sorting both works.', 'Good — explain the intuition before coding.'],
+      ['Longest substring without repeats', '7.4', 'Sliding window with a set.', 'Sliding window with last-seen indices to jump the left pointer; O(n).', 'Works, but the set version is slower. Use last-seen indices.'],
+      ['Greedy coin change — when does it fail?', '8.6', 'It fails for coin sets like 1, 3, 4.', 'Give the counterexample and explain canonical coin systems; offer DP as the fix.', 'Strong reasoning with a clear counterexample.'],
+    ];
+    const Q2 = [
+      ['Why a queue over direct writes?', '8.4', 'Sales spikes — the queue smooths writes and lets consumers retry.', 'Absorbs bursts, decouples producers from the DB, enables retries and back-pressure; mention ordering and idempotency.', 'Clear and grounded in your own project. Add idempotency to make it complete.'],
+      ['Design a sliding-window limiter', '7.9', 'A deque of timestamps per user, pop anything older than the window.', 'Deque per key for correctness; note memory per user and the sliding-log vs. fixed-window tradeoff.', 'Correct first solution. Talk about memory cost unprompted.'],
+      ['Scale it to three pods at 50k req/s', '5.8', 'Keep the deque on each server… and maybe sync them periodically?', 'Move state to a shared store (Redis). INCR + EXPIRE per window, or a Lua script for a true sliding window. Call out one network hop vs. correctness.', 'You recovered after the hint — next time reach for shared state first. 11 filler words in this answer.'],
+      ['Handling clock skew', '7.1', 'Use the server time rather than the client’s.', 'Use the store’s clock (Redis TIME) so all pods agree; tolerate small drift with window buffers.', 'Right instinct; be specific about whose clock.'],
+      ['How would you test it?', '7.6', 'Unit tests for the limiter plus a load test.', 'Unit tests with a fake clock, concurrency tests for races, and a load test that asserts the limit across pods.', 'Good coverage; mention the fake clock.'],
+    ];
+    const Q = s.cleared >= 2 ? Q2 : Q1;
+    const LB = { 0: [['01', 'Priya R.', 'NIT Warangal', 14, 941], ['02', 'Karan M.', 'VIT Vellore', 11, 927], ['03', 'Sneha P.', 'PES University', 12, 915], ['04', 'Rohit K.', 'IIIT Hyderabad', 9, 902], ['05', 'Meera J.', 'BITS Goa', 10, 889], ['48', 'Aarav Sharma', 'RVCE', 9, 768, 1]], 1: [['01', 'Ishaan V.', 'RVCE', 13, 884], ['02', 'Diya N.', 'RVCE', 10, 812], ['03', 'Aarav Sharma', 'RVCE', 9, 768, 1], ['04', 'Tanvi S.', 'RVCE', 7, 741], ['05', 'Arjun B.', 'RVCE', 8, 733], ['06', 'Neha G.', 'RVCE', 6, 702]] };
+    const COMPANIES = [['meesho', 'M', 'Meesho', '3 roles · 1 live', 'LIVE', 5, '142 experiences'], ['flipkart', 'F', 'Flipkart', '5 roles', 'RESEARCHING', 3, '61 experiences so far'], ['razorpay', 'R', 'Razorpay', '3 roles', 'RESEARCHING', 2, '38 experiences so far'], ['swiggy', 'S', 'Swiggy', '4 roles', 'RESEARCHING', 2, '29 experiences so far'], ['cred', 'C', 'CRED', '2 roles', 'RESEARCHING', 1, '17 experiences so far'], ['phonepe', 'P', 'PhonePe', '3 roles', 'RESEARCHING', 2, '22 experiences so far'], ['zepto', 'Z', 'Zepto', '2 roles', 'RESEARCHING', 1, '12 experiences so far'], ['groww', 'G', 'Groww', '2 roles', 'RESEARCHING', 1, '9 experiences so far']];
+    const q = s.search.trim().toLowerCase();
+    const rounds = [
+      ['Online Assessment', 'Coding · 90 min · medium', ['Arrays', 'Hashing', 'Greedy'], 'done', 'Cleared · 82', 'View debrief', () => this.go('debrief')],
+      ['Problem Solving', 'Live coding · 60 min · medium–hard', ['Queues', 'Sliding window', 'Scale'], r2Done ? 'done' : 'next', r2Done ? 'Cleared · 74' : s.scheduled ? 'Scheduled · ' + slot : 'Ready to schedule', r2Done ? 'View debrief' : s.scheduled ? 'Enter room' : 'Schedule', r2Done ? () => this.go('debrief') : s.scheduled ? () => this.go('room') : () => this.setState({ showSchedule: true })],
+      ['System Design (LLD)', 'Whiteboard · 60 min · hard', ['Rate limiter', 'Parking lot', 'Caching'], r2Done ? 'next' : 'locked', r2Done ? 'Unlocked' : 'Locked · pass Round 2', r2Done ? 'Schedule' : '', () => this.setState({ showSchedule: true })],
+      ['Hiring Manager', 'Behavioural · 45 min', ['Projects deep-dive', 'Ownership', 'STAR'], 'locked', 'Locked', '', null],
+    ];
+    return {
+      mainRef: this.mainRef,
+      toggleTheme: () => { const t = dark ? 'light' : 'dark'; this.applyTheme(t); this.setState({ theme: t }); },
+      knobX: dark ? 'translateX(30px)' : 'translateX(0)', sunColor: dark ? 'var(--faint)' : 'var(--on-accent)', moonColor: dark ? 'var(--on-accent)' : 'var(--faint)',
+      pulse: h('span', { style: { display: 'block', width: '100%', height: '100%', borderRadius: '50%', background: 'inherit', animation: A('iq-breathe 1.4s ease-in-out infinite') } }),
+      wave: h('span', { style: { display: 'inline-flex', gap: 2, alignItems: 'center', height: 14 } }, Array.from({ length: 22 }, (_, i) => h('span', { key: i, style: { width: 2, height: 14 * (0.3 + 0.7 * Math.abs(Math.sin(i * 1.7))), background: 'var(--ink)', borderRadius: 1, animation: A(s.muted ? 'none' : `iq-wave ${0.7 + (i % 5) * .15}s ease-in-out ${i * .05}s infinite`) } }))),
+      caret: h('span', { style: { display: 'block', width: '100%', height: '100%', background: 'var(--card)', animation: A('iq-blink 1s step-end infinite') } }),
+      nav: NAV.map(([k, icon, label, badge], i) => ({ icon, label, badge, fg: scr === k ? 'var(--menu-active)' : 'var(--menu-fg)', weight: scr === k ? '500' : '400', d: ICONS[k], iconFg: scr === k ? 'var(--accent)' : 'var(--menu-fg)', opacity: s.menuOpen ? '1' : '0', transform: s.menuOpen ? 'none' : 'translateX(-28px)', delay: s.menuOpen ? (140 + i * 45) + 'ms' : '0ms', onClick: () => this.go(k) })),
+      readySegs: [0, 1, 2, 3].map(i => i < s.cleared ? 'var(--accent)' : 'var(--line4)'),
+      readySegsDark: [0, 1, 2, 3].map(i => i < s.cleared ? 'var(--accent)' : 'var(--menu-chip2)'),
+      menuOpen: s.menuOpen, toggleMenu: () => this.setState(x => ({ menuOpen: !x.menuOpen })), closeMenu: () => this.setState({ menuOpen: false }),
+      cardTransform: s.menuOpen ? 'translate(300px, 7%) scale(0.84)' : 'none',
+      ghostTransform: s.menuOpen ? 'translate(262px, 13%) scale(0.74)' : 'none',
+      ghostOpacity: s.menuOpen ? '0.35' : '0',
+      cardRadius: s.menuOpen ? '26px' : '14px',
+      cardShadow: s.menuOpen ? '0 50px 100px -20px var(--menu-shadow)' : 'none',
+      menuHeadOpacity: s.menuOpen ? '1' : '0', menuHeadTransform: s.menuOpen ? 'none' : 'translateY(-10px)',
+      screenTitle: { dashboard: 'Dashboard', companies: 'Companies', role: 'Roadmap · Meesho SDE I', room: 'Interview room', debrief: 'Debrief', readiness: 'Readiness', leaderboard: 'Leaderboard', profile: 'Profile' }[scr],
+      readyLevel: levelNames[lvl], clearedLabel: `${s.cleared} of 4`,
+      goProfile: () => this.go('profile'), goCompanies: () => this.go('companies'), goRole: () => this.go('role'), goRoom: () => this.go('room'), goDebrief: () => this.go('debrief'), goLeaderboard: () => this.go('leaderboard'),
+      isDashboard: scr === 'dashboard', isCompanies: scr === 'companies', isRole: scr === 'role', isRoom: scr === 'room', isDebrief: scr === 'debrief', isReadiness: scr === 'readiness', isLeaderboard: scr === 'leaderboard', isProfile: scr === 'profile',
+      dashSub: r2Done ? 'Round 2 cleared. System Design is unlocked.' : s.scheduled ? `Round 2 of Meesho SDE I is booked for ${slot}.` : 'Round 2 of Meesho SDE I is ready to schedule.',
+      nextEyebrow: r2Done ? 'UP NEXT · ROUND 3 OF 4' : 'UP NEXT · ROUND 2 OF 4',
+      countdown: r2Done ? 'UNLOCKED' : s.scheduled ? 'BOOKED' : 'NOT SCHEDULED',
+      nextTitle: r2Done ? 'System Design (LLD)' : 'Problem Solving',
+      nextBody: r2Done ? 'Whiteboard round. Expect a rate limiter or parking-lot design, with follow-ups on your own services.' : 'Live coding. The interviewer builds on your order-tracking-svc project and pushes on scale.',
+      nextMeta: r2Done ? ['Whiteboard', '60 min', 'Hard'] : [s.scheduled ? slot : 'Live coding', '60 min', 'Medium–hard'],
+      nextCta: r2Done || !s.scheduled ? 'Schedule' : 'Enter room',
+      nextAction: () => r2Done || !s.scheduled ? (this.go('role'), this.setState({ showSchedule: true })) : this.go('room'),
+      stats: [['Profile score', 812, '', 'Résumé · GitHub · LeetCode'], ['Interview score', 768, '', 'Across 9 interviews'], ['College rank', 3, '', 'RVCE · this week'], ['Global rank', 48, '', 'Top 4%']].map(([label, value, suffix, note]) => ({ label, value, suffix, note })),
+      recent: [
+        ...(r2Done ? [['Round 2 · Problem Solving', 'Meesho SDE I · just now', 'PASSED', '74', true]] : []),
+        ['Round 1 · Online Assessment', 'Meesho SDE I · 18 Sep', 'PASSED', '82', true],
+        ['Concurrency drills', 'Practice · 14 Sep', 'PRACTICE', '71', false],
+        ['SQL window functions', 'Practice · 9 Sep', 'PRACTICE', '64', false],
+      ].slice(0, 4).map(([title, meta, tag, score, official]) => ({ title, meta, tag, score, pillBg: official ? 'var(--accent)' : 'var(--panel)', pillFg: official ? 'var(--on-accent)' : 'var(--muted)', onClick: () => this.go('debrief') })),
+      lbMini: LB[1].slice(0, 4).map(([rank, name, , , score, me]) => ({ rank, name: me ? 'You' : name, score, bg: me ? 'var(--accent-soft)' : 'var(--card)' })),
+      search: s.search, onSearch: e => this.setState({ search: e.target.value }),
+      filters: ['All', 'Live', 'Researching'].map((label, i) => ({ label, bg: s.filter === i ? 'var(--ink)' : 'transparent', fg: s.filter === i ? 'var(--on-ink)' : 'var(--ink)', onClick: () => this.setState({ filter: i }) })),
+      companyCards: COMPANIES.filter(c => (!q || c[2].toLowerCase().includes(q)) && (s.filter === 0 || (s.filter === 1 ? c[4] === 'LIVE' : c[4] !== 'LIVE'))).map(([k, mono, name, roles, status, depth, exp]) => { const live = status === 'LIVE', n = s.notify[k]; return {
+        mono, name, roles, status, exp, depth: ['', 'Early', 'Low', 'Medium', 'Good', 'High'][depth],
+        bars: [1, 2, 3, 4, 5].map(i => i <= depth ? 'var(--ink)' : 'var(--line2)'),
+        border: live ? 'var(--ink)' : 'var(--line2)', monoBg: live ? 'var(--ink)' : 'var(--panel)', monoFg: live ? 'var(--on-ink)' : 'var(--ink)',
+        pillBg: live ? 'var(--accent)' : 'var(--panel)', pillFg: live ? 'var(--on-accent)' : 'var(--faint)',
+        cta: live ? 'Open SDE I Backend →' : n ? 'We’ll notify you ✓' : 'Notify me when live',
+        btnBg: live ? 'var(--accent)' : 'var(--card)', btnFg: live ? 'var(--on-accent)' : 'var(--ink)', btnBorder: live ? 'var(--accent)' : 'var(--line3)',
+        onClick: () => live ? this.go('role') : this.setState(x => ({ notify: { ...x.notify, [k]: !x.notify[k] } })) }; }),
+      roleTabs: ['Process', 'Insights'].map((label, i) => ({ label, border: s.roleTab === i ? 'var(--ink)' : 'transparent', fg: s.roleTab === i ? 'var(--ink)' : 'var(--faint)', onClick: () => this.setState({ roleTab: i }) })),
+      roleProcess: s.roleTab === 0, roleInsights: s.roleTab === 1,
+      rounds: rounds.map(([title, meta, topics, st, status, cta, fn], i) => ({
+        title, meta, topics, status, cta, hasCta: !!cta && !!fn, onClick: fn || (() => {}),
+        mark: st === 'done' ? '✓' : String(i + 1).padStart(2, '0'),
+        border: st === 'next' ? 'var(--ink)' : 'var(--line2)', bg: st === 'locked' ? 'var(--card)' : st === 'next' ? 'var(--panel)' : 'var(--card)',
+        numBg: st === 'done' ? 'var(--accent)' : 'transparent', numFg: st === 'done' ? 'var(--on-accent)' : st === 'locked' ? 'var(--faint)' : 'var(--ink)', numBorder: st === 'locked' ? 'var(--line3)' : st === 'done' ? 'var(--accent)' : 'var(--ink)',
+        titleColor: st === 'locked' ? 'var(--faint)' : 'var(--ink)',
+        ctaBg: st === 'next' ? 'var(--accent)' : 'var(--card)', ctaFg: st === 'next' ? 'var(--on-accent)' : 'var(--ink)', ctaBorder: st === 'next' ? 'var(--accent)' : 'var(--ink)',
+      })),
+      toggleCustom: () => this.setState(x => ({ custom: !x.custom })),
+      customTrack: s.custom ? 'var(--accent)' : 'var(--line4)', customKnob: s.custom ? 'translateX(18px)' : 'none',
+      customNote: s.custom ? 'Editing is on. Changed rounds become standalone practice — full analysis, but they won’t count towards readiness.' : 'Add, remove or change rounds. Only the official, unedited process counts towards readiness.',
+      topics: [['Hashing', 78], ['Queues & streams', 64], ['Sliding window', 58], ['System scale', 52], ['Concurrency', 41], ['SQL', 27]].map(([name, p]) => ({ name, pct: p + '%' })),
+      redFlags: ['Jumping to code before clarifying requirements', 'Ignoring scale when asked about your own projects', 'Silent thinking — they want you to talk it through'],
+      srcList: [['r/developersIndia', 54], ['LeetCode Discuss', 41], ['Glassdoor', 29], ['YouTube walkthroughs', 18]].map(([name, n]) => ({ name, n })),
+      preCheck: !s.live, live: s.live,
+      checks: [['Microphone', 'Speak clearly — the interview is spoken'], ['Camera', 'Keep your face in frame'], ['Full-screen', 'Leaving full-screen pauses the round'], ['Quiet space', 'About 60 minutes, uninterrupted']].map(([label, sub], i) => ({ label, sub, bg: s.checks[i] ? 'var(--accent)' : 'transparent', mark: s.checks[i] ? '✓' : '', onClick: () => this.setState(x => { const c = [...x.checks]; c[i] = !c[i]; return { checks: c }; }) })),
+      startBg: allChecked ? 'var(--accent)' : 'var(--faint2)', startLabel: allChecked ? 'Start interview' : `Complete the checks · ${s.checks.filter(Boolean).length}/4`,
+      startInterview: () => allChecked && this.setState({ live: true, sec: 0 }),
+      timer: `${mm}:${ss}`,
+      transcript: [
+        ['INTERVIEWER', 'Your order-tracking service uses a queue. Why not write straight to the database?', 'var(--panel)', 'var(--ink)'],
+        ['YOU', 'Sales spikes — the queue smooths writes and lets consumers retry.', 'transparent', 'var(--muted)'],
+        ['INTERVIEWER · HARDER', 'Now a rate limiter for that API — three pods, 50k requests a second.', 'var(--panel)', 'var(--ink)'],
+        ...(s.hints ? [['HINT · GENTLE', 'Where does the counter live when there’s more than one server?', 'transparent', 'var(--ink)']] : []),
+      ].map(([who, text, bg, fg]) => ({ who, text, bg, fg })),
+      editorTabs: [['limiter.py', true], ['Whiteboard', false]].map(([label, isCode]) => ({ label, bg: s.codeTab === isCode ? 'var(--panel)' : 'transparent', fg: s.codeTab === isCode ? 'var(--ink)' : 'var(--faint)', onClick: () => this.setState({ codeTab: isCode }) })),
+      codeTab: s.codeTab, boardTab: !s.codeTab,
+      signals: [['Correctness', 82], ['Approach', 76], ['Depth', 61], ['Communication', 88], ['Hesitation', 24], ['Filler words', 38]].map(([label, v]) => { const p = jit(v); return { label, value: (p / 10).toFixed(1), pct: p + '%' }; }),
+      muteLabel: s.muted ? 'Unmute' : 'Mute', toggleMute: () => this.setState(x => ({ muted: !x.muted })),
+      askHint: () => this.setState({ hints: 1 }),
+      endInterview: () => { this.setState({ live: false, cleared: Math.max(2, s.cleared), q: 2, checks: [false, false, false, false] }); this.go('debrief'); },
+      questions: Q.map(([title, score], i) => ({ n: 'Q' + (i + 1), title, score, bg: s.q === i ? 'var(--panel)' : 'var(--card)', onClick: () => this.setState({ q: i }) })),
+      dbEyebrow: s.cleared >= 2 ? 'DEBRIEF · MEESHO SDE I · ROUND 2' : 'DEBRIEF · MEESHO SDE I · ROUND 1',
+      dbTitle: s.cleared >= 2 ? 'Problem Solving' : 'Online Assessment',
+      dbScore: s.cleared >= 2 ? '74' : '82',
+      dbCta: s.cleared >= 2 ? 'Passed · Round 3 unlocked →' : 'Passed · schedule Round 2 →',
+      qTitle: Q[s.q][0], qSaid: Q[s.q][2], qStrong: Q[s.q][3], qFeedback: Q[s.q][4],
+      debriefSignals: (s.cleared >= 2 ? [['Correctness', '8.2'], ['Approach', '7.6'], ['Depth', '6.1'], ['Communication', '8.8'], ['Clarity', '8.0'], ['Hesitation', 'Low'], ['Filler words', '11'], ['Hints used', '1']] : [['Correctness', '8.9'], ['Approach', '8.2'], ['Depth', '7.4'], ['Communication', '7.9'], ['Clarity', '8.1'], ['Hesitation', 'Low'], ['Filler words', '6'], ['Hints used', '0']]).map(([label, value]) => ({ label, value })),
+      learnNext: s.cleared >= 2 ? ['Distributed counters', 'Redis INCR + TTL', 'Token bucket', 'Thinking aloud'] : ['Sliding window', 'Queues', 'Complexity out loud', 'Edge-case testing'],
+      levels: levelNames.map((name, i) => ({ name, desc: ['No rounds cleared', 'Some rounds cleared', 'One round left', 'Every round cleared'][i], tag: i < lvl ? 'CLEARED' : i === lvl ? 'YOU ARE HERE' : 'AHEAD', bg: i === lvl ? 'var(--accent)' : 'var(--card)', fg: i === lvl ? 'var(--on-accent)' : i < lvl ? 'var(--ink)' : 'var(--faint)' })),
+      report: [['Online Assessment', 82], ['Problem Solving', 74], ['System Design (LLD)', null], ['Hiring Manager', null]].map(([round, sc], i) => ({ round, score: i < s.cleared && sc ? String(sc) : '—', fg: i < s.cleared ? 'var(--ink)' : 'var(--faint)' })),
+      shareFg: lvl === 3 ? 'var(--ink)' : 'var(--faint)',
+      shareNote: lvl === 3 ? '' : 'Sharing unlocks at Interview-ready.',
+      lbTabs: ['Global', 'My college'].map((label, i) => ({ label, bg: s.lbTab === i ? 'var(--ink)' : 'transparent', fg: s.lbTab === i ? 'var(--on-ink)' : 'var(--ink)', onClick: () => this.setState({ lbTab: i }) })),
+      lbRows: LB[s.lbTab].map(([rank, name, college, n, score, me]) => ({ rank, name: me ? name + ' (you)' : name, college, n, score, ini: name.split(' ').map(w => w[0]).join(''), bg: me ? 'var(--accent-soft)' : 'var(--card)', avBg: me ? 'var(--accent)' : 'var(--panel)', avFg: me ? 'var(--on-accent)' : 'var(--ink)' })),
+      profileSkills: ['Go', 'Python', 'Kafka', 'PostgreSQL', 'Redis', 'REST APIs'],
+      profileSources: [['gh', 'GH', 'GitHub', 'aarav-s · 18 repos'], ['lc', 'LC', 'LeetCode', '412 solved'], ['li', 'IN', 'LinkedIn', 'Not connected'], ['pf', 'PF', 'Portfolio', 'Not connected']].map(([k, icon, name, detail]) => { const c = s.src[k]; return { icon, name, detail: c ? (detail === 'Not connected' ? 'Connected just now' : detail) : 'Not connected', btn: c ? 'Disconnect' : 'Connect', bg: c ? 'var(--card)' : 'var(--ink)', fg: c ? 'var(--ink)' : 'var(--on-ink)', onClick: () => this.setState(x => ({ src: { ...x.src, [k]: !x.src[k] } })) }; }),
+      prefs: [['Interview reminders', 'Email and push, 1 hour before'], ['Weekly progress summary', 'Every Monday'], ['Show me on leaderboards', 'Name and college visible']].map(([label, sub], i) => ({ label, sub, track: s.prefs[i] ? 'var(--accent)' : 'var(--line4)', knob: s.prefs[i] ? 'translateX(18px)' : 'none', onClick: () => this.setState(x => { const p = [...x.prefs]; p[i] = !p[i]; return { prefs: p }; }) })),
+      showSchedule: s.showSchedule, closeSchedule: () => this.setState({ showSchedule: false }), stop: e => e.stopPropagation(),
+      days: days.map(([dow, date], i) => ({ dow, date: date.split(' ')[0], bg: on(s.day === i), fg: onFg(s.day === i), border: s.day === i ? 'var(--ink)' : 'var(--line3)', onClick: () => this.setState({ day: i }) })),
+      times: times.map((label, i) => ({ label, bg: on(s.time === i), fg: onFg(s.time === i), border: s.time === i ? 'var(--ink)' : 'var(--line3)', onClick: () => this.setState({ time: i }) })),
+      slotLabel: slot, confirmSchedule: () => this.setState({ scheduled: true, showSchedule: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

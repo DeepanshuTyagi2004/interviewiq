@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--frame:#d6d5d0;--card:#ffffff;--panel:#f2f1ed;--ink:#1a1a1a;--on-ink:#ffffff;--ink-hover:#000000;--muted:#5c5c58;--faint:#8d8d89;--faint2:#b3b2ad;--line:#efeee9;--line2:#e6e5e0;--line3:#dcdbd6;--line4:#cfcec8;--hover:#f4f4f1;--inv:#1a1a1a;--accent:#ff5c1f;--accent-hover:#f04d10;--on-accent:#141413;--accent-soft:rgba(255,92,31,.16)}
+:root[data-theme="dark"]{--frame:#0d0d0c;--card:#161615;--panel:#1f1f1d;--ink:#f0efeb;--on-ink:#141413;--ink-hover:#ffffff;--muted:#a8a7a2;--faint:#7d7c77;--faint2:#55544f;--line:#262624;--line2:#2d2d2b;--line3:#363633;--line4:#44433f;--hover:#222220;--inv:#0a0a09;--accent:#ff5c1f;--accent-hover:#ff7a45;--on-accent:#141413;--accent-soft:rgba(255,92,31,.18)}
+body{margin:0;background:var(--frame);color:var(--ink);font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box;transition:background-color .35s ease,border-color .35s ease,color .35s ease}
+a{color:var(--ink);text-decoration:none}
+a:hover{color:var(--ink)}
+input{font-family:'Geist',sans-serif}
+input::placeholder{color:var(--faint)}
+@keyframes iq-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+</helmet>
+
+<div style="background:var(--frame);color:var(--ink);min-height:100vh;display:flex;flex-direction:column">
+
+<header style="height:68px;padding:0 32px;display:flex;align-items:center;gap:20px;flex:none">
+  <a href="InterviewIQ Website v5.dc.html" style="display:flex;align-items:center;gap:9px">
+    <div style="display:flex;gap:2px;align-items:flex-end;height:15px"><span style="width:4px;height:15px;background:var(--ink)"></span><span style="width:4px;height:10px;background:var(--ink)"></span><span style="width:4px;height:5px;background:var(--accent)"></span></div>
+    <span style="font-weight:500;font-size:17px;letter-spacing:-.035em">interviewIQ</span>
+  </a>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:14px">
+    <button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="position:relative;width:62px;height:32px;border-radius:999px;border:1px solid var(--line4);background:var(--card);cursor:pointer;padding:0;display:flex;align-items:center;font-size:13px">
+      <span style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--accent);transform:{{ knobX }};transition:transform .35s cubic-bezier(.2,.7,.2,1),background-color .35s"></span>
+      <span style="position:relative;width:30px;text-align:center;color:{{ sunColor }}">☀</span><span style="position:relative;width:30px;text-align:center;color:{{ moonColor }}">☾</span>
+    </button>
+    <a href="InterviewIQ Website v5.dc.html" style="font-size:14px;color:var(--muted)">← Back to site</a>
+  </div>
+</header>
+
+<main ref="{{ cardRef }}" style="flex:1;margin:0 12px 12px;background:var(--card);border-radius:14px;border:1px solid var(--line3);overflow:hidden;display:flex;flex-direction:column">
+
+  <!-- SIGN IN / SIGN UP -->
+  <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;flex-wrap:wrap">
+      <div style="flex:1 1 460px;min-width:0;padding:64px 32px;display:flex;align-items:center;justify-content:center">
+        <div data-anim="1" style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px">
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">{{ authEyebrow }}</div>
+          <h1 style="margin:0;font-size:40px;line-height:1.05;letter-spacing:-.045em;font-weight:400">{{ authTitle }}</h1>
+          <p style="margin:0;font-size:15px;line-height:1.5;color:var(--muted)">{{ authSub }}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <button onClick="{{ submit }}" style="height:44px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer" style-hover="border-color:var(--ink)">Continue with Google</button>
+            <button onClick="{{ submit }}" style="height:44px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer" style-hover="border-color:var(--ink)">{{ altLabel }}</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--faint)"><span style="flex:1;height:1px;background:var(--line2)"></span>or<span style="flex:1;height:1px;background:var(--line2)"></span></div>
+          <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">Full name<input value="{{ name }}" onChange="{{ onName }}" placeholder="Aarav Sharma" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input></label>
+          </sc-if>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">Email<input value="{{ email }}" onChange="{{ onEmail }}" placeholder="you@college.edu" style="height:44px;padding:0 14px;border:1px solid {{ emailBorder }};border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input></label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)"><span style="display:flex;justify-content:space-between">Password<sc-if value="{{ isSignin }}" hint-placeholder-val="{{ false }}"><a href="#" style="color:var(--muted);text-decoration:underline">Forgot?</a></sc-if></span><input type="password" placeholder="••••••••" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input></label>
+          <sc-if value="{{ emailError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--ink)">Enter a valid email to continue.</div></sc-if>
+          <button onClick="{{ submit }}" style="height:46px;border:0;border-radius:5px;background:var(--accent);color:var(--on-accent);font-family:'Geist',sans-serif;font-size:14.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px" style-hover="background:var(--accent-hover)">{{ submitLabel }}<sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--on-accent);border-right-color:transparent;animation:iq-spin .7s linear infinite"></span></sc-if></button>
+          <div style="font-size:13.5px;color:var(--muted);text-align:center">{{ switchText }} <button onClick="{{ switchAuth }}" style="border:0;background:none;padding:0;cursor:pointer;font-family:'Geist',sans-serif;font-size:13.5px;color:var(--ink);text-decoration:underline">{{ switchCta }}</button></div>
+          <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ true }}"><div style="font-size:11.5px;color:var(--faint);text-align:center">By signing up, I agree to the <a href="#" style="color:var(--muted);text-decoration:underline">Terms</a> and <a href="#" style="color:var(--muted);text-decoration:underline">Privacy Policy</a>.</div></sc-if>
+        </div>
+      </div>
+      <div style="flex:1 1 460px;min-width:0;margin:12px;background:var(--panel);border-radius:8px;position:relative;overflow:hidden;min-height:520px;display:flex;flex-direction:column">
+        <div style="padding:28px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">WHAT YOU'LL PRACTISE</div>
+        <div style="position:relative;flex:1;margin:0 auto;width:min(420px,86%)">
+          <sc-for list="{{ stack }}" as="sk" hint-placeholder-count="4">
+            <div style="position:absolute;left:0;right:0;top:50%;height:88px;margin-top:-44px;background:var(--card);border-radius:10px;display:flex;align-items:center;gap:16px;padding:0 18px;transform:{{ sk.transform }};opacity:{{ sk.opacity }};z-index:{{ sk.z }};box-shadow:{{ sk.shadow }};transition:transform .8s cubic-bezier(.2,.7,.2,1),opacity .8s,box-shadow .8s">
+              <div style="width:48px;height:48px;flex:none;border-radius:9px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:12px">{{ sk.n }}</div>
+              <div style="flex:1;min-width:0"><div style="font-size:19px;letter-spacing:-.025em">{{ sk.title }}</div><div style="font-size:12.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sk.meta }}</div></div>
+              <span style="font-size:12px;padding:5px 10px;border-radius:5px;background:{{ sk.pillBg }};color:{{ sk.pillFg }};transition:background-color .6s">{{ sk.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:28px;font-size:14px;line-height:1.5;color:var(--muted);max-width:420px">Meesho · SDE I Backend — <span style="color:var(--ink)">four rounds, researched from 142 real candidate experiences.</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ONBOARDING -->
+  <sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:22px 32px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:10px;flex:1 1 160px;min-width:0">
+          <span style="width:24px;height:24px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'Geist Mono',monospace;background:{{ st.bg }};color:{{ st.fg }};border:1px solid {{ st.border }}">{{ st.mark }}</span>
+          <span style="font-size:13.5px;color:{{ st.labelColor }};white-space:nowrap">{{ st.label }}</span>
+          <span style="flex:1;height:1px;background:{{ st.line }};min-width:12px"></span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex:1;display:flex;flex-wrap:wrap">
+      <div style="flex:1.5 1 520px;min-width:0;padding:48px 48px 32px;display:flex;flex-direction:column">
+        <div data-anim="1" style="max-width:600px;width:100%;display:flex;flex-direction:column;gap:16px;flex:1">
+          <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">{{ obEyebrow }}</div>
+          <h1 style="margin:0;font-size:36px;line-height:1.08;letter-spacing:-.04em;font-weight:400">{{ obTitle }}</h1>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:var(--muted)">{{ obSub }}</p>
+
+          <!-- step 1 -->
+          <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ startParse }}" style="width:100%;min-height:220px;border:1.5px dashed {{ dropBorder }};border-radius:10px;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:'Geist',sans-serif;color:var(--ink);padding:28px" style-hover="border-color:var(--ink)">
+              <span style="width:44px;height:44px;border-radius:9px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-size:18px">↑</span>
+              <span style="font-size:16px">{{ dropTitle }}</span>
+              <span style="font-size:13px;color:var(--faint)">{{ dropSub }}</span>
+              <sc-if value="{{ parsing }}" hint-placeholder-val="{{ false }}"><span style="width:260px;height:3px;background:var(--line2);border-radius:2px;overflow:hidden"><span style="display:block;height:100%;width:{{ progressPct }};background:var(--accent);transition:width .1s linear"></span></span></sc-if>
+            </button>
+            <sc-if value="{{ parsed }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--line2);border-radius:8px;overflow:hidden">
+                <sc-for list="{{ parsedRows }}" as="pr" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:140px minmax(0,1fr) auto;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:center"><span style="color:var(--faint)">{{ pr.k }}</span><span>{{ pr.v }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--faint)">FOUND</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <!-- step 2 -->
+          <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">Full name<input value="{{ name }}" onChange="{{ onName }}" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">College<input value="{{ college }}" onChange="{{ onCollege }}" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">Degree<input value="B.Tech, Computer Science" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" readOnly="{{ true }}"></input></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">Graduating<input value="2027" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" readOnly="{{ true }}"></input></label>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13px;color:var(--muted)">Experience</span>
+              <div style="display:flex;padding:3px;border:1px solid var(--line3);border-radius:6px;align-self:flex-start;gap:2px">
+                <sc-for list="{{ expOpts }}" as="eo" hint-placeholder-count="3"><button onClick="{{ eo.onClick }}" style="border:0;border-radius:4px;padding:8px 14px;font-family:'Geist',sans-serif;font-size:13.5px;cursor:pointer;background:{{ eo.bg }};color:{{ eo.fg }}">{{ eo.label }}</button></sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13px;color:var(--muted)">Skills <span style="color:var(--faint)">· click to remove</span></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ skills }}" as="sk" hint-placeholder-count="6"><button onClick="{{ sk.onClick }}" style="border:1px solid var(--line3);border-radius:5px;padding:6px 10px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:13px;cursor:pointer" style-hover="border-color:var(--ink)">{{ sk.label }} <span style="color:var(--faint)">×</span></button></sc-for>
+                <input placeholder="+ Add skill" onKeyDown="{{ onSkillKey }}" style="width:120px;height:32px;padding:0 10px;border:1px dashed var(--line4);border-radius:5px;font-size:13px;outline:none;background:var(--card);color:var(--ink)"></input>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- step 3 -->
+          <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ sources }}" as="so" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid {{ so.border }};border-radius:8px;background:{{ so.bg }}">
+                  <span style="width:40px;height:40px;flex:none;border-radius:8px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:12px">{{ so.icon }}</span>
+                  <div style="flex:1;min-width:0"><div style="font-size:15px">{{ so.name }}</div><div style="font-size:12.5px;color:var(--faint)">{{ so.detail }}</div></div>
+                  <button onClick="{{ so.onClick }}" style="min-width:108px;height:34px;border-radius:5px;border:1px solid var(--ink);background:{{ so.btnBg }};color:{{ so.btnFg }};font-family:'Geist',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">{{ so.btn }}</button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:12.5px;color:var(--faint)">We only read public activity. Disconnect any time from your profile.</div>
+          </sc-if>
+
+          <!-- step 4 -->
+          <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+            <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search companies" style="height:44px;padding:0 14px;border:1px solid var(--line3);border-radius:5px;font-size:14.5px;outline:none;background:var(--card);color:var(--ink)" style-focus="border-color:var(--ink)"></input>
+            <div style="display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:8px;overflow:hidden">
+              <sc-for list="{{ companies }}" as="co" hint-placeholder-count="6">
+                <button onClick="{{ co.onClick }}" style="display:flex;align-items:center;gap:14px;padding:12px 16px;border:0;border-bottom:1px solid var(--line);background:{{ co.bg }};cursor:pointer;text-align:left;font-family:'Geist',sans-serif;color:var(--ink)">
+                  <span style="width:34px;height:34px;flex:none;border-radius:7px;border:1px solid var(--line3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">{{ co.mono }}</span>
+                  <span style="flex:1;min-width:0"><span style="display:block;font-size:14.5px;color:{{ co.fg }}">{{ co.name }}</span><span style="display:block;font-size:12px;color:var(--faint)">{{ co.meta }}</span></span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;padding:4px 8px;border-radius:4px;background:{{ co.pillBg }};color:{{ co.pillFg }}">{{ co.status }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+              <span style="font-size:13px;color:var(--muted)">Role at Meesho</span>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <sc-for list="{{ roles }}" as="ro" hint-placeholder-count="3"><button onClick="{{ ro.onClick }}" style="border:1px solid {{ ro.border }};border-radius:6px;padding:10px 14px;background:{{ ro.bg }};color:{{ ro.fg }};font-family:'Geist',sans-serif;font-size:13.5px;cursor:{{ ro.cursor }};text-align:left"><span style="display:block">{{ ro.label }}</span><span style="display:block;font-size:11.5px;opacity:.65;margin-top:2px">{{ ro.meta }}</span></button></sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:auto;padding-top:32px;display:flex;align-items:center;gap:10px">
+            <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ back }}" style="height:44px;padding:0 18px;border:1px solid var(--line3);border-radius:5px;background:var(--card);color:var(--ink);font-family:'Geist',sans-serif;font-size:14px;cursor:pointer" style-hover="border-color:var(--ink)">Back</button></sc-if>
+            <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}"><button onClick="{{ next }}" style="height:44px;padding:0 14px;border:0;background:none;color:var(--muted);font-family:'Geist',sans-serif;font-size:14px;cursor:pointer;text-decoration:underline">Skip for now</button></sc-if>
+            <button onClick="{{ next }}" style="margin-left:auto;height:44px;padding:0 22px;border:0;border-radius:5px;background:{{ nextBg }};color:var(--on-accent);font-family:'Geist',sans-serif;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px" style-hover="background:var(--accent-hover)">{{ nextLabel }} <span>→</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- preview -->
+      <div style="flex:1 1 340px;min-width:0;margin:12px;background:var(--panel);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:20px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--faint)">PROFILE PREVIEW</div>
+        <div style="background:var(--card);border-radius:10px;padding:22px;box-shadow:0 20px 50px -24px rgba(0,0,0,.2);display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-size:16px">{{ initials }}</span>
+            <div style="min-width:0"><div style="font-size:16px">{{ previewName }}</div><div style="font-size:12.5px;color:var(--faint)">{{ previewCollege }}</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--faint)">Profile score</span><span style="font-family:'Geist Mono',monospace">{{ profileScore }}</span></div>
+            <div style="height:4px;background:var(--line2);border-radius:2px;overflow:hidden"><div style="height:100%;width:{{ profilePct }};background:var(--accent);transition:width .8s cubic-bezier(.2,.7,.2,1)"></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Experience</span><span>{{ expLabel }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Sources</span><span>{{ srcCount }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--faint)">Target</span><span>{{ targetLabel }}</span></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            <sc-for list="{{ previewSkills }}" as="ps" hint-placeholder-count="4"><span style="font-size:11.5px;padding:3px 8px;border-radius:4px;background:var(--panel)">{{ ps }}</span></sc-for>
+          </div>
+        </div>
+        <div style="margin-top:auto;font-size:13px;line-height:1.5;color:var(--muted)">Your résumé and sources shape every question the interviewer asks. You can edit all of this later.</div>
+      </div>
+    </div>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#ff5c1f&quot;,&quot;#3d5afe&quot;,&quot;#3dffb0&quot;,&quot;#8b5cf6&quot;],&quot;default&quot;:&quot;#ff5c1f&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;animate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signup&quot;,&quot;signin&quot;,&quot;ob1&quot;,&quot;ob2&quot;,&quot;ob3&quot;,&quot;ob4&quot;],&quot;default&quot;:&quot;signup&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  cardRef = React.createRef();
+  state = {
+    screen: (() => { const h = (location.hash || '').slice(1); return ['signin', 'signup', 'ob1', 'ob2', 'ob3', 'ob4'].includes(h) ? h : (this.props.startScreen || 'signup'); })(),
+    theme: (() => { try { return localStorage.getItem('iq-theme') || 'light'; } catch (e) { return 'light'; } })(),
+    name: 'Aarav Sharma', email: '', college: 'RV College of Engineering', emailError: false, loading: false,
+    parse: 'idle', progress: 0, exp: 0, skills: ['Go', 'Python', 'Kafka', 'PostgreSQL', 'Redis', 'REST APIs'],
+    src: { gh: 'idle', lc: 'idle', li: 'idle', pf: 'idle' }, search: '', company: 'meesho', role: 'sde1b', stackI: 0,
+  };
+  componentDidMount() {
+    this.applyTheme(this.state.theme);
+    this.iv = setInterval(() => this.setState(s => ({ stackI: (s.stackI + 1) % 4 })), 2200);
+  }
+  componentWillUnmount() { clearInterval(this.iv); clearInterval(this.piv); clearTimeout(this.lt); }
+  applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('iq-theme', t); } catch (e) {} }
+  go(screen) {
+    this.setState({ screen, loading: false, emailError: false });
+    try { history.replaceState(null, '', '#' + screen); } catch (e) {}
+    requestAnimationFrame(() => {
+      const el = this.cardRef.current && this.cardRef.current.querySelector('[data-anim]');
+      if (el && (this.props.animate ?? true)) el.animate([{ opacity: 0, transform: 'translateY(14px)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 550, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    });
+  }
+  toApp(screen) { try { localStorage.setItem('iq-app-screen', screen); } catch (e) {} location.href = 'InterviewIQ App.dc.html#' + screen; }
+  applyAccent() {
+    const hex = (this.props.accent || '#ff5c1f').replace('#', '');
+    if (this._acc === hex) return; this._acc = hex;
+    const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    const lin = c => { c /= 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+    const L = .2126 * lin(r) + .7152 * lin(g) + .0722 * lin(b);
+    const onDark = (L + .05) / (.0078 + .05), onWhite = 1.05 / (L + .05);
+    const mix = (t, k) => '#' + [r, g, b].map(c => Math.round(c + (t - c) * k).toString(16).padStart(2, '0')).join('');
+    const st = document.documentElement.style;
+    st.setProperty('--accent', '#' + hex);
+    st.setProperty('--on-accent', onDark >= onWhite ? '#141413' : '#ffffff');
+    st.setProperty('--accent-hover', L > .4 ? mix(0, .08) : mix(255, .12));
+    st.setProperty('--accent-soft', `rgba(${r},${g},${b},.16)`);
+  }
+  renderVals() {
+    this.applyAccent();
+    const s = this.state, scr = s.screen, dark = s.theme === 'dark';
+    const isSignup = scr === 'signup', isSignin = scr === 'signin', isAuth = isSignup || isSignin;
+    const stepN = { ob1: 1, ob2: 2, ob3: 3, ob4: 4 }[scr] || 0;
+    const validEmail = /^\S+@\S+\.\S+$/.test(s.email);
+    const submit = () => {
+      if (!validEmail) { this.setState({ emailError: true }); return; }
+      this.setState({ loading: true });
+      this.lt = setTimeout(() => isSignup ? this.go('ob1') : this.toApp('dashboard'), 700);
+    };
+    const connected = Object.values(s.src).filter(v => v === 'on').length;
+    const parsed = s.parse === 'done';
+    const expLabels = ['Fresher', '1–3 years', '3+ years'];
+    const score = Math.min(1000, (parsed ? 420 : 0) + (stepN >= 3 ? 160 : 0) + connected * 58 + (stepN >= 4 ? 0 : 0));
+    const SRC = [['gh', 'GH', 'GitHub', 'Repos, languages, commit history', 'aarav-s · 18 repos'], ['lc', 'LC', 'LeetCode', 'Problems solved, strengths, weak topics', '412 solved'], ['li', 'IN', 'LinkedIn', 'Roles and internships', 'Backend intern · 2025'], ['pf', 'PF', 'Portfolio', 'Projects and write-ups', 'aarav.dev']];
+    const COS = [['meesho', 'M', 'Meesho', '3 roles · official processes', 'LIVE'], ['flipkart', 'F', 'Flipkart', 'Researching · 61 experiences so far', 'RESEARCHING'], ['razorpay', 'R', 'Razorpay', 'Researching · 38 experiences so far', 'RESEARCHING'], ['swiggy', 'S', 'Swiggy', 'Researching · 29 experiences so far', 'RESEARCHING'], ['cred', 'C', 'CRED', 'Researching · 17 experiences so far', 'RESEARCHING'], ['phonepe', 'P', 'PhonePe', 'Researching · 22 experiences so far', 'RESEARCHING']];
+    const q = s.search.trim().toLowerCase();
+    const obCopy = {
+      1: ['STEP 1 OF 4 · RÉSUMÉ', 'Start with your résumé', 'We’ll read it and fill in your profile. You can edit everything on the next step.'],
+      2: ['STEP 2 OF 4 · PROFILE', 'Check your profile', 'This is what the interviewer will know about you. Fix anything we got wrong.'],
+      3: ['STEP 3 OF 4 · SOURCES', 'Connect your work', 'Optional — but the more we see, the more personal your questions get.'],
+      4: ['STEP 4 OF 4 · TARGET', 'Where are you interviewing?', 'Pick a company and role. You’ll get its real interview process, round by round.'],
+    }[stepN] || ['', '', ''];
+    const next = () => stepN === 4 ? this.toApp('role') : this.go('ob' + (stepN + 1));
+    return {
+      cardRef: this.cardRef,
+      toggleTheme: () => { const t = dark ? 'light' : 'dark'; this.applyTheme(t); this.setState({ theme: t }); },
+      knobX: dark ? 'translateX(30px)' : 'translateX(0)', sunColor: dark ? 'var(--faint)' : 'var(--on-accent)', moonColor: dark ? 'var(--on-accent)' : 'var(--faint)',
+      isAuth, isSignup, isSignin, isOnboarding: stepN > 0,
+      authEyebrow: isSignup ? 'CREATE ACCOUNT' : 'LOG IN',
+      authTitle: isSignup ? 'Start rehearsing the real interview' : 'Welcome back',
+      authSub: isSignup ? 'Free to start. One click, then your résumé.' : 'Pick up where you left off — Round 2 is waiting.',
+      altLabel: isSignup ? 'Start with résumé' : 'Continue with LinkedIn',
+      submitLabel: s.loading ? (isSignup ? 'Creating account' : 'Logging in') : (isSignup ? 'Create account' : 'Log in'),
+      loading: s.loading, submit,
+      switchText: isSignup ? 'Already have an account?' : 'New to InterviewIQ?',
+      switchCta: isSignup ? 'Log in' : 'Create an account',
+      switchAuth: () => this.go(isSignup ? 'signin' : 'signup'),
+      name: s.name, email: s.email, college: s.college,
+      onName: e => this.setState({ name: e.target.value }),
+      onEmail: e => this.setState({ email: e.target.value, emailError: false }),
+      onCollege: e => this.setState({ college: e.target.value }),
+      emailError: s.emailError, emailBorder: s.emailError ? 'var(--ink)' : 'var(--line3)',
+      stack: [['01', 'Online Assessment', 'Coding · 90 min · medium'], ['02', 'Problem Solving', 'Live coding · 60 min · medium–hard'], ['03', 'System Design', 'Whiteboard · 60 min · hard'], ['04', 'Hiring Manager', 'Behavioural · 45 min']].map(([n, title, meta], i) => {
+        let o = i - s.stackI; if (o > 1) o -= 4; if (o < -2) o += 4; const a = Math.abs(o);
+        return { n, title, meta, status: o === 0 ? 'Up next' : 'Round ' + (i + 1), pillBg: o === 0 ? 'var(--accent)' : 'var(--panel)', pillFg: o === 0 ? 'var(--on-accent)' : 'var(--ink)', transform: `translateY(${o * 66}px) scale(${1 - a * .08})`, opacity: String(a > 1 ? .3 : a === 1 ? .7 : 1), z: String(10 - a), shadow: o === 0 ? '0 30px 60px -20px rgba(0,0,0,.28)' : '0 1px 2px rgba(0,0,0,.05)' };
+      }),
+      steps: ['Résumé', 'Profile', 'Sources', 'Target'].map((label, i) => { const n = i + 1, done = n < stepN, cur = n === stepN; return { label, mark: done ? '✓' : String(n), bg: cur ? 'var(--accent)' : done ? 'var(--ink)' : 'transparent', fg: cur ? 'var(--on-accent)' : done ? 'var(--on-ink)' : 'var(--faint)', border: cur ? 'var(--accent)' : done ? 'var(--ink)' : 'var(--line4)', labelColor: cur || done ? 'var(--ink)' : 'var(--faint)', line: n === 4 ? 'transparent' : done ? 'var(--ink)' : 'var(--line2)' }; }),
+      obEyebrow: obCopy[0], obTitle: obCopy[1], obSub: obCopy[2],
+      s1: stepN === 1, s2: stepN === 2, s3: stepN === 3, s4: stepN === 4,
+      startParse: () => {
+        if (s.parse !== 'idle') return;
+        this.setState({ parse: 'parsing', progress: 0 });
+        this.piv = setInterval(() => this.setState(st => { const p = st.progress + 3; if (p >= 100) { clearInterval(this.piv); return { progress: 100, parse: 'done' }; } return { progress: p }; }), 40);
+      },
+      parsing: s.parse === 'parsing', parsed, progressPct: s.progress + '%',
+      dropBorder: parsed ? 'var(--ink)' : 'var(--line4)',
+      dropTitle: s.parse === 'idle' ? 'Drop your résumé, or click to upload' : s.parse === 'parsing' ? 'Reading aarav_sharma_resume.pdf…' : 'aarav_sharma_resume.pdf',
+      dropSub: s.parse === 'idle' ? 'PDF or DOCX, up to 5 MB' : s.parse === 'parsing' ? `${s.progress}% · extracting education, projects and skills` : 'Parsed · 5 sections found',
+      parsedRows: [['Name', s.name], ['Education', 'B.Tech CSE · RVCE · 2027'], ['Experience', 'Backend intern · logistics startup'], ['Projects', 'order-tracking-svc, url-shortener'], ['Skills', s.skills.slice(0, 4).join(', ')]].map(([k, v]) => ({ k, v })),
+      expOpts: expLabels.map((label, i) => ({ label, bg: s.exp === i ? 'var(--ink)' : 'transparent', fg: s.exp === i ? 'var(--on-ink)' : 'var(--ink)', onClick: () => this.setState({ exp: i }) })),
+      skills: s.skills.map((label, i) => ({ label, onClick: () => this.setState(st => ({ skills: st.skills.filter((_, j) => j !== i) })) })),
+      onSkillKey: e => { if (e.key === 'Enter' && e.target.value.trim()) { const v = e.target.value.trim(); e.target.value = ''; this.setState(st => ({ skills: [...st.skills, v] })); } },
+      sources: SRC.map(([k, icon, name, detail, handle]) => { const st = s.src[k]; return {
+        icon, name, detail: st === 'on' ? handle + ' · connected' : detail,
+        btn: st === 'on' ? 'Connected ✓' : st === 'loading' ? 'Connecting…' : 'Connect',
+        btnBg: st === 'on' ? 'var(--accent)' : 'var(--card)', btnFg: st === 'on' ? 'var(--on-accent)' : 'var(--ink)',
+        border: st === 'on' ? 'var(--ink)' : 'var(--line2)', bg: st === 'on' ? 'var(--panel)' : 'var(--card)',
+        onClick: () => { if (st === 'on') { this.setState(x => ({ src: { ...x.src, [k]: 'idle' } })); return; } this.setState(x => ({ src: { ...x.src, [k]: 'loading' } })); setTimeout(() => this.setState(x => ({ src: { ...x.src, [k]: 'on' } })), 900); },
+      }; }),
+      search: s.search, onSearch: e => this.setState({ search: e.target.value }),
+      companies: COS.filter(c => !q || c[2].toLowerCase().includes(q)).map(([k, mono, name, meta, status]) => { const live = status === 'LIVE', sel = s.company === k; return {
+        mono, name, meta, status, fg: live ? 'var(--ink)' : 'var(--muted)', bg: sel ? 'var(--panel)' : 'var(--card)',
+        pillBg: live ? 'var(--accent)' : 'var(--panel)', pillFg: live ? 'var(--on-accent)' : 'var(--faint)',
+        onClick: () => live && this.setState({ company: k }) }; }),
+      roles: [['sde1b', 'SDE I · Backend', '4 rounds · live', true], ['sde1f', 'SDE I · Frontend', 'Researching', false], ['da', 'Data Analyst', 'Researching', false]].map(([k, label, meta, live]) => { const sel = s.role === k; return {
+        label, meta, border: sel ? 'var(--ink)' : 'var(--line3)', bg: sel ? 'var(--ink)' : 'var(--card)', fg: sel ? 'var(--on-ink)' : live ? 'var(--ink)' : 'var(--faint)', cursor: live ? 'pointer' : 'not-allowed',
+        onClick: () => live && this.setState({ role: k }) }; }),
+      canBack: stepN > 1, back: () => this.go('ob' + (stepN - 1)),
+      next, nextLabel: stepN === 4 ? 'Build my roadmap' : stepN === 1 && !parsed ? 'Continue without résumé' : 'Continue',
+      nextBg: 'var(--accent)',
+      initials: s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'IQ',
+      previewName: s.name || 'Your name', previewCollege: parsed || stepN > 1 ? s.college + ' · 2027' : 'Upload a résumé to fill this in',
+      profileScore: String(score), profilePct: (score / 10) + '%',
+      expLabel: expLabels[s.exp], srcCount: connected ? `${connected} connected` : '—',
+      targetLabel: stepN === 4 ? 'Meesho · SDE I Backend' : '—',
+      previewSkills: parsed || stepN > 1 ? s.skills.slice(0, 6) : [],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;color:#ededed;font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#ededed;text-decoration:none}
+a:hover{color:#ffffff}
+::selection{background:#ededed;color:#000}
+@keyframes iq-wave{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+@keyframes iq-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes iq-breathe{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+
+<div style="background:#000;min-height:100vh">
+
+<!-- NAV -->
+<header style="position:sticky;top:0;z-index:30;background:rgba(0,0,0,.78);backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px)">
+  <div style="max-width:1160px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;gap:36px">
+    <a href="#top" style="display:flex;align-items:center;gap:9px">
+      <div style="width:18px;height:18px;border-radius:5px;background:#ededed;display:flex;align-items:center;justify-content:center"><div style="width:6px;height:6px;border-radius:50%;background:#000"></div></div>
+      <span style="font-weight:500;font-size:15px;letter-spacing:-.02em">InterviewIQ</span>
+    </a>
+    <nav style="display:flex;gap:26px;font-size:14px;flex-wrap:wrap">
+      <a href="#product" style="color:#a1a1a1">Product</a>
+      <a href="#companies" style="color:#a1a1a1">Companies</a>
+      <a href="#platform" style="color:#a1a1a1">Platform</a>
+      <a href="#universities" style="color:#a1a1a1">Universities</a>
+      <a href="#" style="color:#a1a1a1">Pricing</a>
+    </nav>
+    <div style="margin-left:auto;display:flex;gap:18px;align-items:center">
+      <a href="#" style="font-size:14px;color:#a1a1a1">Log in</a>
+      <a href="#" style="font-size:13.5px;font-weight:500;background:#ededed;color:#000;padding:6px 12px;border-radius:7px" style-hover="background:#fff;color:#000">Sign up</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section id="top" style="max-width:1160px;margin:0 auto;padding:88px 24px 0">
+  <h1 style="margin:0;font-size:clamp(40px,5.4vw,64px);line-height:1.04;letter-spacing:-.045em;font-weight:500;max-width:820px;text-wrap:balance">Mock interviews that run exactly like the real one</h1>
+  <div style="margin-top:22px;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:28px">
+      <p style="margin:0;font-size:17px;line-height:1.55;color:#a1a1a1;max-width:520px;text-wrap:pretty">Practice with an AI interviewer that knows your résumé and follows your target company's actual process — every round, spoken, with a code editor and whiteboard.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a href="#" style="font-size:14px;font-weight:500;background:#ededed;color:#000;padding:10px 16px;border-radius:9px" style-hover="background:#fff;color:#000">Start practicing free</a>
+        <a href="#universities" style="font-size:14px;font-weight:500;background:#1a1a1a;color:#ededed;padding:10px 16px;border-radius:9px;display:flex;gap:8px;align-items:center" style-hover="background:#242424;color:#fff">For placement cells <span style="color:#7c7c7c">↗</span></a>
+      </div>
+    </div>
+    <a href="#companies" style="font-size:14px;color:#a1a1a1;display:flex;gap:6px"><span style="color:#ededed">New:</span> Meesho SDE I process <span>→</span></a>
+  </div>
+
+  <!-- SHOWCASE -->
+  <div id="product" style="position:relative;margin-top:56px;height:640px;border-radius:20px;background:#070707;border:1px solid #161616;overflow:hidden">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 55% 60% at 68% 40%,rgba(255,255,255,.07),transparent 70%)"></div>
+    <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1px);background-size:22px 22px;mask-image:radial-gradient(ellipse 60% 70% at 50% 40%,#000,transparent 75%);-webkit-mask-image:radial-gradient(ellipse 60% 70% at 50% 40%,#000,transparent 75%)"></div>
+
+    <!-- back panel: roadmap -->
+    <div style="position:absolute;left:6%;top:72px;width:46%;min-width:380px;border-radius:14px;background:#0c0c0c;border:1px solid #1f1f1f;opacity:.62;overflow:hidden">
+      <div style="height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #1a1a1a">
+        <div style="padding:4px 9px;border-radius:6px;background:#161616;font-size:12.5px;display:flex;gap:6px;align-items:center">Roadmap <span style="color:#7c7c7c">⌄</span></div>
+        <span style="font-size:12.5px;color:#7c7c7c">Meesho · SDE I Backend</span>
+        <span style="margin-left:auto;font-size:12px;color:#a1a1a1;display:flex;gap:8px;align-items:center">Readiness <span style="padding:3px 8px;border-radius:5px;background:#1c1c1c;color:#ededed">Progressing</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 90px 90px;padding:12px 16px 8px;font-size:12px;color:#5c5c5c">
+        <span></span><span>Round</span><span>Format</span><span>Status</span>
+      </div>
+      <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 90px 90px;padding:11px 16px;font-size:13px;border-top:1px solid #141414;align-items:center">
+          <span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:#5c5c5c">{{ r.n }}</span>
+          <span style="color:#d4d4d4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:12px">{{ r.title }}</span>
+          <span style="color:#7c7c7c">{{ r.format }}</span>
+          <span><span style="font-size:11.5px;padding:3px 8px;border-radius:5px;background:{{ r.pillBg }};color:{{ r.pillColor }}">{{ r.status }}</span></span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- front window: live interview -->
+    <div style="position:absolute;left:36%;top:36px;width:60%;min-width:560px;height:560px;border-radius:14px;background:#0a0a0a;border:1px solid rgba(255,255,255,.22);box-shadow:0 0 0 1px rgba(0,0,0,.8),0 30px 80px -10px rgba(0,0,0,.9),0 0 90px -10px rgba(255,255,255,.12),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #1a1a1a">
+        <div style="display:flex;padding:3px;border-radius:7px;background:#141414;gap:2px;font-size:12px">
+          <span style="padding:3px 9px;border-radius:5px;background:#262626;color:#ededed">Interview</span>
+          <span style="padding:3px 9px;color:#7c7c7c">Code</span>
+          <span style="padding:3px 9px;color:#7c7c7c">Whiteboard</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:10px;align-items:center;font-family:'Geist Mono',monospace;font-size:11.5px;color:#a1a1a1">
+          <span>Round 2 of 4</span><span style="width:1px;height:12px;background:#262626"></span>
+          <span style="display:flex;align-items:center;gap:6px;color:#ededed">{{ recDot }}{{ timer }}</span>
+        </div>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) 240px;min-height:0">
+        <div style="display:flex;flex-direction:column;min-width:0;border-right:1px solid #1a1a1a">
+          <div style="padding:18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #161616">
+            <div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f5f5f5,#8a8a8a 45%,#1a1a1a 80%);box-shadow:0 0 30px rgba(255,255,255,.18)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:500">AI Interviewer <span style="color:#7c7c7c;font-weight:400">· Meesho, Backend</span></div>
+              <div style="height:22px;margin-top:4px;display:flex;align-items:center">{{ waveform }}</div>
+            </div>
+          </div>
+          <div style="flex:1;padding:14px 0;font-family:'Geist Mono',monospace;font-size:12px;line-height:1.8;overflow:hidden;display:grid;grid-template-columns:38px minmax(0,1fr)">
+            <div style="text-align:right;padding-right:12px;color:#3d3d3d">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12</div>
+            <div style="white-space:pre;color:#a1a1a1;overflow:hidden"><span style="color:#ededed">class</span> <span style="color:#fff">SlidingWindowLimiter</span>:
+    <span style="color:#ededed">def</span> <span style="color:#d4d4d4">__init__</span>(self, limit, window):
+        self.limit = limit
+        self.window = window
+        self.hits = {}
+
+    <span style="color:#ededed">def</span> <span style="color:#d4d4d4">allow</span>(self, user_id):
+        now = time.monotonic()
+        q = self.hits.setdefault(user_id, deque())
+        <span style="color:#ededed">while</span> q <span style="color:#ededed">and</span> now - q[0] &gt; self.window:
+            q.popleft()
+        <span style="color:#ededed">return</span> len(q) &lt; self.limit<span style="display:inline-block;width:7px;height:15px;background:#ededed;vertical-align:-3px;margin-left:2px">{{ cursor }}</span></div>
+          </div>
+          <div style="padding:12px 14px;border-top:1px solid #161616;display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ signals }}" as="s" hint-placeholder-count="4">
+              <span style="font-size:11.5px;padding:4px 9px;border-radius:6px;background:#121212;border:1px solid #1c1c1c;color:#a1a1a1;display:flex;gap:6px">{{ s.label }} <span style="color:#ededed;font-family:'Geist Mono',monospace">{{ s.value }}</span></span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:12px;font-size:12.5px;line-height:1.5;min-width:0">
+          <div style="padding:10px 12px;border-radius:10px;background:#161616;color:#d4d4d4">Your GitHub shows an order-tracking service with a queue. Let's build on that — design a rate limiter for its API.</div>
+          <div style="color:#7c7c7c;font-size:11.5px">You · thinking aloud</div>
+          <div style="color:#a1a1a1">Sliding window per user, a deque of timestamps, pop anything older than the window…</div>
+          <div style="color:#7c7c7c;font-size:11.5px;display:flex;gap:6px;align-items:center">{{ thinking }}Follow-up · harder</div>
+          <div style="padding:10px 12px;border-radius:10px;background:#161616;color:#d4d4d4">Good. Now it runs on three pods at 50k req/s. Where does <span style="font-family:'Geist Mono',monospace;color:#fff">self.hits</span> live?</div>
+          <div style="margin-top:auto;padding:10px 12px;border-radius:10px;border:1px solid #1f1f1f;background:#0e0e0e;color:#5c5c5c;display:flex;justify-content:space-between;align-items:center">Speak or type… <span style="width:20px;height:20px;border-radius:5px;background:#262626;color:#a1a1a1;display:flex;align-items:center;justify-content:center;font-size:11px">↑</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,transparent,#070707)"></div>
+  </div>
+</section>
+
+<!-- COMPANIES -->
+<section id="companies" style="max-width:1160px;margin:0 auto;padding:88px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:30px">
+  <div style="font-size:14px;color:#7c7c7c">Researched interview processes, starting with</div>
+  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:18px 56px;align-items:center">
+    <sc-for list="{{ companies }}" as="c" hint-placeholder-count="7">
+      <span style="font-size:24px;font-weight:600;letter-spacing:-.035em;color:{{ c.color }}">{{ c.name }}</span>
+    </sc-for>
+  </div>
+</section>
+
+<!-- FEATURE PAIR -->
+<section style="max-width:1160px;margin:0 auto;padding:120px 24px 0">
+  <h2 style="margin:0 0 48px;font-size:clamp(32px,4vw,48px);line-height:1.06;letter-spacing:-.04em;font-weight:500;max-width:640px">An interviewer that has read your résumé</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:12px">
+    <div style="flex:2 1 560px;min-width:0;border-radius:18px;background:#0a0a0a;border:1px solid #161616;padding:8px;display:flex;flex-direction:column">
+      <div style="position:relative;height:360px;border-radius:12px;background:#0e0e0e;overflow:hidden;border:1px solid #141414">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 0%,rgba(255,255,255,.06),transparent 70%)"></div>
+        <div style="position:absolute;left:32px;right:32px;top:32px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+          <sc-for list="{{ sources }}" as="so" hint-placeholder-count="3">
+            <div style="border-radius:12px;background:#121212;border:1px solid {{ so.border }};padding:16px;display:flex;flex-direction:column;gap:14px;box-shadow:{{ so.shadow }}">
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#7c7c7c"><span>{{ so.kind }}</span><span style="color:{{ so.statusColor }}">{{ so.status }}</span></div>
+              <div style="font-size:15px;font-weight:500;color:#ededed">{{ so.title }}</div>
+              <div style="font-size:12.5px;line-height:1.5;color:#7c7c7c">{{ so.detail }}</div>
+              <div style="height:1px;background:#1c1c1c"></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#5c5c5c">Used in</span><span style="color:#a1a1a1">{{ so.used }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;left:32px;right:32px;bottom:28px;padding:14px 16px;border-radius:12px;background:#141414;border:1px solid #232323;font-size:13.5px;color:#d4d4d4;display:flex;gap:12px;align-items:center">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#7c7c7c;flex:none">Q1</span>
+          <span style="flex:1;min-width:0">“In your order-tracking service, why a queue instead of direct writes?”</span>
+          <span style="font-size:11.5px;color:#7c7c7c;flex:none">from GitHub</span>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+        <div style="max-width:520px">
+          <div style="font-size:16px;font-weight:500">Personal by default</div>
+          <div style="font-size:15px;line-height:1.55;color:#7c7c7c;margin-top:4px">Upload a résumé and connect GitHub or LeetCode. Questions are drawn from your own projects and history — so you can't memorise your way through.</div>
+        </div>
+        <a href="#" style="font-size:14px;white-space:nowrap">Build your profile →</a>
+      </div>
+    </div>
+    <div style="flex:1 1 300px;min-width:0;border-radius:18px;background:#0a0a0a;border:1px solid #161616;padding:8px;display:flex;flex-direction:column">
+      <div style="height:360px;border-radius:12px;background:#0e0e0e;border:1px solid #141414;padding:14px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <sc-for list="{{ adapt }}" as="a" hint-placeholder-count="4">
+          <div style="border-radius:10px;background:#141414;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#ededed">{{ a.state }}</span><span style="font-family:'Geist Mono',monospace;color:#7c7c7c;font-size:11px">{{ a.action }}</span></div>
+            <div style="font-size:12.5px;line-height:1.5;color:#a1a1a1">{{ a.quote }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <div style="font-size:16px;font-weight:500">Adapts as you go</div>
+        <div style="font-size:15px;line-height:1.55;color:#7c7c7c;margin-top:4px">Hints when you're stuck, harder follow-ups when you're flying.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORM BENTO -->
+<section id="platform" style="max-width:1160px;margin:0 auto;padding:160px 24px 0">
+  <h2 style="margin:0 0 48px;font-size:clamp(32px,4vw,48px);line-height:1.06;letter-spacing:-.04em;font-weight:500;max-width:600px">Not just questions,<br>the whole interview loop</h2>
+  <div style="border:1px solid #1a1a1a;border-radius:18px;overflow:hidden;display:flex;flex-wrap:wrap;background:#1a1a1a;gap:1px">
+
+    <div style="background:#000;padding:28px;min-height:300px;flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:20px" style-hover="background:#050505">
+      <div style="flex:1;position:relative;overflow:hidden;mask-image:linear-gradient(180deg,#000 55%,transparent);-webkit-mask-image:linear-gradient(180deg,#000 55%,transparent)">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:#101010;border:1px solid #1c1c1c;font-size:13px"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#7c7c7c">01</span>Online Assessment<span style="margin-left:auto;color:#a1a1a1;font-size:12px">82 · passed</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:#161616;border:1px solid #2a2a2a;font-size:13px"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#7c7c7c">02</span>Problem Solving<span style="margin-left:auto;color:#ededed;font-size:12px">Oct 4</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:#0a0a0a;border:1px solid #161616;font-size:13px;color:#7c7c7c"><span style="font-family:'Geist Mono',monospace;font-size:11px">03</span>System Design<span style="margin-left:auto;font-size:12px">Locked</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:#0a0a0a;border:1px solid #161616;font-size:13px;color:#5c5c5c"><span style="font-family:'Geist Mono',monospace;font-size:11px">04</span>Hiring Manager<span style="margin-left:auto;font-size:12px">Locked</span></div>
+        </div>
+      </div>
+      <div><div style="font-size:16px;font-weight:500">Round-by-round roadmap →</div><div style="font-size:14px;color:#7c7c7c;margin-top:4px;line-height:1.5">The company's real process for your role, one round at a time.</div></div>
+    </div>
+
+    <div style="background:#000;padding:28px;min-height:300px;flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:20px" style-hover="background:#050505">
+      <div style="flex:1;position:relative;overflow:hidden;mask-image:linear-gradient(180deg,#000 55%,transparent);-webkit-mask-image:linear-gradient(180deg,#000 55%,transparent);font-family:'Geist Mono',monospace;font-size:11.5px;display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ feed }}" as="f" hint-placeholder-count="5">
+          <div style="display:flex;gap:10px;color:#7c7c7c;white-space:nowrap"><span style="color:#3d3d3d">{{ f.t }}</span><span style="color:{{ f.color }};overflow:hidden;text-overflow:ellipsis">{{ f.text }}</span></div>
+        </sc-for>
+      </div>
+      <div><div style="font-size:16px;font-weight:500">Always-on company research →</div><div style="font-size:14px;color:#7c7c7c;margin-top:4px;line-height:1.5">Real candidate experiences, filtered by country, level and role — every insight sourced.</div></div>
+    </div>
+
+    <div style="background:#000;padding:28px;min-height:300px;flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:20px" style-hover="background:#050505">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden">
+        <div style="width:100%;max-width:260px;border-radius:12px;border:1px solid #232323;background:#0c0c0c;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;border:1px solid #2e2e2e;display:flex;align-items:center;justify-content:center;color:#a1a1a1;font-size:14px">⏸</div>
+          <div style="font-size:14px">Interview paused</div>
+          <div style="font-size:12px;color:#7c7c7c;line-height:1.5">You left full-screen. Return to continue the round.</div>
+          <div style="font-size:12px;padding:6px 12px;border-radius:7px;background:#ededed;color:#000;font-weight:500">Resume full-screen</div>
+        </div>
+      </div>
+      <div><div style="font-size:16px;font-weight:500">Proctored like the real thing →</div><div style="font-size:14px;color:#7c7c7c;margin-top:4px;line-height:1.5">Full-screen only. Switching tabs pauses the round.</div></div>
+    </div>
+
+    <div style="background:#000;padding:28px;min-height:420px;display:flex;flex-direction:column;gap:20px;flex:2 1 620px;min-width:0" style-hover="background:#050505">
+      <div style="flex:1;border-radius:14px;border:1px solid #1c1c1c;background:#0a0a0a;padding:22px;display:flex;flex-direction:column;gap:20px;overflow:hidden;mask-image:linear-gradient(180deg,#000 70%,transparent);-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px"><span style="font-size:18px;font-weight:500">Debrief · Round 2</span><span style="font-size:12px;color:#a1a1a1;padding:4px 9px;border-radius:6px;background:#141414;border:1px solid #232323">Passed · Round 3 unlocked · Readiness ↑</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding-bottom:18px;border-bottom:1px solid #1a1a1a">
+          <div><div style="font-size:12px;color:#7c7c7c">Overall</div><div style="font-size:22px;font-weight:500;margin-top:4px">74</div></div>
+          <div><div style="font-size:12px;color:#7c7c7c">Pass mark</div><div style="font-size:22px;font-weight:500;margin-top:4px">70</div></div>
+          <div><div style="font-size:12px;color:#7c7c7c">Communication</div><div style="font-size:22px;font-weight:500;margin-top:4px">8.8</div></div>
+          <div><div style="font-size:12px;color:#7c7c7c">Filler words</div><div style="font-size:22px;font-weight:500;margin-top:4px;color:#a1a1a1">11</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+          <div style="border-radius:10px;background:#111;padding:14px;font-size:13px;line-height:1.55;color:#7c7c7c"><div style="font-size:11.5px;color:#a1a1a1;margin-bottom:4px">What you said</div>“Keep the deque on each server and maybe sync them periodically?”</div>
+          <div style="border-radius:10px;background:#161616;border:1px solid #262626;padding:14px;font-size:13px;line-height:1.55;color:#d4d4d4"><div style="font-size:11.5px;color:#ededed;margin-bottom:4px">A strong answer</div>Move state to a shared store. Atomic INCR with a TTL per window, and call out the latency-vs-correctness tradeoff.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:12px;color:#7c7c7c;padding:5px 0;margin-right:4px">Learn next</span><span style="font-size:12px;padding:5px 10px;border-radius:6px;background:#141414;border:1px solid #1f1f1f">Distributed counters</span><span style="font-size:12px;padding:5px 10px;border-radius:6px;background:#141414;border:1px solid #1f1f1f">Token bucket</span><span style="font-size:12px;padding:5px 10px;border-radius:6px;background:#141414;border:1px solid #1f1f1f">Thinking aloud</span></div>
+      </div>
+      <div><div style="font-size:16px;font-weight:500">A debrief after every round →</div><div style="font-size:14px;color:#7c7c7c;margin-top:4px;line-height:1.5">Score, question-by-question breakdown, what a strong answer looked like, and what to study next.</div></div>
+    </div>
+
+    <div style="background:#000;padding:28px;min-height:420px;display:flex;flex-direction:column;gap:20px;flex:1 1 300px;min-width:0" style-hover="background:#050505">
+      <div style="flex:1;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+        <div><div style="font-size:12px;color:#7c7c7c">Interview score</div><div style="font-size:40px;font-weight:500;letter-spacing:-.04em;margin-top:2px">768</div></div>
+        <div style="height:96px;display:flex;align-items:flex-end;gap:5px">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="12">
+            <div style="flex:1;height:{{ b.h }};border-radius:3px 3px 0 0;background:{{ b.bg }}"></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;font-size:13px">
+          <sc-for list="{{ leaders }}" as="l" hint-placeholder-count="3">
+            <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #141414;color:{{ l.color }}"><span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:#5c5c5c;width:22px">{{ l.rank }}</span>{{ l.name }}<span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:12px">{{ l.score }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div><div style="font-size:16px;font-weight:500">Scores & leaderboards →</div><div style="font-size:14px;color:#7c7c7c;margin-top:4px;line-height:1.5">Track your progress across every interview you take.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- READINESS -->
+<section id="readiness" style="max-width:1160px;margin:0 auto;padding:160px 24px 0">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-end;margin-bottom:48px">
+    <h2 style="margin:0;font-size:clamp(32px,4vw,48px);line-height:1.06;letter-spacing:-.04em;font-weight:500;max-width:620px">Know exactly when you're interview-ready</h2>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:#7c7c7c;max-width:380px">Your readiness for each target role rises as you clear rounds of the official process.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px">
+    <div style="border-radius:18px;background:#0a0a0a;border:1px solid #161616;padding:28px;display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ levels }}" as="lv" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 0;border-top:1px solid #161616">
+            <div style="width:28px;height:28px;border-radius:50%;border:1px solid {{ lv.ring }};background:{{ lv.fill }};display:flex;align-items:center;justify-content:center;font-size:12px;color:{{ lv.markColor }}">{{ lv.mark }}</div>
+            <div><div style="font-size:15px;font-weight:500;color:{{ lv.titleColor }}">{{ lv.name }}</div><div style="font-size:13px;color:#7c7c7c;margin-top:2px">{{ lv.desc }}</div></div>
+            <span style="font-size:11.5px;color:{{ lv.tagColor }};font-family:'Geist Mono',monospace">{{ lv.tag }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:4px">
+        <div style="font-size:13px;color:#ededed">Why it means something</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ rules }}" as="ru" hint-placeholder-count="5">
+            <span style="font-size:12px;padding:5px 10px;border-radius:6px;background:#111;border:1px solid #1c1c1c;color:#a1a1a1">{{ ru }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;border-radius:18px;background:#0a0a0a;border:1px solid #161616;padding:8px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="position:relative;flex:1;min-height:400px;border-radius:12px;background:#0e0e0e;border:1px solid #141414;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:32px">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 50% 30%,rgba(255,255,255,.07),transparent 70%)"></div>
+        <div style="position:relative;width:100%;max-width:400px;border-radius:14px;background:#121212;border:1px solid rgba(255,255,255,.2);box-shadow:0 30px 80px -20px rgba(0,0,0,.9),0 0 70px -20px rgba(255,255,255,.14);padding:24px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:#7c7c7c">Readiness report</span><span style="font-size:11.5px;padding:3px 8px;border-radius:5px;background:#ededed;color:#000;font-weight:500">Interview-ready</span></div>
+          <div><div style="font-size:20px;font-weight:500;letter-spacing:-.02em">Meesho · SDE I Backend</div><div style="font-size:13px;color:#7c7c7c;margin-top:3px">Aarav S. · 4 of 4 official rounds cleared</div></div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ report }}" as="rp" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #1c1c1c;font-size:13px"><span style="color:#a1a1a1">{{ rp.round }}</span><span style="font-family:'Geist Mono',monospace;color:#ededed">{{ rp.score }}</span></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:11.5px;padding:4px 9px;border-radius:6px;background:#1a1a1a;color:#d4d4d4">Strong: communication</span><span style="font-size:11.5px;padding:4px 9px;border-radius:6px;background:#1a1a1a;color:#d4d4d4">Strong: LLD</span><span style="font-size:11.5px;padding:4px 9px;border-radius:6px;background:#1a1a1a;color:#d4d4d4">9 practice sessions</span></div>
+          <div style="font-size:11px;line-height:1.5;color:#5c5c5c;padding-top:12px;border-top:1px solid #1c1c1c">Readiness from mock interviews on InterviewIQ. Not a certification or an endorsement by the company.</div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+        <div style="max-width:420px">
+          <div style="font-size:16px;font-weight:500">A readiness report to share</div>
+          <div style="font-size:15px;line-height:1.55;color:#7c7c7c;margin-top:4px">Clear every round and unlock a summary of your rounds, scores, strengths and practice history.</div>
+        </div>
+        <a href="#" style="font-size:14px;white-space:nowrap">See a sample →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCES -->
+<section id="universities" style="max-width:1160px;margin:0 auto;padding:160px 24px 0">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-end;margin-bottom:48px">
+    <h2 style="margin:0;font-size:clamp(32px,4vw,48px);line-height:1.06;letter-spacing:-.04em;font-weight:500;max-width:600px">Practice for students, professionals and entire batches</h2>
+    <a href="#" style="font-size:13.5px;font-weight:500;background:#1a1a1a;padding:8px 14px;border-radius:8px" style-hover="background:#242424;color:#fff">Talk to us</a>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px">
+    <sc-for list="{{ audiences }}" as="au" hint-placeholder-count="3">
+      <div style="border-radius:18px;background:#0a0a0a;border:1px solid #161616;padding:28px;min-height:260px;display:flex;flex-direction:column;gap:12px" style-hover="border-color:#262626">
+        <div style="font-size:12px;color:#7c7c7c;font-family:'Geist Mono',monospace">{{ au.tag }}</div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-.025em">{{ au.who }}</div>
+        <div style="font-size:15px;line-height:1.55;color:#7c7c7c">{{ au.body }}</div>
+        <div style="margin-top:auto;padding-top:16px;font-size:14px">{{ au.cta }} →</div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section style="max-width:1160px;margin:0 auto;padding:200px 24px 160px;display:flex;flex-direction:column;align-items:center;gap:32px">
+  <h2 style="margin:0;font-size:clamp(34px,4.5vw,52px);line-height:1.05;letter-spacing:-.045em;font-weight:500;text-align:center">Your next interview starts here</h2>
+  <div style="width:100%;max-width:560px;display:flex;flex-direction:column;gap:12px">
+    <div style="border-radius:14px;background:#111;border:1px solid #1f1f1f;padding:14px;height:132px;display:flex;flex-direction:column;box-shadow:0 0 60px -20px rgba(255,255,255,.08)">
+      <input placeholder="Which company and role are you preparing for?" value="{{ query }}" onChange="{{ onQuery }}" style="background:transparent;border:0;outline:none;color:#ededed;font-family:'Geist',sans-serif;font-size:14px;padding:0"></input>
+      <div style="margin-top:auto;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:#7c7c7c;display:flex;gap:6px;align-items:center">📎 Attach résumé</span>
+        <span style="width:26px;height:26px;border-radius:7px;background:{{ sendBg }};color:{{ sendColor }};display:flex;align-items:center;justify-content:center;font-size:13px">↑</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <sc-for list="{{ chips }}" as="ch" hint-placeholder-count="4">
+        <button onClick="{{ ch.onClick }}" style="font-family:'Geist',sans-serif;font-size:12.5px;padding:6px 11px;border-radius:7px;border:1px solid #1f1f1f;background:#111;color:#a1a1a1;cursor:pointer" style-hover="background:#1a1a1a;color:#ededed">{{ ch.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+  <a href="#" style="font-size:13.5px;color:#a1a1a1">Browse all companies →</a>
+</section>
+
+<!-- FOOTER -->
+<footer style="max-width:1160px;margin:0 auto;padding:40px 24px 40px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:32px;padding-bottom:72px">
+    <sc-for list="{{ footer }}" as="col" hint-placeholder-count="5">
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px">
+        <span style="color:#ededed;font-weight:500;margin-bottom:2px">{{ col.title }}</span>
+        <sc-for list="{{ col.links }}" as="lk" hint-placeholder-count="5"><a href="#" style="color:#7c7c7c">{{ lk }}</a></sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;padding-top:24px;border-top:1px solid #141414;font-size:13px;color:#7c7c7c">
+    <div style="display:flex;align-items:center;gap:9px"><div style="width:16px;height:16px;border-radius:4px;background:#ededed;display:flex;align-items:center;justify-content:center"><div style="width:5px;height:5px;border-radius:50%;background:#000"></div></div><span style="color:#ededed">InterviewIQ</span></div>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:#a1a1a1"></span>All systems normal</span>
+    <span>© 2026</span>
+  </div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;animate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { sec: 14 * 60 + 7, query: '' };
+  componentDidMount() { this.iv = setInterval(() => { if (this.props.animate ?? true) this.setState(s => ({ sec: s.sec + 1 })); }, 1000); }
+  componentWillUnmount() { clearInterval(this.iv); }
+  renderVals() {
+    const h = React.createElement, anim = this.props.animate ?? true;
+    const mm = String(Math.floor(this.state.sec / 60)).padStart(2, '0'), ss = String(this.state.sec % 60).padStart(2, '0');
+    const wb = [.4,.7,.3,.9,.55,1,.35,.8,.5,.95,.3,.65,.85,.4,.6,.9,.35,.55,.75,.3,.6,.45,.8,.35,.7,.5,.9,.4];
+    const waveform = h('div', { style: { display: 'flex', gap: 2.5, alignItems: 'center', height: 22 } },
+      wb.map((b, i) => h('span', { key: i, style: { width: 2, height: 22 * b, borderRadius: 1, background: i < 18 ? '#d4d4d4' : '#3d3d3d', animation: anim ? `iq-wave ${0.7 + (i % 5) * 0.16}s ease-in-out ${i * 0.05}s infinite` : 'none' } })));
+    const pill = (st) => st === 'Passed' ? ['#1c1c1c', '#d4d4d4'] : st === 'Scheduled' ? ['#ededed', '#000'] : ['#111', '#5c5c5c'];
+    const chipsSrc = ['Meesho · SDE I Backend', 'Backend intern', 'Data analyst', 'Frontend engineer'];
+    const q = this.state.query;
+    return {
+      timer: `${mm}:${ss}`,
+      recDot: h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#ededed', display: 'inline-block', animation: anim ? 'iq-breathe 1.4s ease-in-out infinite' : 'none' } }),
+      thinking: h('span', { style: { width: 5, height: 5, borderRadius: '50%', background: '#a1a1a1', display: 'inline-block', animation: anim ? 'iq-breathe 1s ease-in-out infinite' : 'none' } }),
+      waveform,
+      cursor: h('span', { style: { display: 'block', width: '100%', height: '100%', background: '#0a0a0a', animation: anim ? 'iq-blink 1s step-end infinite' : 'none' } }),
+      rounds: [
+        ['01', 'Online Assessment', 'Coding', 'Passed'], ['02', 'Problem Solving', 'Live code', 'Scheduled'],
+        ['03', 'System Design (LLD)', 'Whiteboard', 'Locked'], ['04', 'Hiring Manager', 'Behavioural', 'Locked'],
+        ['05', 'Practice · Concurrency', 'Live code', 'Custom'], ['06', 'Practice · SQL', 'Live code', 'Custom'],
+      ].map(([n, title, format, status]) => { const [pillBg, pillColor] = pill(status); return { n, title, format, status, pillBg, pillColor }; }),
+      signals: [{ label: 'Correctness', value: '8.2' }, { label: 'Approach', value: '7.6' }, { label: 'Clarity', value: '8.8' }, { label: 'Fillers', value: '11' }],
+      companies: [{ name: 'Meesho', color: '#ededed' }, ...['Flipkart', 'Razorpay', 'Swiggy', 'CRED', 'PhonePe', 'Zepto'].map(name => ({ name, color: '#3d3d3d' }))],
+      sources: [
+        { kind: 'Résumé', status: 'Parsed', title: 'B.Tech CSE · RVCE', detail: 'Internship at a logistics startup, 2 backend projects', used: '3 questions', border: '#1f1f1f', shadow: 'none', statusColor: '#a1a1a1' },
+        { kind: 'GitHub', status: 'Connected', title: 'order-tracking-svc', detail: 'Go · Kafka · Postgres · 214 commits', used: '5 questions', border: '#3a3a3a', shadow: '0 0 40px -10px rgba(255,255,255,.18)', statusColor: '#ededed' },
+        { kind: 'LeetCode', status: 'Connected', title: '412 solved', detail: 'Strong: graphs, DP · Weak: sliding window', used: 'Difficulty', border: '#1f1f1f', shadow: 'none', statusColor: '#a1a1a1' },
+      ],
+      adapt: [
+        { state: 'Stuck', action: 'HINT', quote: '“What would you need to remember from the previous element?”' },
+        { state: 'Doing well', action: 'PUSH', quote: '“Nice. Now do it in O(1) extra space.”' },
+        { state: 'Struggling', action: 'EASE', quote: '“Let’s walk through a small example first.”' },
+        { state: 'Off track', action: 'STEER', quote: '“Good thought — back to concurrency for now.”' },
+      ],
+      feed: [
+        { t: '14:02', text: '+ r/developersIndia · SDE1 off-campus, 4 rounds', color: '#d4d4d4' },
+        { t: '14:03', text: '→ round 3: LLD — parking lot, rate limiter', color: '#a1a1a1' },
+        { t: '14:05', text: '+ LeetCode Discuss · fresher · Bengaluru', color: '#d4d4d4' },
+        { t: '14:06', text: '! red flag: coding before clarifying', color: '#a1a1a1' },
+        { t: '14:08', text: '→ style: collaborative, pushes edge cases', color: '#a1a1a1' },
+        { t: '14:09', text: '= 142 experiences · depth: high', color: '#7c7c7c' },
+      ],
+      bars: [42, 48, 45, 55, 52, 61, 58, 66, 70, 68, 76, 84].map((v, i, a) => ({ h: v + '%', bg: i === a.length - 1 ? '#ededed' : '#262626' })),
+      leaders: [
+        { rank: '01', name: 'Priya R.', score: '941', color: '#a1a1a1' },
+        { rank: '02', name: 'Karan M.', score: '927', color: '#a1a1a1' },
+        { rank: '48', name: 'You', score: '768', color: '#ededed' },
+      ],
+      levels: [
+        ['Getting started', 'Process set up, no rounds cleared', 'done'],
+        ['Progressing', 'Some rounds cleared', 'done'],
+        ['Nearly ready', 'One round left', 'current'],
+        ['Interview-ready', 'Every official round cleared', 'next'],
+      ].map(([name, desc, st]) => ({
+        name, desc,
+        mark: st === 'done' ? '✓' : st === 'current' ? '•' : '',
+        ring: st === 'next' ? '#2a2a2a' : st === 'current' ? '#ededed' : '#3d3d3d',
+        fill: st === 'done' ? '#1c1c1c' : 'transparent',
+        markColor: st === 'current' ? '#ededed' : '#a1a1a1',
+        titleColor: st === 'next' ? '#a1a1a1' : '#ededed',
+        tag: st === 'current' ? 'YOU ARE HERE' : st === 'done' ? 'CLEARED' : '',
+        tagColor: st === 'current' ? '#ededed' : '#5c5c5c',
+      })),
+      rules: ['Official process only', 'Pass mark every round', '1–2 week retake cooldown', 'Proctored', 'Questions from your background'],
+      report: [{ round: 'Online Assessment', score: '82' }, { round: 'Problem Solving', score: '74' }, { round: 'System Design (LLD)', score: '79' }, { round: 'Hiring Manager', score: '86' }],
+      audiences: [
+        { tag: 'STUDENTS', who: 'Campus placements', body: 'Rehearse the exact process of the companies coming to your campus — before they arrive.', cta: 'Start practicing' },
+        { tag: 'PROFESSIONALS', who: 'Job switchers', body: 'Focused, company-specific mock interviews that fit around your working week.', cta: 'Pick a company' },
+        { tag: 'UNIVERSITIES', who: 'Placement cells', body: 'Give your whole batch unlimited realistic practice, with a live view of every student’s readiness level.', cta: 'Book a pilot' },
+      ],
+      query: q,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      sendBg: q ? '#ededed' : '#262626', sendColor: q ? '#000' : '#7c7c7c',
+      chips: chipsSrc.map(label => ({ label, onClick: () => this.setState({ query: label }) })),
+      footer: [
+        { title: 'Product', links: ['Mock interviews', 'Roadmaps', 'Debriefs', 'Readiness reports', 'Leaderboards', 'Company library'] },
+        { title: 'Practice for', links: ['Meesho', 'Backend roles', 'Frontend roles', 'Data roles', 'Internships'] },
+        { title: 'Universities', links: ['Placement cells', 'Pilot program', 'Batch analytics'] },
+        { title: 'Resources', links: ['Interview guides', 'Blog', 'Help center', 'Contact'] },
+        { title: 'Company', links: ['About', 'Careers', 'Privacy', 'Terms'] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
