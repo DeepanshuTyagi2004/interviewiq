@@ -1,10 +1,10 @@
 /**
  * Generate TypeScript types from the OpenAPI contract into lib/api-client/generated/.
  *
- * The contract in interviewiq-infra is the source of truth for the api <-> web boundary; we never
- * hand-write types that mirror the Spring DTOs. Run after any contract change:
+ * The contract in packages/contracts is the source of truth for the api <-> web boundary; we never
+ * hand-write types that mirror the API DTOs. Run after any contract change:
  *
- *   npm run generate:types
+ *   pnpm contracts:types
  */
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -14,14 +14,14 @@ import openapiTS, { astToString } from "openapi-typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
-// The contract lives in the sibling infra repo (the shared source of truth).
-const CONTRACT = resolve(repoRoot, "..", "interviewiq-infra", "contracts", "openapi.yaml");
+// The contract lives in the monorepo's shared contracts package (the source of truth).
+const CONTRACT = resolve(repoRoot, "..", "..", "packages", "contracts", "openapi.yaml");
 const OUT = resolve(repoRoot, "lib", "api-client", "generated", "schema.d.ts");
 
 const HEADER = `/**
  * GENERATED FILE — do not edit by hand.
- * Source: interviewiq-infra/contracts/openapi.yaml
- * Regenerate: npm run generate:types
+ * Source: packages/contracts/openapi.yaml
+ * Regenerate: pnpm contracts:types
  */
 
 `;

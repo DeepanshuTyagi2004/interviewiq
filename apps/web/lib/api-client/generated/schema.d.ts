@@ -1,10 +1,190 @@
 /**
  * GENERATED FILE — do not edit by hand.
- * Source: interviewiq-infra/contracts/openapi.yaml
- * Regenerate: npm run generate:types
+ * Source: packages/contracts/openapi.yaml
+ * Regenerate: pnpm contracts:types
  */
 
 export interface paths {
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an email/password account and sign in.
+         * @description Public. The email is trimmed and lowercased; the name is trimmed. The new account is role USER (ADMIN for bootstrap admin emails), `onboardingComplete=false` and unverified; a verification link (`{FRONTEND_URL}/verify-email?token=…`) is emailed immediately. Signs the user in: returns the access token and sets the `refresh_token` cookie. Rate limited per client IP (10/hour).
+         *
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with email + password.
+         * @description Public. The email is matched case-insensitively. An unverified email may still sign in. Wrong email, wrong password, and an account with no password (Google-only) all return the same 401 `invalid_credentials`. Rate limited per IP + email (10/15 min) and per IP (50/15 min).
+         *
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the email address with the token from the verification link.
+         * @description Public. Tokens are single-use and expire after 24 hours; only the newest link sent works.
+         */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a fresh verification link to the signed-in user.
+         * @description Requires the Bearer access token. A 204 no-op when the email is already verified. Supersedes any earlier verification link. Rate limited per user (5/hour).
+         *
+         */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a password-reset link.
+         * @description Public. Always 204, whether or not an account exists (no account enumeration). If one does — password or Google-only (resetting then adds a password) — a link to `{FRONTEND_URL}/reset-password?token=…` is emailed; it expires after 1 hour and only the newest one works. Rate limited per IP + email (5/hour).
+         *
+         */
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with the token from the reset link.
+         * @description Public. Sets the new password, marks the email verified, consumes the token and signs the user out everywhere (every refresh token is revoked). Does NOT sign in — follow with `login`. A password that fails validation (400 `invalid_request`) does not use up the token.
+         *
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the refresh cookie and get a new access token.
+         * @description Public; reads the `refresh_token` cookie. Every call rotates the cookie (the presented token stops working). A missing, expired, revoked or reused token is a bare 401 (no body) and clears the cookie.
+         *
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke the refresh cookie's token and clear it. */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user (role + onboarding + verification flags gate the UI). */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interviews/sessions": {
         parameters: {
             query?: never;
@@ -169,6 +349,78 @@ export interface components {
             /** @example session_jd_not_found */
             code: string;
             message: string;
+        };
+        RegisterRequest: {
+            /** @description Trimmed; 1–100 characters after trimming. */
+            name: string;
+            /**
+             * Format: email
+             * @description Trimmed and lowercased before use.
+             */
+            email: string;
+            /**
+             * Format: password
+             * @description 8–128 characters and not only whitespace. Not trimmed.
+             */
+            password: string;
+        };
+        LoginRequest: {
+            /**
+             * Format: email
+             * @description Trimmed and lowercased; matched case-insensitively.
+             */
+            email: string;
+            /**
+             * Format: password
+             * @description Only the length is checked here (so a later, stricter password policy never locks out existing accounts); a wrong password is 401 `invalid_credentials`.
+             *
+             */
+            password: string;
+        };
+        TokenResponse: {
+            /** @description HS256 JWT; send as `Authorization: Bearer <accessToken>`. */
+            accessToken: string;
+            /** @enum {string} */
+            tokenType: "Bearer";
+            /**
+             * @description Access-token lifetime in seconds (900 by default).
+             * @example 900
+             */
+            expiresIn: number;
+        };
+        VerifyEmailRequest: {
+            /** @description The `token` query parameter of the verification link. */
+            token: string;
+        };
+        ForgotPasswordRequest: {
+            /** Format: email */
+            email: string;
+        };
+        ResetPasswordRequest: {
+            /** @description The `token` query parameter of the reset link. */
+            token: string;
+            /**
+             * Format: password
+             * @description The new password — same rules as `RegisterRequest.password`.
+             */
+            password: string;
+        };
+        /** @enum {string} */
+        Role: "USER" | "ADMIN";
+        CurrentUser: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            name: string;
+            role: components["schemas"]["Role"];
+            /** @description True once the onboarding wizard is finished. Gates app entry vs /onboarding. */
+            onboardingComplete: boolean;
+            /** @description The user proved control of `email` (verification link, reset link, or a Google sign-in where Google verified it).
+             *      */
+            emailVerified: boolean;
+            /** @description The account can sign in with email + password (false = Google-only). */
+            hasPassword: boolean;
         };
         /**
          * @description A live, human-conducted interview round InterviewIQ can mock. Online Assessment is intentionally excluded — it's an automated coding test, not a live round, so it isn't bookable/conductable here. (The ai-service brief pipeline still recognises OA when it describes companies' real hiring processes; that's a separate, internal vocabulary.)
@@ -414,6 +666,44 @@ export interface components {
         };
     };
     responses: {
+        /** @description `invalid_request` — the body failed validation; `message` is human-readable. */
+        InvalidRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /** @example {
+                 *       "code": "invalid_request",
+                 *       "message": "Password must be at least 8 characters."
+                 *     } */
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description `invalid_token` — the link's token is unknown, expired or already used (ask for a new link). `invalid_request` — the body failed validation.
+         *      */
+        InvalidTokenOrRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description `rate_limited` — too many attempts; retry after `Retry-After` seconds. */
+        RateLimited: {
+            headers: {
+                /** @description Seconds until the limit resets. */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                /** @example {
+                 *       "code": "rate_limited",
+                 *       "message": "Too many attempts. Please wait a few minutes and try again."
+                 *     } */
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
         /** @description Malformed request. */
         BadRequest: {
             headers: {
@@ -446,11 +736,256 @@ export interface components {
         SessionId: string;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description `refresh_token=<opaque>; Path=/api/v1/auth; HttpOnly; SameSite=<Lax|Strict|None>` (+ `Secure` in production). Never readable by JavaScript.
+         *      */
+        RefreshTokenCookie: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Account created and signed in. */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            /** @description The email is already registered. `email_taken` — an email/password account exists (log in instead). `use_google` — the email belongs to a Google account ("This email signs in with Google. Continue with Google instead.").
+             *      */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            /** @description `invalid_credentials` — Incorrect email or password. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /** @example {
+                     *       "code": "invalid_credentials",
+                     *       "message": "Incorrect email or password."
+                     *     } */
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Email verified. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidTokenOrRequest"];
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link sent (or nothing to do). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidRequest"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidTokenOrRequest"];
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New access token; the rotated refresh cookie is set. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description No valid refresh token (empty body; the cookie is cleared). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The token's user no longer exists (empty body). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listMyInterviewSessions: {
         parameters: {
             query?: never;
