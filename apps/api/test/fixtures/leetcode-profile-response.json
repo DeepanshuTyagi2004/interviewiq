@@ -1,0 +1,31 @@
+{
+  "data": {
+    "matchedUser": {
+      "username": "aakash_42",
+      "profile": { "realName": "Aakash", "countryName": "India" },
+      "submitStatsGlobal": {
+        "acSubmissionNum": [
+          { "difficulty": "All", "count": 412 },
+          { "difficulty": "Easy", "count": 78 },
+          { "difficulty": "Medium", "count": 268 },
+          { "difficulty": "Hard", "count": 66 }
+        ]
+      },
+      "tagProblemCounts": {
+        "advanced": [
+          { "tagName": "Dynamic Programming", "problemsSolved": 40 },
+          { "tagName": "Backtracking", "problemsSolved": 10 },
+          { "tagName": "Suffix Array", "problemsSolved": 0 }
+        ],
+        "intermediate": [
+          { "tagName": "Hash Table", "problemsSolved": 55 },
+          { "tagName": "Greedy", "problemsSolved": 30 }
+        ],
+        "fundamental": [
+          { "tagName": "Array", "problemsSolved": 90 },
+          { "tagName": "String", "problemsSolved": 60 }
+        ]
+      }
+    }
+  }
+}
