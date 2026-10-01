@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useDisconnectGithub } from "@/features/profile";
 
+/** "Disconnect" for an OAuth source (GitHub), behind a confirm dialog. */
 export function DisconnectDialog({ label }: { label: string }) {
   const [open, setOpen] = useState(false);
   const { mutate, isPending } = useDisconnectGithub();
@@ -33,7 +34,9 @@ export function DisconnectDialog({ label }: { label: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Disconnect</Button>
+        <Button variant="strong" size="sm" className="min-w-[96px]">
+          Disconnect
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

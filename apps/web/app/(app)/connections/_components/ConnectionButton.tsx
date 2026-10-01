@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { MonoPill } from "@/components/patterns";
 import { apiFetch } from "@/lib/api-client/client";
 import type { SourceKind } from "@/features/profile";
 import { PROFILE_ENDPOINTS } from "@/lib/constants/profile";
-import { SourceIcon } from "./SourceIcon";
 
 /** Maps a source to its backend authorize endpoint. Only GitHub is live. */
 const AUTHORIZE_PATH: Partial<Record<SourceKind, string>> = {
@@ -22,6 +22,10 @@ const SOURCE_LABELS: Record<SourceKind, string> = {
   X: "X",
 };
 
+/**
+ * OAuth "Connect" for a source row. Sources without an authorize endpoint get a plain
+ * "coming soon" pill instead of a button, so nothing looks clickable that isn't.
+ */
 export function ConnectionButton({
   source,
   label,
@@ -50,16 +54,22 @@ export function ConnectionButton({
 
   if (!path) {
     return (
-      <Button variant="secondary" disabled aria-label={`${resolvedLabel} — coming soon`}>
+      <MonoPill tone="ghost" className="border border-line-3">
         Coming soon
-      </Button>
+      </MonoPill>
     );
   }
 
   return (
-    <Button onClick={connect} disabled={pending} aria-label={`Connect ${resolvedLabel}`}>
-      <SourceIcon source={source} className="mr-2 h-4 w-4" />
-      {pending ? "Connecting…" : `Connect ${resolvedLabel}`}
+    <Button
+      variant="ink"
+      size="sm"
+      className="min-w-[96px]"
+      onClick={connect}
+      disabled={pending}
+      aria-label={pending ? `Connecting ${resolvedLabel}…` : `Connect ${resolvedLabel}`}
+    >
+      {pending ? "Connecting…" : "Connect"}
     </Button>
   );
 }

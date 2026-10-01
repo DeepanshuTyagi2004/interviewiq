@@ -1,23 +1,39 @@
 "use client";
 
 import { Link2 } from "lucide-react";
-import { ProviderCard } from "./ProviderCard";
-import { LeetCodeCard } from "./LeetCodeCard";
-import { ResumeCard } from "./ResumeCard";
-import { PROVIDERS } from "./providers";
 import { useProfile, type SourceKind } from "@/features/profile";
-import { ConnectionsSkeleton, EmptyState } from "@/components/patterns";
+import { EmptyState } from "@/components/patterns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PROVIDERS } from "./providers";
+import { SourceList } from "./SourceList";
 
-export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
+/**
+ * Every connectable source as a stack of rows (onboarding's Sources step and the Connections
+ * page). `className` is merged onto the list, e.g. to narrow it for onboarding.
+ */
+export function ConnectionsGrid({
+  errorSource,
+  className,
+}: {
+  errorSource?: SourceKind;
+  /** Merged onto the list container, e.g. for narrower containers like onboarding. */
+  className?: string;
+}) {
   const { data, isLoading, isError } = useProfile();
 
   if (isLoading) {
-    return <ConnectionsSkeleton />;
+    return (
+      <div className="grid gap-2.5" aria-busy="true" aria-label="Loading your sources">
+        {PROVIDERS.map((p) => (
+          <Skeleton key={p.source} className="h-[70px] w-full rounded-lg" />
+        ))}
+      </div>
+    );
   }
 
   if (isError || !data) {
     return (
-      <p role="alert" className="text-sm text-destructive">
+      <p role="alert" className="m-0 text-sm text-destructive">
         Could not load your connections. Please refresh the page.
       </p>
     );
@@ -33,37 +49,5 @@ export function ConnectionsGrid({ errorSource }: { errorSource?: SourceKind }) {
     );
   }
 
-  const byKind = Object.fromEntries(data.sources.map((s) => [s.source, s]));
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {PROVIDERS.map((provider) => {
-        // LeetCode has a username-input + async-sync flow of its own; the rest use the
-        // generic OAuth-style card. Both read from the same shared profile query.
-        if (provider.source.toLowerCase() === "leetcode") {
-          return (
-            <LeetCodeCard
-              key={provider.source}
-              provider={provider}
-              errored={errorSource === provider.source}
-            />
-          );
-        }
-        // Résumé isn't an OAuth/paste link — it's an upload+parse import with its own card.
-        if (provider.source === "RESUME") {
-          return <ResumeCard key={provider.source} provider={provider} />;
-        }
-        const src = byKind[provider.source];
-        return (
-          <ProviderCard
-            key={provider.source}
-            provider={provider}
-            connected={Boolean(src?.connected)}
-            lastRefreshedAt={src?.lastRefreshedAt}
-            errored={errorSource === provider.source}
-          />
-        );
-      })}
-    </div>
-  );
+  return <SourceList profile={data} errorSource={errorSource} className={className} />;
 }
