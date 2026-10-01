@@ -1,0 +1,10 @@
+{
+  "name": "@interviewiq/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenAPI contract — source of truth for the web ↔ api ↔ ai-service boundaries.",
+  "files": ["openapi.yaml"],
+  "exports": {
+    "./openapi.yaml": "./openapi.yaml"
+  }
+}

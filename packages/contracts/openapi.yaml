@@ -1,0 +1,1271 @@
+openapi: 3.0.3
+
+info:
+  title: InterviewIQ Contract
+  version: 0.3.0
+  description: >
+    Source-of-truth contract for the InterviewIQ service boundaries.
+
+    Two boundaries live here:
+
+    * **candidate** (`interviewiq-web` ↔ `interviewiq-api`, served at :8080) — the
+      candidate-facing REST surface, JWT-authenticated. The frontend generates its
+      TypeScript types from this file (`scripts/generate-types.ts` → openapi-typescript).
+    * **internal** (`interviewiq-api` ↔ `interviewiq-ai-service`, served at :8000) —
+      the service-to-service surface guarded by the `X-Internal-Api-Key` shared secret.
+
+    Interview Prep (Pipeline 1) is the surface added in 0.2.0: a candidate books an
+    interview session for a JD + round + slot; a scheduled job on the backend, a
+    configurable lead time before the slot, asks the ai-service to build an
+    `InterviewPlan` from the brief + profile + JD + question bank. This is prep ONLY —
+    no live voice loop, no post-interview scoring/debrief. The interview rubric lives
+    ONLY on `InterviewPlan`; it is never grafted onto the descriptive Profile Builder
+    `ProfileSummary` contract.
+
+    Email/password auth (register, login, email verification, password reset) and the
+    `CurrentUser` shape are the surface added in 0.3.0.
+
+servers:
+  - url: http://localhost:8080
+    description: interviewiq-api (candidate-facing, JWT)
+
+tags:
+  - name: auth
+    description: >
+      Backend-owned auth (api ↔ web). Google sign-in, email/password accounts, email
+      verification, password reset, refresh-token rotation. Session = short-lived JWT access
+      token (JSON body) + an httpOnly `refresh_token` cookie scoped to `/api/v1/auth`.
+  - name: users
+    description: The signed-in user.
+  - name: interview-sessions
+    description: Candidate-facing interview booking + prep status (api ↔ web).
+  - name: internal-interview-prep
+    description: Service-to-service interview-plan generation (api ↔ ai-service).
+
+paths:
+  # ------------------------------------------------------------------ #
+  # Auth (interviewiq-web ↔ interviewiq-api)                            #
+  # ------------------------------------------------------------------ #
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create an email/password account and sign in.
+      description: >
+        Public. The email is trimmed and lowercased; the name is trimmed. The new account is
+        role USER (ADMIN for bootstrap admin emails), `onboardingComplete=false` and unverified;
+        a verification link (`{FRONTEND_URL}/verify-email?token=…`) is emailed immediately.
+        Signs the user in: returns the access token and sets the `refresh_token` cookie.
+        Rate limited per client IP (10/hour).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created and signed in.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/RefreshTokenCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          description: >
+            The email is already registered. `email_taken` — an email/password account exists
+            (log in instead). `use_google` — the email belongs to a Google account ("This email
+            signs in with Google. Continue with Google instead.").
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                email_taken:
+                  value: { code: email_taken, message: An account with this email already exists. Log in instead. }
+                use_google:
+                  value: { code: use_google, message: This email signs in with Google. Continue with Google instead. }
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in with email + password.
+      description: >
+        Public. The email is matched case-insensitively. An unverified email may still sign in.
+        Wrong email, wrong password, and an account with no password (Google-only) all return
+        the same 401 `invalid_credentials`. Rate limited per IP + email (10/15 min) and per IP
+        (50/15 min).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/RefreshTokenCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          description: "`invalid_credentials` — Incorrect email or password."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example: { code: invalid_credentials, message: Incorrect email or password. }
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      summary: Confirm the email address with the token from the verification link.
+      description: Public. Tokens are single-use and expire after 24 hours; only the newest link sent works.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "204":
+          description: Email verified.
+        "400":
+          $ref: "#/components/responses/InvalidTokenOrRequest"
+
+  /api/v1/auth/resend-verification:
+    post:
+      operationId: resendVerification
+      tags: [auth]
+      summary: Email a fresh verification link to the signed-in user.
+      description: >
+        Requires the Bearer access token. A 204 no-op when the email is already verified.
+        Supersedes any earlier verification link. Rate limited per user (5/hour).
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Link sent (or nothing to do).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Email a password-reset link.
+      description: >
+        Public. Always 204, whether or not an account exists (no account enumeration). If one
+        does — password or Google-only (resetting then adds a password) — a link to
+        `{FRONTEND_URL}/reset-password?token=…` is emailed; it expires after 1 hour and only the
+        newest one works. Rate limited per IP + email (5/hour).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "204":
+          description: Accepted.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password with the token from the reset link.
+      description: >
+        Public. Sets the new password, marks the email verified, consumes the token and signs the
+        user out everywhere (every refresh token is revoked). Does NOT sign in — follow with
+        `login`. A password that fails validation (400 `invalid_request`) does not use up the
+        token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "204":
+          description: Password changed.
+        "400":
+          $ref: "#/components/responses/InvalidTokenOrRequest"
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      tags: [auth]
+      summary: Rotate the refresh cookie and get a new access token.
+      description: >
+        Public; reads the `refresh_token` cookie. Every call rotates the cookie (the presented
+        token stops working). A missing, expired, revoked or reused token is a bare 401 (no body)
+        and clears the cookie.
+      security: []
+      responses:
+        "200":
+          description: New access token; the rotated refresh cookie is set.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/RefreshTokenCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: No valid refresh token (empty body; the cookie is cleared).
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Revoke the refresh cookie's token and clear it.
+      security: []
+      responses:
+        "204":
+          description: Signed out.
+
+  /api/v1/users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [users]
+      summary: The signed-in user (role + onboarding + verification flags gate the UI).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The token's user no longer exists (empty body).
+
+  # ------------------------------------------------------------------ #
+  # Candidate-facing (interviewiq-web ↔ interviewiq-api, JWT)           #
+  # ------------------------------------------------------------------ #
+  /api/v1/interviews/sessions:
+    get:
+      operationId: listMyInterviewSessions
+      tags: [interview-sessions]
+      summary: List the authenticated candidate's interview sessions (newest first).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The candidate's sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSessionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createInterviewSession
+      tags: [interview-sessions]
+      summary: Book an interview session for a JD + round + slot (status SCHEDULED).
+      description: >
+        Creates a session for the selected job description, round type, and slot. The
+        JD must resolve to a real, enabled company/role/level (CompanyRoleConfig) and
+        the round type must be a valid `RoundType`. Prep is scheduled automatically —
+        the session starts as `SCHEDULED` and the backend generates the plan shortly
+        before the slot.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInterviewSessionRequest"
+      responses:
+        "201":
+          description: The created session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/interviews/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: getInterviewSession
+      tags: [interview-sessions]
+      summary: Get one interview session's status. Only the owning candidate may read it.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/interviews/sessions/{sessionId}/regenerate:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: regenerateInterviewSessionPrep
+      tags: [interview-sessions]
+      summary: Re-queue prep generation for a session (retry after PREP_FAILED, or refresh).
+      description: >
+        Idempotent by design — the ai-service caches on the fused input hash, so a
+        regenerate with unchanged inputs returns the existing plan with no LLM calls.
+        Moves the session back to `PREP_QUEUED`; the backend then (re)generates. Only
+        the owning candidate may call this.
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Regeneration accepted; session moved to PREP_QUEUED.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/interviews/sessions/{sessionId}/live:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: goLiveInterviewSession
+      tags: [interview-sessions]
+      summary: Start (or resume) the live interview; mints a LiveKit join token.
+      description: >
+        Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join
+        token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for
+        the same room without altering session state. Only the owning candidate may
+        call this.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The live session state, with a LiveKit join token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoLiveResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      operationId: getLiveInterviewSession
+      tags: [interview-sessions]
+      summary: Current live state (fresh token if LIVE_IN_PROGRESS).
+      description: >
+        Read-only check of the session's live state. Returns a fresh LiveKit token
+        when LIVE_IN_PROGRESS; livekitUrl/token/roomName are null for any other
+        status. Only the owning candidate may call this.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The live session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoLiveResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ------------------------------------------------------------------ #
+  # Internal (interviewiq-api ↔ interviewiq-ai-service, X-Internal-Api-Key) #
+  # ------------------------------------------------------------------ #
+  /interview-plans:
+    servers:
+      - url: http://localhost:8000
+        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
+    post:
+      operationId: generateInterviewPlan
+      tags: [internal-interview-prep]
+      summary: Build (or return the cached) InterviewPlan for a session.
+      description: >
+        The backend assembles the session context + JD + candidate profile and posts
+        it here. Stage 1 (no LLM) gathers the brief and the question bank and computes
+        a deterministic input hash. If a stored plan for this session already has the
+        same input hash, it is returned unchanged (no LLM calls). Otherwise three
+        schema-validated LLM calls (persona, ladders, probes) run concurrently, the
+        plan is assembled, persisted (one per session), and returned.
+      security:
+        - internalApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateInterviewPlanRequest"
+      responses:
+        "200":
+          description: The generated or cached plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewPlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: No brief/questions available for this (company, role, level).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Plan generation failed (LLM never produced a valid plan).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /interview-plans/start:
+    servers:
+      - url: http://localhost:8000
+        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
+    post:
+      operationId: startInterviewPlan
+      tags: [internal-interview-prep]
+      summary: Start plan generation in the background (fire-and-poll variant).
+      description: >
+        Same request body and cache/persist semantics as POST /interview-plans, but returns a
+        run_id immediately and runs the pipeline in the background. The caller polls
+        GET /interview-plans/runs/{runId} until the run is terminal. Used by the prep trigger so a
+        slow, concurrent Stage-2 LLM run can't trip the HTTP client read timeout (which would
+        wrongly mark the session PREP_FAILED). Single-process: start and poll must hit the same worker.
+      security:
+        - internalApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateInterviewPlanRequest"
+      responses:
+        "200":
+          description: The run was started.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [run_id, status]
+                properties:
+                  run_id: { type: string }
+                  status: { type: string, enum: [running] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /interview-plans/runs/{runId}:
+    servers:
+      - url: http://localhost:8000
+        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
+    get:
+      operationId: getInterviewPlanRun
+      tags: [internal-interview-prep]
+      summary: Poll a run started by /interview-plans/start.
+      description: >
+        Returns the run's terminal state. While running, plan and error are null. On completed,
+        plan carries the InterviewPlan. On failed, error carries {code, message} — code mirrors the
+        synchronous route's failure modes (no_data ≈ 422, llm_error ≈ 502).
+      security:
+        - internalApiKey: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The run snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [run_id, status]
+                properties:
+                  run_id: { type: string }
+                  status: { type: string, enum: [running, completed, failed] }
+                  plan:
+                    allOf:
+                      - $ref: "#/components/schemas/InterviewPlan"
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string }
+                      message: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    internalApiKey:
+      type: apiKey
+      in: header
+      name: X-Internal-Api-Key
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    RefreshTokenCookie:
+      description: >
+        `refresh_token=<opaque>; Path=/api/v1/auth; HttpOnly; SameSite=<Lax|Strict|None>`
+        (+ `Secure` in production). Never readable by JavaScript.
+      schema:
+        type: string
+
+  responses:
+    InvalidRequest:
+      description: "`invalid_request` — the body failed validation; `message` is human-readable."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example: { code: invalid_request, message: Password must be at least 8 characters. }
+    InvalidTokenOrRequest:
+      description: >
+        `invalid_token` — the link's token is unknown, expired or already used (ask for a new
+        link). `invalid_request` — the body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalid_token:
+              value: { code: invalid_token, message: This link is invalid or has expired. Request a new one. }
+            invalid_request:
+              value: { code: invalid_request, message: Password must be at least 8 characters. }
+    RateLimited:
+      description: "`rate_limited` — too many attempts; retry after `Retry-After` seconds."
+      headers:
+        Retry-After:
+          description: Seconds until the limit resets.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example: { code: rate_limited, message: Too many attempts. Please wait a few minutes and try again. }
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Resource not found (or not owned by the caller).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
+  schemas:
+    ApiError:
+      type: object
+      description: The stable { code, message } error envelope used across the api.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: session_jd_not_found
+        message:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Trimmed; 1–100 characters after trimming.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Trimmed and lowercased before use.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: 8–128 characters and not only whitespace. Not trimmed.
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Trimmed and lowercased; matched case-insensitively.
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+          description: >
+            Only the length is checked here (so a later, stricter password policy never locks
+            out existing accounts); a wrong password is 401 `invalid_credentials`.
+
+    TokenResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: "HS256 JWT; send as `Authorization: Bearer <accessToken>`."
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Access-token lifetime in seconds (900 by default).
+          example: 900
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: The `token` query parameter of the verification link.
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: The `token` query parameter of the reset link.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: The new password — same rules as `RegisterRequest.password`.
+
+    Role:
+      type: string
+      enum: [USER, ADMIN]
+
+    CurrentUser:
+      type: object
+      required: [id, email, name, role, onboardingComplete, emailVerified, hasPassword]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        onboardingComplete:
+          type: boolean
+          description: True once the onboarding wizard is finished. Gates app entry vs /onboarding.
+        emailVerified:
+          type: boolean
+          description: >
+            The user proved control of `email` (verification link, reset link, or a Google
+            sign-in where Google verified it).
+        hasPassword:
+          type: boolean
+          description: The account can sign in with email + password (false = Google-only).
+
+    RoundType:
+      type: string
+      description: >
+        A live, human-conducted interview round InterviewIQ can mock. Online Assessment is
+        intentionally excluded — it's an automated coding test, not a live round, so it isn't
+        bookable/conductable here. (The ai-service brief pipeline still recognises OA when it
+        describes companies' real hiring processes; that's a separate, internal vocabulary.)
+      enum:
+        - dsa
+        - system-design
+        - lld
+        - behavioural
+        - hiring-manager
+
+    Difficulty:
+      type: string
+      enum: [easy, medium, hard]
+
+    SessionStatus:
+      type: string
+      description: >
+        Interview session lifecycle. Prep (SCHEDULED → PREP_QUEUED → PREP_READY, with
+        PREP_FAILED) is Pipeline 1. Live states (LIVE_IN_PROGRESS, COMPLETED,
+        ABORTED_TECHNICAL) are Pipeline 2 — a PREP_READY session transitions to
+        LIVE_IN_PROGRESS on go-live, then to COMPLETED or ABORTED_TECHNICAL.
+      enum:
+        - SCHEDULED
+        - PREP_QUEUED
+        - PREP_READY
+        - PREP_FAILED
+        - LIVE_IN_PROGRESS
+        - COMPLETED
+        - ABORTED_TECHNICAL
+
+    CreateInterviewSessionRequest:
+      type: object
+      required: [jobDescriptionId, scheduledAt, timezone]
+      properties:
+        jobDescriptionId:
+          type: string
+          format: uuid
+        roundType:
+          allOf:
+            - $ref: "#/components/schemas/RoundType"
+          description: >
+            Optional and normally omitted — the candidate does not pick the round. The backend
+            assigns it (currently the first round; per-candidate round progression later). Accepted
+            if sent (e.g. by the admin bench).
+        scheduledAt:
+          type: string
+          format: date-time
+          description: The chosen slot, as an absolute instant (UTC ISO-8601).
+        timezone:
+          type: string
+          description: IANA timezone the candidate booked in (e.g. Asia/Kolkata).
+          example: Asia/Kolkata
+
+    InterviewSession:
+      type: object
+      description: >
+        A booked interview session and its prep readiness. `planReady` (status ==
+        PREP_READY) is the only signal surfaced to the candidate — plan CONTENTS are
+        the interviewer's material and are never returned here.
+      required:
+        - id
+        - candidateId
+        - jobDescriptionId
+        - company
+        - role
+        - level
+        - specialization
+        - roundType
+        - scheduledAt
+        - timezone
+        - status
+        - planReady
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        jobDescriptionId:
+          type: string
+          format: uuid
+        company:
+          type: string
+          description: Company slug.
+        companyName:
+          type: string
+          nullable: true
+          description: Human-readable company name, when known.
+        role:
+          type: string
+        level:
+          type: string
+        specialization:
+          type: string
+        roundType:
+          $ref: "#/components/schemas/RoundType"
+        scheduledAt:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        planReady:
+          type: boolean
+          description: True when status == PREP_READY (an InterviewPlan exists).
+        planVersion:
+          type: string
+          nullable: true
+          description: The plan_version recorded once prep succeeds.
+        inputHash:
+          type: string
+          nullable: true
+          description: The ai-service fused input hash of the generated plan.
+        prepError:
+          type: string
+          nullable: true
+          description: Stable error code when status == PREP_FAILED.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    InterviewSessionListResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterviewSession"
+
+    GoLiveResponse:
+      type: object
+      description: >
+        Result of starting or checking the live interview. `livekitUrl`/`token`/`roomName`
+        are populated while status == LIVE_IN_PROGRESS and null otherwise (e.g. before
+        prep is ready, or after the session has COMPLETED/ABORTED_TECHNICAL).
+      required: [status]
+      properties:
+        livekitUrl:
+          type: string
+          nullable: true
+        token:
+          type: string
+          nullable: true
+        roomName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+
+    # ------- Internal request (api → ai-service) ------- #
+    GenerateInterviewPlanRequest:
+      type: object
+      description: Everything the ai-service needs to build a plan. Assembled by the backend.
+      required: [session, jobDescription, candidateProfile]
+      properties:
+        session:
+          $ref: "#/components/schemas/PlanSessionContext"
+        jobDescription:
+          $ref: "#/components/schemas/PlanJobDescription"
+        candidateProfile:
+          $ref: "#/components/schemas/PlanCandidateProfile"
+
+    PlanSessionContext:
+      type: object
+      required: [sessionId, candidateId, company, role, level, specialization, roundType]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        company:
+          type: string
+        role:
+          type: string
+        level:
+          type: string
+        specialization:
+          type: string
+        roundType:
+          $ref: "#/components/schemas/RoundType"
+
+    PlanJobDescription:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        techStack:
+          type: string
+          nullable: true
+          description: Comma-separated tech stack (as stored on the JD).
+
+    PlanCandidateProfile:
+      type: object
+      description: >
+        The candidate's descriptive profile, as the backend assembles it from
+        CandidateProfile. Evidence-carrying, never scored. The ai-service hashes this
+        to detect changes.
+      properties:
+        fullName:
+          type: string
+          nullable: true
+        headline:
+          type: string
+          nullable: true
+        targetRole:
+          type: string
+          nullable: true
+        education:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanEducation"
+        experience:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanExperience"
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanProject"
+        skills:
+          type: array
+          items:
+            type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        links:
+          $ref: "#/components/schemas/PlanLinks"
+        codingProfile:
+          allOf:
+            - $ref: "#/components/schemas/PlanCodingProfile"
+          nullable: true
+          description: >
+            Curated GitHub + LeetCode signals from the Profile Builder, or null if not connected.
+
+    PlanCodingProfile:
+      type: object
+      description: >
+        Compact, stable coding-platform signals the backend curates from the ProfileFragments —
+        GitHub (languages, topRepos, contributionsLastYear) and LeetCode (solved, byTopic, contest).
+        Free-form objects so the fragment shape can evolve without a contract change.
+      properties:
+        github:
+          type: object
+          additionalProperties: true
+          nullable: true
+        leetcode:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    PlanProject:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        tech:
+          type: array
+          items: { type: string }
+        bullets:
+          type: array
+          items: { type: string }
+        link: { type: string, nullable: true }
+
+    PlanEducation:
+      type: object
+      properties:
+        institution: { type: string, nullable: true }
+        degree: { type: string, nullable: true }
+        field: { type: string, nullable: true }
+        startYear: { type: string, nullable: true }
+        endYear: { type: string, nullable: true }
+        grade: { type: string, nullable: true }
+
+    PlanExperience:
+      type: object
+      properties:
+        company: { type: string, nullable: true }
+        title: { type: string, nullable: true }
+        startDate: { type: string, nullable: true }
+        endDate: { type: string, nullable: true }
+        location: { type: string, nullable: true }
+        bullets:
+          type: array
+          items: { type: string }
+
+    PlanLinks:
+      type: object
+      properties:
+        github: { type: string, nullable: true }
+        leetcode: { type: string, nullable: true }
+        linkedin: { type: string, nullable: true }
+
+    # ------- The plan itself (ai-service → api) ------- #
+    InterviewPlan:
+      type: object
+      description: >
+        The interviewer's prep material for one session. Descriptive and
+        evidence-carrying throughout. The rubric on each question ladder lives ONLY
+        here — never on any Profile Builder / ProfileSummary contract.
+      required:
+        - sessionId
+        - candidateId
+        - company
+        - role
+        - level
+        - specialization
+        - roundType
+        - provenance
+        - persona
+        - roundArc
+        - questionLadders
+        - candidateProbes
+        - redFlagWatchlist
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        company:
+          type: string
+        role:
+          type: string
+        level:
+          type: string
+        specialization:
+          type: string
+        roundType:
+          $ref: "#/components/schemas/RoundType"
+        provenance:
+          $ref: "#/components/schemas/PlanProvenance"
+        persona:
+          $ref: "#/components/schemas/InterviewerPersona"
+        roundArc:
+          type: array
+          description: Ordered, timed beats of the round.
+          items:
+            $ref: "#/components/schemas/RoundBeat"
+        questionLadders:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionLadder"
+        candidateProbes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateProbe"
+        redFlagWatchlist:
+          type: array
+          description: Behaviours/signals to watch for, carried from the brief.
+          items:
+            type: string
+
+    PlanProvenance:
+      type: object
+      description: Versioning + traceability for one plan.
+      required: [planVersion, inputHash, model, generatedAt]
+      properties:
+        planVersion:
+          type: string
+          description: Overall plan-shape version.
+        personaPromptVersion:
+          type: string
+          nullable: true
+        ladderPromptVersion:
+          type: string
+          nullable: true
+        probesPromptVersion:
+          type: string
+          nullable: true
+        briefGeneratedAt:
+          type: string
+          nullable: true
+          description: Timestamp of the brief the plan was built from.
+        profileHash:
+          type: string
+          nullable: true
+        inputHash:
+          type: string
+          description: sha256 of the fused inputs — the cache key.
+        model:
+          type: string
+          description: LLM model used (read from settings; never hardcoded).
+        generatedAt:
+          type: string
+          format: date-time
+
+    InterviewerPersona:
+      type: object
+      required: [name, seniority, disposition]
+      properties:
+        name:
+          type: string
+        seniority:
+          type: string
+          description: e.g. "Senior Software Engineer".
+        disposition:
+          type: string
+          description: e.g. "warm but rigorous".
+        styleNotes:
+          type: string
+          nullable: true
+        opening:
+          type: string
+          nullable: true
+          description: Opening script for the interviewer.
+        closing:
+          type: string
+          nullable: true
+          description: Closing script for the interviewer.
+        groundedIn:
+          type: array
+          description: Evidence the persona is grounded in (brief/JD signals).
+          items:
+            type: string
+
+    RoundBeat:
+      type: object
+      required: [phase, title, timeboxMins]
+      properties:
+        phase:
+          type: string
+          enum: [intro, warm-up, core, curveball, candidate-qs, wrap]
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        timeboxMins:
+          type: integer
+
+    QuestionLadder:
+      type: object
+      required: [basePrompt, followUps, hints, rubric]
+      properties:
+        questionSlug:
+          type: string
+          nullable: true
+          description: Optional link to a QuestionRecord slug in the question bank.
+        basePrompt:
+          type: string
+        difficulty:
+          allOf:
+            - $ref: "#/components/schemas/Difficulty"
+          nullable: true
+        followUps:
+          type: array
+          description: Escalating follow-ups, ordered easiest-to-hardest.
+          items:
+            type: string
+        hints:
+          type: array
+          description: Increasingly explicit hints, ordered subtle-to-explicit.
+          items:
+            type: string
+        rubric:
+          type: array
+          description: Weighted evaluation criteria (interviewer-only).
+          items:
+            $ref: "#/components/schemas/RubricCriterion"
+        timeboxMins:
+          type: integer
+          nullable: true
+
+    RubricCriterion:
+      type: object
+      required: [criterion, weight]
+      properties:
+        criterion:
+          type: string
+        weight:
+          type: number
+          description: Relative weight (0..1 or arbitrary scale; interviewer-only).
+        strongDescriptor:
+          type: string
+          nullable: true
+          description: What a strong answer looks like.
+        weakDescriptor:
+          type: string
+          nullable: true
+          description: What a weak answer looks like.
+
+    CandidateProbe:
+      type: object
+      required: [prompt, whatItTests]
+      properties:
+        prompt:
+          type: string
+        groundedIn:
+          type: string
+          nullable: true
+          description: The profile/JD signal this probe is grounded in.
+        whatItTests:
+          type: string
