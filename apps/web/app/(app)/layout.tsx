@@ -1,29 +1,18 @@
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { OnboardingGate } from "@/components/auth/OnboardingGate";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppShell } from "@/components/layout/app-shell/AppShell";
 
+/**
+ * Signed-in shell: top bar on the grey frame, each page in a rounded card, and the menu revealed
+ * behind the card. Onboarding lives in its own route group.
+ */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-width": "16rem",
-            "--header-height": "3.5rem",
-          } as React.CSSProperties
-        }
-      >
-        <AppSidebar variant="sidebar" />
-        <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col">
-            {/* Redirects users who haven't finished onboarding to /onboarding (and vice-versa). */}
-            <OnboardingGate>{children}</OnboardingGate>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <AppShell>
+        {/* Redirects users who haven't finished onboarding to /onboarding. */}
+        <OnboardingGate>{children}</OnboardingGate>
+      </AppShell>
     </RequireAuth>
   );
 }
