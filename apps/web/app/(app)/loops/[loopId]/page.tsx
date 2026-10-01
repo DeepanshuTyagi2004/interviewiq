@@ -5,5 +5,5 @@ export default async function LoopDetailPage({
 }) {
   const { loopId } = await params;
   // TODO: loop detail view
-  return <main className="flex-1 p-8">Loop {loopId}</main>;
+  return <section className="flex-1 p-8">Loop {loopId}</section>;
 }
