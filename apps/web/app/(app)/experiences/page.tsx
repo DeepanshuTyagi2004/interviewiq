@@ -1,104 +1,24 @@
-"use client";
-
-import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader } from "@/components/patterns";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ApiFetchError } from "@/lib/api-client/client";
-import { useSubmitExperience } from "@/features/experiences";
-
-const LEVELS = [
-  { value: "fresher", label: "Fresher" },
-  { value: "sde1", label: "SDE-1" },
-  { value: "sde2", label: "SDE-2" },
-  { value: "sde3", label: "SDE-3" },
-];
-
-const MIN_CONTENT = 20;
+import { ExperienceForm } from "./_components/ExperienceForm";
+import { ExperienceGuide } from "./_components/ExperienceGuide";
 
 export default function ShareExperiencePage() {
-  const [company, setCompany] = useState("");
-  const [level, setLevel] = useState("fresher");
-  const [content, setContent] = useState("");
-  const submit = useSubmitExperience();
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    submit.mutate(
-      { company: company.trim(), level, content: content.trim() },
-      {
-        onSuccess: () => {
-          toast.success("Thanks! Your experience was submitted for processing.");
-          setCompany("");
-          setContent("");
-        },
-        onError: (err) =>
-          toast.error(
-            err instanceof ApiFetchError ? err.message : "Could not submit your experience.",
-          ),
-      },
-    );
-  }
-
-  const disabled =
-    submit.isPending || !company.trim() || content.trim().length < MIN_CONTENT;
-
   return (
-    <div className="flex-1 space-y-8 p-6">
-      <PageHeader
-        title="Share an interview experience"
-        description="Just interviewed somewhere? Share what happened — it helps build company-specific interview intelligence for everyone. Descriptive only; no names or confidential material."
-      />
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+      <div className="min-w-0">
+        <p className="iq-eyebrow m-0">Share experience</p>
+        <h1 className="m-0 mt-2.5 text-balance text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          Share an interview experience
+        </h1>
+        <p className="m-0 mt-2 max-w-2xl text-[15px] leading-[1.5] text-muted-foreground">
+          Just interviewed somewhere? Share what happened — it helps build company-specific interview intelligence
+          for everyone.
+        </p>
+      </div>
 
-      <form onSubmit={onSubmit} className="max-w-2xl space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="company">Company</Label>
-          <Input
-            id="company"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            placeholder="e.g. Google"
-            autoComplete="off"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="level">Level</Label>
-          <select
-            id="level"
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            {LEVELS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="content">What happened?</Label>
-          <Textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={10}
-            placeholder="Walk through each round: format (DSA / system design / behavioural), topics, problems asked, difficulty, whether hints were given, and the outcome if you know it."
-          />
-          <p className="text-xs text-muted-foreground">
-            Minimum {MIN_CONTENT} characters. The more detail per round, the more useful the signal.
-          </p>
-        </div>
-
-        <Button type="submit" disabled={disabled}>
-          {submit.isPending ? "Submitting…" : "Submit experience"}
-        </Button>
-      </form>
+      <div className="mt-8 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <ExperienceForm />
+        <ExperienceGuide />
+      </div>
     </div>
   );
 }
