@@ -1,0 +1,56 @@
+{
+  "name": "@interviewiq/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "InterviewIQ backend API \u2014 Node.js / Express 5 / TypeScript. Postgres (Supabase) for relational data, MongoDB (Atlas) for documents.",
+  "type": "module",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/pg/migrate-cli.ts",
+    "migrate:documents": "tsx --env-file-if-exists=.env scripts/migrate-documents-to-mongo.ts"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.45.3",
+    "express": "^5.2.1",
+    "jose": "^6.2.1",
+    "livekit-server-sdk": "^2.19.0",
+    "mongodb": "^7.0.0",
+    "multer": "^2.0.2",
+    "pg": "^8.16.0",
+    "pino": "^10.0.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.0",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "@types/supertest": "^6.0.3",
+    "drizzle-kit": "^0.31.4",
+    "mongodb-memory-server": "^11.0.0",
+    "pino-pretty": "^13.0.0",
+    "supertest": "^7.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "2.1.9"
+  }
+}

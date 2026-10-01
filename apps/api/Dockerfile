@@ -1,22 +1,20 @@
-FROM eclipse-temurin:25-jdk-alpine AS build
+# syntax=docker/dockerfile:1
+# Build context: the MONOREPO ROOT (see infra/docker-compose.yml):
+#   docker build -f apps/api/Dockerfile .
 
-WORKDIR /workspace
+FROM node:24-alpine AS build
+RUN corepack enable
+WORKDIR /repo
+COPY . .
+RUN pnpm install --frozen-lockfile --filter @interviewiq/api... \
+ && pnpm --filter @interviewiq/api build \
+ && pnpm --filter @interviewiq/api deploy --prod --legacy /out
 
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN ./mvnw -B -DskipTests dependency:go-offline
-
-COPY src ./src
-RUN ./mvnw -B -DskipTests package
-
-FROM eclipse-temurin:25-jre-alpine
-
-RUN addgroup -S spring && adduser -S spring -G spring
-
+FROM node:24-alpine
+ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /workspace/target/*.jar app.jar
-
-USER spring:spring
+# dist/ + drizzle/ migrations + production node_modules only
+COPY --from=build --chown=node:node /out ./
+USER node
 EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+CMD ["node", "dist/index.js"]
