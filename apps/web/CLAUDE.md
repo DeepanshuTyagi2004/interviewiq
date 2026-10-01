@@ -4,38 +4,40 @@
 
 ## What this is
 
-AI-powered mock interview platform for software engineers. Voice-driven interviewer with full candidate context (resume + coding platform profiles), conducts role/company-specific interview loops, generates structured feedback.
+AI-powered mock interview platform for software engineers. A voice-driven AI interviewer with full candidate context (resume + coding platform profiles) runs a target company's real interview process for a specific JD, round by round, then gives a scored, structured debrief.
 
-**Primary audience:** Tier 2/3 Indian engineering college students preparing for campus placements. **Go-to-market:** B2B sales to college Training & Placement Officers (TPOs), then B2C expansion.
+**Audience:** students preparing for campus placements (first market: Tier 2/3 Indian engineering colleges) **and** working professionals preparing for a job switch. **Go-to-market:** universities (B2B, via TPOs) → public launch in parallel (B2C) → company partnerships (exclusive openings) → automated early-stage hiring.
 
-**Why the platform exists:** Real interview practice is scarce, expensive, and inconsistent. Existing tools (Pramp, Interviewing.io) are peer-based and English-fluent-defaulting; LeetCode is solo and doesn't simulate interviews. InterviewIQ gives every student unlimited, role-specific, voice-based mock interviews with a personalized AI interviewer.
+**Why the platform exists:** Real interview practice is scarce, expensive, and inconsistent. Existing tools (Pramp, Interviewing.io) are peer-based and English-fluent-defaulting; LeetCode is solo and doesn't simulate interviews. InterviewIQ gives every candidate unlimited, company-specific, voice-based mock interviews with a personalized AI interviewer.
+
+**The full candidate journey and the scoring rules** (per-JD loop dashboard, editable rounds where an edited loop is standalone, pass thresholds, retake cooldown, readiness levels, Interview-ready status and the readiness report, profile score + interview score, leaderboards) are in the root `CLAUDE.md`, under *Product vision* and *Scoring, round gating & readiness*. No badges: readiness is never shown as a badge or certificate, or worded to imply company endorsement. Read them before building any of those screens.
 
 ---
 
-## Architecture: 4-repo polyrepo
+## Architecture: monorepo (`interviewiq/`)
 
-1. **`interviewiq-web`** — Next.js 16 App Router frontend. Student app + TPO admin panel + marketing. Server Components by default; Client only where needed.
-2. **`interviewiq-api`** — Spring Boot 3.2 + Java 21 backend. Owns all domain logic, persistence, OAuth flows, integration collectors (GitHub, LeetCode, etc.), interview session orchestration, billing.
-3. **`interviewiq-synthesis`** — Python FastAPI microservice. Single responsibility: AI orchestration. Takes profile fragments → calls LLM → returns structured summary. Voice pipeline orchestration (Deepgram + GPT-4o-mini + ElevenLabs) lives here.
-4. **`interviewiq-infra`** — Terraform + docker-compose + OpenAPI contracts + shared scripts. The `contracts/openapi.yaml` here is the source of truth for the api ↔ web and api ↔ synthesis boundaries; both web and synthesis generate client stubs from it.
+1. **`apps/web`** (this app) — Next.js 16 App Router frontend. Student app + TPO admin panel + marketing. Server Components by default; Client only where needed.
+2. **`apps/api`** — Node.js 22+ / Express 5 / TypeScript backend (migrated from Spring Boot; same HTTP contract). Owns all domain logic, persistence, OAuth flows, integration collectors (GitHub, LeetCode), interview session orchestration.
+3. **`apps/ai-service`** — Python FastAPI service. All LLM orchestration (briefs, résumé parsing, interview prep, live interview agent).
+4. **`packages/contracts`** — `openapi.yaml`, the source of truth for the web ↔ api ↔ ai-service boundaries; the web generates client types from it. **`infra/`** — docker-compose + env templates.
 
-Polyrepo is intentional — services can be deployed and scaled independently, and the synthesis service in particular needs different dependencies (Python ML libs) than the rest.
+Services still deploy and scale independently; the monorepo only shares tooling (pnpm workspaces + Turborepo), contracts, and history.
 
 ---
 
 ## Tech stack (confirmed)
 
-**Frontend (`interviewiq-web`):** Next.js 16 (App Router), React 19, TypeScript, Tailwind 3.x (NOT 4), shadcn/ui, TanStack Query v5, Zod, react-hook-form. **Auth is backend-owned** — the Spring API runs the Google OAuth handshake and issues JWTs; the frontend is a thin Bearer-token client (NOT NextAuth — see Auth section below).
+**Frontend (`apps/web`):** Next.js 16 (App Router), React 19, TypeScript, Tailwind 3.x (NOT 4), shadcn/ui, TanStack Query v5, Zod, react-hook-form. **Auth is backend-owned** — the API runs the Google OAuth handshake and email + password sign-in, and issues JWTs; the frontend is a thin Bearer-token client (NOT NextAuth — see Auth section below).
 
-**Backend (`interviewiq-api`):** Spring Boot 3.2, Java 21, PostgreSQL 16, Redis 7, PgBouncer, Flyway migrations. Octokit Java for GitHub. JWT auth via Auth.js. Razorpay for payments. Resend for transactional email.
+**Backend (`apps/api`):** Node.js / Express 5 / TypeScript. **Postgres (Supabase)** via Drizzle ORM for relational data (users, refresh tokens, companies/JDs, interview sessions, connections); **MongoDB (Atlas)** via the native driver for documents (candidate profiles, profile fragments, session outcomes). Local dev uses Postgres + Mongo containers.
 
-**Synthesis (`interviewiq-synthesis`):** Python 3.11, FastAPI, async. Deepgram (STT) + GPT-4o-mini (LLM) + ElevenLabs (TTS) for voice. Affinda for resume parsing (paid) with pyresparser as OSS fallback. Judge0 (Dockerized) for code execution.
+**AI service (`apps/ai-service`):** Python 3.11+, FastAPI, async, MongoDB (Atlas). LLM via OpenAI-compatible endpoints; LiveKit Agents + Deepgram for the voice interview.
 
-**Infra:** Vercel (web), Railway/Fly (api + synthesis), Cloudflare (CDN + WAF), S3 + MinIO (local dev), Docker Compose for local stack. Sentry + PostHog + Spring Actuator/Micrometer for observability (day-one).
+**Infra:** Vercel (web), Railway/Fly (api + ai-service), Supabase (Postgres), MongoDB Atlas, Docker Compose for the local stack. Sentry + PostHog for observability.
 
 **Open stack decisions** (don't decide unilaterally, flag and ask):
-- Background job queue: jobrunr (current lean) vs Quartz vs Temporal vs Celery (Python side)
-- Logging: Logback + logstash-encoder + Logtail (current lean)
+- Background job queue: in-process schedulers today (API + ai-service) vs a real queue later
+- Logging: pino (API) + stdlib logging (ai-service) → shipping target TBD
 - LeetCode data sourcing: scrape vs paste-in vs unofficial community API
 - Voice pipeline: stay with Deepgram+GPT+ElevenLabs vs OpenAI Realtime API (cost vs latency trade)
 
@@ -43,11 +45,11 @@ Polyrepo is intentional — services can be deployed and scaled independently, a
 
 ## Current focus: Profile Builder (Module 01)
 
-The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary (no scoring, no ranking).
+The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary. The summary itself carries no scores or ranks; the profile score lives in a separate scoring contract (see the root `CLAUDE.md`).
 
 **Data flow:**
 1. User connects sources (OAuth for GitHub, paste/upload for resume + LeetCode)
-2. Backend collectors fetch raw data, normalize into `ProfileFragment` per source, store in Postgres + S3 (raw response cache)
+2. Backend collectors fetch raw data, normalize into a `ProfileFragment` per source, store in MongoDB (`profile_fragments`)
 3. Async job triggers synthesis when any fragment hash changes
 4. Python synthesis service receives all fragments, calls LLM, produces structured `ProfileSummary` (bullets + UI component refs)
 5. Frontend renders summary text + visual components (heatmap, charts, badges)
@@ -64,13 +66,13 @@ The first major feature being built. Takes raw user data from multiple sources, 
 
 **MVP (6 modules — target: 4 months to first paid pilot):**
 1. Profile Builder ⬅ *current*
-2. Job/Loop Setup (target role + company + JD)
-3. Live Interview Session (voice + code + AI interviewer)
-4. Post-Interview Report (structured debrief)
+2. Job/Loop Setup (target company + JD → the suggested interview process as a per-JD loop dashboard; user-editable rounds, where an edited loop becomes standalone)
+3. Live Interview Session (voice + code + AI interviewer, real-time analysis)
+4. Post-Interview Report (scored debrief with ideal answers, topics to learn and an overall score; the pass threshold unlocks the next round, otherwise a retake cooldown applies; clearing every round of an unedited loop makes the user Interview-ready for that JD and unlocks the readiness report)
 5. University Admin Panel (TPO dashboard, roster, drives)
 6. Platform Essentials (auth, billing, settings, notifications)
 
-**Full vision (17 modules — Phase 2+):** add Job Discovery & Gap Analysis, Adaptive Q&A Intelligence, Voice Conversation Engine refinements, Live Coding Environment, Integrity & Anti-Cheating, Community/Leaderboards, Hiring Partner Integration, Reputation Score, Analytics & Insights, Notifications Engine, Platform & Infrastructure (operational module).
+**Full vision (17 modules — Phase 2+):** add Job Discovery & Gap Analysis, Adaptive Q&A Intelligence, Voice Conversation Engine refinements, Live Coding Environment, Integrity & Anti-Cheating, Community/Leaderboards (global profile-score and interview-score boards), Hiring Partner Integration (exclusive openings, automated early-stage hiring), Reputation Score (profile score + interview score), Analytics & Insights, Notifications Engine, Platform & Infrastructure (operational module).
 
 ---
 
@@ -78,7 +80,7 @@ The first major feature being built. Takes raw user data from multiple sources, 
 
 **V1 — Primary (MVP):**
 
-1. **GitHub** — GraphQL API via Octokit Java. Extract: languages by byte count, account age, top 5–10 active repos, profile README, yearly contribution graph, external PR/issue contributions. Skip: fork counts, total commits (bot-inflated), tutorial repos (detect via README patterns). Weekly refresh.
+1. **GitHub** — GraphQL API (backend collector). Extract: languages by byte count, account age, top 5–10 active repos, profile README, yearly contribution graph, external PR/issue contributions. Skip: fork counts, total commits (bot-inflated), tutorial repos (detect via README patterns). Weekly refresh.
 
 2. **LeetCode** — No official API. Sourcing TBD (scrape vs paste-in). Extract: total solved + difficulty split, topic-wise solve count, contest rating + percentile, acceptance rate, recent submission activity, streak data. Skip: star counts, premium status, single-problem solve times. Bi-weekly refresh.
 
@@ -132,7 +134,7 @@ The Python synthesis service produces this JSON. The frontend consumes it direct
 
 **Hard rules — never violate:**
 
-- **No scoring, ever.** No `score`, `rating`, `rank`, `grade`, `tier_vs_peers`, or any comparative metric in this schema. Profile Builder is purely descriptive. If a scoring feature is requested, it belongs in a separate `ScoringSummary` contract, never grafted onto this one.
+- **No scores inside this contract.** No `score`, `rating`, `rank`, `grade`, `tier_vs_peers`, or any comparative metric in this schema; the `ProfileSummary` stays purely descriptive. The profile score, interview score, round results and leaderboards are real product features, but they live in a **separate scoring contract** (e.g. `ScoringSummary`), never grafted onto this one.
 - **Four bullet categories are fixed.** `at_a_glance`, `most_used_skills`, `crucial_achievements`, `noticeable_things`. The LLM doesn't invent new categories — it fills these.
 - **Every skill carries evidence.** Format: cross-source attribution naming the specific sources (e.g. "GitHub 52%, LeetCode preferred, resume claimed"). No skill without evidence.
 - **Every achievement carries a source.** Format: `{ achievement, source }`. No floating claims.
@@ -188,7 +190,7 @@ export default async function Page({ params }: { params: Promise<{ jobId: string
 
 **Server Components by default.** Use `"use client"` only when you need: interactivity, browser APIs (WebRTC, localStorage), state hooks, or third-party client-only libraries.
 
-**OpenAPI codegen is the source of truth** for API client types. Never hand-write types that match Spring DTOs. Run `scripts/generate-types.ts` after any contract change.
+**OpenAPI codegen is the source of truth** for API client types. Never hand-write types that match API DTOs. Run `scripts/generate-types.ts` after any contract change.
 
 **The `ui_components` registry in `types/ui-components.ts`** must stay in sync with both the synthesis output and the registered React renderers. Adding a new component type means updating: the type union, the prompt template (synthesis), and the renderer (web).
 
@@ -196,11 +198,11 @@ export default async function Page({ params }: { params: Promise<{ jobId: string
 
 ## Authentication — backend-owned (NOT NextAuth)
 
-The Spring API owns the **entire** Google OAuth handshake and issues tokens. The frontend never talks to Google directly and does **not** use NextAuth/Auth.js. Do not reintroduce NextAuth.
+The API (`apps/api`) owns the **entire** Google OAuth handshake and the email + password flow, and issues tokens. The frontend never talks to Google directly and does **not** use NextAuth/Auth.js. Do not reintroduce NextAuth.
 
 **The flow:**
-1. `loginWithGoogle()` → `window.location` to `{API}/oauth2/authorization/google`. Backend runs the Google handshake.
-2. Backend sets an httpOnly `refresh_token` cookie (path `/api/v1/auth`, 14-day) and redirects to `/auth/callback` on the frontend.
+1. Either `loginWithGoogle()` → `window.location` to `{API}/oauth2/authorization/google` (backend runs the Google handshake), or `AuthProvider.signIn/signUp` → `POST /api/v1/auth/login|register` with `credentials: "include"`, which returns the access token directly.
+2. Backend sets an httpOnly `refresh_token` cookie (path `/api/v1/auth`, 14-day); for Google it then redirects to `/auth/callback` on the frontend.
 3. `AuthProvider` (mounted at the root) runs a **silent refresh** on mount: `POST /api/v1/auth/refresh` with `credentials: "include"` → returns a 15-min access-token JWT.
 4. The access token is held **in memory only** (`lib/auth/token-store.ts`) — never localStorage/sessionStorage (XSS hygiene). Persistence across reloads comes from the refresh cookie + silent refresh.
 5. `apiFetch` attaches `Authorization: Bearer <token>` and, on a 401, silently refreshes once and retries.
@@ -209,17 +211,23 @@ The Spring API owns the **entire** Google OAuth handshake and issues tokens. The
 
 **Route gating is client-side.** The in-memory token and the path-scoped cookie are invisible to Next middleware, so `middleware.ts` is a pass-through. Protected route groups wrap children in `components/auth/RequireAuth.tsx`, which shows a spinner during the initial refresh and redirects to `/login?next=…` if unauthenticated.
 
-**Key files:** `lib/auth/{token-store,client,AuthProvider}.ts(x)`, `components/auth/RequireAuth.tsx`, `app/auth/callback/page.tsx`, `lib/api-client/client.ts`.
+**Email + password:** `/signup`, `/login`, `/forgot-password`, `/reset-password?token=`, `/verify-email?token=` (all in `app/(auth)`). Until a mail provider is chosen the API **logs** verification/reset links to its console. Google sign-in on an email with an unverified password account links to it and drops the password (anti pre-hijacking). Auth error copy is keyed on the API's stable codes in `app/(auth)/_components/errors.ts`. Sign-in, sign-up and logout clear the TanStack Query cache so one account's data never shows in another's session.
+
+**Key files:** `lib/auth/{token-store,client,AuthProvider}.ts(x)`, `components/auth/RequireAuth.tsx`, `app/auth/callback/page.tsx`, `app/(auth)/_components/`, `lib/api-client/{client,errors}.ts`.
 
 **Config:** `NEXT_PUBLIC_API_URL` must match the backend origin (`http://localhost:8080` in dev) AND the backend's `FRONTEND_URL` / CORS origin must point back at the frontend (`http://localhost:3000`). A mismatch breaks the OAuth redirect or CORS.
 
-**Not yet built:** no `/me` endpoint exists, so there's no current-user data — `useUser().user` is `null` by design until the backend exposes it. Cookies are `secure=false` in dev; must flip to `true` for prod.
+**Current user:** `useCurrentUser()` reads `GET /api/v1/users/me` (incl. `onboardingComplete`, `emailVerified`, `hasPassword`). Cookies are `secure=false` in dev; must flip to `true` for prod.
 
 ---
 
-## Design & aesthetics — Vercel as the north star
+## Design & aesthetics — the InterviewIQ design (Claude Design) + Vercel craft
 
-**The entire frontend aesthetic and UX must match Vercel — exactly.** Treat [vercel.com](https://vercel.com), the [Vercel Dashboard](https://vercel.com/dashboard), and [Vercel Design / Geist](https://vercel.com/geist/introduction) as the canonical reference for everything visual and interactive. When in doubt about how something should look or feel, the answer is "however Vercel does it."
+**The source of truth for look and layout is the Claude Design export in `InterviewIQ Landing Page/`** — `InterviewIQ Website v5.dc.html` (marketing), `InterviewIQ Auth.dc.html` (sign-in/up + onboarding) and `InterviewIQ App.dc.html` (app shell + screens). Implement new screens from those files first. Where the design is silent, fall back to the Vercel/Geist craft below.
+
+**Built so far from the design:** marketing landing (`app/(marketing)`), auth + onboarding (`app/(auth)`, `app/(onboarding)`), the app shell (`components/layout/app-shell/` — top bar, ⌘K search, the menu revealed behind the page card, `M` to toggle) and the dashboard. Screens in the App design that need data the backend doesn't have yet (scores, ranks, leaderboards, readiness) render **honest empty states** ("—", "coming soon"), never the design's sample numbers.
+
+**Fallback — Vercel craft:** the aesthetic and UX should otherwise feel like Vercel. Treat [vercel.com](https://vercel.com), the [Vercel Dashboard](https://vercel.com/dashboard), and [Vercel Design / Geist](https://vercel.com/geist/introduction) as the canonical reference for everything visual and interactive. When in doubt about how something should look or feel, the answer is "however Vercel does it."
 
 **This applies to all of it:**
 - **Visual language** — clean, minimal, high-contrast, lots of whitespace. Black/white core palette with restrained accent color. Sharp, precise, no clutter.
@@ -242,16 +250,18 @@ The Spring API owns the **entire** Google OAuth handshake and issues tokens. The
 
 **DO:**
 - Read existing analyzers / HLDs / code maps in the project artifacts before designing anything new
-- Use Octokit Java for GitHub API (don't write HTTP from scratch)
+- Use the GitHub GraphQL API from the backend collectors (`apps/api/src/integrations/github`)
 - Reference `github-readme-stats` source for GitHub aggregation patterns (MIT licensed)
 - Use Affinda for resume parsing (or pyresparser as OSS fallback)
 - Hash-check fragment content before triggering synthesis (cost discipline)
 - Generate API client types from `contracts/openapi.yaml` — never hand-write
 - Flag breaking decisions for human review rather than choosing unilaterally
-- Default to descriptive language in Profile Builder output, never comparative
+- Default to descriptive language in the profile summary (synthesis output), never comparative; scores and ranks are shown separately
 
 **DON'T:**
-- Add scoring, ranking, or comparative metrics anywhere in Profile Builder
+- Put scores, ranks, or comparative metrics inside the descriptive synthesis output; they belong in the separate scoring contract
+- Count an edited (customized) loop toward loop progress or readiness, or treat UI-side gating as the enforcement (the API enforces thresholds, cooldowns and unlocks)
+- Show readiness as a badge or certificate, or word it so it implies the company endorsed it
 - Promise LinkedIn post analysis in UI copy (the data isn't available)
 - Scrape LinkedIn via OSS libraries (TOS + account ban + reliability risk)
 - Write Next.js API routes for anything beyond auth callbacks, webhooks, and BFF aggregation
@@ -273,12 +283,14 @@ These are pending and should be raised with the human, not chosen autonomously:
 - **Auth provider** — NextAuth (full control, more setup) vs Clerk (hosted, faster, ~$25/mo at scale)
 - **Tutorial repo detection heuristic** — needs human review of false positives before shipping (this is high-leverage product IP)
 - **Synthesis prompt template** — the actual `synthesis_v1.txt` is the product's core IP, draft for human review before production use
+- **Scoring formulas & thresholds** — the profile-score formula, interview-score aggregation, per-round pass thresholds, retake cooldown (1 vs 2 weeks), leaderboard rules, whether standalone interviews count toward the interview score, and the readiness-level mapping (which levels exist and what moves a user between them)
+- **Scoring phasing** — which of the profile score, interview score, readiness levels/reports and leaderboards ship in the MVP vs later
 
 ---
 
 ## Working principles
 
-**Descriptive over evaluative.** Profile Builder describes what the data shows. It doesn't grade, rank, or compare candidates. "412 problems solved (78 Easy, 268 Medium, 66 Hard)" not "above-average solver".
+**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". Scores (profile, interview) are shown alongside the summary, come from a separate contract, and must be explainable.
 
 **Evidence on every claim.** If the synthesis says someone uses Python, the evidence string names the sources (GitHub bytes, LeetCode preference, resume claim). Users should always be able to ask "why does my profile say this?" and get a traceable answer.
 
@@ -286,7 +298,7 @@ These are pending and should be raised with the human, not chosen autonomously:
 
 **Sources are additive, never required.** Synthesis must produce a useful summary from any subset of connected sources, including just resume + LeetCode (the V1 minimum). Don't assume GitHub or LinkedIn is present.
 
-**Audience calibration matters.** Tier 2/3 Indian college students have thin GitHub, strong LeetCode, often no real LinkedIn or Twitter. Build for that reality, not for the SF senior engineer with 5 years of OSS contributions.
+**Audience calibration matters.** The first market, Tier 2/3 Indian college students, has thin GitHub, strong LeetCode, and often no real LinkedIn or Twitter. Build for that reality, not for the SF senior engineer with 5 years of OSS contributions. Working professionals are a second audience with a different shape (real work experience, job-switch rather than campus-placement framing); serve both, and don't assume either profile shape.
 
 ---
 
@@ -295,7 +307,7 @@ These are pending and should be raised with the human, not chosen autonomously:
 Stop and ask the human before:
 - Choosing among the "open decisions" above
 - Adding a new field to the synthesis output schema
-- Adding scoring, ranking, or comparison logic anywhere in Profile Builder
+- Adding scores, ranks, or comparisons to the descriptive synthesis output, or defining or changing any scoring formula, pass threshold, cooldown, readiness rule, or leaderboard rule
 - Making a security-relevant choice (token storage, encryption, OAuth scope expansion)
 - Adopting a new runtime dependency that isn't in the tech stack list above
 - Touching billing, payment, or financial logic
@@ -309,7 +321,8 @@ Everything else: proceed and document the choice in your PR description.
 "Vercel aesthetic" is realized concretely as the **Geist Design System**. Strictly:
 
 - **Fonts:** **Geist Sans** + **Geist Mono** via the official `geist` npm package (`geist/font/sans`, `geist/font/mono`), wired in `app/layout.tsx` (`GeistSans.variable` + `GeistMono.variable` on `<html>`) and `tailwind.config.js` (`fontFamily.sans → var(--font-geist-sans)`, `fontFamily.mono → var(--font-geist-mono)`). Do NOT reintroduce Inter or any other typeface. Use `font-mono` for all numerals/code/IDs.
-- **Color tokens:** Geist's **true-neutral gray scale** (hue 0) with a **near-black primary** (black buttons), defined as HSL CSS variables in `app/globals.css` `:root`/`.dark`. shadcn baseColor is **`neutral`** (NOT slate/zinc). Don't reintroduce blue-tinted slate grays.
+- **Color tokens:** the design's **warm-neutral paper palette** — a grey `frame` behind white cards, `panel` fills, `line-*` hairlines, `faint` text — plus one **brand accent** (`brand`, `#ff5c1f`) for primary CTAs, the logo's third bar, active states and key pills. All defined as HSL CSS variables in `app/globals.css` `:root`/`.dark` and mapped onto the shadcn tokens (`primary` = ink, `accent` = neutral hover surface — use `brand` for the orange). Default `<Button>` is the brand CTA; `variant="ink"` is solid black, `strong` is the ink-bordered outline. Light is the default theme (`next-themes`, key `iq-theme`).
+- **Shared design primitives:** `.iq-eyebrow` (mono section label), `.iq-h2`, `.iq-pill` / `<MonoPill>`, `.iq-float` (white card on a panel), `<Panel>`, `<Logo>`, `<ThemeToggle>`, `<Waveform>`. Reuse them before inventing new ones.
 - **Components:** **shadcn/ui** is the component layer (Vercel authors it; it IS Geist for React). Do NOT add the community `@geist-ui/core` / `geist-ui` library — it's an unofficial port and is forbidden here.
 - **Dark-mode first**, hairline borders, generous whitespace, small radii — per the Geist spec at vercel.com/geist.
 
