@@ -4,17 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { USER_ENDPOINTS } from "@/lib/constants/shared";
+import type { components } from "@/lib/api-client/generated/schema";
 
-export type Role = "USER" | "ADMIN";
+export type Role = components["schemas"]["Role"];
 
-export type CurrentUser = {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-  /** False until the user finishes the onboarding wizard. Drives the OnboardingGate redirect. */
-  onboardingComplete: boolean;
-};
+/** GET /api/v1/users/me — generated from the contract (incl. onboardingComplete, emailVerified, hasPassword). */
+export type CurrentUser = components["schemas"]["CurrentUser"];
 
 /**
  * The authenticated user's profile incl. role. Fetched once authenticated (the

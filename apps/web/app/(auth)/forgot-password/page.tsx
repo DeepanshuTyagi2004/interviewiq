@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
+import { AuthColumn } from "../_components/AuthSplit";
+import { ForgotPasswordForm } from "../_components/ForgotPasswordForm";
+
+export const metadata: Metadata = { title: "Reset your password · InterviewIQ" };
+
 export default function ForgotPasswordPage() {
-  // TODO: forgot password
-  return <section className="w-full max-w-md">Forgot Password</section>;
+  return (
+    <AuthColumn>
+      <ForgotPasswordForm />
+    </AuthColumn>
+  );
 }

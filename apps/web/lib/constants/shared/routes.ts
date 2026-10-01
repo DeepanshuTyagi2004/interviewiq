@@ -8,6 +8,7 @@ export const ROUTES = {
   signup: "/signup",
   forgotPassword: "/forgot-password",
   verifyEmail: "/verify-email",
+  resetPassword: "/reset-password",
   dashboard: "/dashboard",
   practice: "/practice",
   leaderboard: "/leaderboard",
