@@ -1,0 +1,15 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.env
+**/.env.*
+!**/.env.example
+.git
+**/.DS_Store
+**/.claude
+**/.superpowers

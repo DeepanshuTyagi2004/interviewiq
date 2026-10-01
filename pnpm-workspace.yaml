@@ -1,0 +1,26 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Native/binary deps allowed to run install scripts (pnpm 10 blocks them by default).
+onlyBuiltDependencies:
+  - esbuild
+  - mongodb-memory-server
+  - sharp
+  - unrs-resolver
+
+# Resolve each app's peer dependencies from its own dependency graph. Without this, pnpm "dedupes"
+# peers across the workspace and the web app's test tooling (vite/vitest/jest-dom) gets bound to
+# versions that only another app depends on.
+dedupePeerDependents: false
+
+# @testing-library/jest-dom's `/vitest` entry imports "vitest" without declaring it. Declare it as
+# an optional peer so each app's jest-dom binds to that app's own vitest instance (otherwise the
+# matchers extend a different `expect` and every toBeInTheDocument() fails).
+packageExtensions:
+  "@testing-library/jest-dom":
+    peerDependencies:
+      vitest: "*"
+    peerDependenciesMeta:
+      vitest:
+        optional: true

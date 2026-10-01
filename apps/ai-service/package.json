@@ -1,0 +1,11 @@
+{
+  "name": "@interviewiq/ai-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Python FastAPI service (all LLM logic). This package.json only lets turbo/pnpm run its tasks alongside the Node apps — Python deps live in requirements.txt.",
+  "scripts": {
+    "setup": "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest pytest-asyncio",
+    "dev": "test -x .venv/bin/uvicorn || { echo \"ai-service: no .venv — run: pnpm --filter @interviewiq/ai-service setup\"; exit 1; }; .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "test": "test -x .venv/bin/python || { echo \"ai-service: no .venv — run: pnpm --filter @interviewiq/ai-service setup\"; exit 1; }; .venv/bin/python -m pytest -q"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "interviewiq",
+  "private": true,
+  "description": "InterviewIQ monorepo — web (Next.js), api (Node/Express), ai-service (Python/FastAPI).",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d postgres mongodb",
+    "db:down": "docker compose -f infra/docker-compose.yml stop postgres mongodb",
+    "db:migrate": "pnpm --filter @interviewiq/api db:migrate",
+    "stack:up": "docker compose -f infra/docker-compose.yml up --build",
+    "stack:down": "docker compose -f infra/docker-compose.yml down",
+    "contracts:types": "pnpm --filter @interviewiq/web generate:types"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.5"
+  }
+}

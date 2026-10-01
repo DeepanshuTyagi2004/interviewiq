@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build / tooling output
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# env — never commit real secrets; keep the examples
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+*.iml
+
+# local tool state
+.claude/
+.superpowers/
+
+# design reference media — large screen recordings and third-party site references used while
+# designing; kept locally, not published (the .dc.html design sources ARE committed)
+InterviewIQ Landing Page/uploads/
+InterviewIQ Landing Page/scraps/
