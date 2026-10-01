@@ -1,0 +1,115 @@
+# interviewiq local stack — one command from the repo root: `pnpm stack:up`
+# (= docker compose -f infra/docker-compose.yml up --build).
+#
+# Databases:
+#   * postgres  — local stand-in for SUPABASE (the API's relational data)
+#   * mongodb   — local stand-in for MONGODB ATLAS (API documents + AI-service data)
+# Point the stack at the managed services by setting DATABASE_URL / MONGODB_URI / MONGODB_URL
+# in infra/.env — the defaults below only apply when those are unset.
+#
+# The LLM runs on the HOST (or a hosted provider), never here; the AI service reaches it via
+# LLM_BASE_URL (host.docker.internal works on Linux too, see extra_hosts).
+#
+# Build contexts are relative to this file: `..` = the monorepo root (the Node apps build from the
+# root so pnpm can resolve the workspace), `../apps/ai-service` for the Python service.
+
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  interviewiq-api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      # Supabase in prod; the local container by default.
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
+      # Atlas in prod; the local container by default.
+      MONGODB_URI: ${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/?authSource=admin}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-interviewiq}
+      AI_SERVICE_BASE_URL: http://interviewiq-ai-service:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "8080:8080"
+
+  interviewiq-ai-service:
+    build:
+      context: ../apps/ai-service
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Atlas in prod; the local container by default. Separate database from the API's.
+      MONGODB_URL: ${MONGODB_URL:-mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGO_DB:-interviewiq_intelligence}?authSource=admin}
+      MONGODB_DB: ${MONGO_DB:-interviewiq_intelligence}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME}
+      # Dedicated model for résumé parsing (onboarding); blank falls back to LLM_MODEL_NAME.
+      RESUME_LLM_MODEL: ${RESUME_LLM_MODEL:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Brief-generation targets + live-session outcomes go to the API.
+      API_BASE_URL: http://interviewiq-api:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+
+  interviewiq-web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    restart: unless-stopped
+    depends_on:
+      - interviewiq-api
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:
+  pg_data:
