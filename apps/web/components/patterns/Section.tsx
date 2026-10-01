@@ -6,15 +6,10 @@ export interface SectionLabelProps {
   className?: string;
 }
 
-/** Uppercase Geist Mono ~11px muted label that heads a Section. */
+/** Uppercase Geist Mono 10.5px faint label that heads a Section (the design's eyebrow). */
 export function SectionLabel({ children, className }: SectionLabelProps) {
   return (
-    <p
-      className={cn(
-        "font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground",
-        className,
-      )}
-    >
+    <p className={cn("iq-eyebrow", className)}>
       {children}
     </p>
   );

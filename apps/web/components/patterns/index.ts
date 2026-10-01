@@ -13,7 +13,12 @@ export type { EmptyStateProps } from "./EmptyState";
 export { FormField } from "./FormField";
 export type { FormFieldProps } from "./FormField";
 
-export { ProfileSkeleton, ConnectionsSkeleton, DashboardSkeleton } from "./Skeletons";
 
 export { DataTablePattern } from "./DataTablePattern";
 export type { DataTablePatternProps, DataTableColumn } from "./DataTablePattern";
+
+export { MonoPill } from "./MonoPill";
+export type { MonoPillProps, MonoPillTone } from "./MonoPill";
+
+export { Panel } from "./Panel";
+export type { PanelProps } from "./Panel";

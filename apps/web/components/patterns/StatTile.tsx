@@ -13,11 +13,11 @@ export interface StatTileProps {
  */
 export function StatTile({ value, label, className }: StatTileProps) {
   return (
-    <div className={cn("flex flex-col gap-1 px-5 py-4", className)}>
-      <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums">
+    <div className={cn("flex flex-col gap-2 px-5 py-5", className)}>
+      <span className="font-mono text-[26px] font-normal leading-none tracking-[-0.03em] tabular-nums">
         {value}
       </span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-faint">{label}</span>
     </div>
   );
 }
@@ -35,7 +35,7 @@ export function StatRow({ children, className }: StatRowProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card sm:grid-cols-4 sm:divide-y-0",
         className,
       )}
     >
