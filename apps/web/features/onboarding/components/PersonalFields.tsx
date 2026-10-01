@@ -5,8 +5,11 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/patterns";
 import type { CandidateFormValues } from "../form";
 
-/** Step 1 fields (also reused in profile edit). Reads the shared RHF context. */
-export function PersonalFields() {
+/**
+ * Personal details (also reused in profile edit). Reads the shared RHF context. Onboarding hides
+ * the target-role field because it has its own Target step.
+ */
+export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boolean }) {
   const {
     register,
     formState: { errors },
@@ -35,9 +38,11 @@ export function PersonalFields() {
         <Input id="location" placeholder="Bengaluru, India" {...register("location")} />
       </FormField>
 
-      <FormField label="Target role" htmlFor="targetRole" hint="The role you're preparing for">
-        <Input id="targetRole" placeholder="Backend Engineer" {...register("targetRole")} />
-      </FormField>
+      {showTargetRole ? (
+        <FormField label="Target role" htmlFor="targetRole" hint="The role you're preparing for">
+          <Input id="targetRole" placeholder="Backend Engineer" {...register("targetRole")} />
+        </FormField>
+      ) : null}
 
       <FormField
         label="Headline"

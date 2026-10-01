@@ -1,12 +1,13 @@
 "use client";
 
-import { useFieldArray, useFormContext } from "react-hook-form";
+import { Controller, useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormField, SectionLabel } from "@/components/patterns";
+import { SkillsInput } from "./SkillsInput";
 import {
   emptyEducationRow,
   emptyExperienceRow,
@@ -166,12 +167,13 @@ export function EducationExperienceFields() {
 
       <div className="space-y-4">
         <SectionLabel>Skills</SectionLabel>
-        <FormField label="Skills" htmlFor="skillsText" hint="Comma-separated">
-          <Textarea
-            id="skillsText"
-            rows={2}
-            placeholder="Python, SQL, React, Docker"
-            {...register("skillsText")}
+        <FormField label="Skills" htmlFor="skillsText" hint="Click a skill to remove it · Enter or comma to add">
+          <Controller
+            control={control}
+            name="skillsText"
+            render={({ field }) => (
+              <SkillsInput id="skillsText" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+            )}
           />
         </FormField>
       </div>

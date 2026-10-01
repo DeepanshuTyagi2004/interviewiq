@@ -36,6 +36,7 @@ export function ResumeUpload({
   const [localError, setLocalError] = useState<string | null>(null); // pre-flight/start errors
   const [runId, setRunId] = useState<string | null>(null);
   const filenameRef = useRef<string>(""); // uploaded name, stamped onto the completed draft
+  const [filename, setFilename] = useState(""); // same name, for display
   const handledRef = useRef<string | null>(null); // fire onParsed for a terminal run only once
   const start = useStartResumeParse();
   const run = useResumeParseRun(runId);
@@ -84,6 +85,7 @@ export function ResumeUpload({
     }
     setLocalError(null);
     filenameRef.current = file.name;
+    setFilename(file.name);
     start.mutate(file, {
       onSuccess: ({ run_id }) => setRunId(run_id),
       onError: (err) => {
@@ -121,29 +123,43 @@ export function ResumeUpload({
           if (!busy) handleFile(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border text-center transition-colors",
-          compact ? "p-6" : "p-10",
-          dragging && "border-primary bg-accent",
-          busy && "pointer-events-none opacity-70",
+          "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[10px] text-center transition-colors duration-200 hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          compact ? "border border-dashed border-line-4 bg-card p-6" : "min-h-[220px] border-[1.5px] border-dashed bg-panel p-7",
+          !compact && (runStatus === "completed" ? "border-foreground" : "border-line-4"),
+          dragging && "border-foreground bg-accent",
+          busy && "pointer-events-none",
         )}
       >
-        {busy ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
-        ) : (
-          <UploadCloud className="h-6 w-6 text-muted-foreground" aria-hidden />
-        )}
-        <div className="space-y-1">
-          <p className="text-sm font-medium">
+        <span
+          aria-hidden
+          className={cn(
+            "flex items-center justify-center rounded-[9px] bg-primary text-primary-foreground",
+            compact ? "h-10 w-10" : "h-11 w-11",
+          )}
+        >
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <UploadCloud className="h-5 w-5" />}
+        </span>
+        <div className="space-y-1.5">
+          <p className={cn("m-0 tracking-[-0.01em]", compact ? "text-sm" : "text-base")}>
             {busy
               ? "Reading your résumé — this can take a minute…"
               : compact
                 ? "Upload a new résumé (PDF)"
-                : "Drag & drop your résumé, or click to browse"}
+                : runStatus === "completed"
+                  ? filename || "Résumé parsed"
+                  : "Drop your résumé, or click to upload"}
           </p>
           {!compact ? (
-            <p className="text-xs text-muted-foreground">PDF only, up to 6 MB</p>
+            <p className="m-0 text-[13px] text-faint">
+              {busy ? "Extracting education, projects and skills" : runStatus === "completed" ? "Parsed · click to replace" : "PDF only, up to 6 MB"}
+            </p>
           ) : null}
         </div>
+        {busy && !compact ? (
+          <span aria-hidden className="relative h-[3px] w-[260px] max-w-full overflow-hidden rounded-sm bg-line-2">
+            <span className="absolute inset-y-0 left-0 w-2/5 animate-[iq-progress_1.2s_ease-in-out_infinite] rounded-sm bg-brand" />
+          </span>
+        ) : null}
         <input
           ref={inputRef}
           type="file"
@@ -162,7 +178,7 @@ export function ResumeUpload({
           className={cn(
             "flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
             banner.kind === "success"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              ? "border-line-2 bg-card text-foreground"
               : "border-destructive/30 bg-destructive/10 text-destructive",
           )}
         >
