@@ -42,8 +42,9 @@ describe("LiveView", () => {
     expect(
       screen.getByRole("tab", { name: /code editor/i }),
     ).toBeInTheDocument();
+    // The diagram tab now reads "Whiteboard" (the design's copy) instead of "Excalidraw".
     expect(
-      screen.getByRole("tab", { name: /excalidraw/i }),
+      screen.getByRole("tab", { name: /whiteboard/i }),
     ).toBeInTheDocument();
 
     expect(document.querySelector("video")).toBeInTheDocument();

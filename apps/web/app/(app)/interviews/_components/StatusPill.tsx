@@ -1,30 +1,23 @@
-import { AlertTriangle, CalendarClock, CheckCircle2, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { SESSION_STATUS_META } from "@/lib/constants/interview";
+import { Loader2 } from "lucide-react";
+import { MonoPill } from "@/components/patterns";
+import { cn } from "@/lib/utils/cn";
+import { statusMeta } from "@/features/interview/presentation";
 import type { SessionStatus } from "@/features/interview";
 
-const TONE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  neutral: "outline",
-  pending: "secondary",
-  ready: "default",
-  failed: "destructive",
-};
-
-/** Vercel-style status pill for a session's prep state. */
-export function StatusPill({ status }: { status: SessionStatus }) {
-  const meta = SESSION_STATUS_META[status] ?? SESSION_STATUS_META.SCHEDULED;
-  const Icon =
-    meta.tone === "ready"
-      ? CheckCircle2
-      : meta.tone === "failed"
-        ? AlertTriangle
-        : meta.tone === "pending"
-          ? Loader2
-          : CalendarClock;
+/**
+ * A session's state as the design's mono pill: "READY" in ink, "LIVE" in ink with a breathing
+ * brand dot, "PREP FAILED" in the alert tone, and a small spinner while prep is running
+ * ("PREPARING").
+ */
+export function StatusPill({ status, className }: { status: SessionStatus; className?: string }) {
+  const meta = statusMeta(status);
   return (
-    <Badge variant={TONE_VARIANT[meta.tone]} className="gap-1.5">
-      <Icon className={meta.tone === "pending" ? "size-3 animate-spin" : "size-3"} />
+    <MonoPill tone={meta.tone} className={cn("gap-1.5", className)}>
+      {meta.pending ? <Loader2 aria-hidden data-motion className="h-2.5 w-2.5 animate-spin" /> : null}
+      {meta.live ? (
+        <span aria-hidden data-motion className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand" />
+      ) : null}
       {meta.label}
-    </Badge>
+    </MonoPill>
   );
 }

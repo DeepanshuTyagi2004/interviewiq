@@ -68,7 +68,9 @@ describe("ReportPlaceholder", () => {
     expect(screen.getByText(/dsa/i)).toBeInTheDocument();
   });
 
-  it("renders 'being prepared' message", () => {
+  // Copy changed deliberately: the old "being prepared" promise implied a report was on its way,
+  // but no scoring/report backend exists yet — the page now says so and shows an empty score.
+  it("renders the honest no-score placeholder instead of a score", () => {
     useSessionMock.mockReturnValue({
       data: mockSession,
       isLoading: false,
@@ -77,7 +79,8 @@ describe("ReportPlaceholder", () => {
 
     render(<ReportPlaceholder sessionId="session-1" />);
 
-    expect(screen.getByText(/being prepared/i)).toBeInTheDocument();
+    expect(screen.getByText(/scoring isn't live yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no score yet/i)).toBeInTheDocument();
   });
 
   it("renders loading skeleton when loading", () => {

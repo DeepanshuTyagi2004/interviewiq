@@ -14,9 +14,10 @@ function speakerLabel(speaker: TranscriptEntry['speaker'], interviewerName: stri
   return 'System'
 }
 
-/** Left-rail conversation transcript: both interviewer and candidate lines, plus proctoring
- * `system` notices styled distinctly so they never read as interviewer speech. Auto-scrolls to
- * the newest entry as the conversation grows. */
+/** Conversation transcript in the design's style: interviewer turns on a soft panel, the
+ * candidate's in muted text, each under a small mono speaker label. Proctoring `system` notices
+ * get a dashed outline so they never read as interviewer speech. Auto-scrolls to the newest
+ * entry as the conversation grows. */
 export function TranscriptPanel({ entries, interviewerName }: TranscriptPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -29,23 +30,31 @@ export function TranscriptPanel({ entries, interviewerName }: TranscriptPanelPro
   }, [entries.length])
 
   return (
-    <div className="flex h-full flex-col rounded border border-neutral-700 p-2">
-      <h2 className="shrink-0 pb-1 text-sm font-semibold">Transcript</h2>
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <h2 className="iq-eyebrow m-0 shrink-0 px-1 font-normal">Transcript</h2>
       <div
         ref={scrollRef}
         aria-label="Conversation transcript"
         role="log"
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto text-sm"
+        tabIndex={0}
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[6px] text-[13.5px] leading-[1.5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {entries.length === 0 ? (
-          <p className="text-neutral-400 italic">The conversation will appear here.</p>
+          <p className="m-0 px-1 text-[13px] text-faint">The conversation will appear here.</p>
         ) : (
           entries.map((entry, i) => (
             <div
               key={i}
-              className={cn(entry.speaker === 'system' && 'text-neutral-400 italic')}
+              className={cn(
+                'rounded-[8px] px-3 py-2.5',
+                entry.speaker === 'interviewer' && 'bg-panel text-foreground',
+                entry.speaker === 'candidate' && 'text-muted-foreground',
+                entry.speaker === 'system' && 'border border-dashed border-line-4 text-faint'
+              )}
             >
-              <span className="font-semibold">{speakerLabel(entry.speaker, interviewerName)}: </span>
+              <span className="mb-[3px] block font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">
+                {speakerLabel(entry.speaker, interviewerName)}
+              </span>
               <span>{entry.text}</span>
             </div>
           ))

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { MonoPill } from '@/components/patterns'
 import { Button } from '@/components/ui/button'
 import type { LiveSession } from '../session/types'
 
@@ -51,13 +52,23 @@ export function ViolationOverlay({ session, onReturn }: ViolationOverlayProps) {
       data-testid="violation-overlay"
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[70] backdrop-blur-md bg-background/80 grid place-items-center"
+      aria-labelledby="violation-title"
+      aria-describedby="violation-detail"
+      className="fixed inset-0 z-[70] grid place-items-center bg-frame/80 p-4 backdrop-blur-md"
     >
-      <div className="flex flex-col items-center gap-4 rounded-lg border bg-card p-8 text-center shadow-lg">
-        <p className="text-lg font-medium" aria-live="assertive">
+      <div className="flex w-full max-w-[440px] flex-col items-center gap-4 rounded-[12px] border border-line-2 bg-card p-7 text-center shadow-hero sm:p-8">
+        <MonoPill tone="alert">Round paused</MonoPill>
+        <p
+          id="violation-title"
+          className="m-0 text-[22px] font-normal leading-[1.2] tracking-[-0.03em]"
+          aria-live="assertive"
+        >
           Please return to full-screen to continue
         </p>
-        <Button ref={returnButtonRef} onClick={onReturn}>
+        <p id="violation-detail" className="m-0 text-[13.5px] leading-[1.5] text-muted-foreground">
+          Leaving full screen or switching tabs pauses the interview, and each pause is logged.
+        </p>
+        <Button ref={returnButtonRef} onClick={onReturn} className="mt-1 h-11 w-full text-[14px]">
           Return to full-screen
         </Button>
       </div>

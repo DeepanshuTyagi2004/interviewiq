@@ -8,10 +8,11 @@ vi.mock('./CodeEditor', () => ({ CodeEditor: () => <div data-testid="code-editor
 vi.mock('./DiagramBoard', () => ({ DiagramBoard: () => <div data-testid="diagram-board" /> }))
 
 describe('WorkArea', () => {
+  // The diagram tab reads "Whiteboard" (the design's word) rather than the vendor name "Excalidraw".
   it('renders both tab triggers', () => {
     render(<WorkArea session={new MockLiveSession()} />)
     expect(screen.getByRole('tab', { name: /code editor/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /excalidraw/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /whiteboard/i })).toBeInTheDocument()
   })
 
   it('keeps both surfaces mounted, showing the diagram board after clicking its tab', async () => {
@@ -22,7 +23,7 @@ describe('WorkArea', () => {
     expect(screen.getByTestId('code-editor')).toBeInTheDocument()
     expect(screen.getByTestId('diagram-board')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('tab', { name: /excalidraw/i }))
+    await user.click(screen.getByRole('tab', { name: /whiteboard/i }))
 
     const diagramPanel = screen.getByTestId('diagram-board').closest('[role="tabpanel"]')
     const codePanel = screen.getByTestId('code-editor').closest('[role="tabpanel"]')

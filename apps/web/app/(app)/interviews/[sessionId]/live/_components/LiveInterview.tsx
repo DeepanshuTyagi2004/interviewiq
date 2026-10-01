@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,10 @@ import { useLiveSession } from "@/features/interview-live/session/useLiveSession
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { ViolationOverlay } from "@/features/interview-live/proctor/ViolationOverlay";
 import { useLiveState } from "@/features/interview/hooks";
+import type { SessionStatus } from "@/features/interview/types";
+import { StatusPill } from "../../../_components/StatusPill";
+import { RoomCentered, RoomFrame } from "./RoomFrame";
+import { roomEyebrow, type RoomMeta } from "./roomMeta";
 import { PrejoinView } from "./PrejoinView";
 import { ChecksView } from "./ChecksView";
 import { LiveView } from "./LiveView";
@@ -19,21 +24,49 @@ import { EndedView } from "./EndedView";
  * shaped page while the gate resolves. */
 function GateShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      {children}
+    <div className="fixed inset-0 z-50 flex bg-frame">
+      <RoomFrame leave={false}>
+        <RoomCentered className="items-center text-center">{children}</RoomCentered>
+      </RoomFrame>
     </div>
   );
 }
 
-function LiveInterviewInner({ sessionId }: { sessionId: string }) {
+/** Quiet spinner for the in-between states (loading, redirecting, connecting). */
+function RoomSpinner({ label }: { label: string }) {
+  return (
+    <div role="status" className="flex flex-col items-center gap-3">
+      <Loader2 aria-hidden data-motion className="h-6 w-6 animate-spin text-faint" />
+      <p className="m-0 text-[13.5px] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+/** Why a not-yet-enterable session can't be joined, from its prep status. */
+function notReadyNote(status: SessionStatus | undefined): string {
+  if (status === "SCHEDULED") return "We prepare your interviewer ahead of your slot. Come back once it reads Ready.";
+  if (status === "PREP_QUEUED") return "Your interviewer is still being prepared. Check back shortly.";
+  if (status === "PREP_FAILED") return "Prep for this interview failed. Retry it from the interview's page.";
+  return "Come back once your interview reads Ready.";
+}
+
+function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
   const { state, session } = useLiveSession();
   const router = useRouter();
 
   switch (state) {
     case "prejoin":
-      return <PrejoinView />;
+      return (
+        <RoomFrame>
+          <PrejoinView meta={meta} />
+        </RoomFrame>
+      );
     case "checks":
-      return <ChecksView sessionId={sessionId} />;
+      return (
+        <RoomFrame>
+          <ChecksView sessionId={sessionId} meta={meta} />
+        </RoomFrame>
+      );
     // live + paused share ONE stable tree so LiveView (and the candidate's in-progress
     // code/diagram/tab/media state) is NEVER remounted on a pause/resume. Only the `inert`
     // flag toggles (disables the work area under the overlay) and the overlay renders as a
@@ -42,54 +75,65 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
     case "live":
     case "paused":
       return (
-        <div className="relative h-full w-full">
-          <div inert={state === "paused"} className="h-full w-full">
-            <LiveView sessionId={sessionId} />
+        <RoomFrame variant="live">
+          <div className="relative flex min-h-0 w-full flex-1 flex-col">
+            <div inert={state === "paused"} className="flex min-h-0 w-full flex-1 flex-col">
+              <LiveView sessionId={sessionId} meta={meta} />
+            </div>
+            {state === "paused" && (
+              <ViolationOverlay
+                session={session}
+                onReturn={() => void document.documentElement.requestFullscreen()}
+              />
+            )}
           </div>
-          {state === "paused" && (
-            <ViolationOverlay
-              session={session}
-              onReturn={() => void document.documentElement.requestFullscreen()}
-            />
-          )}
-        </div>
+        </RoomFrame>
       );
     case "ending":
     case "ended":
-      return <EndedView sessionId={sessionId} />;
+      return (
+        <RoomFrame leave={false}>
+          <EndedView sessionId={sessionId} meta={meta} />
+        </RoomFrame>
+      );
     case "reconnecting":
       return (
-        <div className="m-auto flex flex-col items-center gap-3 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Reconnecting&hellip; hang tight, we&apos;re restoring your interview.
-          </p>
-        </div>
+        <RoomFrame leave={false}>
+          <RoomCentered className="items-center text-center">
+            <RoomSpinner label="Reconnecting… hang tight, we're restoring your interview." />
+          </RoomCentered>
+        </RoomFrame>
       );
     case "error":
       return (
-        <div className="m-auto flex w-full max-w-md flex-col items-center gap-4 p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Something went wrong connecting to your interview. You can try again from the
-            interviews list.
-          </p>
-          <Button
-            onClick={() => {
-              if (document.fullscreenElement) void document.exitFullscreen();
-              router.push("/interviews");
-            }}
-          >
-            Back to interviews
-          </Button>
-        </div>
+        <RoomFrame leave={false}>
+          <RoomCentered className="items-center text-center">
+            <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
+            <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">
+              Something went wrong connecting to your interview. You can try again from the
+              interviews list.
+            </p>
+            <Button
+              className="h-10 px-4 text-[13.5px]"
+              onClick={() => {
+                if (document.fullscreenElement) void document.exitFullscreen();
+                router.push("/interviews");
+              }}
+            >
+              Back to interviews
+            </Button>
+          </RoomCentered>
+        </RoomFrame>
       );
     // connecting — a real view lands in a later task; a placeholder keeps the state machine
     // wired end-to-end today.
     default:
       return (
-        <div className="m-auto text-sm text-muted-foreground">
-          {state}&hellip;
-        </div>
+        <RoomFrame leave={false}>
+          <RoomCentered className="items-center text-center">
+            <RoomSpinner label={state === "connecting" ? "Connecting to your interviewer…" : `${state}…`} />
+          </RoomCentered>
+        </RoomFrame>
       );
   }
 }
@@ -114,9 +158,12 @@ function LiveInterviewInner({ sessionId }: { sessionId: string }) {
 export default function LiveInterview({
   sessionId,
   session,
+  meta,
 }: {
   sessionId: string;
   session?: LiveSession;
+  /** Display-only session facts (company, level, round) for the room's eyebrows and header. */
+  meta?: RoomMeta;
 }) {
   const router = useRouter();
   const { data, isLoading, isError } = useLiveState(sessionId);
@@ -133,7 +180,7 @@ export default function LiveInterview({
   if (isLoading) {
     return (
       <GateShell>
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <RoomSpinner label="Opening your interview room…" />
       </GateShell>
     );
   }
@@ -144,13 +191,14 @@ export default function LiveInterview({
   if (isError) {
     return (
       <GateShell>
-        <div className="flex w-full max-w-md flex-col items-center gap-4 p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Something went wrong loading your interview. You can try again from the interviews
-            list.
-          </p>
-          <Button onClick={() => router.push("/interviews")}>Back to interviews</Button>
-        </div>
+        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
+        <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">
+          Something went wrong loading your interview. You can try again from the interviews
+          list.
+        </p>
+        <Button className="h-10 px-4 text-[13.5px]" onClick={() => router.push("/interviews")}>
+          Back to interviews
+        </Button>
       </GateShell>
     );
   }
@@ -158,7 +206,7 @@ export default function LiveInterview({
   if (!data) {
     return (
       <GateShell>
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <RoomSpinner label="Opening your interview room…" />
       </GateShell>
     );
   }
@@ -167,7 +215,7 @@ export default function LiveInterview({
     // The effect above fires the redirect; render a lightweight holding state in the meantime.
     return (
       <GateShell>
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <RoomSpinner label="This round is over. Opening its debrief…" />
       </GateShell>
     );
   }
@@ -175,8 +223,8 @@ export default function LiveInterview({
   if (isEnterable) {
     return (
       <LiveSessionProvider sessionId={sessionId} session={session}>
-        <div className="fixed inset-0 z-50 flex bg-background">
-          <LiveInterviewInner sessionId={sessionId} />
+        <div className="fixed inset-0 z-50 flex bg-frame">
+          <LiveInterviewInner sessionId={sessionId} meta={meta} />
         </div>
       </LiveSessionProvider>
     );
@@ -184,11 +232,19 @@ export default function LiveInterview({
 
   return (
     <GateShell>
-      <div className="flex w-full max-w-md flex-col items-center gap-4 p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          This interview isn&apos;t ready to join yet.
-        </p>
-        <Button onClick={() => router.push("/interviews")}>Back to interviews</Button>
+      <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
+      {status ? <StatusPill status={status} /> : null}
+      <h1 className="m-0 text-[28px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[32px]">
+        This interview isn&apos;t ready to join yet.
+      </h1>
+      <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">{notReadyNote(status)}</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button className="h-10 px-4 text-[13.5px]" onClick={() => router.push("/interviews")}>
+          Back to interviews
+        </Button>
+        <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
+          <Link href={`/interviews/${sessionId}`}>View interview</Link>
+        </Button>
       </div>
     </GateShell>
   );

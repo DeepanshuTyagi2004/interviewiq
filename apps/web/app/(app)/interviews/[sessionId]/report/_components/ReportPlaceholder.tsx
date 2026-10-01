@@ -1,78 +1,189 @@
 "use client";
 
-import { useSession } from "@/features/interview";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ROUTES } from "@/lib/constants/shared";
+import { useSession, type InterviewSession } from "@/features/interview";
+import {
+  bookingHref,
+  companyLabel,
+  formatSlot,
+  isFinished,
+  levelLabel,
+  roundLabel,
+} from "@/features/interview/presentation";
+import { StatusPill } from "../../../_components/StatusPill";
 
+const PAGE = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+
+/** What the debrief is for, from the product spec. Shown as a promise of shape, never as results. */
+const WILL_CONTAIN = [
+  {
+    eyebrow: "Questions",
+    title: "Every question, one by one",
+    body: "What you said next to a strong answer, with feedback on the gap between them.",
+  },
+  {
+    eyebrow: "Signals",
+    title: "How the round went",
+    body: "Correctness, approach, depth and communication, each traced back to your own answers.",
+  },
+  {
+    eyebrow: "Learn next",
+    title: "Topics to work on",
+    body: "A short list drawn from the answers that needed the most help.",
+  },
+  {
+    eyebrow: "Score",
+    title: "An overall score",
+    body: "Marked against this round's rubric, with the reasoning shown, once scoring ships.",
+  },
+];
+
+function statusNote(session: InterviewSession): string {
+  if (session.status === "COMPLETED") return "Round complete. Its questions, feedback and score will appear here once scoring is live.";
+  if (session.status === "ABORTED_TECHNICAL") return "This round ended early because of a technical problem.";
+  return "This round hasn't finished yet. Its debrief opens here afterwards.";
+}
+
+function BackLink() {
+  return (
+    <Link
+      href={ROUTES.interviews}
+      className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+      All interviews
+    </Link>
+  );
+}
+
+/**
+ * The debrief for a session. There is no candidate-facing report or scoring contract yet, so this
+ * is an honest placeholder in the design's debrief layout: the round from the session, an empty
+ * score ("—"), and what the debrief will contain. It never shows sample questions or scores.
+ */
 export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
   const { data: session, isLoading, error } = useSession(sessionId);
 
   if (isLoading) {
     return (
-      <main className="flex-1 p-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-          <p className="mt-4 text-gray-600">Loading interview report...</p>
+      <div className={PAGE} aria-busy="true">
+        <p className="sr-only">Loading your debrief…</p>
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="mt-4 h-10 w-80 max-w-full" />
+        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
+          <Skeleton className="h-72 rounded-[10px]" />
+          <Skeleton className="h-72 rounded-[10px]" />
         </div>
-      </main>
+      </div>
     );
   }
 
   if (error || !session) {
     return (
-      <main className="flex-1 p-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="font-semibold text-red-900">Error</p>
-            <p className="text-sm text-red-700">
-              Failed to load your interview session. Please try refreshing the page.
-            </p>
-          </div>
+      <div className={PAGE}>
+        <BackLink />
+        <div className="mt-6 rounded-[10px] border border-dashed border-line-4 px-6 py-12 text-center">
+          <p role="alert" className="m-0 text-sm text-foreground">
+            Failed to load your interview session. Refresh the page to try again.
+          </p>
         </div>
-      </main>
+      </div>
     );
   }
 
-  const displayCompany = session.companyName ?? session.company;
+  const finished = isFinished(session);
 
   return (
-    <main className="flex-1 p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">
-            {displayCompany} — {session.roundType.toUpperCase()}
-          </h1>
-          <p className="text-gray-600">
-            Round: {session.level} | {session.specialization}
+    <div className={PAGE}>
+      <BackLink />
+
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
+        <div className="min-w-0">
+          <p className="iq-eyebrow m-0">
+            Debrief · {companyLabel(session)} · {levelLabel(session.level)}
           </p>
+          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+            {roundLabel(session.roundType)}
+          </h1>
+          <p className="m-0 mt-2 max-w-[560px] text-[15px] leading-[1.5] text-muted-foreground">{statusNote(session)}</p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">
-          <div className="flex items-start gap-4">
-            <div className="text-2xl">⏱️</div>
-            <div>
-              <p className="font-semibold text-amber-900 mb-2">
-                Your report is being prepared
-              </p>
-              <p className="text-sm text-amber-700">
-                Detailed scoring, feedback, and recommendations will be available shortly.
-                Check back in a moment for your comprehensive interview analysis.
-              </p>
-            </div>
+        <div className="flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="text-[56px] font-normal leading-none tracking-[-0.06em] text-faint-2 sm:text-[64px]">
+              —
+            </span>
+            <span className="sr-only">No score yet.</span>
+            <span className="max-w-[92px] text-[13px] leading-[1.35] text-faint">Scoring isn&apos;t live yet</span>
           </div>
-        </div>
-
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h2 className="font-semibold text-gray-900 mb-2">What happens next</h2>
-          <ul className="text-sm text-gray-600 space-y-2">
-            <li>• Our AI interviewer is analyzing your responses</li>
-            <li>• Generating a detailed scorecard with strengths and areas to improve</li>
-            <li>• Compiling personalized recommendations for this role</li>
-          </ul>
+          {finished ? (
+            <Button asChild className="h-10 px-4 text-[13.5px]">
+              <Link href={bookingHref({ jd: session.jobDescriptionId, round: session.roundType })}>
+                Practise again
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
+              <Link href={`${ROUTES.interviews}/${session.id}`}>View interview</Link>
+            </Button>
+          )}
         </div>
       </div>
-    </main>
+
+      <div className="mt-7 flex flex-wrap items-start gap-3">
+        <section
+          aria-labelledby="debrief-round"
+          className="min-w-0 flex-[1_1_260px] overflow-hidden rounded-[10px] border border-line-2"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
+            <h2 id="debrief-round" className="m-0 text-sm font-normal">
+              This round
+            </h2>
+            <StatusPill status={session.status} />
+          </div>
+          <dl className="m-0">
+            {(
+              [
+                ["Role", session.role],
+                ["Level", levelLabel(session.level)],
+                ...(session.specialization ? [["Focus", session.specialization]] : []),
+                ["Slot", formatSlot(session.scheduledAt)],
+              ] as [string, string][]
+            ).map(([label, value]) => (
+              <div
+                key={label}
+                className="grid grid-cols-[88px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] last:border-b-0 sm:px-5"
+              >
+                <dt className="text-faint">{label}</dt>
+                <dd className="m-0 min-w-0 break-words">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section
+          aria-labelledby="debrief-contents"
+          className="flex min-w-0 flex-[2.2_1_440px] flex-col gap-4 rounded-[10px] bg-panel p-4 sm:p-5"
+        >
+          <h2 id="debrief-contents" className="iq-eyebrow m-0 font-normal">
+            What your debrief will contain
+          </h2>
+          <ul className="m-0 grid list-none grid-cols-1 gap-2.5 p-0 sm:grid-cols-2">
+            {WILL_CONTAIN.map((item) => (
+              <li key={item.eyebrow} className="iq-float flex flex-col gap-1.5 p-4">
+                <span className="iq-eyebrow">{item.eyebrow}</span>
+                <span className="text-[15px] tracking-[-0.01em]">{item.title}</span>
+                <span className="text-[13px] leading-[1.5] text-muted-foreground">{item.body}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </div>
   );
 }

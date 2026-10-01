@@ -82,4 +82,42 @@ describe("BookingForm", () => {
     expect(deltaMs).toBeGreaterThan(0);
     expect(deltaMs).toBeLessThan(2 * 60_000);
   });
+
+  describe("roadmap prefill (?jd=&round=)", () => {
+    it("pre-selects the JD and round and books that round", async () => {
+      const user = userEvent.setup();
+      render(<BookingForm initialJobDescriptionId="jd-1" initialRoundType="system-design" />);
+
+      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveValue("jd-1");
+      expect(screen.getByRole("button", { name: "System Design" })).toHaveAttribute("aria-pressed", "true");
+
+      await user.click(screen.getByRole("button", { name: /^start now$/i }));
+
+      const body = mutateMock.mock.calls[0]![0] as CreateInterviewSessionRequest;
+      expect(body.jobDescriptionId).toBe("jd-1");
+      expect(body.roundType).toBe("system-design");
+    });
+
+    it("ignores a JD that isn't in the role list", () => {
+      render(<BookingForm initialJobDescriptionId="jd-not-mine" />);
+
+      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveValue("");
+      expect(screen.getByRole("button", { name: /^start now$/i })).toBeDisabled();
+      // No round chip starts out selected either.
+      expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    });
+
+    it("lets the candidate clear a pre-selected round, leaving it to the backend", async () => {
+      const user = userEvent.setup();
+      render(<BookingForm initialJobDescriptionId="jd-1" initialRoundType="lld" />);
+
+      const chip = screen.getByRole("button", { name: "Low-Level Design" });
+      await user.click(chip);
+      expect(chip).toHaveAttribute("aria-pressed", "false");
+
+      await user.click(screen.getByRole("button", { name: /^start now$/i }));
+      const body = mutateMock.mock.calls[0]![0] as CreateInterviewSessionRequest;
+      expect(body.roundType).toBeUndefined();
+    });
+  });
 });

@@ -1,19 +1,42 @@
 'use client'
 
 import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useLiveSession } from '@/features/interview-live/session/useLiveSession'
+import { RoomCentered } from './RoomFrame'
+import { roomEyebrow, type RoomMeta } from './roomMeta'
 
-/** Shown once the interview has ended (machine states `ending`/`ended`). Simple hand-off to
- * the post-interview report — the report page itself is built in a later task. */
-export function EndedView({ sessionId }: { sessionId: string }) {
+/** Shown once the interview has ended (machine states `ending`/`ended`): a hand-off to the
+ * debrief, worded from how the round actually ended (the machine's `endedReason`). */
+export function EndedView({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
+  const { ctx } = useLiveSession()
+  const droppedOut = ctx.endedReason === 'aborted_technical'
+
   return (
-    <div className="m-auto flex flex-col items-center gap-4 text-center">
-      <h1 className="text-2xl font-semibold">Interview ended</h1>
-      <p className="text-sm text-muted-foreground">
-        Thanks for completing the interview. Your report will be ready shortly.
-      </p>
-      <Link href={`/interviews/${sessionId}/report`} className="text-sm font-medium underline underline-offset-4">
-        View report
-      </Link>
-    </div>
+    <RoomCentered>
+      <div className="flex flex-col gap-2.5">
+        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
+        <h1 className="m-0 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          {droppedOut ? 'The interview was cut short' : 'Interview ended'}
+        </h1>
+        <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
+          {droppedOut
+            ? 'The connection dropped, so the round ended early. You can book it again from your interviews.'
+            : "Thanks for taking the round. Its debrief has its own page; scoring isn't live yet, so it won't show a score for now."}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild className="h-11 px-5 text-[14px]">
+          <Link href={`/interviews/${sessionId}/report`}>
+            View debrief
+            <ArrowRight aria-hidden />
+          </Link>
+        </Button>
+        <Button asChild variant="strong" className="h-11 px-5 text-[14px]">
+          <Link href="/interviews">Back to interviews</Link>
+        </Button>
+      </div>
+    </RoomCentered>
   )
 }

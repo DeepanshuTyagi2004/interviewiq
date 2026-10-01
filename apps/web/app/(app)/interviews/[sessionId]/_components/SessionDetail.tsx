@@ -1,0 +1,238 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowLeft, Check, Loader2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils/cn";
+import { ROUTES } from "@/lib/constants/shared";
+import { formatDate, formatRelativeTime } from "@/lib/utils/format";
+import { useSession, type InterviewSession } from "@/features/interview";
+import {
+  bookingHref,
+  companyLabel,
+  formatSlot,
+  isFinished,
+  levelLabel,
+  roundLabel,
+  sessionSteps,
+  type SessionStep,
+} from "@/features/interview/presentation";
+import { StatusPill } from "../../_components/StatusPill";
+import { SessionAction } from "./SessionAction";
+
+const PAGE = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+
+/** One line on where the session stands, straight from its status. */
+function statusLine(session: InterviewSession): string {
+  switch (session.status) {
+    case "SCHEDULED":
+      return `Booked for ${formatSlot(session.scheduledAt)}. We prepare your interviewer ahead of the slot.`;
+    case "PREP_QUEUED":
+      return "Your interviewer is being prepared from your profile and this role. This page updates on its own.";
+    case "PREP_READY":
+      return "Your interviewer is ready. Join whenever you're set up.";
+    case "PREP_FAILED":
+      return "We couldn't prepare this interview. Retry and we'll try again.";
+    case "LIVE_IN_PROGRESS":
+      return "This round is in progress. Rejoin to carry on.";
+    case "COMPLETED":
+      return "This round is done. Its debrief is ready to open.";
+    case "ABORTED_TECHNICAL":
+      return "This round ended early because of a technical problem.";
+    default:
+      return "";
+  }
+}
+
+function StepMark({ step, index }: { step: SessionStep; index: number }) {
+  const pending = step.state === "current" && step.key === "prep";
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex h-[30px] w-[30px] flex-none items-center justify-center rounded-md border font-mono text-[11px]",
+        step.state === "done" && "border-foreground bg-primary text-primary-foreground",
+        step.state === "current" && "border-foreground text-foreground",
+        step.state === "upcoming" && "border-line-3 text-faint",
+        step.state === "failed" && "border-destructive/40 bg-destructive/10 text-destructive",
+      )}
+    >
+      {step.state === "done" ? (
+        <Check className="h-3.5 w-3.5" />
+      ) : step.state === "failed" ? (
+        <X className="h-3.5 w-3.5" />
+      ) : pending ? (
+        <Loader2 data-motion className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        String(index + 1).padStart(2, "0")
+      )}
+    </span>
+  );
+}
+
+const STATE_TEXT: Record<SessionStep["state"], string> = {
+  done: "Done",
+  current: "Now",
+  upcoming: "Not yet",
+  failed: "Needs attention",
+};
+
+/** The lifecycle as the design's round rows: a mark, the step, and a short note. */
+function Progress({ session }: { session: InterviewSession }) {
+  const steps = sessionSteps(session.status);
+  return (
+    <section aria-labelledby="session-progress" className="flex min-w-0 flex-col gap-4 rounded-[10px] bg-panel p-4 sm:p-5">
+      <h2 id="session-progress" className="iq-eyebrow m-0 font-normal">
+        Progress
+      </h2>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+        {steps.map((step, i) => (
+          <li
+            key={step.key}
+            className={cn(
+              "iq-float flex items-center gap-3.5 px-4 py-3.5",
+              step.state === "current" && "ring-1 ring-foreground",
+            )}
+          >
+            <StepMark step={step} index={i} />
+            <div className="min-w-0 flex-1">
+              <p className={cn("m-0 text-[14.5px]", step.state === "upcoming" ? "text-faint" : "text-foreground")}>
+                {step.label}
+              </p>
+              <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">
+                {step.key === "booked" ? `Booked ${formatDate(session.createdAt)}` : step.note}
+              </p>
+            </div>
+            <span className="sr-only">{STATE_TEXT[step.state]}</span>
+          </li>
+        ))}
+      </ol>
+      {!isFinished(session) ? (
+        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+          The room runs full screen with your camera and microphone on. Leaving full screen or switching
+          tabs pauses the round.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function Details({ session }: { session: InterviewSession }) {
+  const rows: [string, React.ReactNode][] = [
+    ["Company", companyLabel(session)],
+    ["Role", session.role],
+    ["Level", levelLabel(session.level)],
+    ...(session.specialization ? ([["Focus", session.specialization]] as [string, React.ReactNode][]) : []),
+    ["Round", roundLabel(session.roundType)],
+    [
+      "Slot",
+      <>
+        <span className="font-mono tabular-nums">{formatSlot(session.scheduledAt)}</span>
+        <span className="block text-xs text-faint">{formatRelativeTime(session.scheduledAt)}</span>
+      </>,
+    ],
+    ["Time zone", <span key="tz" className="font-mono">{session.timezone}</span>],
+    ...(session.status === "PREP_FAILED" && session.prepError
+      ? ([["Error code", <span key="err" className="font-mono">{session.prepError}</span>]] as [string, React.ReactNode][])
+      : []),
+  ];
+
+  return (
+    <section aria-labelledby="session-details" className="min-w-0 overflow-hidden rounded-[10px] border border-line-2">
+      <div className="border-b border-line px-4 py-4 text-sm sm:px-5">
+        <h2 id="session-details" className="m-0 text-sm font-normal">
+          Details
+        </h2>
+      </div>
+      <dl className="m-0">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] last:border-b-0 sm:px-5"
+          >
+            <dt className="text-faint">{label}</dt>
+            <dd className="m-0 min-w-0 break-words text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link
+      href={ROUTES.interviews}
+      className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+      All interviews
+    </Link>
+  );
+}
+
+/** Session detail: status, the next action, the lifecycle so far and the booking's facts. */
+export function SessionDetail({ sessionId }: { sessionId: string }) {
+  const { data: session, isLoading, isError } = useSession(sessionId);
+
+  if (isLoading) {
+    return (
+      <div className={PAGE} aria-busy="true" aria-label="Loading interview">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-4 h-10 w-72 max-w-full" />
+        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Skeleton className="h-80 rounded-[10px]" />
+          <Skeleton className="h-80 rounded-[10px]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !session) {
+    return (
+      <div className={PAGE}>
+        <BackLink />
+        <div className="mt-6 rounded-[10px] border border-dashed border-line-4 px-6 py-12 text-center">
+          <p role="alert" className="m-0 text-sm text-foreground">
+            We couldn&apos;t load this interview.
+          </p>
+          <p className="m-0 mt-1 text-sm text-muted-foreground">It may have been removed, or the link is wrong.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const company = companyLabel(session);
+
+  return (
+    <div className={PAGE}>
+      <BackLink />
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
+        <div className="min-w-0">
+          <p className="iq-eyebrow m-0">
+            Interview · {company} · {levelLabel(session.level)}
+          </p>
+          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+            {roundLabel(session.roundType)}
+          </h1>
+          <p className="m-0 mt-2 max-w-[620px] text-[15px] leading-[1.5] text-muted-foreground">{statusLine(session)}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusPill status={session.status} />
+          {isFinished(session) ? (
+            <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
+              <Link href={bookingHref({ jd: session.jobDescriptionId, round: session.roundType })}>Practise again</Link>
+            </Button>
+          ) : null}
+          <SessionAction session={session} />
+        </div>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <Progress session={session} />
+        <Details session={session} />
+      </div>
+    </div>
+  );
+}

@@ -17,13 +17,15 @@ describe('TranscriptPanel', () => {
     ]
     render(<TranscriptPanel entries={entries} interviewerName="Ada" />)
 
-    expect(screen.getByText('Ada:')).toBeInTheDocument()
+    // Speaker labels are now the design's small mono eyebrows ("ADA", "YOU", "SYSTEM") above
+    // each line, so they no longer carry a trailing colon.
+    expect(screen.getByText('Ada')).toBeInTheDocument()
     expect(screen.getByText("Let's begin.")).toBeInTheDocument()
 
-    expect(screen.getByText('You:')).toBeInTheDocument()
+    expect(screen.getByText('You')).toBeInTheDocument()
     expect(screen.getByText('Sure, sounds good.')).toBeInTheDocument()
 
-    expect(screen.getByText('System:')).toBeInTheDocument()
+    expect(screen.getByText('System')).toBeInTheDocument()
     expect(screen.getByText('Please return to full screen.')).toBeInTheDocument()
   })
 

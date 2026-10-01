@@ -1,4 +1,4 @@
-import LiveInterview from "./_components/LiveInterview";
+import { LiveRoom } from "./_components/LiveRoom";
 
 export default async function LiveInterviewPage({
   params,
@@ -6,5 +6,5 @@ export default async function LiveInterviewPage({
   params: Promise<{ sessionId: string }>;
 }) {
   const { sessionId } = await params;
-  return <LiveInterview sessionId={sessionId} />;
+  return <LiveRoom sessionId={sessionId} />;
 }

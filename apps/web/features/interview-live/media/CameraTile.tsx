@@ -28,13 +28,13 @@ export function CameraTile({ stream, micOn = false, label }: CameraTileProps) {
     <div
       data-testid="camera-tile"
       className={cn(
-        'relative h-full w-full overflow-hidden rounded-lg bg-muted transition-shadow',
-        speaking && 'ring-4 ring-primary/60'
+        'relative h-full w-full overflow-hidden rounded-[8px] bg-inv transition-shadow',
+        speaking && 'ring-4 ring-brand/30'
       )}
     >
       <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
       {label && (
-        <span className="absolute bottom-2 left-2 rounded bg-background/80 px-2 py-0.5 text-xs font-medium">
+        <span className="absolute bottom-2 left-2 rounded-[4px] bg-inv/75 px-1.5 py-[3px] font-mono text-[10px] uppercase tracking-[0.06em] text-white">
           {label}
         </span>
       )}

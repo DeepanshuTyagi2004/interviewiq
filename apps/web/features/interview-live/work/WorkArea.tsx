@@ -11,8 +11,11 @@ import { DiagramBoard } from './DiagramBoard'
 
 type Surface = 'code' | 'diagram'
 
-/** Left-side work surface: Code Editor / Excalidraw behind a tab toggle, with an optional
- * fullscreen pop-out. Both surfaces stay mounted across tab switches (TabsContent
+const tabClass =
+  'h-[26px] rounded-[5px] px-2.5 text-[12.5px] font-normal text-faint shadow-none hover:text-foreground data-[state=active]:bg-panel data-[state=active]:text-foreground data-[state=active]:shadow-none'
+
+/** The work surface: Code editor / Whiteboard (Excalidraw) behind the design's small tab bar, with
+ * an optional fullscreen pop-out. Both surfaces stay mounted across tab switches (TabsContent
  * forceMount + `hidden`) so Monaco/Excalidraw state and artifact buffers survive — remounting
  * would lose in-progress work and re-pay the load cost of both editors. */
 export function WorkArea({ session }: { session: LiveSession }) {
@@ -28,16 +31,45 @@ export function WorkArea({ session }: { session: LiveSession }) {
       <div
         data-testid={popped ? 'work-popout' : undefined}
         className={cn(
-          'flex flex-col',
-          popped ? 'fixed inset-[2.5%] z-[60] rounded-lg border bg-background shadow-2xl' : 'h-full'
+          'flex flex-col bg-card',
+          popped ? 'fixed inset-[2.5%] z-[60] overflow-hidden rounded-[12px] border border-line-3 shadow-hero' : 'h-full'
         )}
       >
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Surface)} className="flex min-h-0 flex-1 flex-col p-2">
-          <TabsList className="w-fit shrink-0">
-            <TabsTrigger value="code">Code Editor</TabsTrigger>
-            <TabsTrigger value="diagram">Excalidraw</TabsTrigger>
-          </TabsList>
-          <div className="relative mt-2 flex-1">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Surface)} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex h-[38px] shrink-0 items-center gap-1 border-b border-line-2 px-2.5">
+            <TabsList className="h-auto gap-1 bg-transparent p-0">
+              <TabsTrigger value="code" className={tabClass}>
+                Code editor
+              </TabsTrigger>
+              <TabsTrigger value="diagram" className={tabClass}>
+                Whiteboard
+              </TabsTrigger>
+            </TabsList>
+            {popped ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Collapse work area"
+                onClick={() => setPopped(false)}
+                className="ml-auto h-7 w-7 text-muted-foreground hover:text-foreground"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Expand work area"
+                onClick={() => setPopped(true)}
+                className="ml-auto h-7 w-7 text-muted-foreground hover:text-foreground"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          <div className="relative min-h-0 flex-1">
             <TabsContent
               value="code"
               forceMount
@@ -54,17 +86,6 @@ export function WorkArea({ session }: { session: LiveSession }) {
             </TabsContent>
           </div>
         </Tabs>
-        <div className="shrink-0 border-t p-2">
-          {popped ? (
-            <Button type="button" variant="outline" size="icon" aria-label="Collapse work area" onClick={() => setPopped(false)}>
-              <Minimize2 className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" size="icon" aria-label="Expand work area" onClick={() => setPopped(true)}>
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   )
