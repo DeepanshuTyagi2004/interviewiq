@@ -108,7 +108,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
               id="prejoin-terms"
               checked={agreed}
               onCheckedChange={(checked) => setAgreed(checked === true)}
-              className="mt-px h-[22px] w-[22px] rounded-[5px] border-foreground shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
+              className="mt-px h-[22px] w-[22px] rounded-[5px] border-faint-2 shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
             />
             <Label htmlFor="prejoin-terms" className="text-[14px] font-normal leading-[1.5]">
               I understand the interview runs in full screen, that leaving full

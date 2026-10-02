@@ -89,7 +89,7 @@ export function ExperienceForm() {
                       "inline-flex h-9 cursor-pointer items-center justify-center rounded-[5px] border px-2 text-[13px] sm:px-3.5 transition-colors duration-200 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1 has-[:focus-visible]:ring-offset-background",
                       selected
                         ? "border-foreground bg-primary text-primary-foreground"
-                        : "border-line-3 bg-card text-foreground hover:border-foreground",
+                        : "border-line-3 bg-card text-foreground hover:border-faint-2",
                     )}
                   >
                     <input

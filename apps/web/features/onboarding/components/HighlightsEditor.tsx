@@ -101,7 +101,7 @@ export const HighlightsEditor = forwardRef<HTMLTextAreaElement, HighlightsEditor
 
 
   return (
-    <div className="overflow-hidden rounded-md border border-input bg-card transition-colors focus-within:border-foreground">
+    <div className="overflow-hidden rounded-md border border-input bg-card transition-colors focus-within:border-faint focus-within:ring-[3px] focus-within:ring-foreground/10">
       <div className="flex items-center gap-0.5 border-b border-line bg-panel/60 px-1.5 py-1">
         <div role="toolbar" aria-label="Formatting" aria-controls={textareaId} className="flex flex-wrap items-center gap-0.5">
           {actions.map((a, i) => (

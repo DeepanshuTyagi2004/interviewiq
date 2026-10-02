@@ -28,7 +28,7 @@ export function WhyCards() {
             >
               <span
                 aria-hidden
-                className="flex h-[26px] w-[26px] items-center justify-center rounded-md border border-foreground text-xs"
+                className="flex h-[26px] w-[26px] items-center justify-center rounded-md border border-line-4 text-xs"
               >
                 {f.icon}
               </span>

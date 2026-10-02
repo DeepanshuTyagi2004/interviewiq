@@ -11,7 +11,7 @@ export const STEP_STATUS_CLASS: Record<RunStepStatus | "idle", string> = {
   idle: "border-dashed border-line-3 bg-card text-faint",
   pending: "border-line-3 bg-card text-muted-foreground",
   running: "border-brand bg-card text-foreground ring-2 ring-brand/20",
-  ok: "border-foreground bg-card text-foreground",
+  ok: "border-faint-2 bg-card text-foreground",
   failed: "border-destructive bg-destructive/10 text-destructive",
   skipped: "border-line-2 bg-panel text-faint",
 };

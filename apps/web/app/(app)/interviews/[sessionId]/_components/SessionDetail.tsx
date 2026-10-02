@@ -53,7 +53,7 @@ function StepMark({ step, index }: { step: SessionStep; index: number }) {
       className={cn(
         "flex h-[30px] w-[30px] flex-none items-center justify-center rounded-md border font-mono text-[11px]",
         step.state === "done" && "border-foreground bg-primary text-primary-foreground",
-        step.state === "current" && "border-foreground text-foreground",
+        step.state === "current" && "border-faint-2 text-foreground",
         step.state === "upcoming" && "border-line-3 text-faint",
         step.state === "failed" && "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -92,7 +92,7 @@ function Progress({ session }: { session: InterviewSession }) {
             key={step.key}
             className={cn(
               "iq-float flex items-center gap-3.5 px-4 py-3.5",
-              step.state === "current" && "ring-1 ring-foreground",
+              step.state === "current" && "ring-1 ring-line-4",
             )}
           >
             <StepMark step={step} index={i} />

@@ -13,7 +13,7 @@ interface BottomDrawerProps {
 }
 
 const control =
-  'h-[38px] gap-2 border-line-3 px-3 text-[13px] aria-pressed:border-foreground aria-pressed:bg-panel sm:px-3.5'
+  'h-[38px] gap-2 border-line-3 px-3 text-[13px] aria-pressed:border-faint-2 aria-pressed:bg-panel sm:px-3.5'
 
 /** Bottom control bar for the live interview, in the design's layout: mic, camera and fullscreen
  * on the left, End on the right. `aria-pressed` on the mic/camera buttons reflects whether the

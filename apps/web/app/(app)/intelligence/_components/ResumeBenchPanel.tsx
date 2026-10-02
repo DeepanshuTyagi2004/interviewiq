@@ -9,7 +9,7 @@ import { useResumeRun, useStartResumeRun } from "@/features/resume-bench";
 
 /** File input styled to match the console: an outlined "Choose file" chip, muted file name. */
 const FILE_INPUT_CLASS =
-  "block w-full min-w-0 rounded-md text-[13px] text-muted-foreground file:mr-3 file:h-8 file:cursor-pointer file:rounded-md file:border file:border-solid file:border-line-3 file:bg-card file:px-3 file:text-[13px] file:text-foreground file:transition-colors hover:file:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "block w-full min-w-0 rounded-md text-[13px] text-muted-foreground file:mr-3 file:h-8 file:cursor-pointer file:rounded-md file:border file:border-solid file:border-line-3 file:bg-card file:px-3 file:text-[13px] file:text-foreground file:transition-colors hover:file:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 /**
  * Admin test-bench for the resume-parse pipeline: upload a PDF, start an instrumented run, and

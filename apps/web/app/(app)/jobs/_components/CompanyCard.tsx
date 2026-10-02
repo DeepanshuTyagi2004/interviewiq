@@ -60,7 +60,7 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
       aria-labelledby={headingId}
       className={cn(
         "flex min-h-[200px] min-w-0 flex-col gap-3.5 rounded-[10px] border bg-card p-5 transition-shadow duration-300 ease-iq hover:shadow-lift",
-        entry.live ? "border-foreground" : "border-line-2",
+        entry.live ? "border-line-4" : "border-line-2",
       )}
     >
       <div className="flex items-center gap-3">

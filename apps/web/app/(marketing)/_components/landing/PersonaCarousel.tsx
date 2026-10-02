@@ -106,7 +106,7 @@ function CarouselButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="h-[34px] w-[34px] cursor-pointer rounded-[5px] border border-foreground bg-card text-sm text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
+      className="h-[34px] w-[34px] cursor-pointer rounded-[5px] border border-line-4 bg-card text-sm text-foreground hover:border-faint-2 hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
     >
       <span aria-hidden>{children}</span>
     </button>

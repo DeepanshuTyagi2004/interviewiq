@@ -75,7 +75,7 @@ export function SourceRow({
       className={cn(
         "min-w-0 list-none transition-colors duration-200",
         stack
-          ? cn("rounded-lg border px-4 py-3.5", connected ? "border-foreground bg-panel" : "border-line-2 bg-card")
+          ? cn("rounded-lg border px-4 py-3.5", connected ? "border-line-4 bg-panel" : "border-line-2 bg-card")
           : "border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5",
         className,
       )}

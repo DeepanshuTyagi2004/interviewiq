@@ -39,7 +39,7 @@ function CheckRow({
           "mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[5px] border",
           status === "pass" && "border-brand bg-brand text-brand-foreground",
           status === "checking" && "border-line-4 text-faint",
-          status === "warn" && "border-foreground text-foreground",
+          status === "warn" && "border-faint-2 text-foreground",
           status === "fail" && "border-destructive/50 bg-destructive/10 text-destructive",
         )}
       >

@@ -91,8 +91,8 @@ export function EducationFields({ heading = true }: SectionFieldsProps) {
     >
       {education.fields.map((row, i) => (
         <Card key={row.id}>
-          <CardContent className="space-y-3 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="iq-fields space-y-3 p-4">
+            <div className="iq-grid" data-cols="3">
               <FormField label="Institution" htmlFor={`education-${i}-institution`}>
                 <Input id={`education-${i}-institution`} {...register(`education.${i}.institution`)} />
               </FormField>
@@ -134,8 +134,8 @@ export function ExperienceFields({ heading = true }: SectionFieldsProps) {
     >
       {experience.fields.map((row, i) => (
         <Card key={row.id}>
-          <CardContent className="space-y-3 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="iq-fields space-y-3 p-4">
+            <div className="iq-grid" data-cols="4">
               <FormField label="Company" htmlFor={`experience-${i}-company`}>
                 <Input id={`experience-${i}-company`} {...register(`experience.${i}.company`)} />
               </FormField>
@@ -148,7 +148,7 @@ export function ExperienceFields({ heading = true }: SectionFieldsProps) {
               <FormField label="End" htmlFor={`experience-${i}-endDate`}>
                 <Input id={`experience-${i}-endDate`} placeholder="Present" {...register(`experience.${i}.endDate`)} />
               </FormField>
-              <FormField label="Location" htmlFor={`experience-${i}-location`} className="sm:col-span-2">
+              <FormField label="Location" htmlFor={`experience-${i}-location`} className="iq-span-2">
                 <Input id={`experience-${i}-location`} {...register(`experience.${i}.location`)} />
               </FormField>
             </div>
@@ -190,18 +190,18 @@ export function ProjectFields({ heading = true }: SectionFieldsProps) {
     >
       {projects.fields.map((row, i) => (
         <Card key={row.id}>
-          <CardContent className="space-y-3 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="iq-fields space-y-3 p-4">
+            <div className="iq-grid">
               <FormField label="Name" htmlFor={`projects-${i}-name`}>
                 <Input id={`projects-${i}-name`} {...register(`projects.${i}.name`)} />
               </FormField>
               <FormField label="Link" htmlFor={`projects-${i}-link`}>
                 <Input id={`projects-${i}-link`} placeholder="github.com/…" {...register(`projects.${i}.link`)} />
               </FormField>
-              <FormField label="Description" htmlFor={`projects-${i}-description`} className="sm:col-span-2">
+              <FormField label="Description" htmlFor={`projects-${i}-description`} className="iq-span-2-narrow">
                 <Input id={`projects-${i}-description`} placeholder="One-line summary" {...register(`projects.${i}.description`)} />
               </FormField>
-              <FormField label="Tech" htmlFor={`projects-${i}-techText`} className="sm:col-span-2" hint="Comma-separated">
+              <FormField label="Tech" htmlFor={`projects-${i}-techText`} className="iq-span-2-narrow" hint="Comma-separated">
                 <Input id={`projects-${i}-techText`} placeholder="Next.js, Postgres, Redis" {...register(`projects.${i}.techText`)} />
               </FormField>
             </div>

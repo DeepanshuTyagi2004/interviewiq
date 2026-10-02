@@ -71,10 +71,10 @@ describe("STEP_STATUS_CLASS", () => {
     for (const s of STATUSES) expect(STEP_STATUS_CLASS[s]).toBeTruthy();
   });
 
-  it("keeps the semantics: brand = running, destructive = failed, ink = done, faint = idle/skipped", () => {
+  it("keeps the semantics: brand = running, destructive = failed, darker hairline = done, faint = idle/skipped", () => {
     expect(STEP_STATUS_CLASS.running).toContain("border-brand");
     expect(STEP_STATUS_CLASS.failed).toContain("border-destructive");
-    expect(STEP_STATUS_CLASS.ok).toContain("border-foreground");
+    expect(STEP_STATUS_CLASS.ok).toContain("border-faint-2"); // darker than pending, never a stark ink outline
     expect(STEP_STATUS_CLASS.idle).toContain("text-faint");
     expect(STEP_STATUS_CLASS.skipped).toContain("text-faint");
   });

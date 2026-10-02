@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./form";
 export * from "./mapping";
+export { educationLine, primaryEducation } from "./education";
 export { parseResume, getCandidateProfile, saveCandidateProfile } from "./api";
 export { useParseResume, useCandidateProfile, useSaveCandidateProfile } from "./hooks";
 export { OnboardingWizard } from "./components/OnboardingWizard";

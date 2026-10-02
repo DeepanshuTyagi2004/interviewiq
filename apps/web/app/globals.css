@@ -28,7 +28,8 @@
     --destructive-foreground: 0 0% 100%;
     --border: 50 10.7% 89%;
     --input: 50 7.9% 85.1%;
-    --ring: 0 0% 10.2%;
+    /* Focus rings: mid-grey (≥3:1 on card), not full ink — visible for keyboard users, never a stark outline. */
+    --ring: 60 1.7% 54.5%;
     --radius: 0.4375rem;
 
     /* Design-specific tokens. */
@@ -96,7 +97,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 60 2.3% 17.3%;
     --input: 60 2.9% 20.6%;
-    --ring: 48 14.3% 93.1%;
+    --ring: 50 2.5% 47.8%;
 
     --frame: 60 4% 4.9%;
     --panel: 60 3.3% 11.8%;
@@ -191,6 +192,45 @@
   /* White card floating on a panel fill. */
   .iq-float {
     @apply rounded-[10px] bg-card shadow-float;
+  }
+
+  /* Form rows laid out by the width they actually get — onboarding's wide column, a narrow profile
+     card, a phone — not by the viewport. `.iq-fields` measures; `.iq-grid` (+ data-cols) lays out:
+     one column, then two from 22rem, then data-cols (3 or 4) from 40rem. */
+  .iq-fields {
+    container-type: inline-size;
+  }
+  .iq-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .iq-grid > .iq-span-all {
+    grid-column: 1 / -1;
+  }
+  @container (min-width: 22rem) {
+    .iq-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .iq-grid > .iq-span-2,
+    .iq-grid > .iq-span-2-narrow {
+      grid-column: span 2 / span 2;
+    }
+  }
+  @container (min-width: 40rem) {
+    .iq-grid[data-cols="3"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .iq-grid[data-cols="4"] {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    /* Full width in the two-column layout only; a normal cell once there's room. */
+    .iq-grid > .iq-span-2-narrow {
+      grid-column: auto;
+    }
+    .iq-grid > .iq-span-2-wide {
+      grid-column: span 2 / span 2;
+    }
   }
 }
 

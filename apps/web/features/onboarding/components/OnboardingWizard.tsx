@@ -30,6 +30,8 @@ const STEPS = ["Resume", "Profile", "Sources", "Target"] as const;
 const PROFILE = 1;
 const SOURCES = 2;
 const LAST = STEPS.length - 1;
+/** The step column's width — wide enough that form rows go 3–4 fields across beside the preview. */
+const STEP_WIDTH = "max-w-[960px] 2xl:max-w-[1040px]";
 
 const COPY: { eyebrow: string; title: string; description: string }[] = [
   {
@@ -186,8 +188,8 @@ export function OnboardingWizard() {
         <div className="flex min-h-0 flex-1">
           <section aria-labelledby="onboarding-title" className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* The only scroll area: the page itself never scrolls, the step content does. */}
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div key={step} className="iq-rise flex w-full max-w-[640px] flex-col gap-4 px-5 pb-8 pt-8 sm:px-12 sm:pt-12">
+            <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <div key={step} className={cn("iq-rise flex w-full flex-col gap-4 px-5 pb-8 pt-8 sm:px-10 sm:pt-10 xl:px-12", STEP_WIDTH)}>
                 <p className="iq-eyebrow m-0">{copy.eyebrow}</p>
                 <h1
                   id="onboarding-title"
@@ -232,8 +234,8 @@ export function OnboardingWizard() {
               </div>
             </div>
 
-            <footer className="flex-none border-t border-line px-5 py-3.5 sm:px-12">
-              <div className="flex w-full max-w-[640px] flex-wrap items-center gap-2.5">
+            <footer className="flex-none border-t border-line px-5 py-3.5 sm:px-10 xl:px-12">
+              <div className={cn("flex w-full flex-wrap items-center gap-2.5", STEP_WIDTH)}>
                 {step > 0 ? (
                   <Button type="button" variant="outline" className="h-11 px-[18px]" onClick={() => void back()} disabled={busy}>
                     Back
@@ -264,7 +266,7 @@ export function OnboardingWizard() {
             </footer>
           </section>
 
-          <ProfilePreview {...preview} className="m-3 hidden w-[360px] flex-none overflow-y-auto lg:flex xl:w-[420px]" />
+          <ProfilePreview {...preview} className="m-3 ml-0 hidden w-[380px] flex-none overflow-y-auto lg:flex xl:w-[440px]" />
         </div>
       </FormProvider>
     </div>
@@ -297,7 +299,7 @@ function WizardSkeleton() {
         <Skeleton className="h-3 w-40" />
         <Skeleton className="h-9 w-72 max-w-full" />
         <Skeleton className="h-4 w-96 max-w-full" />
-        <Skeleton className="mt-4 h-[220px] w-full max-w-[640px] rounded-[10px]" />
+        <Skeleton className={cn("mt-4 h-[220px] w-full rounded-[10px]", STEP_WIDTH)} />
       </div>
     </div>
   );

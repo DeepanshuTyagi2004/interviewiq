@@ -16,9 +16,9 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-input bg-card text-foreground hover:border-foreground",
-        /** Ink-bordered outline — the design's "Book a demo" / "Explore…" buttons. */
-        strong: "border border-foreground bg-transparent text-foreground hover:bg-accent",
+          "border border-input bg-card text-foreground hover:border-faint-2",
+        /** Hairline-bordered secondary button — the design's "Book a demo" / "Explore…" buttons. */
+        strong: "border border-line-4 bg-transparent text-foreground hover:border-faint-2 hover:bg-accent",
         secondary: "bg-panel text-secondary-foreground hover:bg-line-2",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",

@@ -144,7 +144,7 @@ export function TargetPicker({ valueId, onChange }: TargetPickerProps) {
                     "rounded-md border px-3.5 py-2.5 text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isSelected
                       ? "border-foreground bg-primary text-primary-foreground"
-                      : "border-line-3 bg-card text-foreground hover:border-foreground",
+                      : "border-line-3 bg-card text-foreground hover:border-faint-2",
                   )}
                 >
                   <span className="block">{jd.title}</span>

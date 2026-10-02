@@ -35,7 +35,7 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
     <li className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 rounded-[10px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
       <span
         aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-foreground font-mono text-[13px] tabular-nums"
+        className="flex h-10 w-10 items-center justify-center rounded-lg border border-line-4 font-mono text-[13px] tabular-nums"
       >
         {String(n).padStart(2, "0")}
       </span>

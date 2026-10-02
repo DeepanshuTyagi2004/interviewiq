@@ -40,7 +40,7 @@ export function CodeEditor({ session }: { session: LiveSession }) {
           id="code-language"
           value={lang}
           onChange={(e) => setLang(e.target.value as (typeof LANGS)[number])}
-          className="h-7 rounded-[5px] border border-line-3 bg-card px-2 font-mono text-[12px] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-7 rounded-[5px] border border-line-3 bg-card px-2 font-mono text-[12px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {LANGS.map((l) => (
             <option key={l} value={l}>

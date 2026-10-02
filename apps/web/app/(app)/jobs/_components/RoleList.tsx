@@ -11,7 +11,7 @@ import { depthOf, isLiveJd, plural, specializationLabel, type LevelGroup } from 
 
 const chip =
   "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-const chipOff = "border-line-3 bg-card text-foreground hover:border-foreground";
+const chipOff = "border-line-3 bg-card text-foreground hover:border-faint-2";
 const chipOn = "border-foreground bg-primary text-primary-foreground";
 
 function RoleRow({ jd }: { jd: JdSummary }) {
@@ -22,7 +22,7 @@ function RoleRow({ jd }: { jd: JdSummary }) {
     <li className="min-w-0">
       <Link
         href={`${ROUTES.jobs}/${jd.id}`}
-        className="iq-float flex h-full items-center gap-3.5 border border-transparent px-4 py-3.5 transition-colors hover:border-foreground focus-visible:border-foreground focus-visible:outline-none"
+        className="iq-float flex h-full items-center gap-3.5 border border-transparent px-4 py-3.5 transition-colors hover:border-faint-2 focus-visible:border-faint focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:outline-none"
       >
         <CompanyTile name={jd.companyName} live={isLiveJd(jd)} size="sm" />
         <span className="min-w-0 flex-1">

@@ -45,7 +45,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1200);
         });
       }}
-      className="inline-flex items-center gap-1 rounded-[5px] border border-line-3 bg-card px-2 py-1 text-[11px] text-muted-foreground shadow-hairline transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="inline-flex items-center gap-1 rounded-[5px] border border-line-3 bg-card px-2 py-1 text-[11px] text-muted-foreground shadow-hairline transition-colors hover:border-faint-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       {copied ? <Check aria-hidden className="size-3" /> : <Copy aria-hidden className="size-3" />}
       <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>

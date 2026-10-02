@@ -62,7 +62,7 @@ export function SkillsInput({ value, onChange, onBlur, id }: SkillsInputProps) {
           type="button"
           onClick={() => commit(skills.filter((s) => s !== skill))}
           aria-label={`Remove ${skill}`}
-          className="inline-flex items-center gap-1.5 rounded-[5px] border border-line-3 bg-card px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="inline-flex items-center gap-1.5 rounded-[5px] border border-line-3 bg-card px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {skill}
           <X aria-hidden className="h-3 w-3 text-faint" />
@@ -79,7 +79,7 @@ export function SkillsInput({ value, onChange, onBlur, id }: SkillsInputProps) {
         }}
         placeholder="+ Add skill"
         aria-label="Add a skill"
-        className="h-8 w-32 rounded-[5px] border border-dashed border-line-4 bg-card px-2.5 text-[13px] text-foreground outline-none placeholder:text-faint focus:border-foreground"
+        className="h-8 w-32 rounded-[5px] border border-dashed border-line-4 bg-card px-2.5 text-[13px] text-foreground outline-none placeholder:text-faint focus:border-faint"
       />
     </div>
   );
