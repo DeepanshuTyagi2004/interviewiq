@@ -49,7 +49,9 @@ describe("ProfilePreview", () => {
   it("lists what's still missing — never a score or percentage", () => {
     const { container } = render(<Harness values={values} />);
     expect(screen.getByText("headline")).toBeInTheDocument();
-    expect(screen.getAllByText("Not scored yet")).toHaveLength(2);
+    expect(screen.getByText("Interview score")).toBeInTheDocument();
+    expect(screen.queryByText("Profile score")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Not scored yet")).toHaveLength(1);
     expect(container.textContent).not.toMatch(/\d+\s*%/);
   });
 
