@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { Bell, Search } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { Kbd } from "@/components/hud";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
@@ -62,14 +63,25 @@ export const AppTopBar = forwardRef<HTMLButtonElement, AppTopBarProps>(function 
         <span className="min-w-0 truncate text-[14.5px] tracking-[-0.01em]">{title}</span>
       </div>
 
+      {/* HUD command field: a `›` prompt with a blinking brand caret and a brand glow on hover/focus. */}
       <button
         type="button"
         onClick={onOpenSearch}
-        className="hidden h-9 min-w-0 flex-[0_1_440px] items-center gap-2.5 rounded-full bg-panel px-4 text-left text-[13.5px] text-faint transition-colors hover:bg-line-2 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:flex"
+        className="group hidden h-9 min-w-0 flex-[0_1_440px] items-center gap-2.5 rounded-full bg-panel pl-4 pr-1.5 text-left text-[13.5px] text-faint ring-1 ring-transparent transition-[background-color,color,box-shadow] duration-150 ease-iq hover:bg-line-2 hover:text-muted-foreground hover:shadow-[0_0_0_4px_hsl(var(--brand)/0.07)] hover:ring-brand/30 focus-visible:shadow-[0_0_0_4px_hsl(var(--brand)/0.1)] focus-visible:outline-none focus-visible:ring-ring md:flex"
       >
-        <Search aria-hidden className="h-3.5 w-3.5 flex-none" />
+        <span aria-hidden className="flex flex-none items-center gap-1">
+          <span className="font-mono text-[13px] leading-none text-foreground transition-colors group-hover:text-brand group-focus-visible:text-brand">
+            ›
+          </span>
+          <span
+            data-motion
+            className="h-3.5 w-[2px] rounded-full bg-brand opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 motion-safe:group-hover:animate-[iq-blink_1s_steps(1)_infinite] motion-safe:group-focus-visible:animate-[iq-blink_1s_steps(1)_infinite]"
+          />
+        </span>
         <span className="flex-1 truncate">Search companies, roles, debriefs</span>
-        <kbd className="rounded-full border border-line-3 bg-card px-2 py-0.5 font-mono text-[11px]">⌘K</kbd>
+        <Kbd size="sm" label="Command K" className="rounded-full px-2">
+          ⌘K
+        </Kbd>
       </button>
 
       <div className="flex flex-none items-center justify-end gap-1 sm:gap-1.5 md:flex-1">
