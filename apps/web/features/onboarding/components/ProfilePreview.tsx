@@ -15,7 +15,6 @@ const MAX_PROJECTS = 4;
 const MAX_SKILLS = 12;
 /** Account sources shown here — the resume is the form itself. */
 const ACCOUNT_SOURCES = PROVIDERS.filter((p) => p.source !== "RESUME");
-const SCORES = ["Profile score", "Interview score"];
 
 export interface ProfilePreviewProps {
   control: Control<CandidateFormValues>;
@@ -30,8 +29,8 @@ const join = (parts: (string | undefined)[], sep = " · ") =>
 
 /**
  * Live "what the interviewer will know about you" card beside the onboarding form, laid out like
- * the profile page. Updates as you type. Descriptive only — the score tiles stay "—" until the
- * scoring contract exists, and "Still missing" lists gaps, never a percentage.
+ * the profile page. Updates as you type. Descriptive only — the interview score tile stays "—" until
+ * the scoring contract exists, and "Still missing" lists gaps, never a percentage.
  */
 export function ProfilePreview({ control, target, className }: ProfilePreviewProps) {
   const [fullName, headline, location, education, experience, projects, skillsText] = useWatch({
@@ -106,17 +105,13 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
             </ul>
           ) : null}
 
-          <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0">
-            {SCORES.map((label) => (
-              <li key={label} className="flex min-w-0 flex-col gap-1 rounded-lg bg-panel px-3 py-2.5">
-                <span className="text-[11.5px] text-faint">{label}</span>
-                <span className="text-lg leading-none tracking-[-0.04em] text-faint-2">
-                  <span aria-hidden>—</span>
-                  <span className="sr-only">Not scored yet</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-panel px-3 py-2.5">
+            <span className="text-[11.5px] text-faint">Interview score</span>
+            <span className="text-lg leading-none tracking-[-0.04em] text-faint-2">
+              <span aria-hidden>—</span>
+              <span className="sr-only">Not scored yet</span>
+            </span>
+          </div>
         </div>
 
         <Section label="Experience" count={roles.length}>
