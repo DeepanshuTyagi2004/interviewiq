@@ -1,34 +1,75 @@
 "use client";
 
-import Link from "next/link";
+import { forwardRef } from "react";
 import { Bell, Search } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
-import { initialsOf } from "@/lib/utils/format";
+import { AccountMenu, type AccountMenuProps } from "./AccountMenu";
 
 const iconButton =
-  "relative flex h-[34px] w-[34px] flex-none items-center justify-center rounded-md border border-line-4 bg-card text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "relative flex h-[34px] w-[34px] flex-none items-center justify-center rounded-md border border-line-4 bg-card text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-/** Frame-level bar above the page card: brand, ⌘K search, theme, notifications, avatar. */
-export function AppTopBar({ name, onOpenSearch }: { name: string; onOpenSearch: () => void }) {
+export interface AppTopBarProps {
+  /** The current screen's name, shown after the logo. */
+  title: string;
+  menuId: string;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onOpenSearch: () => void;
+  account: Omit<AccountMenuProps, "onOpenSearch" | "onToggleMenu">;
+}
+
+/**
+ * Frame-level bar above the page card: the menu toggle, brand and current screen on the left,
+ * ⌘K search in the middle, theme, notifications and the account menu on the right.
+ * The ref is the menu toggle, so the shell can hand focus back to it when the menu closes.
+ */
+export const AppTopBar = forwardRef<HTMLButtonElement, AppTopBarProps>(function AppTopBar(
+  { title, menuId, menuOpen, onToggleMenu, onOpenSearch, account },
+  menuButtonRef,
+) {
   return (
-    <header className="flex h-16 flex-none items-center gap-3 pl-4 pr-3 sm:gap-6 sm:pl-7 sm:pr-5">
-      <Logo href={ROUTES.dashboard} className="md:w-[196px]" />
+    <header className="flex h-16 flex-none items-center gap-3 px-3 sm:gap-5 sm:px-5">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3.5">
+        <button
+          ref={menuButtonRef}
+          type="button"
+          onClick={onToggleMenu}
+          aria-label="Open menu"
+          aria-expanded={menuOpen}
+          aria-controls={menuId}
+          title="Menu (M)"
+          className={cn(
+            "grid h-[34px] w-[34px] flex-none grid-cols-[repeat(2,4px)] place-content-center gap-1 rounded-md border bg-card transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            menuOpen ? "border-faint-2" : "border-line-4",
+          )}
+        >
+          <span aria-hidden className="h-1 w-1 rounded-full bg-foreground" />
+          <span aria-hidden className="h-1 w-1 rounded-full bg-foreground" />
+          <span aria-hidden className="h-1 w-1 rounded-full bg-foreground" />
+          <span aria-hidden className="h-1 w-1 rounded-full bg-brand" />
+        </button>
+        <Logo href={ROUTES.dashboard} wordmarkClassName="hidden sm:inline" />
+        <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 flex-none text-faint-2">
+          <path d="M10.5 2 5.5 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+        <span className="min-w-0 truncate text-[14.5px] tracking-[-0.01em]">{title}</span>
+      </div>
 
       <button
         type="button"
         onClick={onOpenSearch}
-        className="hidden h-[38px] min-w-0 max-w-[440px] flex-1 items-center gap-2.5 rounded-md border border-line-4 bg-card px-3 text-left text-[13.5px] text-faint transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:flex"
+        className="hidden h-[38px] min-w-0 flex-[0_1_440px] items-center gap-2.5 rounded-md border border-line-4 bg-card px-3 text-left text-[13.5px] text-faint transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:flex"
       >
         <Search aria-hidden className="h-3.5 w-3.5 flex-none" />
         <span className="flex-1 truncate">Search companies, roles, debriefs</span>
         <kbd className="rounded border border-line-3 px-1.5 py-0.5 font-mono text-[11px]">⌘K</kbd>
       </button>
 
-      <div className="ml-auto flex flex-none items-center gap-2 sm:gap-3">
+      <div className="flex flex-none items-center justify-end gap-2 sm:gap-3 md:flex-1">
         <button type="button" onClick={onOpenSearch} aria-label="Search" className={cn(iconButton, "md:hidden")}>
           <Search aria-hidden className="h-4 w-4" />
         </button>
@@ -45,14 +86,8 @@ export function AppTopBar({ name, onOpenSearch }: { name: string; onOpenSearch: 
             </p>
           </PopoverContent>
         </Popover>
-        <Link
-          href={ROUTES.profile}
-          aria-label="Your profile"
-          className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-brand text-[12.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-frame"
-        >
-          {initialsOf(name)}
-        </Link>
+        <AccountMenu {...account} onOpenSearch={onOpenSearch} onToggleMenu={onToggleMenu} />
       </div>
     </header>
   );
-}
+});

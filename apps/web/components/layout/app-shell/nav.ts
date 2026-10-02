@@ -41,7 +41,7 @@ export function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Title shown in the card header, including the design's names for nested screens. */
+/** Screen name shown in the top bar, including the design's names for nested screens. */
 export function titleForPath(pathname: string): string {
   if (/^\/interviews\/[^/]+\/live/.test(pathname)) return "Interview room";
   if (/^\/interviews\/[^/]+\/report/.test(pathname)) return "Debrief";

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -39,10 +39,13 @@ describe("AppShell", () => {
     };
   });
 
-  it("renders the page and titles it from the route", () => {
+  it("renders the page and titles it from the route in the top bar", () => {
     renderShell();
     expect(screen.getByText("Page body")).toBeInTheDocument();
-    expect(screen.getAllByText("Dashboard").length).toBeGreaterThan(0);
+    const topBar = screen.getByRole("banner");
+    expect(within(topBar).getByText("Dashboard")).toBeInTheDocument();
+    expect(within(topBar).getByRole("button", { name: /open menu/i })).toBeInTheDocument();
+    expect(within(topBar).getByRole("button", { name: /account menu/i })).toHaveTextContent("AS");
   });
 
   it("keeps the menu hidden until the toggle is pressed", async () => {

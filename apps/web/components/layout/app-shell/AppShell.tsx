@@ -18,15 +18,21 @@ const MENU_ID = "app-menu";
 const CARD_OPEN = "translate(min(300px, calc(100vw - 88px)), 7%) scale(0.84)";
 const GHOST_OPEN = "translate(min(262px, calc(100vw - 118px)), 13%) scale(0.74)";
 
-function isTypingTarget(target: EventTarget | null): boolean {
+/** Keys typed into a field, or into an open dropdown (its typeahead), aren't shell shortcuts. */
+function ownsKeys(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  return (
+    target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+    target.closest('[role="menu"]') !== null
+  );
 }
 
 /**
- * Signed-in shell from the design: a top bar on the grey frame and the page in a rounded card.
- * The menu lives *behind* the card — the 4-dot button (or the M key) slides the card aside to
- * reveal it; clicking the card or pressing Esc brings it back. ⌘K / Ctrl+K opens search.
+ * Signed-in shell from the design: a top bar on the grey frame (menu toggle, current screen,
+ * search, account menu) and the page in a rounded card below it. The menu lives *behind* the
+ * card — the 4-dot button (or the M key) slides the card aside to reveal it; clicking the card or
+ * pressing Esc brings it back. ⌘K / Ctrl+K opens search.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -56,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setSearchOpen((o) => !o);
         return;
       }
-      if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target) || searchOpen) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || ownsKeys(e.target) || searchOpen) return;
       if (e.key === "Escape") setMenuOpen(false);
       else if (e.key === "m" || e.key === "M") setMenuOpen((o) => !o);
     }
@@ -82,7 +88,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-frame text-foreground">
-      <AppTopBar name={name} onOpenSearch={() => setSearchOpen(true)} />
+      <AppTopBar
+        ref={menuButtonRef}
+        title={titleForPath(pathname)}
+        menuId={MENU_ID}
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((o) => !o)}
+        onOpenSearch={() => {
+          setMenuOpen(false);
+          setSearchOpen(true);
+        }}
+        account={{ name, email: user?.email, status, isAdmin, onSignOut: () => void signOut() }}
+      />
 
       <div className="relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-[14px] sm:mx-3 sm:mb-3">
         <AppMenu
@@ -116,28 +133,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
           style={{ transform: menuOpen ? CARD_OPEN : "none" }}
         >
-          <div className="flex h-[58px] flex-none items-center gap-3.5 border-b border-line px-4 sm:px-6">
-            <button
-              ref={menuButtonRef}
-              type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-label="Open menu"
-              aria-expanded={menuOpen}
-              aria-controls={MENU_ID}
-              className="grid h-[38px] w-[38px] flex-none grid-cols-[repeat(2,5px)] place-content-center gap-[5px] rounded-[9px] border border-line-3 bg-card transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-foreground" />
-              <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-foreground" />
-              <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-foreground" />
-              <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-brand" />
-            </button>
-            <span className="truncate text-[14.5px] tracking-[-0.01em]">{titleForPath(pathname)}</span>
-            <span className="ml-auto hidden items-center gap-1.5 text-xs text-faint md:flex">
-              Menu
-              <kbd className="rounded border border-line-3 px-1.5 py-0.5 font-mono text-[10.5px]">M</kbd>
-            </span>
-          </div>
-
           {user?.hasPassword && user.emailVerified === false ? <VerifyEmailBanner email={user.email} /> : null}
 
           <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">

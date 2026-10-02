@@ -1,21 +1,18 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils/cn";
+import { useThemeSwitch } from "./useThemeSwitch";
 
 /**
  * Sun/moon pill switch from the design. The knob position and glyph colours are driven by the
  * `.dark` class (set before paint by next-themes), so it renders correctly without waiting for
- * hydration. A short-lived `theme-anim` class eases every colour across the swap.
+ * hydration. `useThemeSwitch` eases every colour across the swap.
  */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, switchTo } = useThemeSwitch();
 
   function toggle() {
-    const root = document.documentElement;
-    root.classList.add("theme-anim");
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-    window.setTimeout(() => root.classList.remove("theme-anim"), 450);
+    switchTo(theme === "dark" ? "light" : "dark");
   }
 
   return (

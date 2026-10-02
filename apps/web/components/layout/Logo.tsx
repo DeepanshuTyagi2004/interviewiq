@@ -17,10 +17,13 @@ export function Logo({
   href = "/",
   className,
   wordmark = true,
+  wordmarkClassName,
 }: {
   href?: string;
   className?: string;
   wordmark?: boolean;
+  /** e.g. hide the wordmark on narrow screens and keep just the mark. */
+  wordmarkClassName?: string;
 }) {
   return (
     <Link
@@ -30,7 +33,7 @@ export function Logo({
     >
       <LogoMark />
       {wordmark ? (
-        <span className="text-[17px] font-medium tracking-[-0.035em]">interviewIQ</span>
+        <span className={cn("text-[17px] font-medium tracking-[-0.035em]", wordmarkClassName)}>interviewIQ</span>
       ) : null}
     </Link>
   );
