@@ -34,7 +34,7 @@ function ElapsedClock() {
       role="timer"
       aria-label="Time since you joined"
       ref={ref}
-      className="rounded-[5px] border border-line-3 px-2 py-[3px] font-mono text-[12.5px] tabular-nums"
+      className="rounded-full border border-line-3 px-2.5 py-[3px] font-mono text-[12.5px] tabular-nums"
     >
       00:00
     </span>

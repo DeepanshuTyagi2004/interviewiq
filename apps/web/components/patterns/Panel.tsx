@@ -20,7 +20,7 @@ export function Panel({ eyebrow, action, children, className, "aria-label": aria
   return (
     <section
       aria-label={ariaLabel ?? eyebrow}
-      className={cn("flex min-w-0 flex-col gap-4 rounded-[10px] bg-panel p-4 sm:p-5", className)}
+      className={cn("flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5", className)}
     >
       {eyebrow || action ? (
         <div className="flex min-h-5 items-center justify-between gap-3">

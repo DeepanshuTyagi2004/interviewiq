@@ -107,7 +107,7 @@ export function TargetPicker({ valueId, onChange }: TargetPickerProps) {
               >
                 <span
                   aria-hidden
-                  className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[7px] border border-line-3 text-sm font-semibold"
+                  className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] border border-line-3 text-sm font-semibold"
                 >
                   {c.name.charAt(0)}
                 </span>
@@ -141,7 +141,7 @@ export function TargetPicker({ valueId, onChange }: TargetPickerProps) {
                   aria-pressed={isSelected}
                   onClick={() => onChange(isSelected ? null : jd)}
                   className={cn(
-                    "rounded-md border px-3.5 py-2.5 text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                    "rounded-full border px-4 py-2.5 text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isSelected
                       ? "border-foreground bg-primary text-primary-foreground"
                       : "border-line-3 bg-card text-foreground hover:border-faint-2",

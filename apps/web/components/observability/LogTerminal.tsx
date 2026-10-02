@@ -45,7 +45,7 @@ export function LogTerminal({
     <section
       aria-label={title}
       className={cn(
-        "flex min-w-0 flex-col overflow-hidden rounded-[10px] bg-inv text-[#dcdbd6] dark:ring-1 dark:ring-inset dark:ring-line-2",
+        "flex min-w-0 flex-col overflow-hidden rounded-[14px] bg-inv text-[#dcdbd6] dark:ring-1 dark:ring-inset dark:ring-line-2",
         className,
       )}
     >

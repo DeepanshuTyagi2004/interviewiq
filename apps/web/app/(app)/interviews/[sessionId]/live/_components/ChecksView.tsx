@@ -36,7 +36,7 @@ function CheckRow({
       <span
         aria-hidden
         className={cn(
-          "mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[5px] border",
+          "mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[8px] border",
           status === "pass" && "border-brand bg-brand text-brand-foreground",
           status === "checking" && "border-line-4 text-faint",
           status === "warn" && "border-faint-2 text-foreground",
@@ -166,7 +166,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
         </p>
       </div>
 
-      <ul aria-label="System checks" className="m-0 list-none overflow-hidden rounded-[10px] border border-line-2 p-0">
+      <ul aria-label="System checks" className="m-0 list-none overflow-hidden rounded-[14px] border border-line-2 p-0">
         <CheckRow
           label="Microphone"
           status={micStatus}

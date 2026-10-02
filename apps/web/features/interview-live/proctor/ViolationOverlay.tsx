@@ -56,7 +56,7 @@ export function ViolationOverlay({ session, onReturn }: ViolationOverlayProps) {
       aria-describedby="violation-detail"
       className="fixed inset-0 z-[70] grid place-items-center bg-frame/80 p-4 backdrop-blur-md"
     >
-      <div className="flex w-full max-w-[440px] flex-col items-center gap-4 rounded-[12px] border border-line-2 bg-card p-7 text-center shadow-hero sm:p-8">
+      <div className="flex w-full max-w-[440px] flex-col items-center gap-4 rounded-[16px] border border-line-2 bg-card p-7 text-center shadow-hero sm:p-8">
         <MonoPill tone="alert">Round paused</MonoPill>
         <p
           id="violation-title"

@@ -115,14 +115,14 @@ export const HighlightsEditor = forwardRef<HTMLTextAreaElement, HighlightsEditor
                 title={a.shortcut ? `${a.label} · ${a.shortcut}` : a.label}
                 // Keep the textarea's selection when clicking a toolbar button.
                 onMouseDown={(e) => e.preventDefault()}
-                className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
               >
                 <a.icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
             </span>
           ))}
         </div>
-        <div role="group" aria-label="Editor view" className="ml-auto flex rounded-[5px] p-0.5">
+        <div role="group" aria-label="Editor view" className="ml-auto flex rounded-full p-0.5">
           {(["write", "preview"] as const).map((m) => (
             <button
               key={m}
@@ -130,7 +130,7 @@ export const HighlightsEditor = forwardRef<HTMLTextAreaElement, HighlightsEditor
               aria-pressed={mode === m}
               onClick={() => setMode(m)}
               className={cn(
-                "rounded px-2 py-1 text-xs capitalize transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "rounded-full px-2.5 py-1 text-xs capitalize transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 mode === m ? "bg-card text-foreground shadow-hairline" : "text-faint hover:text-foreground",
               )}
             >

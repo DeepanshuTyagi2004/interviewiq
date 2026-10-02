@@ -24,7 +24,7 @@ export function ShareBar({ shares, label, formatValue }: ShareBarProps) {
           <span
             key={s.name}
             title={`${s.name} · ${formatValue(s, total)}`}
-            className="h-full min-w-[3px] first:rounded-l-[4px] last:rounded-r-[4px]"
+            className="h-full min-w-[3px] first:rounded-l-[6px] last:rounded-r-[6px]"
             style={{ flexGrow: s.value, flexBasis: 0, backgroundColor: s.color }}
           />
         ))}

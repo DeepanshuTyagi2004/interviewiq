@@ -45,7 +45,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1200);
         });
       }}
-      className="inline-flex items-center gap-1 rounded-[5px] border border-line-3 bg-card px-2 py-1 text-[11px] text-muted-foreground shadow-hairline transition-colors hover:border-faint-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="inline-flex items-center gap-1 rounded-full border border-line-3 bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-hairline transition-colors hover:border-faint-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       {copied ? <Check aria-hidden className="size-3" /> : <Copy aria-hidden className="size-3" />}
       <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
@@ -79,7 +79,7 @@ function ViewerShell({
         aria-label={label}
         tabIndex={0}
         className={cn(
-          "max-h-[28rem] overflow-auto rounded-[8px] bg-panel [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "max-h-[28rem] overflow-auto rounded-[11px] bg-panel [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           tone === "error" && "bg-destructive/[0.06] ring-1 ring-inset ring-destructive/25",
           className,
         )}
@@ -180,7 +180,7 @@ export function ExtLink({
 /** Topic chip, as on the design's roadmap rounds. */
 export function TopicChip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded bg-panel px-2 py-[3px] text-[11.5px] text-muted-foreground">
+    <span className="inline-flex items-center rounded-full bg-panel px-2.5 py-[3px] text-[11.5px] text-muted-foreground">
       {children}
     </span>
   );
@@ -247,7 +247,7 @@ export function SourceFunnel({ entries }: { entries: SourceFunnelEntry[] }) {
         <span className="font-mono tabular-nums text-foreground">{cited}</span>
         {" used in the final experience. Each source shows why it was or wasn’t used."}
       </p>
-      <ol className="m-0 list-none divide-y divide-line rounded-[8px] border border-line-2 p-0">
+      <ol className="m-0 list-none divide-y divide-line rounded-[11px] border border-line-2 p-0">
         {ordered.map((e, n) => {
           const st = lookFor(FUNNEL_STATUS, e.status, { label: e.status ?? "—", look: GHOST_PILL });
           const extracted =
@@ -287,7 +287,7 @@ export function SourceFunnel({ entries }: { entries: SourceFunnelEntry[] }) {
                       />
                       model reasoning
                     </summary>
-                    <pre className="m-0 mt-1.5 whitespace-pre-wrap break-words rounded-[8px] bg-panel p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                    <pre className="m-0 mt-1.5 whitespace-pre-wrap break-words rounded-[11px] bg-panel p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
                       {e.thought}
                     </pre>
                   </details>
@@ -306,8 +306,8 @@ export function SourceFunnel({ entries }: { entries: SourceFunnelEntry[] }) {
 export function ThoughtBlock({ text, label = "Model reasoning" }: { text?: string | null; label?: string }) {
   if (!text) return null;
   return (
-    <details className="group rounded-[8px] bg-panel">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-[8px] px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-[11px] bg-panel">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-[11px] px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <ChevronRight
           aria-hidden
           className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"

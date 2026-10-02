@@ -30,10 +30,12 @@
     --input: 50 7.9% 85.1%;
     /* Focus rings: mid-grey (≥3:1 on card), not full ink — visible for keyboard users, never a stark outline. */
     --ring: 60 1.7% 54.5%;
-    --radius: 0.4375rem;
+    /* Base corner radius: lg = 10px, md = 8px, sm = 6px, plain `rounded` = 6px. */
+    --radius: 0.625rem;
 
-    /* Design-specific tokens. */
-    --frame: 50 6.8% 82.7%;
+    /* Design-specific tokens. The light frame is lighter than the design export's #d6d5d0 so
+       the background sits close to the white cards. */
+    --frame: 48 14% 93.5%;
     --panel: 48 16.1% 93.9%;
     --faint: 60 1.7% 54.5%;
     --faint-2: 50 3.8% 69%;
@@ -60,11 +62,11 @@
     --chart-4: 28 90% 50%;
     --chart-5: 340 75% 55%;
     /* The sidebar sits on the frame; pages render in the inset card beside it. */
-    --sidebar-background: 50 6.8% 82.7%;
+    --sidebar-background: 48 14% 93.5%;
     --sidebar-foreground: 60 2.2% 35.3%;
     --sidebar-primary: 0 0% 10.2%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 50 9.7% 87.8%;
+    --sidebar-accent: 48 12% 89.5%;
     --sidebar-accent-foreground: 0 0% 10.2%;
     --sidebar-border: 51.4 6.8% 79.8%;
     --sidebar-ring: 0 0% 10.2%;
@@ -199,7 +201,7 @@
   }
   /* White card floating on a panel fill. */
   .iq-float {
-    @apply rounded-[10px] bg-card shadow-float;
+    @apply rounded-[14px] bg-card shadow-float;
   }
 
   /* Form rows laid out by the width they actually get — onboarding's wide column, a narrow profile

@@ -15,7 +15,7 @@ function InsightCard({
   className?: string;
 }) {
   return (
-    <section aria-label={eyebrow} className={cn("flex min-w-0 flex-col gap-3 rounded-[10px] border border-line-2 bg-card p-5", className)}>
+    <section aria-label={eyebrow} className={cn("flex min-w-0 flex-col gap-3 rounded-[14px] border border-line-2 bg-card p-5", className)}>
       <h3 className="iq-eyebrow m-0">{eyebrow}</h3>
       {children}
     </section>
@@ -155,7 +155,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
           {jd.techStack.length > 0 ? (
             <ul aria-label="Tech stack" className="m-0 flex list-none flex-wrap gap-[5px] p-0">
               {jd.techStack.map((t) => (
-                <li key={t} className="rounded bg-panel px-2 py-[3px] text-[11.5px] text-muted-foreground">
+                <li key={t} className="rounded-full bg-panel px-2.5 py-[3px] text-[11.5px] text-muted-foreground">
                   {t}
                 </li>
               ))}

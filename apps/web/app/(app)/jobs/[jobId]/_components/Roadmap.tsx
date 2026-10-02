@@ -24,7 +24,7 @@ function RoadmapSkeleton() {
     <div aria-busy="true" aria-label="Loading roadmap">
       <Skeleton className="h-4 w-60 max-w-full" />
       <div className="mt-5 flex items-center gap-4">
-        <Skeleton className="h-12 w-12 flex-none rounded-[10px] sm:h-14 sm:w-14" />
+        <Skeleton className="h-12 w-12 flex-none rounded-[14px] sm:h-14 sm:w-14" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-8 w-full max-w-md" />
           <Skeleton className="h-4 w-2/3 max-w-sm" />
@@ -33,7 +33,7 @@ function RoadmapSkeleton() {
       <Skeleton className="mt-5 h-7 w-40" />
       <div className="mt-5 flex flex-col gap-2.5">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[108px] rounded-[10px]" />
+          <Skeleton key={i} className="h-[108px] rounded-[14px]" />
         ))}
       </div>
     </div>
@@ -68,7 +68,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
             }
           />
         ) : (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-2 px-5 py-4">
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line-2 px-5 py-4">
             <p className="m-0 text-sm text-destructive">Couldn&apos;t load this role.</p>
             <Button variant="outline" size="sm" onClick={() => void jd.refetch()}>
               Try again

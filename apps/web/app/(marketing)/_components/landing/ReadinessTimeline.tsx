@@ -47,7 +47,7 @@ export function ReadinessTimeline() {
           tabIndex={0}
           role="region"
           aria-label="Readiness timeline (scrolls horizontally)"
-          className="overflow-x-auto rounded-[10px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.18)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="overflow-x-auto rounded-[14px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.18)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <div className="min-w-[640px] [--role:150px] sm:min-w-[760px] sm:[--role:200px]">
             <div className="grid grid-cols-[var(--role)_repeat(8,minmax(0,1fr))] border-b border-line font-mono text-[10px] tracking-[0.06em] text-faint">
@@ -76,7 +76,7 @@ export function ReadinessTimeline() {
                   <div className="relative h-full">
                     <div
                       className={cn(
-                        "absolute top-5 flex h-[26px] items-center gap-[5px] overflow-hidden whitespace-nowrap rounded-[5px] px-2.5 text-[11.5px]",
+                        "absolute top-5 flex h-[26px] items-center gap-[5px] overflow-hidden whitespace-nowrap rounded-[8px] px-2.5 text-[11.5px]",
                         BAR[track.tone],
                       )}
                       style={{ left: track.left, width: track.width }}

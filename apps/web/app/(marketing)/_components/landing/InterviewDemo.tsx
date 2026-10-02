@@ -75,7 +75,7 @@ export function InterviewDemo() {
       </div>
 
       {/* The transcript card is always dark, in both themes — hence the fixed colours. */}
-      <div className="flex w-full flex-col gap-3 rounded-[10px] bg-inv p-[18px] text-white shadow-[0_24px_50px_-20px_rgba(0,0,0,.4)]">
+      <div className="flex w-full flex-col gap-3 rounded-[14px] bg-inv p-[18px] text-white shadow-[0_24px_50px_-20px_rgba(0,0,0,.4)]">
         <div className="flex items-center gap-2 text-xs text-[#a3a39e]">
           <span
             aria-hidden

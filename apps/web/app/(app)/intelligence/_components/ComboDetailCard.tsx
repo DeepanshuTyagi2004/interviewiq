@@ -67,7 +67,7 @@ export function ComboDetailCard({
             : "Perplexity request (retry / follow-up)"
           : "Perplexity request";
         return (
-          <section key={i} className="min-w-0 space-y-4 rounded-[10px] border border-line-2 p-3.5 sm:p-4">
+          <section key={i} className="min-w-0 space-y-4 rounded-[14px] border border-line-2 p-3.5 sm:p-4">
             <h3 className="m-0 flex items-center gap-2 text-sm font-normal">
               {heading}
               {multi ? (

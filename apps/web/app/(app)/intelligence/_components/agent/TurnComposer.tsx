@@ -71,7 +71,7 @@ export function TurnComposer({ status, onSubmit, onSilence, onEnd }: {
             min={0}
             onChange={(e) => setAdvance(Number(e.target.value))}
             disabled={!enabled}
-            className="h-8 w-16 rounded-md border border-input bg-card px-2 font-mono text-[13px] tabular-nums text-foreground transition-colors focus-visible:border-faint focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:outline-none disabled:opacity-50"
+            className="h-8 w-16 rounded-full border border-input bg-card px-2 font-mono text-[13px] tabular-nums text-foreground transition-colors focus-visible:border-faint focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:outline-none disabled:opacity-50"
           />
           s
         </label>

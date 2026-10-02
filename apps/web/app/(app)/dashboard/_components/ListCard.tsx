@@ -12,7 +12,7 @@ export function ListCard({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={title} className="min-w-0 overflow-hidden rounded-[10px] border border-line-2">
+    <section aria-label={title} className="min-w-0 overflow-hidden rounded-[14px] border border-line-2">
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
         <h2 className="m-0 text-sm font-normal">{title}</h2>
         {action ? (

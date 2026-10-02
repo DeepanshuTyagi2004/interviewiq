@@ -299,7 +299,7 @@ function WizardSkeleton() {
         <Skeleton className="h-3 w-40" />
         <Skeleton className="h-9 w-72 max-w-full" />
         <Skeleton className="h-4 w-96 max-w-full" />
-        <Skeleton className={cn("mt-4 h-[220px] w-full rounded-[10px]", STEP_WIDTH)} />
+        <Skeleton className={cn("mt-4 h-[220px] w-full rounded-[14px]", STEP_WIDTH)} />
       </div>
     </div>
   );

@@ -35,7 +35,7 @@ export function StatRow({ children, className }: StatRowProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-card sm:grid-cols-4 sm:divide-y-0",
         className,
       )}
     >

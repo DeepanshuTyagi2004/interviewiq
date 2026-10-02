@@ -37,7 +37,7 @@ export function TranscriptPanel({ entries, interviewerName }: TranscriptPanelPro
         aria-label="Conversation transcript"
         role="log"
         tabIndex={0}
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[6px] text-[13.5px] leading-[1.5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[9px] text-[13.5px] leading-[1.5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {entries.length === 0 ? (
           <p className="m-0 px-1 text-[13px] text-faint">The conversation will appear here.</p>
@@ -46,7 +46,7 @@ export function TranscriptPanel({ entries, interviewerName }: TranscriptPanelPro
             <div
               key={i}
               className={cn(
-                'rounded-[8px] px-3 py-2.5',
+                'rounded-[11px] px-3 py-2.5',
                 entry.speaker === 'interviewer' && 'bg-panel text-foreground',
                 entry.speaker === 'candidate' && 'text-muted-foreground',
                 entry.speaker === 'system' && 'border border-dashed border-line-4 text-faint'

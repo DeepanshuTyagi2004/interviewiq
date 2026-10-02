@@ -21,11 +21,11 @@ export function ResumeFileRow() {
   const filename = profile?.resumeFilename;
 
   return (
-    <section aria-label="Resume" className="rounded-[10px] border border-line-2 bg-card px-5 py-[18px]">
+    <section aria-label="Resume" className="rounded-[14px] border border-line-2 bg-card px-5 py-[18px]">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
         <span
           aria-hidden
-          className="flex h-11 w-[38px] flex-none items-center justify-center rounded-[5px] border border-line-3 font-mono text-[10px] text-faint"
+          className="flex h-11 w-[38px] flex-none items-center justify-center rounded-[8px] border border-line-3 font-mono text-[10px] text-faint"
         >
           PDF
         </span>

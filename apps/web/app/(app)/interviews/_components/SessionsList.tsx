@@ -113,7 +113,7 @@ function SessionGroup({
   empty: { title: string; hint: string };
 }) {
   return (
-    <section aria-label={title} className="min-w-0 overflow-hidden rounded-[10px] border border-line-2 bg-card">
+    <section aria-label={title} className="min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
         <h2 className="m-0 text-sm font-normal">{title}</h2>
         <span className="font-mono text-xs tabular-nums text-faint">{sessions.length}</span>
@@ -141,15 +141,15 @@ export function SessionsList() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading your interviews">
-        <Skeleton className="h-[220px] w-full rounded-[10px]" />
-        <Skeleton className="h-[120px] w-full rounded-[10px]" />
+        <Skeleton className="h-[220px] w-full rounded-[14px]" />
+        <Skeleton className="h-[120px] w-full rounded-[14px]" />
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="rounded-[10px] border border-line-2 px-4 py-6 sm:px-5">
+      <div className="rounded-[14px] border border-line-2 px-4 py-6 sm:px-5">
         <p role="alert" className="m-0 text-sm text-destructive">
           Couldn&apos;t load your interviews. Refresh the page to try again.
         </p>

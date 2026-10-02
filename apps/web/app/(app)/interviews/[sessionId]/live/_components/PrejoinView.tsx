@@ -26,7 +26,7 @@ const DONTS = [
 function RuleList({ id, title, items, kind }: { id: string; title: string; items: string[]; kind: "do" | "dont" }) {
   const Icon = kind === "do" ? Check : X;
   return (
-    <section aria-labelledby={id} className="overflow-hidden rounded-[10px] border border-line-2">
+    <section aria-labelledby={id} className="overflow-hidden rounded-[14px] border border-line-2">
       <h2 id={id} className="iq-eyebrow m-0 border-b border-line px-[18px] py-3 font-normal">
         {title}
       </h2>
@@ -35,7 +35,7 @@ function RuleList({ id, title, items, kind }: { id: string; title: string; items
           <li key={item} className="flex items-start gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0">
             <span
               aria-hidden
-              className="mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[5px] border border-line-3 text-muted-foreground"
+              className="mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[8px] border border-line-3 text-muted-foreground"
             >
               <Icon className="h-3 w-3" />
             </span>
@@ -103,12 +103,12 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
           <RuleList id="prejoin-dos" title="Do" items={DOS} kind="do" />
           <RuleList id="prejoin-donts" title="Don't" items={DONTS} kind="dont" />
 
-          <div className="flex items-start gap-3.5 rounded-[10px] border border-line-2 px-[18px] py-4">
+          <div className="flex items-start gap-3.5 rounded-[14px] border border-line-2 px-[18px] py-4">
             <Checkbox
               id="prejoin-terms"
               checked={agreed}
               onCheckedChange={(checked) => setAgreed(checked === true)}
-              className="mt-px h-[22px] w-[22px] rounded-[5px] border-faint-2 shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
+              className="mt-px h-[22px] w-[22px] rounded-[8px] border-faint-2 shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
             />
             <Label htmlFor="prejoin-terms" className="text-[14px] font-normal leading-[1.5]">
               I understand the interview runs in full screen, that leaving full
@@ -128,7 +128,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
 
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-0">
           <p className="iq-eyebrow m-0">Your camera</p>
-          <div className="relative aspect-video w-full overflow-hidden rounded-[10px] bg-inv">
+          <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-inv">
             <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
             {!camOn ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[13px] text-[#c9c8c3]">
@@ -137,7 +137,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
               </div>
             ) : null}
           </div>
-          <div className="overflow-hidden rounded-[10px] border border-line-2">
+          <div className="overflow-hidden rounded-[14px] border border-line-2">
             <DeviceRow
               id="prejoin-mic"
               label="Microphone"

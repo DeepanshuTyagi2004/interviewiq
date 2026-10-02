@@ -76,8 +76,8 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
         <Skeleton className="h-4 w-48" />
         <Skeleton className="mt-4 h-10 w-80 max-w-full" />
         <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
-          <Skeleton className="h-72 rounded-[10px]" />
-          <Skeleton className="h-72 rounded-[10px]" />
+          <Skeleton className="h-72 rounded-[14px]" />
+          <Skeleton className="h-72 rounded-[14px]" />
         </div>
       </div>
     );
@@ -87,7 +87,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
     return (
       <div className={PAGE}>
         <BackLink />
-        <div className="mt-6 rounded-[10px] border border-dashed border-line-4 px-6 py-12 text-center">
+        <div className="mt-6 rounded-[14px] border border-dashed border-line-4 px-6 py-12 text-center">
           <p role="alert" className="m-0 text-sm text-foreground">
             Failed to load your interview session. Refresh the page to try again.
           </p>
@@ -139,7 +139,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
       <div className="mt-5 flex flex-wrap items-start gap-3">
         <section
           aria-labelledby="debrief-round"
-          className="min-w-0 flex-[1_1_260px] overflow-hidden rounded-[10px] border border-line-2"
+          className="min-w-0 flex-[1_1_260px] overflow-hidden rounded-[14px] border border-line-2"
         >
           <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
             <h2 id="debrief-round" className="m-0 text-sm font-normal">
@@ -169,7 +169,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
 
         <section
           aria-labelledby="debrief-contents"
-          className="flex min-w-0 flex-[2.2_1_440px] flex-col gap-4 rounded-[10px] bg-panel p-4 sm:p-5"
+          className="flex min-w-0 flex-[2.2_1_440px] flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5"
         >
           <h2 id="debrief-contents" className="iq-eyebrow m-0 font-normal">
             What your debrief will contain

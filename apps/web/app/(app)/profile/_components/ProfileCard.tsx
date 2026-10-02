@@ -15,7 +15,7 @@ export interface ProfileCardProps {
 export function ProfileCard({ title, meta, action, children, className }: ProfileCardProps) {
   const id = React.useId();
   return (
-    <section aria-labelledby={id} className={cn("min-w-0 overflow-hidden rounded-[10px] border border-line-2 bg-card", className)}>
+    <section aria-labelledby={id} className={cn("min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card", className)}>
       <div className="flex min-h-[53px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 sm:px-5">
         <h2 id={id} className="m-0 text-sm font-normal">
           {title}

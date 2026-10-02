@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils/cn";
 
 const SIZES = {
-  sm: "h-[34px] w-[34px] rounded-[7px] text-sm",
+  sm: "h-[34px] w-[34px] rounded-[10px] text-sm",
   md: "h-10 w-10 rounded-lg text-base",
-  lg: "h-12 w-12 rounded-[10px] text-lg sm:h-14 sm:w-14 sm:text-[22px]",
+  lg: "h-12 w-12 rounded-[14px] text-lg sm:h-14 sm:w-14 sm:text-[22px]",
 } as const;
 
 export interface CompanyTileProps {

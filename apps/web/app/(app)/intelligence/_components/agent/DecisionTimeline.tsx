@@ -63,7 +63,7 @@ export function DecisionTimeline({
   );
 }
 
-const ROW = "flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[6px] px-2 py-1.5 text-[13px]";
+const ROW = "flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[9px] px-2 py-1.5 text-[13px]";
 
 function StepRow({ step }: { step: AgentStep }) {
   const skipped = step.status === "skipped";

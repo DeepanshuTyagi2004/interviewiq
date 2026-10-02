@@ -3,7 +3,7 @@ import * as React from "react";
 /** Bordered card with the design's title row, as used across the signed-in pages. */
 export function HelpCard({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className="min-w-0 overflow-hidden rounded-[10px] border border-line-2 bg-card">
+    <section aria-labelledby={id} className="min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card">
       <div className="border-b border-line px-4 py-4 sm:px-5">
         <h2 id={id} className="m-0 text-sm font-normal">
           {title}

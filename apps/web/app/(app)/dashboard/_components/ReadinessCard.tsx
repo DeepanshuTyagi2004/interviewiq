@@ -11,7 +11,7 @@ export function ReadinessCard() {
   return (
     <section
       aria-label="Readiness"
-      className="flex min-w-0 flex-[1_1_260px] flex-col gap-3.5 rounded-[10px] bg-panel p-5 sm:p-6"
+      className="flex min-w-0 flex-[1_1_260px] flex-col gap-3.5 rounded-[14px] bg-panel p-5 sm:p-6"
     >
       <p className="iq-eyebrow m-0">Readiness</p>
       <p className="m-0 text-[26px] tracking-[-0.035em] sm:text-[28px]">Not started</p>

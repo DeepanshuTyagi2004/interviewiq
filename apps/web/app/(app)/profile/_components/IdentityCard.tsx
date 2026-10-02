@@ -20,7 +20,7 @@ export interface IdentityCardProps {
 /** Avatar, name and education line, the two (not yet scored) score tiles, and most-used skills when known. */
 export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
   return (
-    <section aria-label="About you" className="flex flex-col gap-4 rounded-[10px] border border-line-2 bg-card p-5 sm:p-[22px]">
+    <section aria-label="About you" className="flex flex-col gap-4 rounded-[14px] border border-line-2 bg-card p-5 sm:p-[22px]">
       <div className="flex items-center gap-3.5">
         <span
           aria-hidden
@@ -61,7 +61,7 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
                 <li
                   key={`${s.source}-${s.skill}-${i}`}
                   title={s.evidence ? `${s.skill}: ${s.evidence}` : `${s.skill} · from ${from}`}
-                  className="inline-flex items-center gap-1.5 rounded border border-line-3 px-[9px] py-1 text-xs"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line-3 px-2.5 py-1 text-xs"
                 >
                   {s.skill}
                   <SourceIcon source={s.source} className="h-3 w-3 text-faint" />

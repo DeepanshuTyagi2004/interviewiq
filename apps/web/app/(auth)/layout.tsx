@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
       </header>
-      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
+      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
         {children}
       </main>
     </div>

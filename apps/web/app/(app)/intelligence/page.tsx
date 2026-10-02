@@ -57,7 +57,7 @@ export default function IntelligencePage() {
           </div>
 
           {TABS.map(({ value, Panel }) => (
-            <TabsContent key={value} value={value} className="mt-6 rounded-[10px] focus-visible:ring-1 focus-visible:ring-offset-4">
+            <TabsContent key={value} value={value} className="mt-6 rounded-[14px] focus-visible:ring-1 focus-visible:ring-offset-4">
               <Panel />
             </TabsContent>
           ))}

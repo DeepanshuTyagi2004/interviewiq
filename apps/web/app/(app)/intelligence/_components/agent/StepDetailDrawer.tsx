@@ -27,7 +27,7 @@ export function StepDetailDrawer({
   return (
     <section
       aria-label={`Step detail: ${step.name}`}
-      className="min-w-0 overflow-hidden rounded-[10px] border border-line-3 bg-card shadow-hairline"
+      className="min-w-0 overflow-hidden rounded-[14px] border border-line-3 bg-card shadow-hairline"
     >
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -71,7 +71,7 @@ export function StepDetailDrawer({
         </dl>
 
         {d.branch_reason != null && (
-          <div className="rounded-[8px] bg-panel px-3 py-2.5 text-sm">
+          <div className="rounded-[11px] bg-panel px-3 py-2.5 text-sm">
             <span className="iq-eyebrow mr-2">Why</span>
             {String(d.branch_reason)}
           </div>
@@ -97,7 +97,7 @@ function MonoField({ label, value }: { label: string; value: string }) {
         tabIndex={0}
         role="region"
         aria-label={label}
-        className="m-0 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-[8px] bg-panel p-3 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="m-0 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-[11px] bg-panel p-3 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {value}
       </pre>

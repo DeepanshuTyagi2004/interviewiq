@@ -12,7 +12,7 @@ import { DiagramBoard } from './DiagramBoard'
 type Surface = 'code' | 'diagram'
 
 const tabClass =
-  'h-[26px] rounded-[5px] px-2.5 text-[12.5px] font-normal text-faint shadow-none hover:text-foreground data-[state=active]:bg-panel data-[state=active]:text-foreground data-[state=active]:shadow-none'
+  'h-[26px] rounded-[8px] px-2.5 text-[12.5px] font-normal text-faint shadow-none hover:text-foreground data-[state=active]:bg-panel data-[state=active]:text-foreground data-[state=active]:shadow-none'
 
 /** The work surface: Code editor / Whiteboard (Excalidraw) behind the design's small tab bar, with
  * an optional fullscreen pop-out. Both surfaces stay mounted across tab switches (TabsContent
@@ -32,7 +32,7 @@ export function WorkArea({ session }: { session: LiveSession }) {
         data-testid={popped ? 'work-popout' : undefined}
         className={cn(
           'flex flex-col bg-card',
-          popped ? 'fixed inset-[2.5%] z-[60] overflow-hidden rounded-[12px] border border-line-3 shadow-hero' : 'h-full'
+          popped ? 'fixed inset-[2.5%] z-[60] overflow-hidden rounded-[16px] border border-line-3 shadow-hero' : 'h-full'
         )}
       >
         <Tabs value={tab} onValueChange={(v) => setTab(v as Surface)} className="flex min-h-0 flex-1 flex-col">

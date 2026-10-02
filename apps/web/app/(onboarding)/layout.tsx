@@ -26,7 +26,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
             <SignOutButton />
           </div>
         </header>
-        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
+        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
           {/* Sends users who have already finished onboarding to the dashboard. */}
           <OnboardingGate>{children}</OnboardingGate>
         </main>

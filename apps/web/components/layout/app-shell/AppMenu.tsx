@@ -103,7 +103,7 @@ export const AppMenu = forwardRef<HTMLElement, AppMenuProps>(function AppMenu(
         )}
       >
         {/* Readiness isn't computed yet — show the empty meter, never a made-up level. */}
-        <div className="flex max-w-[220px] flex-col gap-2 rounded-[10px] bg-foreground/[0.07] p-3.5">
+        <div className="flex max-w-[220px] flex-col gap-2 rounded-[14px] bg-foreground/[0.07] p-3.5">
           <p className="m-0 font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-foreground">Readiness</p>
           <div aria-hidden className="grid grid-cols-4 gap-[3px]">
             {Array.from({ length: READINESS_SEGMENTS }, (_, i) => (

@@ -7,7 +7,7 @@ export function SubmitButton({ pending, children, pendingLabel }: { pending: boo
       type="submit"
       disabled={pending}
       className={cn(
-        "flex h-[46px] w-full items-center justify-center gap-2.5 rounded-[5px] bg-brand text-[14.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-progress disabled:opacity-80",
+        "flex h-[46px] w-full items-center justify-center gap-2.5 rounded-full bg-brand text-[14.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-progress disabled:opacity-80",
       )}
     >
       {pending ? pendingLabel : children}

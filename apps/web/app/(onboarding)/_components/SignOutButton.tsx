@@ -18,7 +18,7 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={() => void handleClick()}
-      className="rounded-[5px] px-2.5 py-2 text-sm text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="rounded-full px-3 py-2 text-sm text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       Sign out
     </button>

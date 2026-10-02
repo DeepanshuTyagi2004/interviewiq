@@ -24,7 +24,7 @@ function statusLabel(session: InterviewSession): string {
 
 /** Chip on the dark card — fixed colours because the card is dark in both themes. */
 function Chip({ children }: { children: React.ReactNode }) {
-  return <li className="rounded-[5px] border border-[#3a3a37] px-2.5 py-[5px] text-xs text-[#dcdbd6]">{children}</li>;
+  return <li className="rounded-full border border-[#3a3a37] px-2.5 py-[5px] text-xs text-[#dcdbd6]">{children}</li>;
 }
 
 /**
@@ -39,7 +39,7 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
   return (
     <section
       aria-label="Up next"
-      className="flex min-h-[250px] min-w-0 flex-[2_1_420px] flex-col gap-[18px] rounded-[10px] bg-inv p-5 text-white sm:p-[26px]"
+      className="flex min-h-[250px] min-w-0 flex-[2_1_420px] flex-col gap-[18px] rounded-[14px] bg-inv p-5 text-white sm:p-[26px]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-[#9d9c97]">
         <span>{session ? `Up next · ${company} ${session.level}` : "Up next"}</span>
@@ -70,7 +70,7 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
         ) : null}
         <Link
           href={session ? sessionHref(session) : ROUTES.jobs}
-          className="ml-auto inline-flex h-[38px] items-center gap-1.5 rounded-[5px] bg-brand px-4 text-[13.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+          className="ml-auto inline-flex h-[38px] items-center gap-1.5 rounded-full bg-brand px-4 text-[13.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
         >
           {session ? (joinable ? "Enter room" : "View schedule") : "Browse companies"}
           <ArrowRight aria-hidden className="h-3.5 w-3.5" />

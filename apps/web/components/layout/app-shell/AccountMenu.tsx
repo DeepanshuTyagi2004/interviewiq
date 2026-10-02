@@ -68,7 +68,7 @@ const THEMES: { value: AppTheme; label: string; icon: LucideIcon }[] = [
 ];
 
 const panel =
-  "rounded-[12px] border-line-2 bg-popover p-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,.35)] dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,.8)]";
+  "rounded-[16px] border-line-2 bg-popover p-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,.35)] dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,.8)]";
 const item =
   "cursor-pointer gap-3 rounded-md px-2.5 py-[7px] text-[13.5px] focus:bg-foreground/[0.06] focus:text-foreground data-[state=open]:bg-foreground/[0.06] [&_svg]:text-muted-foreground focus:[&_svg]:text-foreground";
 const groupLabel = "px-2.5 pb-1 pt-2 font-mono text-[9.5px] font-normal uppercase tracking-[0.08em] text-faint";
@@ -108,7 +108,7 @@ export function AccountMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account menu"
-        className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-brand text-[12.5px] text-brand-foreground transition-[background-color,box-shadow] hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-frame data-[state=open]:ring-2 data-[state=open]:ring-brand/35 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-frame"
+        className="ml-1 flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-brand text-[12.5px] text-brand-foreground transition-[background-color,box-shadow] hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card data-[state=open]:ring-2 data-[state=open]:ring-brand/35 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-card"
       >
         {initialsOf(name)}
       </DropdownMenuTrigger>

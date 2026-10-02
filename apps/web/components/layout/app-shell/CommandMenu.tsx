@@ -38,7 +38,7 @@ export function CommandMenu({ open, onOpenChange, items }: CommandMenuProps) {
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
-        <DialogPrimitive.Content className="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-[560px] -translate-x-1/2 overflow-hidden rounded-[12px] border border-line-2 bg-card shadow-[0_40px_80px_-20px_rgba(0,0,0,.5)] duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.98] data-[state=open]:slide-in-from-left-1/2 data-[state=closed]:slide-out-to-left-1/2">
+        <DialogPrimitive.Content className="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-[560px] -translate-x-1/2 overflow-hidden rounded-[16px] border border-line-2 bg-card shadow-[0_40px_80px_-20px_rgba(0,0,0,.5)] duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.98] data-[state=open]:slide-in-from-left-1/2 data-[state=closed]:slide-out-to-left-1/2">
           <DialogPrimitive.Title className="sr-only">Search InterviewIQ</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Search screens and roles, then press Enter to open.

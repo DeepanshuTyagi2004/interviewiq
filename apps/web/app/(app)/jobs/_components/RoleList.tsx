@@ -10,7 +10,7 @@ import { DepthMeter } from "./DepthMeter";
 import { depthOf, isLiveJd, plural, specializationLabel, type LevelGroup } from "./library";
 
 const chip =
-  "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const chipOff = "border-line-3 bg-card text-foreground hover:border-faint-2";
 const chipOn = "border-foreground bg-primary text-primary-foreground";
 
@@ -119,7 +119,7 @@ export const RoleList = forwardRef<HTMLHeadingElement, RoleListProps>(function R
       </div>
 
       {groups.length === 0 ? (
-        <p className="m-0 mt-5 rounded-[10px] border border-dashed border-line-4 px-5 py-8 text-sm text-muted-foreground">
+        <p className="m-0 mt-5 rounded-[14px] border border-dashed border-line-4 px-5 py-8 text-sm text-muted-foreground">
           No roles match these filters.
         </p>
       ) : (

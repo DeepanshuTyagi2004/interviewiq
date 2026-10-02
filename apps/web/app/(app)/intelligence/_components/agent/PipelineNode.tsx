@@ -9,7 +9,7 @@ export function PipelineNode({ data }: NodeProps) {
   return (
     <div
       className={cn(
-        "min-w-[84px] cursor-pointer rounded-[6px] border px-2.5 py-1.5 shadow-hairline transition-colors",
+        "min-w-[84px] cursor-pointer rounded-[9px] border px-2.5 py-1.5 shadow-hairline transition-colors",
         STEP_STATUS_CLASS[status] ?? STEP_STATUS_CLASS.idle,
       )}
     >

@@ -38,7 +38,7 @@ export function SourceStack() {
             <li
               key={source.name}
               className={cn(
-                "absolute inset-x-0 top-1/2 -mt-[40px] flex h-20 items-center gap-3 rounded-[10px] bg-card px-3.5 sm:-mt-[46px] sm:h-[92px] sm:gap-[18px] sm:px-5",
+                "absolute inset-x-0 top-1/2 -mt-[40px] flex h-20 items-center gap-3 rounded-[14px] bg-card px-3.5 sm:-mt-[46px] sm:h-[92px] sm:gap-[18px] sm:px-5",
                 "transition-[transform,opacity,box-shadow] duration-[800ms] ease-iq",
                 centred ? "shadow-hero" : "shadow-hairline",
               )}
@@ -48,7 +48,7 @@ export function SourceStack() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[9px] bg-primary font-mono text-xs text-primary-foreground sm:h-[52px] sm:w-[52px] sm:text-[13px]">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-primary font-mono text-xs text-primary-foreground sm:h-[52px] sm:w-[52px] sm:text-[13px]">
                 {source.icon}
               </span>
               <span className="min-w-0 flex-1 text-left">
@@ -57,7 +57,7 @@ export function SourceStack() {
               </span>
               <span
                 className={cn(
-                  "flex-none rounded-[5px] px-2.5 py-1.5 text-xs transition-colors duration-[600ms] sm:px-3 sm:text-[13px]",
+                  "flex-none rounded-[8px] px-2.5 py-1.5 text-xs transition-colors duration-[600ms] sm:px-3 sm:text-[13px]",
                   centred ? "bg-brand text-brand-foreground" : "bg-line text-foreground",
                 )}
               >

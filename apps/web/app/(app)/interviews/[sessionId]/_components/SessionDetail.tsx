@@ -83,7 +83,7 @@ const STATE_TEXT: Record<SessionStep["state"], string> = {
 function Progress({ session }: { session: InterviewSession }) {
   const steps = sessionSteps(session.status);
   return (
-    <section aria-labelledby="session-progress" className="flex min-w-0 flex-col gap-4 rounded-[10px] bg-panel p-4 sm:p-5">
+    <section aria-labelledby="session-progress" className="flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5">
       <h2 id="session-progress" className="iq-eyebrow m-0 font-normal">
         Progress
       </h2>
@@ -140,7 +140,7 @@ function Details({ session }: { session: InterviewSession }) {
   ];
 
   return (
-    <section aria-labelledby="session-details" className="min-w-0 overflow-hidden rounded-[10px] border border-line-2">
+    <section aria-labelledby="session-details" className="min-w-0 overflow-hidden rounded-[14px] border border-line-2">
       <div className="border-b border-line px-4 py-4 text-sm sm:px-5">
         <h2 id="session-details" className="m-0 text-sm font-normal">
           Details
@@ -183,8 +183,8 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         <Skeleton className="h-4 w-40" />
         <Skeleton className="mt-4 h-10 w-72 max-w-full" />
         <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <Skeleton className="h-80 rounded-[10px]" />
-          <Skeleton className="h-80 rounded-[10px]" />
+          <Skeleton className="h-80 rounded-[14px]" />
+          <Skeleton className="h-80 rounded-[14px]" />
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
     return (
       <div className={PAGE}>
         <BackLink />
-        <div className="mt-6 rounded-[10px] border border-dashed border-line-4 px-6 py-12 text-center">
+        <div className="mt-6 rounded-[14px] border border-dashed border-line-4 px-6 py-12 text-center">
           <p role="alert" className="m-0 text-sm text-foreground">
             We couldn&apos;t load this interview.
           </p>

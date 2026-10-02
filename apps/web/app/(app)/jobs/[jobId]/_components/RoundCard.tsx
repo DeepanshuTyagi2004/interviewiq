@@ -32,7 +32,7 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
   const cta = mapped ? "Book this round" : "Book a round";
 
   return (
-    <li className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 rounded-[10px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
+    <li className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
       <span
         aria-hidden
         className="flex h-10 w-10 items-center justify-center rounded-lg border border-line-4 font-mono text-[13px] tabular-nums"
@@ -49,7 +49,7 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
         {topics.length > 0 ? (
           <ul aria-label={`${title} topics`} className="m-0 mt-0.5 flex list-none flex-wrap gap-[5px] p-0">
             {topics.map((t) => (
-              <li key={t} className="rounded bg-panel px-2 py-[3px] text-[11.5px] text-muted-foreground">
+              <li key={t} className="rounded-full bg-panel px-2.5 py-[3px] text-[11.5px] text-muted-foreground">
                 {t}
               </li>
             ))}

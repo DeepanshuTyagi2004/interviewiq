@@ -103,7 +103,7 @@ export function SkillsSection({ className }: { className?: string }) {
     >
       <ul className="m-0 flex list-none flex-wrap gap-[5px] px-4 py-4 sm:px-5">
         {skills.map((s) => (
-          <li key={s} className="rounded border border-line-3 px-[9px] py-1 text-xs">
+          <li key={s} className="rounded-full border border-line-3 px-2.5 py-1 text-xs">
             {s}
           </li>
         ))}
@@ -204,7 +204,7 @@ export function ProjectsSection({ className }: { className?: string }) {
               {tech.length ? (
                 <ul aria-label="Tech" className="m-0 mt-2.5 flex list-none flex-wrap gap-1 p-0">
                   {tech.map((t) => (
-                    <li key={t} className="rounded bg-panel px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                    <li key={t} className="rounded-full bg-panel px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                       {t}
                     </li>
                   ))}

@@ -8,11 +8,11 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROUTES } from "@/lib/constants/shared";
 
 const brandButton =
-  "flex items-center justify-center whitespace-nowrap rounded-[5px] bg-brand text-sm text-brand-foreground hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "flex items-center justify-center whitespace-nowrap rounded-full bg-brand text-sm text-brand-foreground hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const lineButton =
-  "flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[5px] border border-line-3 bg-card text-[13.5px] text-foreground hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-line-3 bg-card text-[13.5px] text-foreground hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const emailInput =
-  "min-w-0 rounded-[5px] border bg-card px-3.5 text-foreground outline-none placeholder:text-faint focus:border-faint";
+  "min-w-0 rounded-full border bg-card px-4 text-foreground outline-none placeholder:text-faint focus:border-faint";
 
 /**
  * The email field is a head start on sign-up: submitting carries the address to the sign-up form

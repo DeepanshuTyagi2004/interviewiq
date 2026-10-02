@@ -10,7 +10,7 @@ export function GoogleButton({ next }: { next?: string | null }) {
       type="button"
       onClick={() => login(next)}
       disabled={status === "loading"}
-      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] border border-line-3 bg-card text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line-3 bg-card text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
     >
       <GoogleGlyph />
       Continue with Google

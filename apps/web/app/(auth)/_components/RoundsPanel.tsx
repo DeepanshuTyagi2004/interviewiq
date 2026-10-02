@@ -39,7 +39,7 @@ export function RoundsPanel() {
             <div
               key={round.n}
               className={cn(
-                "absolute inset-x-0 top-1/2 -mt-10 flex h-20 items-center gap-3 rounded-[10px] bg-card px-3.5 sm:-mt-11 sm:h-[88px] sm:gap-4 sm:px-[18px]",
+                "absolute inset-x-0 top-1/2 -mt-10 flex h-20 items-center gap-3 rounded-[14px] bg-card px-3.5 sm:-mt-11 sm:h-[88px] sm:gap-4 sm:px-[18px]",
                 "transition-[transform,opacity,box-shadow] duration-[800ms] ease-iq",
                 centred ? "shadow-hero" : "shadow-hairline",
               )}
@@ -49,7 +49,7 @@ export function RoundsPanel() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[9px] bg-primary font-mono text-xs text-primary-foreground sm:h-12 sm:w-12">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-primary font-mono text-xs text-primary-foreground sm:h-12 sm:w-12">
                 {round.n}
               </span>
               <span className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function RoundsPanel() {
               </span>
               <span
                 className={cn(
-                  "flex-none rounded-[5px] px-2.5 py-[5px] text-xs transition-colors duration-[600ms]",
+                  "flex-none rounded-[8px] px-2.5 py-[5px] text-xs transition-colors duration-[600ms]",
                   centred ? "bg-brand text-brand-foreground" : "bg-panel text-foreground",
                 )}
               >

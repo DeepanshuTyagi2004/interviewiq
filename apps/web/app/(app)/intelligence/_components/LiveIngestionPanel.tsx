@@ -151,7 +151,7 @@ export function LiveIngestionPanel() {
       </div>
 
       {data?.error ? (
-        <p role="alert" className="m-0 rounded-[10px] bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <p role="alert" className="m-0 rounded-[14px] bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Run failed: <span className="font-mono text-[13px]">{data.error}</span>
         </p>
       ) : null}

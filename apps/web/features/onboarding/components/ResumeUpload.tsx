@@ -126,7 +126,7 @@ export function ResumeUpload({
           if (!busy) handleFile(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[10px] text-center transition-colors duration-200 hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] text-center transition-colors duration-200 hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           compact ? "border border-dashed border-line-4 bg-card p-6" : "min-h-[220px] border-[1.5px] border-dashed bg-panel p-7",
           !compact && (runStatus === "completed" || (!runStatus && currentFilename) ? "border-faint-2" : "border-line-4"),
           dragging && "border-faint-2 bg-accent",
@@ -136,7 +136,7 @@ export function ResumeUpload({
         <span
           aria-hidden
           className={cn(
-            "flex items-center justify-center rounded-[9px] bg-primary text-primary-foreground",
+            "flex items-center justify-center rounded-[12px] bg-primary text-primary-foreground",
             compact ? "h-10 w-10" : "h-11 w-11",
           )}
         >

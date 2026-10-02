@@ -39,7 +39,7 @@ export function DebriefPanel() {
       <div className="flex flex-wrap items-center gap-1.5 border-t border-line px-5 py-3.5">
         <span className="mr-1 text-xs text-faint">Learn next</span>
         {LEARN_NEXT.map((topic) => (
-          <span key={topic} className="rounded bg-panel px-[9px] py-1 text-xs">
+          <span key={topic} className="rounded-full bg-panel px-2.5 py-1 text-xs">
             {topic}
           </span>
         ))}

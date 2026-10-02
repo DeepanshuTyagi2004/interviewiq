@@ -97,6 +97,7 @@ module.exports = {
   			iq: 'cubic-bezier(.2,.7,.2,1)'
   		},
   		borderRadius: {
+  			DEFAULT: 'calc(var(--radius) - 4px)',
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'

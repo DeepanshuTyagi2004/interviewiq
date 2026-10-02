@@ -136,7 +136,7 @@ function BriefBody({ doc }: { doc: BriefDoc }) {
               ))}
             </ol>
             {hasFields ? (
-              <dl className="m-0 divide-y divide-line rounded-[10px] border border-line-2">
+              <dl className="m-0 divide-y divide-line rounded-[14px] border border-line-2">
                 {exp?.dominant_topics && exp.dominant_topics.length > 0 ? (
                   <Field label="Dominant topics">{exp.dominant_topics.join(", ")}</Field>
                 ) : null}
@@ -194,10 +194,10 @@ function BriefBody({ doc }: { doc: BriefDoc }) {
 function RoundRow({ round }: { round: FinalRound }) {
   const n = round.round_number;
   return (
-    <li className="grid grid-cols-[36px_minmax(0,1fr)] gap-3.5 rounded-[10px] border border-line-2 p-3.5 sm:p-4">
+    <li className="grid grid-cols-[36px_minmax(0,1fr)] gap-3.5 rounded-[14px] border border-line-2 p-3.5 sm:p-4">
       <span
         aria-hidden
-        className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-line-3 font-mono text-[13px] tabular-nums"
+        className="flex h-9 w-9 items-center justify-center rounded-[11px] border border-line-3 font-mono text-[13px] tabular-nums"
       >
         {n != null ? String(n).padStart(2, "0") : "—"}
       </span>

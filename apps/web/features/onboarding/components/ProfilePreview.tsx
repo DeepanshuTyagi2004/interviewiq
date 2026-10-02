@@ -72,7 +72,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
         </span>
       </div>
 
-      <div className="flex flex-none flex-col overflow-hidden rounded-[10px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.2)]">
+      <div className="flex flex-none flex-col overflow-hidden rounded-[14px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.2)]">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
             <span
@@ -162,7 +162,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
           {skills.length ? (
             <ul className="m-0 flex list-none flex-wrap gap-[5px] p-0">
               {skills.slice(0, MAX_SKILLS).map((s) => (
-                <li key={s} className="rounded bg-panel px-2 py-[3px] text-[11.5px]">
+                <li key={s} className="rounded-full bg-panel px-2.5 py-[3px] text-[11.5px]">
                   {s}
                 </li>
               ))}
@@ -182,7 +182,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
                 <li key={s.source} className="flex min-w-0 items-center gap-2.5 text-[13px]">
                   <span
                     aria-hidden
-                    className="flex h-6 w-6 flex-none items-center justify-center rounded-[5px] bg-primary font-mono text-[9.5px] text-primary-foreground"
+                    className="flex h-6 w-6 flex-none items-center justify-center rounded-[8px] bg-primary font-mono text-[9.5px] text-primary-foreground"
                   >
                     {s.code}
                   </span>

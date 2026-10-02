@@ -68,7 +68,7 @@ function slotLabel(d: Date, h: number): string {
 /** Chip styling shared by the day, time and round pickers: ink fill when chosen. */
 function chipClass(selected: boolean) {
   return cn(
-    "rounded-md border font-sans transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40",
+    "rounded-full border font-sans transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40",
     selected
       ? "border-foreground bg-primary text-primary-foreground"
       : "border-line-3 bg-card text-foreground enabled:hover:border-faint-2",
@@ -163,7 +163,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
   return (
     <section
       aria-labelledby="booking-title"
-      className="flex min-w-0 flex-col gap-[18px] rounded-[12px] border border-line-2 bg-card p-5 sm:p-[26px]"
+      className="flex min-w-0 flex-col gap-[18px] rounded-[16px] border border-line-2 bg-card p-5 sm:p-[26px]"
     >
       <div>
         <p className="iq-eyebrow m-0 truncate">
@@ -181,17 +181,17 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
           if (value) setMode(value as BookingMode);
         }}
         aria-label="When"
-        className="grid grid-cols-2 gap-[3px] rounded-[7px] border border-line-3 p-[3px]"
+        className="grid grid-cols-2 gap-[3px] rounded-full border border-line-3 p-[3px]"
       >
         <ToggleGroupItem
           value="now"
-          className="h-8 rounded-[5px] text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="h-8 rounded-full text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           Start now
         </ToggleGroupItem>
         <ToggleGroupItem
           value="schedule"
-          className="h-8 rounded-[5px] text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="h-8 rounded-full text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           Schedule for later
         </ToggleGroupItem>
@@ -201,7 +201,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         <FieldLabel>Role</FieldLabel>
         <select
           aria-label="Job description"
-          className="h-10 w-full rounded-md border border-line-4 bg-card px-3 text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-10 w-full rounded-full border border-line-4 bg-card px-4 text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={jdId}
           onChange={(e) => setJobDescriptionId(e.target.value)}
         >

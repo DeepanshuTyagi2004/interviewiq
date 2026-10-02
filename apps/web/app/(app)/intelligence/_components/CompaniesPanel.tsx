@@ -109,7 +109,7 @@ function AddCompanyForm() {
           />
         </FormField>
 
-        <div className="space-y-3 rounded-[10px] bg-panel p-3 sm:p-4">
+        <div className="space-y-3 rounded-[14px] bg-panel p-3 sm:p-4">
           <p className="iq-eyebrow m-0">
             JDs · <span className="tabular-nums">{jds.length}</span>
           </p>
@@ -276,7 +276,7 @@ function Catalogue() {
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-primary text-[12px] font-medium uppercase text-primary-foreground"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-primary text-[12px] font-medium uppercase text-primary-foreground"
                 >
                   {c.company.charAt(0)}
                 </span>
@@ -294,8 +294,8 @@ function Catalogue() {
               <ul className="m-0 list-none space-y-1.5 p-0">
                 {c.jds.map((jd) => (
                   <li key={jd.id ?? `${jd.role}-${jd.level}`}>
-                    <details className="group rounded-[8px] border border-line-2 open:border-line-3">
-                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[8px] px-3 py-2.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                    <details className="group rounded-[11px] border border-line-2 open:border-line-3">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[11px] px-3 py-2.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                         <span className="flex min-w-0 flex-1 items-center gap-2">
                           <ChevronRight
                             aria-hidden

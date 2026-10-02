@@ -122,7 +122,7 @@ export function AgentDiagnosticsPanel() {
       {!sessionId && (
         <ConsoleCard title="New session">
           <div className="space-y-4 p-4 sm:p-5">
-            <p className="m-0 rounded-[8px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
+            <p className="m-0 rounded-[11px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
               Drives the live-interview agent outside a real session: generate an InterviewPlan,
               then step through turns to inspect every decision the agent makes — clarify vs.
               advance, silence handling, and why it chooses to end.
@@ -221,13 +221,13 @@ export function AgentDiagnosticsPanel() {
               </MonoPill>
             </div>
             {/* TranscriptPanel is shared with the live room; the frame around it is ours. */}
-            <div className="h-[42vh] min-h-64 rounded-[10px] border border-line-2 p-3">
+            <div className="h-[42vh] min-h-64 rounded-[14px] border border-line-2 p-3">
               <TranscriptPanel
                 entries={session.data.transcript}
                 interviewerName={String(session.data.plan_summary.persona_name ?? "Interviewer")}
               />
             </div>
-            <div className="rounded-[10px] border border-line-2 p-3 sm:p-4">
+            <div className="rounded-[14px] border border-line-2 p-3 sm:p-4">
               <TurnComposer
                 status={session.data.status}
                 onSubmit={(body) => submitTurn.mutate({ runId: sessionId, body })}

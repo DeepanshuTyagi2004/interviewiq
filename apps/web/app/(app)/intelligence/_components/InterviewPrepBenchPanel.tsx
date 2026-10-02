@@ -39,7 +39,7 @@ export function InterviewPrepBenchPanel() {
     <div className="space-y-4">
       <ConsoleCard title="Generate a plan">
         <div className="space-y-4 p-4 sm:p-5">
-          <p className="m-0 rounded-[8px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
+          <p className="m-0 rounded-[11px] bg-panel px-3.5 py-3 text-[13px] leading-[1.55] text-muted-foreground">
             Interview-prep prompts are <strong className="font-medium text-foreground">v1 drafts</strong>
             {" — real "}
             persona, question-ladder, and candidate-probe prompts, schema-validated. They&rsquo;re

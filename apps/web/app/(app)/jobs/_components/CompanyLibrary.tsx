@@ -38,7 +38,7 @@ function StatusSegments({
     <div
       role="group"
       aria-label="Research status"
-      className="flex flex-none gap-0.5 rounded-md border border-line-3 p-[3px]"
+      className="flex flex-none gap-0.5 rounded-full border border-line-3 p-[3px]"
     >
       {STATUS.map((s) => (
         <button
@@ -47,7 +47,7 @@ function StatusSegments({
           aria-pressed={value === s.value}
           onClick={() => onChange(s.value)}
           className={cn(
-            "rounded px-3.5 py-2 text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "rounded-full px-3.5 py-2 text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             value === s.value
               ? "bg-primary text-primary-foreground"
               : "text-foreground hover:bg-accent",
@@ -69,10 +69,10 @@ function LibrarySkeleton() {
     >
       <div className={grid}>
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[200px] rounded-[10px]" />
+          <Skeleton key={i} className="h-[200px] rounded-[14px]" />
         ))}
       </div>
-      <Skeleton className="h-40 rounded-[10px]" />
+      <Skeleton className="h-40 rounded-[14px]" />
     </div>
   );
 }
@@ -182,7 +182,7 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
       ) : jds.isError ? (
         <div
           role="alert"
-          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-2 px-5 py-4"
+          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line-2 px-5 py-4"
         >
           <p className="m-0 text-sm text-destructive">
             Couldn&apos;t load the company library.

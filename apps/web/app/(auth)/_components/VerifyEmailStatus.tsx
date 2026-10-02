@@ -50,7 +50,7 @@ export function VerifyEmailStatus() {
       )}
       <Link
         href={isAuthenticated ? ROUTES.dashboard : ROUTES.login}
-        className="inline-flex h-11 items-center justify-center rounded-[5px] border border-line-3 text-[13.5px] transition-colors hover:border-faint-2"
+        className="inline-flex h-11 items-center justify-center rounded-full border border-line-3 text-[13.5px] transition-colors hover:border-faint-2"
       >
         {isAuthenticated ? "Go to your dashboard" : "Log in"}
       </Link>

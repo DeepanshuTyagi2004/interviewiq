@@ -19,7 +19,7 @@ export function HowItWorks() {
           Research shapes the interview. The interview drives the debrief. Every debrief makes the next attempt
           sharper.
         </p>
-        <div className="mt-12 w-full max-w-[1000px] rounded-[18px] border border-dashed border-line-4 p-3 sm:p-6">
+        <div className="mt-12 w-full max-w-[1000px] rounded-[22px] border border-dashed border-line-4 p-3 sm:p-6">
           <ol className="m-0 grid list-none grid-cols-1 gap-2.5 p-0 md:grid-cols-2 lg:grid-cols-3">
             {LAYERS.map((layer) => {
               const Art = LAYER_ART[layer.key];
@@ -27,7 +27,7 @@ export function HowItWorks() {
                 <li
                   key={layer.key}
                   data-reveal
-                  className="flex flex-col items-center gap-2.5 rounded-[10px] bg-card md:last:col-span-2 lg:last:col-span-1 px-[22px] pb-[22px] pt-[26px] text-center shadow-hairline transition-shadow duration-300 hover:shadow-lift"
+                  className="flex flex-col items-center gap-2.5 rounded-[14px] bg-card md:last:col-span-2 lg:last:col-span-1 px-[22px] pb-[22px] pt-[26px] text-center shadow-hairline transition-shadow duration-300 hover:shadow-lift"
                 >
                   <h3 className="m-0 text-[26px] font-normal tracking-[-0.035em]">{layer.title}</h3>
                   <p className="m-0 max-w-[240px] text-[13.5px] leading-[1.5] text-muted-foreground">{layer.body}</p>
@@ -36,7 +36,7 @@ export function HowItWorks() {
                   </div>
                   <ul className="m-0 flex list-none flex-wrap justify-center gap-1.5 p-0">
                     {layer.tags.map((tag) => (
-                      <li key={tag} className="rounded-[5px] border border-line-2 px-2.5 py-[5px] text-xs text-muted-foreground">
+                      <li key={tag} className="rounded-full border border-line-2 px-2.5 py-[5px] text-xs text-muted-foreground">
                         {tag}
                       </li>
                     ))}

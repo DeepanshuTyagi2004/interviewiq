@@ -101,7 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         account={{ name, email: user?.email, status, isAdmin, onSignOut: () => void signOut() }}
       />
 
-      <div className="relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-[14px] sm:mx-3 sm:mb-3">
+      <div className="relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-[18px] sm:mx-3 sm:mb-3">
         <AppMenu
           ref={menuRef}
           id={MENU_ID}
@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute inset-0 z-[1] origin-top-left rounded-[22px] bg-card transition-[transform,opacity] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
+            "pointer-events-none absolute inset-0 z-[1] origin-top-left rounded-[26px] bg-card transition-[transform,opacity] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
             menuOpen ? "opacity-35" : "opacity-0",
           )}
           style={{ transform: menuOpen ? GHOST_OPEN : "none" }}
@@ -128,8 +128,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className={cn(
             "absolute inset-0 z-[2] flex origin-top-left flex-col overflow-hidden border border-line-3 bg-card transition-[transform,border-radius,box-shadow] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
             menuOpen
-              ? "rounded-[26px] shadow-[0_50px_100px_-20px_rgba(0,0,0,.28)] dark:shadow-[0_50px_100px_-20px_rgba(0,0,0,.7)]"
-              : "rounded-[14px]",
+              ? "rounded-[30px] shadow-[0_50px_100px_-20px_rgba(0,0,0,.28)] dark:shadow-[0_50px_100px_-20px_rgba(0,0,0,.7)]"
+              : "rounded-[18px]",
           )}
           style={{ transform: menuOpen ? CARD_OPEN : "none" }}
         >
@@ -146,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Close menu"
             onClick={closeMenu}
-            className="absolute inset-0 z-[3] origin-top-left cursor-pointer rounded-[26px] focus-visible:outline-none"
+            className="absolute inset-0 z-[3] origin-top-left cursor-pointer rounded-[30px] focus-visible:outline-none"
             style={{ transform: CARD_OPEN }}
           />
         ) : null}

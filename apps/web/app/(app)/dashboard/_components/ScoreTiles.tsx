@@ -13,7 +13,7 @@ export function ScoreTiles() {
   return (
     <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-4">
       {TILES.map((tile) => (
-        <li key={tile.label} className="flex flex-col gap-1.5 rounded-[10px] border border-line-2 p-4 sm:p-5">
+        <li key={tile.label} className="flex flex-col gap-1.5 rounded-[14px] border border-line-2 p-4 sm:p-5">
           <span className="text-[12.5px] text-faint">{tile.label}</span>
           <span className="text-[30px] leading-none tracking-[-0.045em] text-faint-2 sm:text-[34px]">
             <span aria-hidden>—</span>

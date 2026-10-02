@@ -53,7 +53,7 @@ export function ExperienceForm() {
   return (
     <section
       aria-labelledby="experience-form-title"
-      className="min-w-0 overflow-hidden rounded-[10px] border border-line-2 bg-card"
+      className="min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card"
     >
       <div className="border-b border-line px-4 py-4 sm:px-5">
         <h2 id="experience-form-title" className="m-0 text-sm font-normal">
@@ -86,7 +86,7 @@ export function ExperienceForm() {
                   <label
                     key={l.value}
                     className={cn(
-                      "inline-flex h-9 cursor-pointer items-center justify-center rounded-[5px] border px-2 text-[13px] sm:px-3.5 transition-colors duration-200 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1 has-[:focus-visible]:ring-offset-background",
+                      "inline-flex h-9 cursor-pointer items-center justify-center rounded-full border px-2 text-[13px] sm:px-3.5 transition-colors duration-200 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1 has-[:focus-visible]:ring-offset-background",
                       selected
                         ? "border-foreground bg-primary text-primary-foreground"
                         : "border-line-3 bg-card text-foreground hover:border-faint-2",

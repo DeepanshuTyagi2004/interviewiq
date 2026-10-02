@@ -33,7 +33,7 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
         ))}
       </ol>
 
-      <div className="mt-4 rounded-[10px] bg-panel px-5 py-[18px]">
+      <div className="mt-4 rounded-[14px] bg-panel px-5 py-[18px]">
         <p className="m-0 text-sm">Suggested process</p>
         <p className="m-0 mt-0.5 text-[12.5px] leading-[1.5] text-muted-foreground">
           {confidence === "low" ? "Built from limited shared data, so treat it as a rough guide. " : "Built from interview experiences candidates share. "}

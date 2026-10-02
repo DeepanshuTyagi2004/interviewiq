@@ -17,7 +17,7 @@ export interface ConsoleCardProps {
 
 /**
  * The admin consoles' section frame: a hairline card with a header row, matching the dashboard's
- * list cards (`rounded-[10px] border-line-2`, header `px-4 sm:px-5 py-4 border-b border-line`).
+ * list cards (`rounded-[14px] border-line-2`, header `px-4 sm:px-5 py-4 border-b border-line`).
  */
 export function ConsoleCard({
   title,
@@ -30,7 +30,7 @@ export function ConsoleCard({
   return (
     <section
       aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
-      className={cn("min-w-0 overflow-hidden rounded-[10px] border border-line-2 bg-card", className)}
+      className={cn("min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card", className)}
     >
       <div className="flex min-h-[53px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3 text-sm sm:px-5">
         <h2 className="m-0 min-w-0 text-sm font-normal">{title}</h2>

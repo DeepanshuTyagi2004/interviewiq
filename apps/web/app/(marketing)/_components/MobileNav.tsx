@@ -17,7 +17,7 @@ export function MobileNav({ className }: { className?: string }) {
       <SheetTrigger
         aria-label="Open menu"
         className={cn(
-          "flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-line-4 bg-card text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line-4 bg-card text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           className,
         )}
       >

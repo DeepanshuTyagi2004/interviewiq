@@ -20,7 +20,7 @@ function CardAction({ entry, onShowRoles }: CompanyCardProps) {
 
   if (cta.kind === "none") {
     return (
-      <p className={cn(base, "m-0 flex items-center justify-center rounded-md border border-dashed border-line-3 text-faint")}>
+      <p className={cn(base, "m-0 flex items-center justify-center rounded-full border border-dashed border-line-3 text-faint")}>
         Nothing to open yet
       </p>
     );
@@ -59,7 +59,7 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
     <article
       aria-labelledby={headingId}
       className={cn(
-        "flex min-h-[200px] min-w-0 flex-col gap-3.5 rounded-[10px] border bg-card p-5 transition-shadow duration-300 ease-iq hover:shadow-lift",
+        "flex min-h-[200px] min-w-0 flex-col gap-3.5 rounded-[14px] border bg-card p-5 transition-shadow duration-300 ease-iq hover:shadow-lift",
         entry.live ? "border-line-4" : "border-line-2",
       )}
     >
