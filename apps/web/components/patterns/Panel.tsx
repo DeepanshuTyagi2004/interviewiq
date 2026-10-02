@@ -14,13 +14,14 @@ export interface PanelProps {
 
 /**
  * The design's grey "panel": a soft fill that white floating cards sit on. Use it to group a
- * page section; put `iq-float` cards (or Cards) inside.
+ * page section; put `iq-float` cards (or Cards) inside. In the signed-in HUD it carries the faint
+ * dot grid.
  */
 export function Panel({ eyebrow, action, children, className, "aria-label": ariaLabel }: PanelProps) {
   return (
     <section
       aria-label={ariaLabel ?? eyebrow}
-      className={cn("flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5", className)}
+      className={cn("hud-grid flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5", className)}
     >
       {eyebrow || action ? (
         <div className="flex min-h-5 items-center justify-between gap-3">

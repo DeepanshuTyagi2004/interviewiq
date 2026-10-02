@@ -2,7 +2,8 @@
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
-import { EmptyState } from "@/components/patterns";
+import { HudCard, HudEmpty } from "@/components/hud";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 /**
  * Admin-only gate. Sits inside a route group that already enforces RequireAuth, so
@@ -15,7 +16,7 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="flex min-h-[60vh] flex-1 items-center justify-center">
+      <div className="flex min-h-[calc(60vh/var(--hud-zoom,1))] flex-1 items-center justify-center">
         <span
           className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
           aria-hidden
@@ -26,11 +27,14 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
 
   if (!isAdmin) {
     return (
-      <div className="flex-1 p-6">
-        <EmptyState
-          title="Admins only"
-          hint="You don't have access to this area. Ask an administrator to grant you the admin role."
-        />
+      <div className={PAGE_SCAFFOLD}>
+        <HudCard aria-label="Admins only">
+          <HudEmpty
+            tag="Restricted"
+            title="Admins only"
+            hint="You don't have access to this area. Ask an administrator to grant you the admin role."
+          />
+        </HudCard>
       </div>
     );
   }

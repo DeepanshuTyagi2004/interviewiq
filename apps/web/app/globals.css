@@ -141,6 +141,39 @@
     --heat-3: 133 60% 42%;
     --heat-4: 131 64% 52%;
   }
+
+  /* ---- HUD scope: the signed-in app + admin (class set on <html> by useHudScope) ----
+     Mission-control layer on top of the paper palette: corner ticks, cursor spotlight, dot grid,
+     a notched hero corner, and 90% density. Nothing here applies outside .iq-hud. */
+  html.iq-hud {
+    --hud-tick: var(--line-4);
+    --hud-grid: var(--line-2);
+    --hud-glow: 0 0% 0% / 0.035;
+  }
+  /* 90% density. Only where CSS zoom exists: without it --hud-zoom stays unset (= 1), so the
+     viewport-height compensations (calc(…vh / var(--hud-zoom, 1))) stay neutral. */
+  @supports (zoom: 1) {
+    html.iq-hud {
+      --hud-zoom: 0.9;
+      zoom: var(--hud-zoom);
+    }
+  }
+  html.iq-hud.dark {
+    --hud-glow: 0 0% 100% / 0.05;
+  }
+  /* Floating UI positions popovers/menus/tooltips in unzoomed px, so under the page zoom they land
+     10% off their trigger. Undo the zoom on the positioned wrapper and re-apply it to the content:
+     correct placement, same 90% look. */
+  html.iq-hud [data-radix-popper-content-wrapper] {
+    zoom: calc(1 / var(--hud-zoom));
+  }
+  html.iq-hud [data-radix-popper-content-wrapper] > * {
+    zoom: var(--hud-zoom);
+  }
+  /* The live room's editors (Monaco, Excalidraw) misplace clicks under CSS zoom. */
+  html.iq-hud[data-hud-zoom="off"] {
+    --hud-zoom: 1;
+  }
 }
 
 @layer base {
@@ -202,6 +235,97 @@
   /* White card floating on a panel fill. */
   .iq-float {
     @apply rounded-[14px] bg-card shadow-float;
+  }
+
+  /* ---- HUD decorations: inert outside .iq-hud -------------------------------- */
+  .hud-ticks,
+  .hud-spot,
+  .hud-notch-line {
+    display: none;
+  }
+  /* Four L-shaped corner ticks, set just inside the card's rounded corners. */
+  .iq-hud .hud-ticks {
+    --t: hsl(var(--hud-tick));
+    --l: 7px;
+    position: absolute;
+    inset: 6px;
+    display: block;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--t), var(--t)) top left / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) top left / 1px var(--l) no-repeat,
+      linear-gradient(var(--t), var(--t)) top right / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) top right / 1px var(--l) no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom left / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom left / 1px var(--l) no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom right / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom right / 1px var(--l) no-repeat;
+  }
+  /* A notched card's top-right corner is the notch itself: no tick there. */
+  .iq-hud .hud-ticks[data-notch] {
+    background:
+      linear-gradient(var(--t), var(--t)) top left / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) top left / 1px var(--l) no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom left / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom left / 1px var(--l) no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom right / var(--l) 1px no-repeat,
+      linear-gradient(var(--t), var(--t)) bottom right / 1px var(--l) no-repeat;
+  }
+  .iq-hud .hud-card:hover > .hud-ticks,
+  .iq-hud .hud-card:focus-within > .hud-ticks,
+  .iq-hud .hud-card[data-active] > .hud-ticks {
+    --t: hsl(var(--brand));
+  }
+  /* Cursor spotlight: a faint radial glow under the content (needs `isolate` on the card). */
+  .iq-hud .hud-spot {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    display: block;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), hsl(var(--hud-glow)), transparent 70%);
+    transition: opacity 150ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .iq-hud .hud-card:hover > .hud-spot {
+    opacity: 1;
+  }
+  /* 45° notch, top-right, 18px — larger than the 14px corner so it replaces the curve cleanly.
+     The clip removes the border there; .hud-notch-line redraws it along the diagonal. */
+  .iq-hud .hud-notch {
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  }
+  .iq-hud .hud-notch-line {
+    /* An 18px box on the cut (offset over the border); the stripe along its diagonal sits just
+       inside the clip edge, so it reads as a 1px border meeting the top and right borders. */
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    display: block;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom left,
+      transparent 50%,
+      hsl(var(--line-2)) 50%,
+      hsl(var(--line-2)) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  }
+  /* The inverse (always-dark) card has no border in light, and a ring in dark: redraw it there. */
+  .iq-hud .hud-notch-line[data-inverse] {
+    display: none;
+  }
+  .iq-hud.dark .hud-notch-line[data-inverse] {
+    display: block;
+  }
+  /* Faint dot grid: panels, the page card, placeholders. */
+  .iq-hud .hud-grid {
+    background-image: radial-gradient(hsl(var(--hud-grid)) 1px, transparent 1.2px);
+    background-size: 18px 18px;
+    background-attachment: local;
   }
 
   /* Form rows laid out by the width they actually get — onboarding's wide column, a narrow profile
@@ -302,7 +426,17 @@
   [data-motion] {
     animation: none !important;
   }
+  .hud-spot {
+    display: none !important;
+  }
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* No hover on touch screens: no spotlight. */
+@media (pointer: coarse) {
+  .hud-spot {
+    display: none !important;
   }
 }

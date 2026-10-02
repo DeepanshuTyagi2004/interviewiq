@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROUTES } from "@/lib/constants/shared";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useCandidateProfile } from "@/features/onboarding/hooks";
+import { useHudScope } from "@/components/hud/scope";
 import { AppMenu } from "./AppMenu";
 import { AppTopBar } from "./AppTopBar";
 import { CommandMenu } from "./CommandMenu";
@@ -35,6 +36,7 @@ function ownsKeys(target: EventTarget | null): boolean {
  * pressing Esc brings it back. ⌘K / Ctrl+K opens search.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useHudScope();
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -87,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-frame text-foreground">
+    <div className="flex h-[calc(100dvh/var(--hud-zoom,1))] flex-col overflow-hidden bg-frame text-foreground">
       <AppTopBar
         ref={menuButtonRef}
         title={titleForPath(pathname)}
@@ -135,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {user?.hasPassword && user.emailVerified === false ? <VerifyEmailBanner email={user.email} /> : null}
 
-          <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <main id="main" className="hud-grid flex min-h-0 flex-1 flex-col overflow-y-auto">
             {children}
           </main>
         </div>

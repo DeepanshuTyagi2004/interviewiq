@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Readout } from "@/components/hud/Readout";
 import { cn } from "@/lib/utils/cn";
 
 export interface StatTileProps {
@@ -8,18 +9,11 @@ export interface StatTileProps {
 }
 
 /**
- * A single KPI: large Geist Mono value over a muted label. Descriptive only —
+ * A single KPI: the HUD readout (mono label over a large Geist Mono value). Descriptive only —
  * never a score, rank, or comparison.
  */
 export function StatTile({ value, label, className }: StatTileProps) {
-  return (
-    <div className={cn("flex flex-col gap-2 px-5 py-5", className)}>
-      <span className="font-mono text-[26px] font-normal leading-none tracking-[-0.03em] tabular-nums">
-        {value}
-      </span>
-      <span className="text-xs text-faint">{label}</span>
-    </div>
-  );
+  return <Readout label={label} value={value} className={cn("px-5 py-5", className)} />;
 }
 
 export interface StatRowProps {

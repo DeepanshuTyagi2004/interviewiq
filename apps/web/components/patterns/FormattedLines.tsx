@@ -99,7 +99,7 @@ function ListView({ block, depth }: { block: ListBlock; depth: number }) {
     <Tag
       className={cn(
         "m-0 space-y-1 pl-5",
-        block.ordered ? "list-decimal" : depth === 0 ? "list-disc" : "list-[circle]",
+        block.ordered ? "list-decimal" : depth === 0 ? "list-disc hud:list-['›__'] hud:marker:font-mono" : "list-[circle]",
         "marker:text-faint",
       )}
     >

@@ -1,3 +1,5 @@
+const plugin = require("tailwindcss/plugin");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -108,5 +110,9 @@ module.exports = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // `hud:` = only inside the signed-in HUD scope (class set on <html> by useHudScope).
+    plugin(({ addVariant }) => addVariant("hud", ".iq-hud &")),
+  ],
 };

@@ -37,7 +37,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   if (isLoading || mustOnboard || alreadyDone) {
     return (
-      <div className="flex min-h-[60vh] flex-1 items-center justify-center">
+      <div className="flex min-h-[calc(60vh/var(--hud-zoom,1))] flex-1 items-center justify-center">
         <span
           className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
           aria-hidden
