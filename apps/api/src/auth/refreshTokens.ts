@@ -50,4 +50,9 @@ export class RefreshTokenService {
   async revoke(rawToken: string): Promise<void> {
     await new RefreshTokenRepository(this.db).revoke(sha256Base64Url(rawToken), new Date());
   }
+
+  /** "Log out of all devices": revoke every live refresh token the user has. */
+  async revokeAll(userId: string): Promise<void> {
+    await new RefreshTokenRepository(this.db).revokeAllForUser(userId, new Date());
+  }
 }

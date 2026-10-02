@@ -40,6 +40,21 @@ export class UserRepository {
     return this.db.select().from(users).where(eq(users.id, id)).then(one);
   }
 
+  /**
+   * Account deletion, Postgres half: every row that references the user, then the user — one
+   * transaction, user row last. Idempotent (a retry after a partial failure just finishes).
+   */
+  async deleteCascade(userId: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+      await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+      await tx.delete(githubConnections).where(eq(githubConnections.userId, userId));
+      await tx.delete(leetcodeConnections).where(eq(leetcodeConnections.userId, userId));
+      await tx.delete(interviewSessions).where(eq(interviewSessions.candidateId, userId));
+      await tx.delete(users).where(eq(users.id, userId));
+    });
+  }
+
   findAllById(ids: string[]): Promise<UserRow[]> {
     if (ids.length === 0) return Promise.resolve([]);
     return this.db.select().from(users).where(inArray(users.id, ids));
@@ -99,9 +114,9 @@ export class UserRepository {
       })
       .onConflictDoUpdate({
         target: users.googleSub,
+        // `name` is set once, at sign-up: afterwards it's the user's own display name (Settings → Account).
         set: {
           email: input.email,
-          name: input.name,
           updatedAt: now,
           ...(input.promoteToAdmin ? { role: "ADMIN" as const } : {}),
           ...(input.emailVerified ? { emailVerifiedAt: coalesceNow(users.emailVerifiedAt, now) } : {}),
@@ -126,7 +141,8 @@ export class UserRepository {
       .set({
         googleSub: input.googleSub,
         email: input.email,
-        name: input.name,
+        // Only an unverified account (clearPassword) takes Google's name: it may come from a squatter. Otherwise the user owns it.
+        ...(input.clearPassword ? { name: input.name } : {}),
         updatedAt: input.now,
         emailVerifiedAt: coalesceNow(users.emailVerifiedAt, input.now),
         ...(input.clearPassword ? { passwordHash: null } : {}),
@@ -155,6 +171,10 @@ export class UserRepository {
 
   updateRole(id: string, role: Role): Promise<UserRow | null> {
     return this.db.update(users).set({ role }).where(eq(users.id, id)).returning().then(one);
+  }
+
+  updateName(id: string, name: string): Promise<UserRow | null> {
+    return this.db.update(users).set({ name }).where(eq(users.id, id)).returning().then(one);
   }
 
   markOnboardingComplete(id: string): Promise<UserRow | null> {

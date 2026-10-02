@@ -3,6 +3,7 @@ import { z } from "zod";
 import { decodePending, encodePending } from "../auth/googleOAuth.js";
 import { EmailTakenError, InvalidAuthTokenError, InvalidCredentialsError, type IssuedSession, UseGoogleError } from "../auth/passwordAuth.js";
 import { InvalidRefreshTokenError } from "../auth/refreshTokens.js";
+import type { Config } from "../config.js";
 import type { Container } from "../container.js";
 import { clientIp, enforceRateLimit, rateLimitErrors } from "../http/rateLimit.js";
 import { router, routerErrors, sendError, userId } from "../http/support.js";
@@ -10,6 +11,11 @@ import { BadRequestError, safeErrorMessage } from "../lib/errors.js";
 
 const REFRESH_COOKIE = "refresh_token";
 const REFRESH_COOKIE_PATH = "/api/v1/auth";
+
+/** Expire the refresh cookie (same attributes it was set with). Shared with the account routes. */
+export function clearRefreshTokenCookie(res: Response, config: Pick<Config, "cookieSecure" | "cookieSameSite">): void {
+  res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: config.cookieSecure, sameSite: config.cookieSameSite, path: REFRESH_COOKIE_PATH });
+}
 const OAUTH_COOKIE = "oauth2_google";
 const OAUTH_COOKIE_PATH = "/login/oauth2";
 
@@ -75,7 +81,7 @@ export function authRouter(c: Container): Router {
   const cookieBase = (): CookieOptions => ({ httpOnly: true, secure: config.cookieSecure, sameSite: config.cookieSameSite });
   const setRefreshCookie = (res: Response, token: string) =>
     res.cookie(REFRESH_COOKIE, token, { ...cookieBase(), path: REFRESH_COOKIE_PATH, maxAge: config.refreshTokenDays * 24 * 60 * 60 * 1000 });
-  const clearRefreshCookie = (res: Response) => res.clearCookie(REFRESH_COOKIE, { ...cookieBase(), path: REFRESH_COOKIE_PATH });
+  const clearRefreshCookie = (res: Response) => clearRefreshTokenCookie(res, config);
   const tokenResponse = (res: Response, accessToken: string) => res.json({ accessToken, tokenType: "Bearer", expiresIn: c.jwt.accessTokenSeconds });
   const sendSession = (res: Response, status: number, session: IssuedSession) => {
     setRefreshCookie(res, session.refreshToken);

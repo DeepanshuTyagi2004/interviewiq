@@ -20,7 +20,12 @@ import { BackgroundTasks } from "./lib/background.js";
 import { TokenCipher } from "./lib/crypto.js";
 import type { FetchLike } from "./lib/http.js";
 import type { Logger } from "./lib/logger.js";
-import { CandidateProfileRepository, ProfileFragmentRepository, SessionOutcomeRepository } from "./repositories/mongo.js";
+import {
+  CandidateProfileRepository,
+  ProfileFragmentRepository,
+  SessionOutcomeRepository,
+  UserPreferencesRepository,
+} from "./repositories/mongo.js";
 import {
   CompanyRepository,
   CompanyRoleConfigRepository,
@@ -36,6 +41,9 @@ import { CodingSignalsProvider } from "./services/codingSignals.js";
 import { InterviewPrepService } from "./services/interviewPrep.js";
 import { InterviewSessionService } from "./services/interviewSessions.js";
 import { LiveSessionService } from "./services/liveSessions.js";
+import { AccountDeletionService } from "./services/accountDeletion.js";
+import { AccountExportService } from "./services/accountExport.js";
+import { PreferencesService } from "./services/preferencesService.js";
 import { ProfileService } from "./services/profileService.js";
 import { UserService } from "./services/userService.js";
 
@@ -67,6 +75,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     candidateProfiles: new CandidateProfileRepository(mongo),
     fragments: new ProfileFragmentRepository(mongo),
     outcomes: new SessionOutcomeRepository(mongo),
+    preferences: new UserPreferencesRepository(mongo),
   };
 
   const jwt = new JwtService(config.jwt.secret, config.jwt.accessTokenMinutes);
@@ -77,12 +86,35 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
   const aiService = new AiServiceClient(config.aiService.baseUrl, config.internalApiKey, fetchImpl, log, config.aiService.timeoutMs);
   const githubCollector = new GitHubCollector(config.github.graphqlUrl, tokenCipher, repos.fragments, fetchImpl);
   const githubOAuth = new GitHubOAuthService(config.github, new OAuthStateService(config.jwt.secret), tokenCipher, repos.githubConnections, fetchImpl);
+  const accountDeletion = new AccountDeletionService({
+    users: repos.users,
+    sessions: repos.sessions,
+    githubConnections: repos.githubConnections,
+    candidateProfiles: repos.candidateProfiles,
+    fragments: repos.fragments,
+    outcomes: repos.outcomes,
+    preferences: repos.preferences,
+    aiService,
+    githubOAuth,
+    log,
+  });
   const leetcodeCollector = new LeetCodeCollector(config.leetcode.graphqlUrl, repos.fragments, fetchImpl, log);
   const leetcodeJob = new LeetCodeCollectionJob(repos.leetcodeConnections, leetcodeCollector, log);
   const leetcode = new LeetCodeService(repos.leetcodeConnections, repos.fragments, leetcodeCollector, leetcodeJob, background);
   const liveKit = new LiveKitTokenService(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret);
 
   const users = new UserService(db, repos.users, config.adminEmails);
+  const preferences = new PreferencesService(repos.preferences);
+  const accountExport = new AccountExportService(
+    repos.users,
+    preferences,
+    repos.candidateProfiles,
+    repos.githubConnections,
+    repos.leetcodeConnections,
+    repos.fragments,
+    repos.sessions,
+    repos.outcomes,
+  );
   if (!mailer && config.env === "production") {
     log.warn("ConsoleMailer is active: email verification and password-reset links are written to the logs");
   }
@@ -127,6 +159,9 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     githubOAuth,
     leetcode,
     users,
+    preferences,
+    accountExport,
+    accountDeletion,
     passwordAuth,
     rateLimiters,
     candidateProfiles,

@@ -176,6 +176,14 @@ async def get_plan(session_id: str) -> dict | None:
     return await get_db()[INTERVIEW_PLANS].find_one({"sessionId": session_id}, {"_id": 0})
 
 
+async def delete_plans_for_sessions(session_ids: list[str]) -> int:
+    """Account deletion: drop the stored plans for these sessions. Returns how many were removed."""
+    if not session_ids:
+        return 0
+    result = await get_db()[INTERVIEW_PLANS].delete_many({"sessionId": {"$in": session_ids}})
+    return result.deleted_count
+
+
 def _with_id(doc: dict | None) -> dict:
     if doc and "_id" in doc:
         doc["id"] = str(doc.pop("_id"))

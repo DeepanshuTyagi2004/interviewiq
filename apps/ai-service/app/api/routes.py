@@ -9,13 +9,14 @@
 - POST /interview-plans/start                  — internal key; start plan gen in background, return run_id
 - GET  /interview-plans/runs/{run_id}          — internal key; poll a started run (running|completed|failed)
 - POST /resumes/parse                         — internal key; PDF body -> structured JSON (onboarding)
+- POST /users/purge                           — internal key; account deletion, drop the user's interview plans
 """
 from __future__ import annotations
 
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
@@ -188,3 +189,17 @@ async def parse_resume(request: Request) -> dict:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
                             detail=f"resume parse produced invalid data: {exc.errors()[:3]}")
     return restore_nesting(parsed, text).model_dump()
+
+
+class PurgeUserRequest(BaseModel):
+    """Every interview-session id the deleted account owned (the API batches in 1000s)."""
+
+    session_ids: list[str] = Field(default_factory=list, max_length=1000)
+
+
+@router.post("/users/purge", dependencies=[Depends(require_internal_key)])
+async def purge_user(req: PurgeUserRequest) -> dict:
+    """Account deletion: remove everything stored for these sessions (their interview plans).
+    Idempotent — purging already-deleted sessions removes nothing and still succeeds."""
+    deleted = await repo.delete_plans_for_sessions(req.session_ids)
+    return {"deleted_plans": deleted}

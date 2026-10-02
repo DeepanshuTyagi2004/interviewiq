@@ -8,6 +8,7 @@ import { ApiError, InvalidArgumentError } from "./lib/errors.js";
 import { security } from "./http/security.js";
 import { router, sendError, userId } from "./http/support.js";
 import { adminCompaniesRouter, adminUsersRouter } from "./routes/admin.js";
+import { accountRouter } from "./routes/account.js";
 import { authRouter } from "./routes/auth.js";
 import { companiesRouter, experiencesRouter, jdsRouter } from "./routes/catalogue.js";
 import { githubConnectionRouter, leetcodeConnectionRouter } from "./routes/connections.js";
@@ -66,6 +67,7 @@ export function createApp(c: Container): express.Express {
   app.use(authRouter(c));
 
   const v1 = router();
+  v1.use("/users/me", accountRouter(c));
   v1.use("/users/me", candidateProfileRouter(c));
   v1.use("/users", usersRouter(c));
   v1.get("/profile/me", async (req, res) => {

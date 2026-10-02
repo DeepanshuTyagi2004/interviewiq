@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type { UpdateFilter } from "mongodb";
 import type {
   CandidateProfileDoc,
   MongoCollections,
   ProfileFragmentDoc,
   SessionOutcomeDoc,
+  UserPreferencesDoc,
 } from "../db/mongo/client.js";
 import type { ProfileSource } from "../domain/enums.js";
 
@@ -11,6 +13,10 @@ import type { ProfileSource } from "../domain/enums.js";
 
 export class CandidateProfileRepository {
   constructor(private readonly c: MongoCollections) {}
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.c.candidateProfiles.deleteOne({ _id: userId });
+  }
 
   findByUserId(userId: string): Promise<CandidateProfileDoc | null> {
     return this.c.candidateProfiles.findOne({ _id: userId });
@@ -35,6 +41,10 @@ export class CandidateProfileRepository {
 
 export class ProfileFragmentRepository {
   constructor(private readonly c: MongoCollections) {}
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.c.profileFragments.deleteMany({ userId });
+  }
 
   findByUserId(userId: string): Promise<ProfileFragmentDoc[]> {
     return this.c.profileFragments.find({ userId }).toArray();
@@ -64,8 +74,37 @@ export class SessionOutcomeRepository {
     return this.c.sessionOutcomes.findOne({ _id: sessionId });
   }
 
+  async deleteBySessionIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.c.sessionOutcomes.deleteMany({ _id: { $in: ids } });
+  }
+
+  findBySessionIds(ids: string[]): Promise<SessionOutcomeDoc[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.c.sessionOutcomes.find({ _id: { $in: ids } }).toArray();
+  }
+
   /** Idempotent: a re-delivered outcome overwrites the same document. */
   async save(sessionId: string, outcome: Record<string, unknown>): Promise<void> {
     await this.c.sessionOutcomes.replaceOne({ _id: sessionId }, { outcome, receivedAt: new Date() }, { upsert: true });
+  }
+}
+
+export class UserPreferencesRepository {
+  constructor(private readonly c: MongoCollections) {}
+
+  findByUserId(userId: string): Promise<UserPreferencesDoc | null> {
+    return this.c.userPreferences.findOne({ _id: userId });
+  }
+
+  /** Upsert only the given dotted leaves (`"interview.pace"`), so concurrent edits of different settings never clobber each other. */
+  async setPaths(userId: string, paths: Record<string, unknown>, now: Date): Promise<UserPreferencesDoc> {
+    const update = { $set: { ...paths, updatedAt: now } } as UpdateFilter<UserPreferencesDoc>;
+    const saved = await this.c.userPreferences.findOneAndUpdate({ _id: userId }, update, { upsert: true, returnDocument: "after" });
+    return saved!;
+  }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.c.userPreferences.deleteOne({ _id: userId });
   }
 }

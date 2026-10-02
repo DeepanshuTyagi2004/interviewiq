@@ -11,6 +11,8 @@ import type { ProfileSource } from "../../domain/enums.js";
  *                       inputs (GitHub / LeetCode)
  *   session_outcomes    one per interview session (_id = sessionId) — the full SessionOutcome
  *                       JSON the live-interview worker posts at the end
+ *   user_preferences    one per user (_id = userId) — only the settings the user changed; reads
+ *                       overlay them on DEFAULT_PREFERENCES (domain/preferences.ts)
  *
  * The API uses its own database (MONGODB_DATABASE, default `interviewiq`), separate from the AI
  * service's `interviewiq_intelligence` — both can share one Atlas cluster.
@@ -58,10 +60,21 @@ export interface SessionOutcomeDoc {
   receivedAt: Date;
 }
 
+export interface UserPreferencesDoc {
+  _id: string;
+  /** Partial sections: only the leaves the user changed. Validated on every read. */
+  locale?: Record<string, unknown>;
+  interview?: Record<string, unknown>;
+  notifications?: Record<string, unknown>;
+  privacy?: Record<string, unknown>;
+  updatedAt: Date;
+}
+
 export interface MongoCollections {
   candidateProfiles: Collection<CandidateProfileDoc>;
   profileFragments: Collection<ProfileFragmentDoc>;
   sessionOutcomes: Collection<SessionOutcomeDoc>;
+  userPreferences: Collection<UserPreferencesDoc>;
 }
 
 export function collections(db: Db): MongoCollections {
@@ -69,6 +82,7 @@ export function collections(db: Db): MongoCollections {
     candidateProfiles: db.collection<CandidateProfileDoc>("candidate_profiles"),
     profileFragments: db.collection<ProfileFragmentDoc>("profile_fragments"),
     sessionOutcomes: db.collection<SessionOutcomeDoc>("session_outcomes"),
+    userPreferences: db.collection<UserPreferencesDoc>("user_preferences"),
   };
 }
 

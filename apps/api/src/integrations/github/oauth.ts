@@ -1,6 +1,6 @@
 import type { GitHubConnectionRow } from "../../db/pg/schema.js";
 import type { TokenCipher } from "../../lib/crypto.js";
-import { type FetchLike, requestJson } from "../../lib/http.js";
+import { type FetchLike, requestJson, requestText } from "../../lib/http.js";
 import { asString, path } from "../../lib/json.js";
 import type { GitHubConnectionRepository } from "../../repositories/pg.js";
 import type { OAuthStateService } from "./oauthState.js";
@@ -48,6 +48,27 @@ export class GitHubOAuthService {
       githubLogin: login,
       accessTokenEnc: this.tokenCipher.encrypt(accessToken),
       scope: this.settings.scope,
+    });
+  }
+
+  /**
+   * Account deletion: revoke this OAuth App's grant for the token's user ("Delete an app
+   * authorization"), so the app no longer appears in their GitHub settings. Throws on failure.
+   */
+  async revokeGrant(accessTokenEnc: string): Promise<void> {
+    const accessToken = this.tokenCipher.decrypt(accessTokenEnc);
+    const basic = Buffer.from(`${this.settings.clientId}:${this.settings.clientSecret}`).toString("base64");
+    await requestText(this.fetchImpl, {
+      method: "DELETE",
+      url: `${this.settings.apiUrl}/applications/${encodeURIComponent(this.settings.clientId)}/grant`,
+      headers: {
+        Authorization: `Basic ${basic}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({ access_token: accessToken }),
+      timeoutMs: 10_000,
     });
   }
 

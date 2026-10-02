@@ -13,6 +13,8 @@ export interface UserResponse {
   emailVerified: boolean;
   /** The account can sign in with email + password (false = Google-only). */
   hasPassword: boolean;
+  /** A Google account is linked (can sign in with Google). */
+  hasGoogle: boolean;
 }
 
 export function toUserResponse(u: UserRow): UserResponse {
@@ -24,6 +26,7 @@ export function toUserResponse(u: UserRow): UserResponse {
     onboardingComplete: u.onboardingComplete,
     emailVerified: u.emailVerifiedAt !== null,
     hasPassword: u.passwordHash !== null,
+    hasGoogle: u.googleSub !== null,
   };
 }
 
@@ -127,5 +130,9 @@ export class UserService {
 
   updateRole(id: string, role: Role): Promise<UserRow | null> {
     return this.users.updateRole(id, role);
+  }
+
+  rename(id: string, name: string): Promise<UserRow | null> {
+    return this.users.updateName(id, name);
   }
 }

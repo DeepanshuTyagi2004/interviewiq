@@ -8,7 +8,7 @@ import {
   UpstreamError,
   UpstreamMalformedError,
 } from "../../lib/http.js";
-import { asString, path } from "../../lib/json.js";
+import { asString, isObject, path } from "../../lib/json.js";
 import type { GenerateInterviewPlanRequest } from "./types.js";
 
 /**
@@ -187,6 +187,15 @@ export class AiServiceClient {
 
   endAgentRun(runId: string): Promise<unknown> {
     return this.postJson(`/admin/interview-agent/runs/${seg(runId)}/end`);
+  }
+
+  // --- account deletion ----------------------------------------------------------------------
+
+  /** Drop everything the AI service stores for these sessions (their interview plans). Throws UpstreamError. */
+  async purgeUser(sessionIds: string[]): Promise<number> {
+    const body = await this.postJson("/users/purge", { session_ids: sessionIds });
+    const deleted = isObject(body) ? body.deleted_plans : undefined;
+    return typeof deleted === "number" ? deleted : 0;
   }
 
   // --- transport -----------------------------------------------------------------------------

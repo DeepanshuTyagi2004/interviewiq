@@ -67,6 +67,7 @@ describe("POST /api/v1/auth/register", () => {
       onboardingComplete: false,
       emailVerified: false,
       hasPassword: true,
+      hasGoogle: false,
     });
 
     // the refresh cookie is a real session

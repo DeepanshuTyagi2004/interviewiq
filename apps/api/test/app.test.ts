@@ -69,6 +69,7 @@ describe("users", () => {
       onboardingComplete: false,
       emailVerified: false,
       hasPassword: false,
+      hasGoogle: true,
     });
   });
 
