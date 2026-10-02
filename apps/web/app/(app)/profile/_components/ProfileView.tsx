@@ -17,15 +17,15 @@ import { IdentityCard } from "./IdentityCard";
 import { LogoutButton } from "./LogoutButton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { ResumeFileRow } from "./ResumeFileRow";
+import { NotableCard } from "./NotableCard";
+import { ScrollColumn } from "./ScrollColumn";
 import { ActivityCard } from "./SourceActivity";
-import { SummaryCard } from "./SummaryCard";
 import { educationLine } from "./identity";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const SCAFFOLD = PAGE_SCAFFOLD;
-
-/** A desktop column; below `lg` it dissolves so its cards join the single column in `order`. */
-const COLUMN = "contents lg:flex lg:min-w-0 lg:flex-col lg:gap-3";
+/** Desktop: the page fills the card and stops scrolling; the header stays put and each column scrolls. */
+const FILL = "lg:min-h-0 lg:flex-1 lg:pb-0";
 
 /** One card's slot. `order` is its place in the phone/tablet column; on desktop the column decides. */
 function Cell({ order, children }: { order: string; children: React.ReactNode }) {
@@ -34,8 +34,9 @@ function Cell({ order, children }: { order: string; children: React.ReactNode })
 
 /**
  * The profile. Desktop: short facts on the left (identity, resume file, contact, education, skills,
- * achievements, sources), the long parts on the right (summary, experience, projects, activity).
- * Phones and tablets get one column in reading order. Each resume section edits on its own.
+ * achievements, sources), the long parts on the right (notable, experience, projects, activity),
+ * each column scrolling on its own under a fixed header. Phones and tablets get one column in
+ * reading order, scrolling with the page. Each resume section edits on its own.
  * Descriptive throughout — the only score slot is the identity card's interview score "—" tile.
  */
 export function ProfileView() {
@@ -60,7 +61,7 @@ export function ProfileView() {
   const headline = data.user.headline ?? details?.headline ?? null;
 
   return (
-    <div className={SCAFFOLD}>
+    <div className={cn(SCAFFOLD, FILL)}>
       <div className="min-w-0">
         <p className="iq-eyebrow m-0">Profile</p>
         <h1 className="m-0 mt-1.5 break-words text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
@@ -72,8 +73,8 @@ export function ProfileView() {
       </div>
 
       <DetailsProvider>
-        <div className="mt-5 flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
-          <div className={COLUMN}>
+        <div className="mt-5 flex flex-col gap-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:grid-rows-[minmax(0,1fr)]">
+          <ScrollColumn>
             <Cell order="order-1">
               <IdentityCard
                 name={name}
@@ -99,11 +100,11 @@ export function ProfileView() {
             <Cell order="order-10">
               <ConnectedSourcesCard profile={data} />
             </Cell>
-          </div>
+          </ScrollColumn>
 
-          <div className={COLUMN}>
+          <ScrollColumn>
             <Cell order="order-8">
-              <SummaryCard atAGlance={data.atAGlance} notable={data.notable} />
+              <NotableCard notable={data.notable} />
             </Cell>
             <Cell order="order-3">
               <ExperienceSection />
@@ -119,7 +120,7 @@ export function ProfileView() {
                 <LogoutButton />
               </div>
             </Cell>
-          </div>
+          </ScrollColumn>
         </div>
       </DetailsProvider>
     </div>

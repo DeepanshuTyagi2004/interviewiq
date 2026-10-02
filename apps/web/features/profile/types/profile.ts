@@ -119,7 +119,6 @@ export interface ProfileResponse {
   sources: ProfileSource[];
   notable: NotableItem[];
   mostUsedSkills: SkillItem[];
-  atAGlance: string[];
   fragments: ProfileFragments;
   provenance: ProvenanceItem[];
 }

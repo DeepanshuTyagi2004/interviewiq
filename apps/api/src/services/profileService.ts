@@ -20,7 +20,6 @@ export interface ProfileResponse {
   sources: SourceStatus[];
   notable: NotableItem[];
   mostUsedSkills: SkillItem[];
-  atAGlance: string[];
   fragments: Record<string, unknown>;
   provenance: { source: string; fragmentHash: string; fetchedAt: Date }[];
 }
@@ -67,7 +66,6 @@ export class ProfileService {
       sources,
       notable: bands.notable,
       mostUsedSkills: bands.mostUsedSkills,
-      atAGlance: bands.atAGlance,
       fragments: fragmentMap,
       provenance,
     };

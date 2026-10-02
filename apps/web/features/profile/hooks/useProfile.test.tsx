@@ -30,7 +30,6 @@ const SAMPLE: ProfileResponse = {
   ],
   notable: [{ text: "1,204 GitHub contributions in the last year", source: "GITHUB" }],
   mostUsedSkills: [{ skill: "TypeScript", evidence: "GitHub 48%", source: "GITHUB" }],
-  atAGlance: ["Most active in TypeScript and Python across 38 repos"],
   fragments: {
     github: {
       login: "aishav",

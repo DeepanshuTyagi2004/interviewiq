@@ -51,7 +51,7 @@ describe("GET /profile/me", () => {
     expect(res.status).toBe(200);
     const b = res.body;
 
-    expect(Object.keys(b).sort()).toEqual(["atAGlance", "fragments", "mostUsedSkills", "notable", "provenance", "sources", "user"]);
+    expect(Object.keys(b).sort()).toEqual(["fragments", "mostUsedSkills", "notable", "provenance", "sources", "user"]);
     expect(b.user.name).toBe("Aisha Verma");
     expect(b.user.headline ?? null).toBeNull();
 
@@ -68,7 +68,6 @@ describe("GET /profile/me", () => {
     expect(b.mostUsedSkills[0]).toEqual({ skill: "TypeScript", evidence: "GitHub 48%", source: "GITHUB" });
     // trace languages (< 5%) are not skills
     expect(b.mostUsedSkills.map((s: { skill: string }) => s.skill)).not.toContain("Shell");
-    expect(b.atAGlance[0]).toBe("Most active in TypeScript and Python across 38 repos");
     expect(b.fragments.github.publicRepos).toBe(38);
     expect(b.fragments.github.login).toBe("aishav");
     expect(b.provenance).toEqual([{ source: "GITHUB", fragmentHash: "sha256:abc", fetchedAt: GH_REFRESHED.toISOString() }]);
@@ -92,7 +91,6 @@ describe("GET /profile/me", () => {
     ]);
     expect(res.body.notable).toEqual([]);
     expect(res.body.mostUsedSkills).toEqual([]);
-    expect(res.body.atAGlance).toEqual([]);
     expect(res.body.fragments).toEqual({});
     expect(res.body.provenance).toEqual([]);
   });

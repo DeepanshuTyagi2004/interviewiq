@@ -19,7 +19,6 @@ export interface SkillItem {
 export interface Bands {
   notable: NotableItem[];
   mostUsedSkills: SkillItem[];
-  atAGlance: string[];
 }
 
 /** A GitHub language below this byte-share % is "trace" — excluded from most-used skills. */
@@ -36,7 +35,6 @@ const formatInt = (n: number) => n.toLocaleString("en-US");
 export function assembleProfileBands(fragments: ProfileFragmentDoc[]): Bands {
   const notable: NotableItem[] = [];
   const skills: SkillItem[] = [];
-  const atAGlance: string[] = [];
 
   const g = fragments.find((f) => f.source === "GITHUB")?.data;
   if (g) {
@@ -53,12 +51,6 @@ export function assembleProfileBands(fragments: ProfileFragmentDoc[]): Bands {
       const pct = asInt(path(lang, "pct"), 0);
       if (name !== "" && pct >= RELEVANT_LANGUAGE_PCT) skills.push({ skill: name, evidence: `GitHub ${pct}%`, source: "GITHUB" });
     }
-
-    const publicRepos = asInt(g.publicRepos, 0);
-    const topLangs = items(g.languages)
-      .slice(0, 2)
-      .map((l) => asString(path(l, "name"), ""));
-    if (topLangs.length > 0) atAGlance.push(`Most active in ${topLangs.join(" and ")} across ${publicRepos} repos`);
   }
 
   const lc = fragments.find((f) => f.source === "LEETCODE")?.data;
@@ -93,21 +85,14 @@ export function assembleProfileBands(fragments: ProfileFragmentDoc[]): Bands {
     }
 
     // A topic is a skill when solved at least LEETCODE_TOPIC_MIN_SOLVES times (byTopic is pre-sorted).
-    const topTopics: string[] = [];
     for (const t of items(lc.byTopic)) {
       const topic = asString(path(t, "topic"), "");
       const count = asInt(path(t, "count"), 0);
-      if (topic === "" || count <= 0) continue;
-      if (topTopics.length < 2) topTopics.push(topic);
-      if (count >= LEETCODE_TOPIC_MIN_SOLVES) skills.push({ skill: topic, evidence: `LeetCode: ${count} solved`, source: "LEETCODE" });
-    }
-
-    if (total > 0) {
-      let glance = `Solved ${formatInt(total)} LeetCode problems`;
-      if (topTopics.length > 0) glance += `; most-solved topics: ${topTopics.join(", ")}`;
-      atAGlance.push(glance);
+      if (topic !== "" && count >= LEETCODE_TOPIC_MIN_SOLVES) {
+        skills.push({ skill: topic, evidence: `LeetCode: ${count} solved`, source: "LEETCODE" });
+      }
     }
   }
 
-  return { notable, mostUsedSkills: skills, atAGlance };
+  return { notable, mostUsedSkills: skills };
 }

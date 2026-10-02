@@ -66,10 +66,10 @@ describe("assembleProfileBands (ported from RuleBasedProfileAssemblerTest)", () 
     for (const s of bands.mostUsedSkills) expect(s.evidence.trim()).not.toBe("");
   });
 
-  it("assemble_atAGlanceDescribesActivity", () => {
-    const bands = assembleProfileBands([githubFragment()]);
-    expect(bands.atAGlance.length).toBeGreaterThan(0);
-    expect(bands.atAGlance.join(" ")).toContain("38 repos");
+  it("assemble_hasNoAtAGlanceBand", () => {
+    // "At a glance" was dropped from the profile (2026-10-02): notable + most-used skills only.
+    const bands = assembleProfileBands([githubFragment(), leetcodeFragment()]);
+    expect(Object.keys(bands).sort()).toEqual(["mostUsedSkills", "notable"]);
   });
 
   it("assemble_outputContainsNoScoringOrRankingFields", () => {
@@ -91,7 +91,6 @@ describe("assembleProfileBands (ported from RuleBasedProfileAssemblerTest)", () 
     const bands = assembleProfileBands([]);
     expect(bands.notable).toEqual([]);
     expect(bands.mostUsedSkills).toEqual([]);
-    expect(bands.atAGlance).toEqual([]);
   });
 
   /** Non-GITHUB fragments alongside a GITHUB one are safely ignored ("sources are additive, never required"). */
@@ -105,13 +104,11 @@ describe("assembleProfileBands (ported from RuleBasedProfileAssemblerTest)", () 
     // GITHUB data is still extracted correctly
     expect(bands.notable.some((n) => n.text.includes("1,204") && n.text.includes("contributions"))).toBe(true);
     expect(bands.mostUsedSkills.length).toBeGreaterThan(0);
-    expect(bands.atAGlance.length).toBeGreaterThan(0);
 
     // No data from the non-GITHUB fragments leaked into the output
     const allText =
       bands.notable.map((n) => n.text + n.source).join("") +
-      bands.mostUsedSkills.map((s) => s.skill + s.evidence).join("") +
-      bands.atAGlance.join(" ");
+      bands.mostUsedSkills.map((s) => s.skill + s.evidence).join("");
     expect(allText).not.toContain("B.Tech");
     expect(allText).not.toContain("totalSolved");
     expect(allText).not.toContain("412");
@@ -137,7 +134,6 @@ describe("assembleProfileBands (ported from RuleBasedProfileAssemblerTest)", () 
     expect(bands.mostUsedSkills.some((s) => s.skill === "python3" && s.evidence.includes("LeetCode"))).toBe(true);
     expect(bands.mostUsedSkills.some((s) => s.skill === "Array")).toBe(true);
     for (const s of bands.mostUsedSkills) expect(s.evidence.trim()).not.toBe("");
-    expect(bands.atAGlance.join(" ")).toContain("412 LeetCode problems");
   });
 });
 
@@ -159,7 +155,6 @@ describe("assembleProfileBands — exact Java output", () => {
         { skill: "String", evidence: "LeetCode: 60 solved", source: "LEETCODE" },
         { skill: "Hash Table", evidence: "LeetCode: 55 solved", source: "LEETCODE" },
       ],
-      atAGlance: ["Most active in TypeScript and Python across 38 repos", "Solved 412 LeetCode problems; most-solved topics: Array, String"],
     });
   });
 
@@ -183,8 +178,6 @@ describe("assembleProfileBands — exact Java output", () => {
     });
     const bands = assembleProfileBands([g, lc]);
     expect(bands.mostUsedSkills.map((s) => s.skill)).toEqual(["Go", "Math"]);
-    // Shell is still named in the at-a-glance line (top two languages regardless of share)
-    expect(bands.atAGlance).toEqual(["Most active in Go and Shell across 3 repos", "Solved 1,234 LeetCode problems; most-solved topics: Math, Graph"]);
     expect(bands.notable).toContainEqual({ text: "Competed in 1 LeetCode contest", source: "LEETCODE" });
     expect(bands.notable).toContainEqual({ text: "1,234 LeetCode problems solved (1 Easy, 0 Medium, 0 Hard)", source: "LEETCODE" });
   });
@@ -192,6 +185,6 @@ describe("assembleProfileBands — exact Java output", () => {
   it("zero-valued GitHub counts produce no notable items; the first fragment per source wins", () => {
     const quiet = frag("GITHUB", { publicRepos: 0, contributions: { lastYear: 0 }, externalPRs: 0, languages: [] });
     const other = frag("GITHUB", { contributions: { lastYear: 999 }, externalPRs: 5, languages: [{ name: "Rust", pct: 100 }] });
-    expect(assembleProfileBands([quiet, other])).toEqual({ notable: [], mostUsedSkills: [], atAGlance: [] });
+    expect(assembleProfileBands([quiet, other])).toEqual({ notable: [], mostUsedSkills: [] });
   });
 });
