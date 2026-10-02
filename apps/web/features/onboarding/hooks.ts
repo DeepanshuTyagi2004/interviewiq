@@ -19,14 +19,14 @@ import type {
   ResumeParseRunResponse,
 } from "./types";
 
-/** Parse a résumé PDF into a draft (synchronous). On error, catch ApiFetchError for the stable `code`. */
+/** Parse a resume PDF into a draft (synchronous). On error, catch ApiFetchError for the stable `code`. */
 export function useParseResume() {
   return useMutation<CandidateProfileResponse, Error, File>({
     mutationFn: parseResume,
   });
 }
 
-/** Start an async résumé parse (fire-and-poll) — returns the run id to poll. */
+/** Start an async resume parse (fire-and-poll) — returns the run id to poll. */
 export function useStartResumeParse() {
   return useMutation<{ run_id: string; status: string }, Error, File>({
     mutationFn: startResumeParse,
@@ -60,7 +60,9 @@ export function useSaveCandidateProfile() {
   const queryClient = useQueryClient();
   return useMutation<CandidateProfileResponse, Error, CandidateProfileRequest>({
     mutationFn: saveCandidateProfile,
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      // Show the saved profile straight away; the refetch below then confirms it.
+      queryClient.setQueryData(ONBOARDING_QUERY_KEYS.candidateProfile, saved);
       queryClient.invalidateQueries({ queryKey: ONBOARDING_QUERY_KEYS.candidateProfile });
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEYS.profile });
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });

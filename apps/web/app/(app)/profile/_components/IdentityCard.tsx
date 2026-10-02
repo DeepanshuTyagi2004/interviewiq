@@ -17,7 +17,7 @@ export interface IdentityCardProps {
   skills: SkillItem[];
 }
 
-/** Avatar, name and education line, the two (not yet scored) score tiles, and most-used skills. */
+/** Avatar, name and education line, the two (not yet scored) score tiles, and most-used skills when known. */
 export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
   return (
     <section aria-label="About you" className="flex flex-col gap-4 rounded-[10px] border border-line-2 bg-card p-5 sm:p-[22px]">
@@ -30,7 +30,7 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
         </span>
         <div className="min-w-0">
           <p className="m-0 truncate text-base tracking-[-0.01em]">{name ?? "Your name"}</p>
-          <p className="m-0 truncate text-[12.5px] text-faint">{subtitle ?? "Add your education under Personal details"}</p>
+          <p className="m-0 truncate text-[12.5px] text-faint">{subtitle ?? "Add your education below"}</p>
         </div>
       </div>
 
@@ -49,9 +49,11 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
         ))}
       </ul>
 
-      <div className="flex flex-col gap-2">
-        <p className="iq-eyebrow m-0">Most-used skills</p>
-        {skills.length ? (
+      {/* Skills the source summary picked out, each tagged with where it came from. The resume's own
+          skills list has its own card, so nothing shows here until the summary has run. */}
+      {skills.length ? (
+        <div className="flex flex-col gap-2">
+          <p className="iq-eyebrow m-0">Most-used skills</p>
           <ul className="m-0 flex list-none flex-wrap gap-[5px] p-0">
             {skills.map((s, i) => {
               const from = SOURCE_LABEL.get(s.source) ?? s.source;
@@ -68,12 +70,8 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
               );
             })}
           </ul>
-        ) : (
-          <p className="m-0 text-[13px] text-muted-foreground">
-            No skills detected yet. They appear once your résumé or a source has been read.
-          </p>
-        )}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }
