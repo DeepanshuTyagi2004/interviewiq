@@ -238,7 +238,7 @@ flowchart LR
     LCC --> FR
     CP --> PA[Profile assembler]
     FR --> PA
-    PA --> V["Descriptive profile<br/>at a glance · most-used skills (with evidence)<br/>· noticeable things"]
+    PA --> V["Descriptive profile<br/>most-used skills (with evidence)<br/>· achievements · noticeable things"]
     V --> UI[Profile page · interviewer context]
 ```
 
@@ -565,7 +565,7 @@ Every page is built for **375px phones, iPads (768 and 1024px) and desktop**, an
 
 ```mermaid
 flowchart LR
-    M1["Scoring contract<br/>interview + profile score,<br/>explainable"] --> M2["Scored debriefs<br/>pass marks · cooldowns"]
+    M1["Scoring contract<br/>interview score,<br/>explainable"] --> M2["Scored debriefs<br/>pass marks · cooldowns"]
     M2 --> M3["Loops and readiness<br/>official vs edited loops,<br/>readiness levels and report"]
     M3 --> M4["Leaderboards<br/>college · global"]
     M3 --> M5["University pilot<br/>TPO admin panel"]
@@ -575,7 +575,7 @@ flowchart LR
 
 ### Open decisions (owner: product)
 
-- **Scoring:** the profile-score and interview-score formulas, pass thresholds, retake cooldown
+- **Scoring:** the interview-score formula, pass thresholds, retake cooldown
   (1 or 2 weeks), readiness-level mapping, leaderboard rules, and what ships in the MVP.
 - **LeetCode sourcing:** scraping, paste-in, or an unofficial API.
 - **Voice pipeline:** stay on Deepgram + an OpenAI-compatible LLM, or move to a realtime speech

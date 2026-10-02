@@ -171,9 +171,8 @@ This body of knowledge grows with every company and every interview. It is hard 
 
 - 📄 **Readiness report.** Unlocked when you're interview-ready. A shareable summary of the rounds,
   scores, strengths and practice history behind it.
-- 📇 **Profile score.** How strong your profile is, based on your résumé and connected sources.
 - 🎯 **Interview score.** How you perform, based on every interview you've taken.
-- 🏆 **Global leaderboards** for both scores, with more ways to compete over time.
+- 🏆 **Global leaderboards** on the interview score, with more ways to compete over time.
 
 ---
 
@@ -281,7 +280,7 @@ more.
 - 🔜 The round-by-round interview dashboard, with customisable rounds
 - 🔜 The post-interview analysis: score, strong answers, topics to learn
 - 🔜 Round progression: pass marks, retake cooldowns, readiness levels and readiness reports
-- 🔜 Profile score, interview score and leaderboards
+- 🔜 Interview score and leaderboards
 - 🔜 The university panel for placement cells
 - 🔜 More companies in the catalogue (we launched with Meesho)
 
@@ -302,7 +301,7 @@ more.
 **Next: public launch**
 
 - Open sign-up for students and working professionals
-- Profile score, interview score and global leaderboards
+- Interview score and global leaderboards
 - More profile sources
 - A much larger company catalogue
 

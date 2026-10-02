@@ -10,7 +10,7 @@ AI-powered mock interview platform for software engineers. A voice-driven AI int
 
 **Why the platform exists:** Real interview practice is scarce, expensive, and inconsistent. Existing tools (Pramp, Interviewing.io) are peer-based and English-fluent-defaulting; LeetCode is solo and doesn't simulate interviews. InterviewIQ gives every candidate unlimited, company-specific, voice-based mock interviews with a personalized AI interviewer.
 
-**The full candidate journey and the scoring rules** (per-JD loop dashboard, editable rounds where an edited loop is standalone, pass thresholds, retake cooldown, readiness levels, Interview-ready status and the readiness report, profile score + interview score, leaderboards) are in the root `CLAUDE.md`, under *Product vision* and *Scoring, round gating & readiness*. No badges: readiness is never shown as a badge or certificate, or worded to imply company endorsement. Read them before building any of those screens.
+**The full candidate journey and the scoring rules** (per-JD loop dashboard, editable rounds where an edited loop is standalone, pass thresholds, retake cooldown, readiness levels, Interview-ready status and the readiness report, the interview score (there is no profile score), leaderboards) are in the root `CLAUDE.md`, under *Product vision* and *Scoring, round gating & readiness*. No badges: readiness is never shown as a badge or certificate, or worded to imply company endorsement. Read them before building any of those screens.
 
 ---
 
@@ -45,7 +45,7 @@ Services still deploy and scale independently; the monorepo only shares tooling 
 
 ## Current focus: Profile Builder (Module 01)
 
-The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary. The summary itself carries no scores or ranks; the profile score lives in a separate scoring contract (see the root `CLAUDE.md`).
+The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary. The summary itself carries no scores or ranks, and there is no profile score: sources describe the candidate, they don't score them (see the root `CLAUDE.md`).
 
 **Data flow:**
 1. User connects sources (OAuth for GitHub, paste/upload for resume + LeetCode)
@@ -72,7 +72,7 @@ The first major feature being built. Takes raw user data from multiple sources, 
 5. University Admin Panel (TPO dashboard, roster, drives)
 6. Platform Essentials (auth, billing, settings, notifications)
 
-**Full vision (17 modules — Phase 2+):** add Job Discovery & Gap Analysis, Adaptive Q&A Intelligence, Voice Conversation Engine refinements, Live Coding Environment, Integrity & Anti-Cheating, Community/Leaderboards (global profile-score and interview-score boards), Hiring Partner Integration (exclusive openings, automated early-stage hiring), Reputation Score (profile score + interview score), Analytics & Insights, Notifications Engine, Platform & Infrastructure (operational module).
+**Full vision (16 modules — Phase 2+):** add Job Discovery & Gap Analysis, Adaptive Q&A Intelligence, Voice Conversation Engine refinements, Live Coding Environment, Integrity & Anti-Cheating, Community/Leaderboards (global interview-score boards), Hiring Partner Integration (exclusive openings, automated early-stage hiring), Analytics & Insights, Notifications Engine, Platform & Infrastructure (operational module).
 
 ---
 
@@ -107,7 +107,6 @@ The Python synthesis service produces this JSON. The frontend consumes it direct
   "model": "gpt-4o-mini",
 
   "summary": {
-    "at_a_glance": ["3-5 high-level identifier bullets"],
     "most_used_skills": [
       { "skill": "Python", "evidence": "GitHub 52%, LeetCode preferred, resume claimed" }
     ],
@@ -134,8 +133,8 @@ The Python synthesis service produces this JSON. The frontend consumes it direct
 
 **Hard rules — never violate:**
 
-- **No scores inside this contract.** No `score`, `rating`, `rank`, `grade`, `tier_vs_peers`, or any comparative metric in this schema; the `ProfileSummary` stays purely descriptive. The profile score, interview score, round results and leaderboards are real product features, but they live in a **separate scoring contract** (e.g. `ScoringSummary`), never grafted onto this one.
-- **Four bullet categories are fixed.** `at_a_glance`, `most_used_skills`, `crucial_achievements`, `noticeable_things`. The LLM doesn't invent new categories — it fills these.
+- **No scores inside this contract.** No `score`, `rating`, `rank`, `grade`, `tier_vs_peers`, or any comparative metric in this schema; the `ProfileSummary` stays purely descriptive. The interview score, round results and leaderboards are real product features, but they live in a **separate scoring contract** (e.g. `ScoringSummary`), never grafted onto this one.
+- **Three bullet categories are fixed.** `most_used_skills`, `crucial_achievements`, `noticeable_things`. The LLM doesn't invent new categories — it fills these. (`at_a_glance` was dropped on 2026-10-02 — don't bring it back without the human.)
 - **Every skill carries evidence.** Format: cross-source attribution naming the specific sources (e.g. "GitHub 52%, LeetCode preferred, resume claimed"). No skill without evidence.
 - **Every achievement carries a source.** Format: `{ achievement, source }`. No floating claims.
 - **UI components are declarative.** Frontend has a registered renderer for each component type listed in the registry. Synthesis emits the spec; UI handles rendering. Adding a new component type = a frontend component + a prompt template update + a `UIComponentType` union entry. No schema change.
@@ -283,14 +282,14 @@ These are pending and should be raised with the human, not chosen autonomously:
 - **Auth provider** — NextAuth (full control, more setup) vs Clerk (hosted, faster, ~$25/mo at scale)
 - **Tutorial repo detection heuristic** — needs human review of false positives before shipping (this is high-leverage product IP)
 - **Synthesis prompt template** — the actual `synthesis_v1.txt` is the product's core IP, draft for human review before production use
-- **Scoring formulas & thresholds** — the profile-score formula, interview-score aggregation, per-round pass thresholds, retake cooldown (1 vs 2 weeks), leaderboard rules, whether standalone interviews count toward the interview score, and the readiness-level mapping (which levels exist and what moves a user between them)
-- **Scoring phasing** — which of the profile score, interview score, readiness levels/reports and leaderboards ship in the MVP vs later
+- **Scoring formulas & thresholds** — interview-score aggregation, per-round pass thresholds, retake cooldown (1 vs 2 weeks), leaderboard rules, whether standalone interviews count toward the interview score, and the readiness-level mapping (which levels exist and what moves a user between them)
+- **Scoring phasing** — which of the interview score, readiness levels/reports and leaderboards ship in the MVP vs later
 
 ---
 
 ## Working principles
 
-**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". Scores (profile, interview) are shown alongside the summary, come from a separate contract, and must be explainable.
+**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". The interview score is shown alongside the summary, comes from a separate contract, and must be explainable. There is no profile score.
 
 **Evidence on every claim.** If the synthesis says someone uses Python, the evidence string names the sources (GitHub bytes, LeetCode preference, resume claim). Users should always be able to ask "why does my profile say this?" and get a traceable answer.
 
