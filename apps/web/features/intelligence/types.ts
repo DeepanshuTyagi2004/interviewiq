@@ -166,23 +166,6 @@ export type AdminUser = {
   role: Role;
 };
 
-/** A JD in the catalogue (one ingestion target). */
-export type Jd = {
-  id?: string;
-  role?: string;
-  level: string;
-  specialization?: string;
-  title: string;
-  jdUrl?: string;
-  description?: string;
-  enabled?: boolean;
-};
-
-export type CompanyWithJds = {
-  company: string;
-  jds: Jd[];
-};
-
 /** Summary row for a persisted brief (from GET /intelligence/briefs). */
 export type BriefSummary = {
   company: string;
@@ -218,16 +201,3 @@ export type Question = {
 };
 export type QuestionsResponse = { questions: Question[]; count: number; returned?: number };
 export type QuestionFilters = { roundType?: string; company?: string; difficulty?: string; limit?: number };
-
-/** Payload to add a company + its JDs. */
-export type CreateCompanyInput = {
-  company: string;
-  jds: {
-    title: string;
-    role?: string;
-    level: string;
-    specialization?: string;
-    jdUrl?: string;
-    description?: string;
-  }[];
-};

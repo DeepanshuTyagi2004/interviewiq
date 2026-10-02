@@ -189,6 +189,58 @@ export class AiServiceClient {
     return this.postJson(`/admin/interview-agent/runs/${seg(runId)}/end`);
   }
 
+  // --- company research (Phase 1) -------------------------------------------------------------
+
+  /** Research state per company `{states: [...]}`; null when the AI service is unreachable (lookup: never throws). */
+  async companyResearchStates(ids: string[]): Promise<unknown | null> {
+    try {
+      return await this.getJson(`/research/companies/state?ids=${ids.map(encodeURIComponent).join(",")}`);
+    } catch (err) {
+      if (err instanceof UpstreamError) {
+        this.log.warn({ err: err.message }, "AI service research-state lookup failed");
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  startResearchRun(body: unknown): Promise<unknown> {
+    return this.postJson("/research/runs", body);
+  }
+
+  listResearchRuns(limit: number): Promise<unknown> {
+    return this.getJson(`/research/runs?limit=${limit}`);
+  }
+
+  getResearchRun(runId: string): Promise<unknown> {
+    return this.getJson(`/research/runs/${seg(runId)}`);
+  }
+
+  controlResearchRun(runId: string, action: "pause" | "resume" | "stop"): Promise<unknown> {
+    return this.postJson(`/research/runs/${seg(runId)}/${action}`);
+  }
+
+  async patchResearchBudget(runId: string, body: unknown): Promise<unknown> {
+    const path = `/research/runs/${seg(runId)}/budget`;
+    return this.nonEmptyJson(
+      await this.send({ method: "PATCH", url: this.url(path), body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
+      path,
+    );
+  }
+
+  listResearchEvents(runId: string, query: URLSearchParams): Promise<unknown> {
+    const qs = query.toString();
+    return this.getJson(`/research/runs/${seg(runId)}/events${qs ? `?${qs}` : ""}`);
+  }
+
+  listResearchSpans(runId: string, companyId: string | null): Promise<unknown> {
+    return this.getJson(`/research/runs/${seg(runId)}/spans${companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""}`);
+  }
+
+  getResearchSpan(spanId: string): Promise<unknown> {
+    return this.getJson(`/research/spans/${seg(spanId)}`);
+  }
+
   // --- account deletion ----------------------------------------------------------------------
 
   /** Drop everything the AI service stores for these sessions (their interview plans). Throws UpstreamError. */

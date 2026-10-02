@@ -1,6 +1,5 @@
 import { apiFetch } from "@/lib/api-client/client";
 import {
-  ADMIN_COMPANY_ENDPOINTS,
   ADMIN_USER_ENDPOINTS,
   INTELLIGENCE_ENDPOINTS,
 } from "@/lib/constants/intelligence";
@@ -9,8 +8,6 @@ import type {
   AdminUser,
   BriefDoc,
   BriefSummary,
-  CompanyWithJds,
-  CreateCompanyInput,
   QuestionFilters,
   QuestionsResponse,
   ScrapeStatus,
@@ -77,26 +74,6 @@ export function updateUserRole(id: string, role: Role): Promise<AdminUser> {
     method: "PATCH",
     json: { role },
   });
-}
-
-/** GET — the company/JD catalogue (admin only). */
-export function listCompanies(): Promise<CompanyWithJds[]> {
-  return apiFetch<CompanyWithJds[]>(ADMIN_COMPANY_ENDPOINTS.list);
-}
-
-/** POST — add a company + its JDs; triggers Perplexity ingestion for them. */
-export function createCompany(input: CreateCompanyInput): Promise<unknown> {
-  return apiFetch(ADMIN_COMPANY_ENDPOINTS.create, { method: "POST", json: input });
-}
-
-/** DELETE — remove a company and all its JDs. */
-export function deleteCompany(company: string): Promise<unknown> {
-  return apiFetch(ADMIN_COMPANY_ENDPOINTS.byCompany(company), { method: "DELETE" });
-}
-
-/** POST — load the starter catalogue (6 companies × 3 JDs). Idempotent. */
-export function seedCompanies(): Promise<{ inserted: number; backfilled: number; total: number }> {
-  return apiFetch(ADMIN_COMPANY_ENDPOINTS.seed, { method: "POST" });
 }
 
 /** GET — paginated question bank with optional filters. */

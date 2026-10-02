@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -122,6 +122,26 @@ class Settings(BaseSettings):
     brief_stale_after_days: int = Field(7, alias="BRIEF_STALE_AFTER_DAYS")
     # Delay between sequential search/LLM calls per combo (rate-limit hygiene).
     brief_inter_call_delay_seconds: float = Field(2.0, alias="BRIEF_INTER_CALL_DELAY_SECONDS")
+
+    # --- Company research pipeline (app/research; spec 2026-10-02) ---
+    research_enabled: bool = Field(True, alias="RESEARCH_ENABLED")
+    # Weekly run, APScheduler crontab syntax, Asia/Kolkata. Use day NAMES ("mon"): APScheduler numbers
+    # weekdays from Monday=0, unlike cron, so digits are a trap.
+    research_cron: str = Field("0 2 * * mon", alias="RESEARCH_CRON")
+    # live = real Exa/LLM; record = live + save every response to RESEARCH_FIXTURES_DIR;
+    # replay = serve ONLY from saved fixtures (free, deterministic, offline).
+    research_mode: Literal["live", "record", "replay"] = Field("live", alias="RESEARCH_MODE")
+    research_fixtures_dir: str = Field(".research-fixtures", alias="RESEARCH_FIXTURES_DIR")
+    research_concurrency: int = Field(2, alias="RESEARCH_CONCURRENCY", ge=1)
+    research_results_per_query: int = Field(5, alias="RESEARCH_RESULTS_PER_QUERY", ge=1)
+    research_stale_after_days: int = Field(7, alias="RESEARCH_STALE_AFTER_DAYS", ge=0)
+    research_max_roles: int = Field(8, alias="RESEARCH_MAX_ROLES", ge=1)
+    # Per-run caps; reaching one auto-pauses the run (raise the cap in the UI, then resume).
+    research_max_exa_calls: int = Field(400, alias="RESEARCH_MAX_EXA_CALLS", ge=0)
+    research_max_llm_calls: int = Field(2000, alias="RESEARCH_MAX_LLM_CALLS", ge=0)
+    # Crash-loop guard: a company found mid-run after this many restarts is failed, not retried.
+    research_max_attempts: int = Field(2, alias="RESEARCH_MAX_ATTEMPTS", ge=1)
+    research_trace_ttl_days: int = Field(14, alias="RESEARCH_TRACE_TTL_DAYS", ge=1)
 
     # --- Question set collection ---
     # Bump to force re-collection of the question bank (mirrors PIPELINE_VERSION).

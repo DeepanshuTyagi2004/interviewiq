@@ -22,18 +22,9 @@ export const ADMIN_USER_ENDPOINTS = {
   role: (id: string) => `/api/v1/admin/users/${id}/role`,
 } as const;
 
-/** Admin company/JD catalogue endpoints (the ingestion targets). */
-export const ADMIN_COMPANY_ENDPOINTS = {
-  list: "/api/v1/admin/companies",
-  create: "/api/v1/admin/companies",
-  seed: "/api/v1/admin/companies/seed",
-  byCompany: (company: string) => `/api/v1/admin/companies/${encodeURIComponent(company)}`,
-} as const;
-
 export const INTELLIGENCE_QUERY_KEYS = {
   scrapeStatus: ["intelligence", "scrape-status"] as const,
   users: ["intelligence", "users"] as const,
-  companies: ["intelligence", "companies"] as const,
   questions: ["intelligence", "questions"] as const,
 } as const;
 

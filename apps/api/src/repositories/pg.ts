@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import type { Database } from "../db/pg/client.js";
 import {
   authTokens,
@@ -266,6 +266,10 @@ export class CompanyRepository {
     return this.db.select().from(companies).orderBy(asc(companies.createdAt));
   }
 
+  findById(id: string): Promise<CompanyRow | null> {
+    return this.db.select().from(companies).where(eq(companies.id, id)).then(one);
+  }
+
   findBySlug(slug: string): Promise<CompanyRow | null> {
     return this.db.select().from(companies).where(eq(companies.slug, slug)).then(one);
   }
@@ -275,21 +279,42 @@ export class CompanyRepository {
     return this.db.select().from(companies).where(inArray(companies.slug, [...new Set(slugs)]));
   }
 
+  /** What students see: approved (published) and not archived. */
+  findPublished(): Promise<CompanyRow[]> {
+    return this.db
+      .select()
+      .from(companies)
+      .where(and(isNotNull(companies.publishedAt), eq(companies.status, "active")))
+      .orderBy(asc(companies.createdAt));
+  }
+
+  /** Research targets: every non-archived company, published or not. */
+  findActive(): Promise<CompanyRow[]> {
+    return this.db.select().from(companies).where(eq(companies.status, "active")).orderBy(asc(companies.createdAt));
+  }
+
   async insert(row: Insert<typeof companies>): Promise<void> {
     await this.db.insert(companies).values(row);
   }
 
-  async deleteBySlug(slug: string): Promise<void> {
-    await this.db.delete(companies).where(eq(companies.slug, slug));
+  create(row: Insert<typeof companies>): Promise<CompanyRow> {
+    return this.db
+      .insert(companies)
+      .values(row)
+      .returning()
+      .then((r) => r[0]!);
   }
 
-  /** Delete every company whose slug is NOT in `keep`. Returns the number removed. */
-  deleteAllExceptSlugs(keep: string[]): Promise<number> {
-    return this.db
-      .delete(companies)
-      .where(notInArray(companies.slug, keep))
-      .returning({ id: companies.id })
-      .then((r) => r.length);
+  update(id: string, patch: Partial<Insert<typeof companies>>): Promise<CompanyRow | null> {
+    return this.db.update(companies).set(patch).where(eq(companies.id, id)).returning().then(one);
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.db.delete(companies).where(eq(companies.id, id));
+  }
+
+  async deleteBySlug(slug: string): Promise<void> {
+    await this.db.delete(companies).where(eq(companies.slug, slug));
   }
 }
 
@@ -312,12 +337,8 @@ export class CompanyRoleConfigRepository {
     await this.db.update(companyRoleConfigs).set(patch).where(eq(companyRoleConfigs.id, id));
   }
 
-  deleteAllExceptCompanies(keep: string[]): Promise<number> {
-    return this.db
-      .delete(companyRoleConfigs)
-      .where(notInArray(companyRoleConfigs.company, keep))
-      .returning({ id: companyRoleConfigs.id })
-      .then((r) => r.length);
+  async deleteByCompany(company: string): Promise<void> {
+    await this.db.delete(companyRoleConfigs).where(eq(companyRoleConfigs.company, company));
   }
 }
 
@@ -348,14 +369,6 @@ export class JobDescriptionRepository {
   /** Remove ALL of a company's JDs (used on re-seed and on catalogue delete). */
   async deleteByCompany(company: string): Promise<void> {
     await this.db.delete(jobDescriptions).where(eq(jobDescriptions.company, company));
-  }
-
-  deleteAllExceptCompanies(keep: string[]): Promise<number> {
-    return this.db
-      .delete(jobDescriptions)
-      .where(notInArray(jobDescriptions.company, keep))
-      .returning({ id: jobDescriptions.id })
-      .then((r) => r.length);
   }
 }
 

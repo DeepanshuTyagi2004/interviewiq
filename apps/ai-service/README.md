@@ -99,3 +99,63 @@ and OpenAI.
 - Prompt templates in `app/prompts/` are **v1 drafts** pending human review (product IP).
   Bump `EXTRACTION_PROMPT_VERSION` / `BRIEF_PROMPT_VERSION` when you change them — the
   version is recorded on every processed document so old data can be re-processed.
+
+## Company research pipeline (Phase 1)
+
+**What runs.** A research runner takes a set of catalogue companies and runs a per-company LangGraph
+(`resolve` -> `write_draft`): `resolve` searches the web (Exa) and normalises the company identity,
+`write_draft` asks the LLM to write a draft brief into `company_drafts`. Every run, company, node, Exa call and
+LLM call is traced into the research trace collections (events + payloads, expiring after
+`RESEARCH_TRACE_TTL_DAYS`), which the web app's Intelligence page (Companies / Runs tabs) reads. A weekly cron
+(`RESEARCH_CRON`, only when `SCHEDULER_ENABLED=true`) starts a run for stale companies. All settings are
+documented in `.env.example` (`RESEARCH_*`).
+
+**Modes** (`RESEARCH_MODE`, or per run):
+- `live`: real Exa and LLM calls.
+- `record`: live, and every response is saved to `RESEARCH_FIXTURES_DIR` (gitignored; the files are real web text).
+- `replay`: serves the saved responses, so a run is free, deterministic and offline.
+
+**CLI** (examples from `app/research/cli.py`):
+
+```bash
+# ad-hoc company, nothing else running: no API, no Mongo, free replay
+python -m app.research.cli run --name "Meesho" --mode replay --memory --verbose
+
+# record real responses once (costs Exa + LLM calls), then replay them for free
+python -m app.research.cli run --name "Meesho" --mode record --memory
+
+# catalogue companies by slug (needs interviewiq-api running); writes to MONGODB_DB
+python -m app.research.cli run --company meesho --company razorpay --mode live
+```
+
+Exit code: 0 all companies done/skipped, 1 any failed, 2 bad arguments / nothing to run.
+
+**Mongo contract tests.** The store contract tests run against the in-memory store always, and against a real
+MongoDB when given a URL:
+
+```bash
+RESEARCH_TEST_MONGO_URL=… .venv/bin/python -m pytest tests/research/test_store_contract.py
+```
+
+**Local walkthrough** (host processes, no Docker). This uses the dev databases and spends a few Exa and LLM calls
+in record mode: about 2 each per company in Phase 1.
+
+1. In `apps/ai-service/.env`, set:
+   - `SCHEDULER_ENABLED=false`
+   - `MONGODB_DB=interviewiq_intelligence_dev`
+   - `RESEARCH_MAX_EXA_CALLS=60`
+   - `RESEARCH_MAX_LLM_CALLS=250`
+2. Start the stack with `pnpm dev`. Check the API's startup log shows migration `0002_company_research` applied, and the ai-service log shows the research runner started.
+3. Sign in as an admin and open `/intelligence?tab=companies`. Add **Meesho** (website `meesho.com`), **Razorpay** and **TCS**. Each row shows "Never researched".
+4. Open the **Runs** tab. Choose mode `record`, then **Start selected…** with all three. Watch for:
+   - the trace tree filling up (run → company → resolve → exa / llm → write_draft);
+   - the minimap pulsing the active node;
+   - console lines streaming;
+   - the budget meters counting up.
+5. Click an `llm` step and check the Prompt, Reply, Input, Output, Logs and Raw tabs. Click **Copy for Claude** and paste it somewhere. It should start with the context header and contain the fenced blocks.
+6. Start another `record` run of all three. Press **Pause** while the first company is in `resolve`. That company finishes its current node and parks; the others stay queued; the run reads `paused`. Press **Resume**: in the trace, `resolve` does **not** run again for the parked company. Then start a run and press **Stop**: the companies end `cancelled`, and no draft appears in `company_drafts` for that run.
+7. **Restart check.** Pause a run, restart the ai-service, then open the run. It is still `paused`, and Resume finishes it.
+8. **Replay check.** Start a `replay` run of all three. It completes with the Exa and LLM meters at 0. The companies end `skipped`, since nothing changed since their drafts.
+9. **Budget check.** Start a `live` run with the LLM cap set to 1 (Set caps right after starting). The run auto-pauses with "budget cap reached". Raise the cap and Resume, and it completes.
+10. On the Companies tab, every researched company reads "Awaiting review". Archive TCS, then start an "all" run: TCS is not included.
+11. As a non-admin student, `/jobs` lists only the published companies. Admin-added companies stay hidden until Phase 2 approval.

@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
+import type { CompanyRow } from "../db/pg/schema.js";
 import { isBlank, isObject, items, path, textOrNull, asString } from "../lib/json.js";
 import { UpstreamError } from "../lib/http.js";
 import { queryString, routerErrors, sendError, uuidParam, router } from "../http/support.js";
@@ -9,7 +10,7 @@ import { str } from "../domain/candidateProfile.js";
 export function companiesRouter(c: Container): Router {
   const r = router();
   r.get("/", async (_req, res) => {
-    const rows = await c.repos.companies.findAll();
+    const rows = await c.repos.companies.findPublished();
     res.json(
       rows.map((co) => ({
         id: co.id,
@@ -24,6 +25,10 @@ export function companiesRouter(c: Container): Router {
   });
   return r;
 }
+
+/** A company students must not see: its row exists and is unpublished or archived. */
+const isHidden = (co: CompanyRow) => co.publishedAt === null || co.status === "archived";
+const hiddenSlugs = (rows: CompanyRow[]) => new Set(rows.filter(isHidden).map((co) => co.slug));
 
 /**
  * Student-facing JD library. Lists the postings (shown level-wise); the detail embeds the interview
@@ -43,10 +48,12 @@ export function jdsRouter(c: Container): Router {
     ]);
     const names = new Map<string, string>();
     for (const co of companies) if (!names.has(co.slug)) names.set(co.slug, co.name);
+    const hidden = hiddenSlugs(companies);
     const confidence = confidenceByKey(summaries);
 
     res.json(
       jds
+        .filter((j) => !hidden.has(j.company))
         .filter((j) => company === null || eqIgnoreCase(company, j.company))
         .filter((j) => level === null || eqIgnoreCase(level, j.level))
         .filter((j) => specialization === null || eqIgnoreCase(specialization, j.specialization))
@@ -69,14 +76,12 @@ export function jdsRouter(c: Container): Router {
 
   r.get("/:id", async (req, res) => {
     const j = await c.repos.jds.findById(uuidParam(req, "id"));
-    if (!j) {
+    const company = j ? await c.repos.companies.findBySlug(j.company) : null;
+    if (!j || (company !== null && isHidden(company))) {
       sendError(res, 404, "jd_not_found", "no JD with that id");
       return;
     }
-    const [company, brief] = await Promise.all([
-      c.repos.companies.findBySlug(j.company),
-      c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization),
-    ]);
+    const brief = await c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization);
     let interviewProcess: unknown = null;
     let conf: string | null = null;
     let sources: string[] = [];

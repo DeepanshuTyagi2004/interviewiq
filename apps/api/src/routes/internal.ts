@@ -29,6 +29,12 @@ export function internalRouter(c: Container): Router {
     );
   });
 
+  /** Company research targets: every ACTIVE company, published or not (spec §8.1). */
+  r.get("/research-targets", async (_req, res) => {
+    const rows = await c.repos.companies.findActive();
+    res.json(rows.map((co) => ({ id: co.id, name: co.name, slug: co.slug, website: co.website, aliases: co.aliases })));
+  });
+
   /** Called once when an interview ends: persist the SessionOutcome and finalize the session. */
   r.post("/sessions/:sessionId/outcome", async (req, res) => {
     const sessionId = uuidParam(req, "sessionId");

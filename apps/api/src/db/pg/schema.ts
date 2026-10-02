@@ -4,6 +4,8 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -11,6 +13,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { ROLES, ROUND_TYPES, SESSION_STATUSES, SYNC_STATUSES } from "../../domain/enums.js";
 
 /**
@@ -94,17 +97,50 @@ export const authTokens = pgTable(
   (t) => [index("idx_auth_token_user_purpose").on(t.userId, t.purpose)],
 );
 
-/** A company students can target. `slug` joins to JDs, role configs and the AI-service brief keys. */
+export const COMPANY_STATUSES = ["active", "archived"] as const;
+export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
+export const COMPANY_ORIGINS = ["seed", "admin"] as const;
+export type CompanyOrigin = (typeof COMPANY_ORIGINS)[number];
+
+/** A short attributed quote from a public review, shown to students with its link (spec §4.1). */
+export interface ReviewQuote {
+  text: string;
+  sourceUrl: string;
+  sourceName: string | null;
+  date: string | null;
+}
+
+/**
+ * A company students can target. `slug` joins to JDs, role configs and the AI-service brief keys.
+ * Students only ever see rows with `publishedAt` set and `status = active` (spec §4.1); everything
+ * below `companySize` is written only when an admin approves a research draft (Phase 2+).
+ */
 export const companies = pgTable("companies", {
   id: id(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
-  /** Tier 1-5 campus-placement tiering; descriptive metadata only. */
+  /** Placement tier 1-4 (pay band + selectivity, spec §6.4); descriptive metadata only. */
   tier: integer("tier"),
   logoUrl: varchar("logo_url", { length: 255 }),
   headquarterLocation: varchar("headquarter_location", { length: 255 }),
   companySize: varchar("company_size", { length: 255 }),
   createdAt: createdAt(),
+  website: varchar("website", { length: 255 }),
+  aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+  sector: varchar("sector", { length: 64 }),
+  businessModel: varchar("business_model", { length: 16 }),
+  headcountBand: varchar("headcount_band", { length: 32 }),
+  revenueBand: varchar("revenue_band", { length: 32 }),
+  fundingStage: varchar("funding_stage", { length: 32 }),
+  tierRationale: text("tier_rationale"),
+  wlbRating: numeric("wlb_rating", { precision: 2, scale: 1 }),
+  wlbReviewCount: integer("wlb_review_count"),
+  reviewSummary: text("review_summary"),
+  reviewQuotes: jsonb("review_quotes").$type<ReviewQuote[]>().notNull().default([]),
+  status: varchar("status", { length: 16, enum: COMPANY_STATUSES }).notNull().default("active"),
+  origin: varchar("origin", { length: 16, enum: COMPANY_ORIGINS }).notNull().default("admin"),
+  publishedVersion: integer("published_version"),
+  publishedAt: instant("published_at"),
 });
 
 /**
@@ -153,9 +189,17 @@ export const jobDescriptions = pgTable(
     /** "seed" — currently the only source. */
     source: varchar("source", { length: 16 }).notNull(),
     active: boolean("active").notNull(),
+    /** Research-derived role facts (spec §4.1), written on draft approval (Phase 3). */
+    yoeMin: numeric("yoe_min", { precision: 3, scale: 1 }),
+    yoeMax: numeric("yoe_max", { precision: 3, scale: 1 }),
+    ctcMinLpa: numeric("ctc_min_lpa", { precision: 6, scale: 2 }),
+    ctcMaxLpa: numeric("ctc_max_lpa", { precision: 6, scale: 2 }),
+    ctcSourceCount: integer("ctc_source_count"),
+    /** Stable role identity across research runs: slug(level + specialization + title). */
+    roleKey: varchar("role_key", { length: 128 }),
     createdAt: createdAt(),
   },
-  (t) => [index("idx_jd_company_level").on(t.company, t.level)],
+  (t) => [index("idx_jd_company_level").on(t.company, t.level), unique("uq_jd_company_role_key").on(t.company, t.roleKey)],
 );
 
 export const githubConnections = pgTable("github_connection", {

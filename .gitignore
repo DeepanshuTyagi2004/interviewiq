@@ -24,3 +24,6 @@ coverage/
 
 # Claude Design export (design sources + reference recordings) — kept locally, not published
 InterviewIQ Landing Page/
+
+# Recorded research fixtures are real web text; never commit
+apps/ai-service/.research-fixtures/

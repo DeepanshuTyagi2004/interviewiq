@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { status } from "../support/fakeFetch.js";
 import { bearer, createUser, createTestEnv, type TestEnv } from "../support/harness.js";
 import { AI, aiCalls, seedCompany, seedJd, seedRoleConfig } from "./helpers.js";
 
@@ -21,31 +20,26 @@ describe("POST /admin/companies/seed", () => {
   });
   afterAll(() => env.close());
 
-  it("loads the starter catalogue: {companies, inserted, backfilled, removed, total}; removes non-MVP rows; never triggers ingestion", async () => {
-    // non-MVP rows that the seed must hard-delete (1 role config + 1 JD + 1 company = 3)
+  it("loads the starter catalogue: {companies, inserted, backfilled, total}; never deletes other companies; never triggers ingestion", async () => {
     await seedCompany(env, "acme", "Acme");
     await seedRoleConfig(env, { company: "acme" });
     await seedJd(env, { company: "acme" });
 
     const res = await env.http.post(`${BASE}/seed`).set("Authorization", admin);
     expect(res.status).toBe(200);
-    expect(Object.keys(res.body).sort()).toEqual(["backfilled", "companies", "inserted", "removed", "total"]);
-    expect(res.body).toEqual({ companies: 1, inserted: 1, backfilled: 0, removed: 3, total: 3 });
+    expect(Object.keys(res.body).sort()).toEqual(["backfilled", "companies", "inserted", "total"]);
+    expect(res.body).toEqual({ companies: 1, inserted: 1, backfilled: 0, total: 3 });
     expect(aiCalls(env)).toHaveLength(0);
 
-    const list = await env.http.get(BASE).set("Authorization", admin);
-    expect(list.body.map((c: { company: string }) => c.company)).toEqual(["meesho"]);
-    expect(list.body[0].jds).toHaveLength(3);
     const companies = await env.http.get("/api/v1/companies").set("Authorization", admin);
-    expect(companies.body.map((c: { slug: string }) => c.slug)).toEqual(["meesho"]);
+    expect(companies.body.map((c: { slug: string }) => c.slug).sort()).toEqual(["acme", "meesho"]);
+    expect((await env.c.repos.jds.findAllActiveOrdered()).filter((j) => j.company === "acme")).toHaveLength(1);
   });
 
   it("is idempotent: a re-run inserts nothing and refreshes the same JDs", async () => {
     const res = await env.http.post(`${BASE}/seed`).set("Authorization", admin);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ companies: 0, inserted: 0, backfilled: 0, removed: 0, total: 3 });
-    const list = await env.http.get(BASE).set("Authorization", admin);
-    expect(list.body[0].jds).toHaveLength(3);
+    expect(res.body).toEqual({ companies: 0, inserted: 0, backfilled: 0, total: 3 });
   });
 
   it("ADMIN-only", async () => {
@@ -55,7 +49,7 @@ describe("POST /admin/companies/seed", () => {
   });
 });
 
-describe("catalogue CRUD", () => {
+describe("company CRUD", () => {
   let env: TestEnv;
   let admin: string;
   beforeAll(async () => {
@@ -65,133 +59,93 @@ describe("catalogue CRUD", () => {
   afterAll(() => env.close());
   beforeEach(() => env.fetch.reset());
 
-  it("POST 201: slugifies, defaults role/specialization, trims, and triggers ingestion", async () => {
-    env.fetch.on("POST", `${AI}/admin/scrape/run`, { run_id: "r", status: "running" });
+  it("POST 201: slugs the name, normalises website + aliases, starts unpublished, triggers nothing", async () => {
     const res = await env.http
       .post(BASE)
       .set("Authorization", admin)
-      .send({
-        company: "  Big   Co ",
-        jds: [
-          { title: "  SDE 1  ", level: " SDE1 " },
-          {
-            title: "Backend Engineer",
-            level: "sde2",
-            role: " Backend Engineer ",
-            specialization: " Backend ",
-            jdUrl: " https://big.co/jobs/1 ",
-            description: "  Build APIs.  ",
-          },
-        ],
-      });
+      .send({ name: "  Tata   Consultancy Services (TCS) ", website: "tcs.com", aliases: [" TCS ", "tcs", "Tata CS"] });
     expect(res.status).toBe(201);
-    expect(Object.keys(res.body).sort()).toEqual(["company", "ingestion_triggered", "jds"]);
-    expect(res.body.company).toBe("big-co");
-    expect(res.body.ingestion_triggered).toBe(true);
-    expect(res.body.jds).toEqual([
-      {
-        id: expect.stringMatching(UUID_RE),
-        role: "software-engineer",
-        level: "sde1",
-        specialization: "general",
-        title: "SDE 1",
-        jdUrl: null,
-        description: null,
-        enabled: true,
-      },
-      {
-        id: expect.stringMatching(UUID_RE),
-        role: "backend-engineer",
-        level: "sde2",
-        specialization: "backend",
-        title: "Backend Engineer",
-        jdUrl: "https://big.co/jobs/1",
-        description: "Build APIs.",
-        enabled: true,
-      },
-    ]);
-    expect(aiCalls(env).map((c) => `${c.method} ${c.url}`)).toEqual([`POST ${AI}/admin/scrape/run`]);
-
-    // persisted as active JDs, visible to students
-    const jd = await env.c.repos.jds.findById(res.body.jds[1].id);
-    expect(jd).toMatchObject({ company: "big-co", role: "backend-engineer", source: "seed", active: true, sourceUrl: "https://big.co/jobs/1" });
-  });
-
-  it("POST 201 with ingestion_triggered=false when the AI service is down (JDs still saved)", async () => {
-    env.fetch.on("POST", `${AI}/admin/scrape/run`, () => status(503));
-    const res = await env.http.post(BASE).set("Authorization", admin).send({ company: "Down Co", jds: [{ title: "SDE", level: "fresher" }] });
-    expect(res.status).toBe(201);
-    expect(res.body.ingestion_triggered).toBe(false);
-    expect(res.body.company).toBe("down-co");
-    expect(await env.c.repos.jds.findById(res.body.jds[0].id)).not.toBeNull();
-  });
-
-  it.each([
-    ["invalid_company", "no company", { jds: [{ title: "SDE", level: "sde1" }] }],
-    ["invalid_company", "a blank company", { company: "   ", jds: [{ title: "SDE", level: "sde1" }] }],
-    ["invalid_company", "no jds", { company: "X" }],
-    ["invalid_company", "an empty jds list", { company: "X", jds: [] }],
-    ["invalid_company", "an empty body", {}],
-    ["invalid_jd", "a JD without a title", { company: "X", jds: [{ level: "sde1" }] }],
-    ["invalid_jd", "a JD with a blank level", { company: "X", jds: [{ title: "SDE", level: " " }] }],
-    ["invalid_jd", "a null JD entry", { company: "X", jds: [null] }],
-    ["invalid_level", "an unknown level", { company: "X", jds: [{ title: "SDE", level: "principal" }] }],
-  ])("400 %s for %s (no ingestion)", async (code, _label, body) => {
-    const res = await env.http.post(BASE).set("Authorization", admin).send(body);
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe(code);
-    expect(typeof res.body.message).toBe("string");
+    expect(res.body).toMatchObject({
+      name: "Tata Consultancy Services (TCS)",
+      slug: "tata-consultancy-services-tcs",
+      website: "https://tcs.com",
+      aliases: ["TCS", "Tata CS"],
+      status: "active",
+      origin: "admin",
+      publishedAt: null,
+      publishedVersion: null,
+      research: null,
+    });
+    expect(res.body.id).toMatch(UUID_RE);
     expect(aiCalls(env)).toHaveLength(0);
+    const student = await env.http.get("/api/v1/companies").set("Authorization", admin);
+    expect(student.body.map((c: { slug: string }) => c.slug)).not.toContain("tata-consultancy-services-tcs");
   });
 
-  it("the invalid_* messages match the Java controller", async () => {
-    const a = await env.http.post(BASE).set("Authorization", admin).send({});
-    expect(a.body.message).toBe("company and at least one JD are required");
-    const b = await env.http.post(BASE).set("Authorization", admin).send({ company: "X", jds: [{}] });
-    expect(b.body.message).toBe("each JD needs a title and a level");
-    const c = await env.http.post(BASE).set("Authorization", admin).send({ company: "X", jds: [{ title: "t", level: "l9" }] });
-    expect(c.body.message).toMatch(/^level must be one of \[.*\]$/);
-    for (const level of ["fresher", "sde1", "sde2", "sde3"]) expect(c.body.message).toContain(level);
+  it("POST validation: 400 codes and 409 on a duplicate slug", async () => {
+    const post = (body: unknown) => env.http.post(BASE).set("Authorization", admin).send(body as object);
+    expect((await post({ name: "  " })).body.code).toBe("invalid_company");
+    expect((await post({ name: "!!!" })).body.code).toBe("invalid_company");
+    expect((await post({ name: "Acme", website: "not a url" })).body.code).toBe("invalid_website");
+    expect((await post({ name: "Acme", website: "ftp://acme.com" })).body.code).toBe("invalid_website");
+    expect((await post({ name: "Acme", aliases: "Acme Inc" })).body.code).toBe("invalid_aliases");
+    expect((await post({ name: "Acme", aliases: Array.from({ length: 11 }, (_, i) => `a${i}`) })).body.code).toBe("invalid_aliases");
+    expect((await post({ name: "Zeta" })).status).toBe(201);
+    const dup = await post({ name: "ZETA" });
+    expect(dup.status).toBe(409);
+    expect(dup.body.code).toBe("company_exists");
   });
 
-  it("GET lists active JDs grouped by company (company asc)", async () => {
-    await seedJd(env, { company: "zz-listco", level: "sde1", title: "B", specialization: "backend", sourceUrl: "https://zz/1", description: "d" });
-    await seedJd(env, { company: "zz-listco", level: "fresher", title: "A", specialization: null });
-    await seedJd(env, { company: "zz-listco", level: "sde3", title: "Hidden", active: false });
+  it("GET merges each company's research state from the AI service", async () => {
+    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Groww" });
+    env.fetch.on("GET", `${AI}/research/companies/state`, {
+      states: [{ company_id: created.body.id, last_run_id: "r1", last_researched_at: "2026-10-02T10:00:00Z",
+                 last_status: "done", latest_draft_id: "d1", latest_draft_status: "pending_review" }],
+    });
     const res = await env.http.get(BASE).set("Authorization", admin);
     expect(res.status).toBe(200);
-    const companies = res.body.map((c: { company: string }) => c.company);
-    expect(companies).toEqual([...companies].sort());
-    const group = res.body.find((c: { company: string }) => c.company === "zz-listco");
-    expect(Object.keys(group).sort()).toEqual(["company", "jds"]);
-    expect(group.jds).toEqual([
-      { id: expect.stringMatching(UUID_RE), role: "software-engineer", level: "fresher", specialization: null, title: "A", jdUrl: null, description: "Build things", enabled: true },
-      { id: expect.stringMatching(UUID_RE), role: "software-engineer", level: "sde1", specialization: "backend", title: "B", jdUrl: "https://zz/1", description: "d", enabled: true },
-    ]);
+    expect(res.body.researchAvailable).toBe(true);
+    const groww = res.body.companies.find((c: { slug: string }) => c.slug === "groww");
+    expect(groww.research).toEqual({ lastRunId: "r1", lastResearchedAt: "2026-10-02T10:00:00Z", lastStatus: "done",
+                                     latestDraftId: "d1", latestDraftStatus: "pending_review" });
+    expect(aiCalls(env)[0]!.url).toContain(created.body.id);
   });
 
-  it("DELETE /:company → 204; removes its JDs and company row (path is slugified)", async () => {
-    env.fetch.on("POST", `${AI}/admin/scrape/run`, {});
-    const created = await env.http.post(BASE).set("Authorization", admin).send({ company: "Gone Co", jds: [{ title: "SDE", level: "sde1" }] });
-    await seedCompany(env, "gone-co", "Gone Co");
+  it("GET still lists companies when the AI service is down (research null, researchAvailable false)", async () => {
+    const res = await env.http.get(BASE).set("Authorization", admin);
+    expect(res.status).toBe(200);
+    expect(res.body.researchAvailable).toBe(false);
+    expect(res.body.companies.every((c: { research: unknown }) => c.research === null)).toBe(true);
+  });
 
-    const res = await env.http.delete(`${BASE}/${encodeURIComponent(" Gone Co ")}`).set("Authorization", admin);
+  it("PATCH archives, renames without changing the slug, and 404s unknown ids", async () => {
+    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Swiggy" });
+    const res = await env.http.patch(`${BASE}/${created.body.id}`).set("Authorization", admin)
+      .send({ name: "Swiggy Ltd", status: "archived", website: null });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ name: "Swiggy Ltd", slug: "swiggy", status: "archived", website: null });
+    expect((await env.http.patch(`${BASE}/${created.body.id}`).set("Authorization", admin).send({ status: "gone" })).body.code)
+      .toBe("invalid_status");
+    const missing = await env.http.patch(`${BASE}/00000000-0000-4000-8000-000000000000`).set("Authorization", admin).send({ name: "X" });
+    expect(missing.status).toBe(404);
+    expect(missing.body.code).toBe("company_not_found");
+  });
+
+  it("DELETE removes the company with its JDs and role configs", async () => {
+    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Delete Me" });
+    await seedJd(env, { company: "delete-me" });
+    await seedRoleConfig(env, { company: "delete-me" });
+    const res = await env.http.delete(`${BASE}/${created.body.id}`).set("Authorization", admin);
     expect(res.status).toBe(204);
-    expect(res.text).toBe("");
-    expect(await env.c.repos.jds.findById(created.body.jds[0].id)).toBeNull();
-    expect(await env.c.repos.companies.findBySlug("gone-co")).toBeNull();
-    const list = await env.http.get(BASE).set("Authorization", admin);
-    expect(list.body.map((c: { company: string }) => c.company)).not.toContain("gone-co");
-
-    // deleting an unknown company is still 204
-    expect((await env.http.delete(`${BASE}/never-existed`).set("Authorization", admin)).status).toBe(204);
+    expect(await env.c.repos.companies.findById(created.body.id)).toBeNull();
+    expect((await env.c.repos.jds.findAllActiveOrdered()).some((j) => j.company === "delete-me")).toBe(false);
+    expect(await env.c.repos.roleConfigs.findByCompanyAndRoleAndLevel("delete-me", "software-engineer", "sde1")).toBeNull();
+    expect((await env.http.delete(`${BASE}/${created.body.id}`).set("Authorization", admin)).status).toBe(404);
   });
 
   it("ADMIN-only", async () => {
     const user = await bearer(env, await createUser(env));
     expect((await env.http.get(BASE).set("Authorization", user)).status).toBe(403);
-    expect((await env.http.post(BASE).set("Authorization", user).send({ company: "X", jds: [{ title: "t", level: "sde1" }] })).status).toBe(403);
-    expect((await env.http.delete(`${BASE}/x`).set("Authorization", user)).status).toBe(403);
-    expect(aiCalls(env)).toHaveLength(0);
+    expect((await env.http.post(BASE).send({ name: "X" })).status).toBe(401);
   });
 });

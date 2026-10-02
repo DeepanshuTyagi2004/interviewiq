@@ -3,7 +3,6 @@ import type { CompanyRepository, CompanyRoleConfigRepository, JobDescriptionRepo
 
 const ROLE = "software-engineer";
 const COMPANY = "meesho";
-const MVP_COMPANIES = [COMPANY];
 const CAREERS = "https://www.meesho.io/jobs";
 
 const COMPANIES = [{ name: "Meesho", slug: "meesho", tier: 2, hq: "Bengaluru, India", size: "1,500+" }];
@@ -61,14 +60,13 @@ export interface SeedResult {
   companies: number;
   inserted: number;
   backfilled: number;
-  removed: number;
   total: number;
 }
 
 /**
- * Loads the starter catalogue ON DEMAND (admin "Load starter companies") — never on startup.
- * MVP scope: Meesho only. Idempotent: re-running refreshes the seed JDs and HARD-DELETES any
- * non-MVP company's rows.
+ * Loads the starter catalogue ON DEMAND (admin "Load starter companies"), never on startup.
+ * Upsert-only: re-running refreshes Meesho's seed JDs and backfills missing role-config fields; it
+ * never deletes other companies (admin- and research-added companies live alongside the seed).
  */
 export class CatalogueSeeder {
   constructor(
@@ -82,7 +80,10 @@ export class CatalogueSeeder {
     let companiesSeeded = 0;
     for (const cs of COMPANIES) {
       if (!(await this.companies.findBySlug(cs.slug))) {
-        await this.companies.insert({ name: cs.name, slug: cs.slug, tier: cs.tier, logoUrl: null, headquarterLocation: cs.hq, companySize: cs.size });
+        await this.companies.insert({
+          name: cs.name, slug: cs.slug, tier: cs.tier, logoUrl: null, headquarterLocation: cs.hq,
+          companySize: cs.size, origin: "seed", publishedAt: new Date(),
+        });
         companiesSeeded++;
       }
     }
@@ -124,12 +125,6 @@ export class CatalogueSeeder {
       }
     }
 
-    // Enforce MVP scope: REMOVE anything that isn't a target company (combos, JDs, companies).
-    let removed = 0;
-    removed += await this.roleConfigs.deleteAllExceptCompanies(MVP_COMPANIES);
-    removed += await this.jds.deleteAllExceptCompanies(MVP_COMPANIES);
-    removed += await this.companies.deleteAllExceptSlugs(MVP_COMPANIES);
-
     // Replace ALL of the company's JDs so re-running is a clean idempotent refresh.
     await this.jds.deleteByCompany(COMPANY);
     for (const j of JD_SEEDS) {
@@ -149,8 +144,8 @@ export class CatalogueSeeder {
 
     this.log.info(
       `Catalogue seed: ${companiesSeeded} companies, ${inserted} combos inserted, ${backfilled} backfilled, ` +
-        `${removed} removed (non-MVP), ${JD_SEEDS.length} role-based JDs (across ${SEEDS.length} brief combos)`,
+        `${JD_SEEDS.length} role-based JDs (across ${SEEDS.length} brief combos)`,
     );
-    return { companies: companiesSeeded, inserted, backfilled, removed, total: JD_SEEDS.length };
+    return { companies: companiesSeeded, inserted, backfilled, total: JD_SEEDS.length };
   }
 }

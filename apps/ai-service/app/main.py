@@ -5,6 +5,7 @@ Startup order, all fail-fast:
   2. connect MongoDB (unreachable -> RuntimeError, process exits)
   3. build the Exa client (missing key -> error, process exits)
   4. start the scheduler (if enabled) + generate briefs on startup if any are missing
+  5. research runner: indexes, crash recovery, weekly cron
 """
 from __future__ import annotations
 
@@ -24,6 +25,10 @@ from app.jobs.pipeline_runs import PipelineRunLogHandler
 from app.jobs.run_store import RUN_STORE, RunLogHandler, new_run_id
 from app.jobs.scheduler import create_scheduler
 from app.exa.client import ExaClient, build_exa_client
+from app.research.api import router as research_router
+from app.research.store import MongoResearchStore, ensure_research_indexes
+from app.research.trace.log_handler import ResearchLogHandler
+from app.research.wiring import build_research_runner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,13 +55,29 @@ async def lifespan(app: FastAPI):
     # emitter contextvar). No-op unless an agent-diag session is bound.
     if not any(isinstance(h, AgentDiagLogHandler) for h in root.handlers):
         root.addHandler(AgentDiagLogHandler())
+    # Research traces: forward every log record emitted inside a research run into its trace.
+    if not any(isinstance(h, ResearchLogHandler) for h in root.handlers):
+        root.addHandler(ResearchLogHandler())
+    # The debugger wants DEBUG from the pipeline even when the console runs at LOG_LEVEL. The console
+    # StreamHandler keeps LOG_LEVEL, so stdout stays as quiet as before.
+    logging.getLogger("app.research").setLevel(logging.DEBUG)
+    for h in root.handlers:
+        if type(h) is logging.StreamHandler:
+            h.setLevel(settings.log_level.upper())
 
     await mongo.connect(settings)
     app.state.exa = build_exa_client(settings)
 
+    research = None
+    if settings.research_enabled:
+        await ensure_research_indexes(mongo.get_db(), ttl_days=settings.research_trace_ttl_days)
+        research = build_research_runner(settings, store=MongoResearchStore(mongo.get_db()))
+        await research.recover_on_startup()
+    app.state.research = research
+
     scheduler = None
     if settings.scheduler_enabled:
-        scheduler = create_scheduler(app.state.exa, settings)
+        scheduler = create_scheduler(app.state.exa, settings, research=research)
         scheduler.start()
         # Populate briefs on a fresh deploy rather than waiting for the schedule.
         # Gated with the scheduler so SCHEDULER_ENABLED=false => fully manual (UI-only).
@@ -87,3 +108,4 @@ async def _startup_generate_if_needed(exa: ExaClient, settings: Settings) -> Non
 app = FastAPI(title="interviewiq-ai-service", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
 app.include_router(admin_router)
+app.include_router(research_router)

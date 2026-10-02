@@ -9,10 +9,6 @@ export {
   clearBriefs,
   listUsers,
   updateUserRole,
-  listCompanies,
-  createCompany,
-  deleteCompany,
-  seedCompanies,
   listQuestions,
 } from "./api";
 export {
@@ -25,9 +21,5 @@ export {
   useClearBriefs,
   useUsers,
   useUpdateUserRole,
-  useCompanies,
-  useAddCompany,
-  useDeleteCompany,
-  useSeedCompanies,
   useQuestions,
 } from "./hooks";

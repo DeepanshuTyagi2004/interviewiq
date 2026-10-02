@@ -8,21 +8,17 @@ import {
 import type { Role } from "@/lib/hooks/useCurrentUser";
 import {
   clearBriefs,
-  createCompany,
-  deleteCompany,
   getBrief,
   getScrapeStatus,
   listBriefs,
-  listCompanies,
   listQuestions,
   listUsers,
-  seedCompanies,
   stopScrape,
   triggerCollect,
   triggerScrape,
   updateUserRole,
 } from "./api";
-import type { AdminUser, BriefDoc, BriefSummary, CompanyWithJds, QuestionFilters, QuestionsResponse, ScrapeStatus } from "./types";
+import type { AdminUser, BriefDoc, BriefSummary, QuestionFilters, QuestionsResponse, ScrapeStatus } from "./types";
 
 /** Poll the live run state + verbose logs while the console is open. */
 export function useScrapeStatus(enabled = true) {
@@ -116,43 +112,6 @@ export function useUpdateUserRole() {
       queryClient.invalidateQueries({
         queryKey: INTELLIGENCE_QUERY_KEYS.users,
       }),
-  });
-}
-
-export function useCompanies() {
-  return useQuery<CompanyWithJds[]>({
-    queryKey: INTELLIGENCE_QUERY_KEYS.companies,
-    queryFn: listCompanies,
-  });
-}
-
-export function useAddCompany() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: createCompany,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.companies });
-      // ingestion was triggered server-side — refresh the live status too
-      void queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.scrapeStatus });
-    },
-  });
-}
-
-export function useDeleteCompany() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteCompany,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.companies }),
-  });
-}
-
-export function useSeedCompanies() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: seedCompanies,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.companies }),
   });
 }
 

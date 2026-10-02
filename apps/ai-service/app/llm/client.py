@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import time
+from dataclasses import dataclass
 
 import httpx
 
@@ -111,6 +112,19 @@ async def gather_capped(coros: list, limit: int) -> list:
     return await asyncio.gather(*(_run(c) for c in coros))
 
 
+@dataclass(frozen=True)
+class LLMResult:
+    """Everything one successful call produced. complete() keeps returning just (data, thought); the
+    research trace uses complete_full() to also show the raw reply, token usage, key and attempts."""
+    data: dict
+    thought: str
+    content: str
+    usage: dict
+    latency_ms: int
+    key_index: int
+    attempts: int
+
+
 class LLMClient:
     def __init__(self, *, base_url: str, api_keys: list[str], model: str, timeout_seconds: float):
         if not api_keys:
@@ -160,12 +174,18 @@ class LLMClient:
         return data
 
     async def complete(self, system: str, user: str, *, label: str = "llm") -> tuple[dict, str]:
+        """One chat call returning (parsed JSON object, reasoning text). See complete_full()."""
+        result = await self.complete_full(system, user, label=label)
+        return result.data, result.thought
+
+    async def complete_full(self, system: str, user: str, *, label: str = "llm") -> LLMResult:
         """One chat call returning (parsed JSON object, reasoning text). The JSON is salvaged via
         parse_json (no strict json_object mode, see payload note); the reasoning is the
         <thought>/<think> preamble ('' if none). On ANY failure (transport, 429, or any other
         non-200) it logs the full error, cools the current key, and rotates to the next one;
         it only sleeps once every key is cooling. Raises LLMError with the last error once the
-        attempt budget is spent. `label` tags the live-log lines."""
+        attempt budget is spent. `label` tags the live-log lines. Returns LLMResult; complete() is the
+        (data, thought) shorthand."""
         # ponytail: fold system into the user turn — Gemma on the Gemini API has no system role
         # (a system message 400s), and concatenation is harmless for every other OpenAI-shaped model.
         payload = {
@@ -248,7 +268,10 @@ class LLMClient:
                                                         _usage.get("completion_tokens"))
                             except Exception:  # noqa: BLE001 — diagnostics must never break the call
                                 pass
-                            return data, thought
+                            return LLMResult(
+                                data=data, thought=thought, content=content, usage=_usage,
+                                latency_ms=_llm_ms, key_index=key_i, attempts=attempt,
+                            )
                 elif resp.status_code == 429:
                     cool_for, kind = _retry_plan(resp.text or "", resp.headers.get("retry-after"))
                     cool_for = cool_for if cool_for is not None else _RATE_LIMIT_BACKOFF_SECONDS

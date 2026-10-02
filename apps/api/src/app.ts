@@ -9,6 +9,7 @@ import { security } from "./http/security.js";
 import { router, sendError, userId } from "./http/support.js";
 import { adminCompaniesRouter, adminUsersRouter } from "./routes/admin.js";
 import { accountRouter } from "./routes/account.js";
+import { adminResearchRouter } from "./routes/research.js";
 import { authRouter } from "./routes/auth.js";
 import { companiesRouter, experiencesRouter, jdsRouter } from "./routes/catalogue.js";
 import { githubConnectionRouter, leetcodeConnectionRouter } from "./routes/connections.js";
@@ -93,6 +94,7 @@ export function createApp(c: Container): express.Express {
   v1.use("/intelligence", intelligenceRouter(c));
   v1.use("/admin/companies", adminCompaniesRouter(c));
   v1.use("/admin/users", adminUsersRouter(c));
+  v1.use("/admin/research", adminResearchRouter(c));
   v1.use("/internal", internalRouter(c));
   app.use("/api/v1", v1);
 

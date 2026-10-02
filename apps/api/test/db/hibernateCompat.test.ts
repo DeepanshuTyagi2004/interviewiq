@@ -85,7 +85,7 @@ describe("adopting the Hibernate-created database", () => {
     expect(keyCons(after.cons)).toEqual(expect.arrayContaining(keyCons(before.cons)));
     expect(after.idx).toEqual(expect.arrayContaining(before.idx));
 
-    // ...and the additions are exactly 0001_password_auth's.
+    // ...and the additions are exactly 0001_password_auth's and 0002_company_research's.
     const added = <T>(xs: T[], base: T[]) => xs.filter((x) => !base.some((b) => JSON.stringify(b) === JSON.stringify(x)));
     expect(added(after.cols, expectedCols).map((c) => `${c.t}.${c.c} ${c.ty} null=${c.n}`)).toEqual([
       "app_user.email_verified_at timestamp with time zone null=YES",
@@ -97,16 +97,40 @@ describe("adopting the Hibernate-created database", () => {
       "auth_token.token_hash character varying null=NO",
       "auth_token.used_at timestamp with time zone null=YES",
       "auth_token.user_id uuid null=NO",
+      "companies.aliases ARRAY null=NO",
+      "companies.business_model character varying null=YES",
+      "companies.funding_stage character varying null=YES",
+      "companies.headcount_band character varying null=YES",
+      "companies.origin character varying null=NO",
+      "companies.published_at timestamp with time zone null=YES",
+      "companies.published_version integer null=YES",
+      "companies.revenue_band character varying null=YES",
+      "companies.review_quotes jsonb null=NO",
+      "companies.review_summary text null=YES",
+      "companies.sector character varying null=YES",
+      "companies.status character varying null=NO",
+      "companies.tier_rationale text null=YES",
+      "companies.website character varying null=YES",
+      "companies.wlb_rating numeric null=YES",
+      "companies.wlb_review_count integer null=YES",
+      "job_descriptions.ctc_max_lpa numeric null=YES",
+      "job_descriptions.ctc_min_lpa numeric null=YES",
+      "job_descriptions.ctc_source_count integer null=YES",
+      "job_descriptions.role_key character varying null=YES",
+      "job_descriptions.yoe_max numeric null=YES",
+      "job_descriptions.yoe_min numeric null=YES",
     ]);
     expect(added(keyCons(after.cons), keyCons(before.cons)).map((c) => `${c.t} ${c.def}`)).toEqual([
       "auth_token FOREIGN KEY (user_id) REFERENCES app_user(id)",
       "auth_token PRIMARY KEY (id)",
       "auth_token UNIQUE (token_hash)",
+      "job_descriptions UNIQUE (company, role_key)",
     ]);
     expect(added(after.idx, before.idx).map((i) => i.i)).toEqual([
       "CREATE INDEX idx_auth_token_user_purpose ON public.auth_token USING btree (user_id, purpose)",
       "CREATE UNIQUE INDEX auth_token_pkey ON public.auth_token USING btree (id)",
       "CREATE UNIQUE INDEX auth_token_token_hash_unique ON public.auth_token USING btree (token_hash)",
+      "CREATE UNIQUE INDEX uq_jd_company_role_key ON public.job_descriptions USING btree (company, role_key)",
     ]);
   });
 

@@ -277,6 +277,242 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every company with its research state (research is null when the AI service is unreachable). */
+        get: operations["listAdminCompanies"];
+        put?: never;
+        /** Add a company to research. It starts unpublished (students see it after an admin approves its first draft). */
+        post: operations["createCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Load the starter catalogue (upsert-only; never deletes). */
+        post: operations["seedCompanies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete the company with its JDs and role configs. */
+        delete: operations["deleteCompany"];
+        options?: never;
+        head?: never;
+        /** Edit identity fields or archive. The slug never changes. */
+        patch: operations["updateCompany"];
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listResearchRuns"];
+        put?: never;
+        /** Start a run. Only one run may be active (queued, running, pausing, paused or stopping). */
+        post: operations["startResearchRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getResearchRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["pauseResearchRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resumeResearchRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["stopResearchRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateResearchBudget"];
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        /** Trace events, ascending by seq. With beforeSeq, the newest `limit` events before it (still ascending). */
+        get: operations["listResearchEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/runs/{runId}/spans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        /** The run's span tree, flat (parent_id links), without inputs/outputs. */
+        get: operations["listResearchSpans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/research/spans/{spanId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                spanId: string;
+            };
+            cookie?: never;
+        };
+        /** One span with its full input/output (offloaded payloads resolved) and its log events. */
+        get: operations["getResearchSpan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/internal/research-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every active company (published or not) for the research run. */
+        get: operations["listResearchTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interview-plans": {
         parameters: {
             query?: never;
@@ -664,6 +900,236 @@ export interface components {
             groundedIn?: string | null;
             whatItTests: string;
         };
+        CompanyResearchState: {
+            lastRunId: string | null;
+            /** Format: date-time */
+            lastResearchedAt: string | null;
+            /** @description The company's item status in its latest run (ResearchItemStatus). */
+            lastStatus: string | null;
+            latestDraftId: string | null;
+            /** @description pending_review | approved | rejected | superseded */
+            latestDraftStatus: string | null;
+        };
+        AdminCompany: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            website: string | null;
+            aliases: string[];
+            /** @enum {string} */
+            status: "active" | "archived";
+            /** @enum {string} */
+            origin: "seed" | "admin";
+            tier: number | null;
+            publishedVersion: number | null;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            research: components["schemas"]["CompanyResearchState"] | null;
+        };
+        AdminCompanyList: {
+            companies: components["schemas"]["AdminCompany"][];
+            /** @description false when the AI service could not be reached (research is null on every row). */
+            researchAvailable: boolean;
+        };
+        CreateCompanyRequest: {
+            name: string;
+            /** @description http(s) URL; a bare domain gets https://. */
+            website?: string | null;
+            aliases?: string[];
+        };
+        UpdateCompanyRequest: {
+            name?: string;
+            website?: string | null;
+            aliases?: string[];
+            /** @enum {string} */
+            status?: "active" | "archived";
+        };
+        SeedResult: {
+            companies: number;
+            inserted: number;
+            backfilled: number;
+            total: number;
+        };
+        ResearchTarget: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            website: string | null;
+            aliases: string[];
+        };
+        /** @enum {string} */
+        ResearchMode: "live" | "record" | "replay";
+        /** @enum {string} */
+        ResearchLevel: "trace" | "debug" | "info" | "warn" | "error";
+        /** @enum {string} */
+        ResearchRunStatus: "queued" | "running" | "pausing" | "paused" | "stopping" | "stopped" | "completed" | "failed";
+        /** @enum {string} */
+        ResearchItemStatus: "queued" | "running" | "paused" | "done" | "failed" | "skipped" | "cancelled";
+        ResearchRunCounters: {
+            total: number;
+            queued: number;
+            running: number;
+            paused: number;
+            done: number;
+            failed: number;
+            skipped: number;
+            cancelled: number;
+        };
+        ResearchBudget: {
+            exa_used: number;
+            exa_cap: number;
+            llm_used: number;
+            llm_cap: number;
+            tokens_in: number;
+            tokens_out: number;
+        };
+        ResearchRun: {
+            run_id: string;
+            /** @enum {string} */
+            trigger: "admin" | "cron" | "cli";
+            mode: components["schemas"]["ResearchMode"];
+            /** @enum {string} */
+            scope: "all" | "selected";
+            company_ids: string[];
+            status: components["schemas"]["ResearchRunStatus"];
+            /** @enum {string} */
+            control: "none" | "pause" | "stop";
+            /** @description admin | budget_exhausted */
+            pause_reason: string | null;
+            requested_by?: string | null;
+            counters: components["schemas"]["ResearchRunCounters"];
+            budget: components["schemas"]["ResearchBudget"];
+            last_seq: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            error: string | null;
+            pipeline_version?: string;
+        };
+        ResearchRunList: {
+            runs: components["schemas"]["ResearchRun"][];
+        };
+        ResearchError: {
+            type: string;
+            message: string;
+            traceback?: string;
+            /** @description Innermost pipeline frame, e.g. app/research/nodes/resolve.py:resolve. */
+            code_ref?: string | null;
+        };
+        ResearchNodeProgress: {
+            /** @enum {string} */
+            status?: "running" | "ok" | "error";
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            exa_calls?: number;
+            llm_calls?: number;
+            error?: string;
+        };
+        ResearchItem: {
+            run_id: string;
+            company_id: string;
+            company_name: string;
+            company_slug: string;
+            position: number;
+            status: components["schemas"]["ResearchItemStatus"];
+            attempts: number;
+            current_node: string | null;
+            last_node: string | null;
+            nodes: {
+                [key: string]: components["schemas"]["ResearchNodeProgress"];
+            };
+            draft_id: string | null;
+            error: components["schemas"]["ResearchError"] | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
+        ResearchRunDetail: {
+            run: components["schemas"]["ResearchRun"];
+            items: components["schemas"]["ResearchItem"][];
+        };
+        StartResearchRunRequest: {
+            /**
+             * @description all = every company not researched in RESEARCH_STALE_AFTER_DAYS.
+             * @default all
+             * @enum {string}
+             */
+            scope: "all" | "selected";
+            companyIds?: string[];
+            mode?: components["schemas"]["ResearchMode"];
+        };
+        ResearchBudgetUpdate: {
+            exaCap?: number;
+            llmCap?: number;
+        };
+        ResearchEvent: {
+            run_id: string;
+            seq: number;
+            /** Format: date-time */
+            ts: string;
+            level: components["schemas"]["ResearchLevel"];
+            level_rank: number;
+            /** @description run.* | item.* | span.start | span.end | log | cache.hit | conflict.detected | budget.* | draft.created | control.* */
+            type: string;
+            message: string;
+            span_id: string | null;
+            company_id: string | null;
+            node: string | null;
+            /** @description Structured detail (any JSON). */
+            data?: unknown;
+            /** @description Payload id when data exceeded 32 KB. */
+            data_ref?: string | null;
+        };
+        ResearchEventPage: {
+            events: components["schemas"]["ResearchEvent"][];
+            last_seq: number;
+        };
+        ResearchSpan: {
+            span_id: string;
+            parent_id: string | null;
+            run_id: string;
+            company_id: string | null;
+            node: string | null;
+            /** @enum {string} */
+            kind: "run" | "company" | "node" | "exa" | "llm" | "cache" | "merge" | "normalize" | "db";
+            name: string;
+            /** @enum {string} */
+            status: "running" | "ok" | "error" | "cancelled";
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            ended_at: string | null;
+            duration_ms: number | null;
+            attrs: {
+                [key: string]: unknown;
+            };
+            input_ref?: string | null;
+            output_ref?: string | null;
+            error: components["schemas"]["ResearchError"] | null;
+        };
+        ResearchSpanList: {
+            spans: components["schemas"]["ResearchSpan"][];
+        };
+        ResearchSpanDetail: components["schemas"]["ResearchSpan"] & {
+            /** @description Full input (any JSON). */
+            input?: unknown;
+            /** @description Full output (any JSON). */
+            output?: unknown;
+        };
+        ResearchSpanDetailResponse: {
+            span: components["schemas"]["ResearchSpanDetail"];
+            logs: components["schemas"]["ResearchEvent"][];
+        };
     };
     responses: {
         /** @description `invalid_request` — the body failed validation; `message` is human-readable. */
@@ -734,6 +1200,7 @@ export interface components {
     };
     parameters: {
         SessionId: string;
+        ResearchRunId: string;
     };
     requestBodies: never;
     headers: {
@@ -1127,6 +1594,481 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listAdminCompanies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Companies. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompanyList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCompanyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompany"];
+                };
+            };
+            /** @description `invalid_company` | `invalid_website` | `invalid_aliases`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `company_exists` — the slug is taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    seedCompanies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seed result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeedResult"];
+                };
+            };
+        };
+    };
+    deleteCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCompanyRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompany"];
+                };
+            };
+            /** @description `invalid_company` | `invalid_website` | `invalid_aliases` | `invalid_status`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listResearchRuns: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRunList"];
+                };
+            };
+            /** @description `ai_service_unreachable`. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    startResearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartResearchRunRequest"];
+            };
+        };
+        responses: {
+            /** @description The new run. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRun"];
+                };
+            };
+            /** @description `no_companies` | `invalid_mode`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `run_active`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `targets_unavailable` | `research_disabled`. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getResearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run with its items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRunDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pauseResearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pausing. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRun"];
+                };
+            };
+            /** @description `invalid_transition`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    resumeResearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resumed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRun"];
+                };
+            };
+            /** @description `invalid_transition`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    stopResearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopping or stopped. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRun"];
+                };
+            };
+            /** @description `invalid_transition`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updateResearchBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResearchBudgetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchRun"];
+                };
+            };
+            /** @description `invalid_budget` — negative, or below calls already made. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listResearchEvents: {
+        parameters: {
+            query?: {
+                afterSeq?: number;
+                beforeSeq?: number;
+                limit?: number;
+                level?: components["schemas"]["ResearchLevel"];
+                companyId?: string;
+                node?: string;
+                /** @description Event type prefix */
+                type?: string;
+                spanId?: string;
+                /** @description Case-insensitive substring of the message. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchEventPage"];
+                };
+            };
+        };
+    };
+    listResearchSpans: {
+        parameters: {
+            query?: {
+                companyId?: string;
+            };
+            header?: never;
+            path: {
+                runId: components["parameters"]["ResearchRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Spans by start time. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSpanList"];
+                };
+            };
+        };
+    };
+    getResearchSpan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                spanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The span. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSpanDetailResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listResearchTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchTarget"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     generateInterviewPlan: {

@@ -1,5 +1,5 @@
 import type { InterviewSessionRow, JobDescriptionRow } from "../../src/db/pg/schema.js";
-import type { companyRoleConfigs, interviewSessions, jobDescriptions } from "../../src/db/pg/schema.js";
+import type { companies, companyRoleConfigs, interviewSessions, jobDescriptions } from "../../src/db/pg/schema.js";
 import type { RecordedCall } from "../support/fakeFetch.js";
 import type { TestEnv } from "../support/harness.js";
 
@@ -14,8 +14,14 @@ export const FUTURE_SLOT = "2099-07-10T10:00:00.000Z";
 
 type Env = Pick<TestEnv, "c">;
 
-export async function seedCompany(env: Env, slug: string, name: string): Promise<void> {
-  await env.c.repos.companies.insert({ name, slug, tier: 2 });
+export async function seedCompany(
+  env: Env,
+  slug: string,
+  name: string,
+  overrides: Partial<typeof companies.$inferInsert> = {},
+): Promise<void> {
+  // Published by default: most tests model the catalogue students already see.
+  await env.c.repos.companies.insert({ name, slug, tier: 2, publishedAt: new Date(), ...overrides });
 }
 
 export async function seedRoleConfig(env: Env, overrides: Partial<typeof companyRoleConfigs.$inferInsert> = {}): Promise<void> {
