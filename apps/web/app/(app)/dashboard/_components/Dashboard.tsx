@@ -4,18 +4,23 @@ import { useMySessions } from "@/features/interview";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { CalendarCard } from "./CalendarCard";
 import { Greeting } from "./Greeting";
 import { LeaderboardCard } from "./LeaderboardCard";
 import { ReadinessCard } from "./ReadinessCard";
 import { RecentInterviews } from "./RecentInterviews";
-import { ScoreTiles } from "./ScoreTiles";
+import { InterviewScoreCard, RanksCard } from "./ScoreTiles";
 import { formatSlot, recentSessions, sessionHref, upcomingSessions } from "./sessions";
 import { UpNextCard } from "./UpNextCard";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
-/** Signed-in home, laid out like the design: greeting, up next + readiness, scores, lists. */
+/**
+ * Signed-in home. From lg up it fits the viewport with no scrolling: three columns (up next,
+ * score, recent | the calendar | readiness, ranks, leaderboard) whose rows share the height, and
+ * every size follows `--u`, which `.iq-fit` scales to the room available. Narrower screens stack
+ * the cards and scroll.
+ */
 export function Dashboard() {
   const { user } = useCurrentUser();
   const sessions = useMySessions();
@@ -31,21 +36,29 @@ export function Dashboard() {
     : "Pick a company and role to start practising its real process.";
 
   return (
-    <div className={PAGE_SCAFFOLD}>
-      <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ROUTES.interviews} />
+    <div className="iq-fit mx-auto flex w-full max-w-[1760px] flex-none flex-col lg:min-h-0 lg:flex-1">
+      <div className="flex flex-col px-[calc(22*var(--u))] pb-[calc(36*var(--u))] pt-[calc(34*var(--u))] sm:px-[calc(40*var(--u))] lg:h-full lg:min-h-0">
+        <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ROUTES.interviews} />
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        <UpNextCard session={next} />
-        <ReadinessCard />
-      </div>
-
-      <div className="mt-3">
-        <ScoreTiles />
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <RecentInterviews sessions={recent} isLoading={sessions.isLoading} isError={sessions.isError} />
-        <LeaderboardCard />
+        <div className="mt-[calc(30*var(--u))] grid grid-cols-1 gap-[calc(20*var(--u))] md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.73fr)_minmax(0,1fr)] lg:grid-rows-[minmax(min-content,1.1fr)_auto_minmax(0,1fr)]">
+          <UpNextCard session={next} className="lg:col-start-1 lg:row-start-1" />
+          <ReadinessCard className="lg:col-start-3 lg:row-start-1" />
+          {/* Size containment on lg: the calendar fills whatever its three rows come to, instead of
+              its content deciding how tall the first row must be. */}
+          <CalendarCard
+            sessions={all}
+            className="md:col-span-2 lg:col-span-1 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:[contain:size]"
+          />
+          <InterviewScoreCard className="lg:col-start-1 lg:row-start-2" />
+          <RanksCard className="lg:col-start-3 lg:row-start-2" />
+          <RecentInterviews
+            sessions={recent}
+            isLoading={sessions.isLoading}
+            isError={sessions.isError}
+            className="lg:col-start-1 lg:row-start-3 lg:min-h-0"
+          />
+          <LeaderboardCard className="lg:col-start-3 lg:row-start-3 lg:min-h-0" />
+        </div>
       </div>
     </div>
   );

@@ -28,9 +28,9 @@ function statusLabel(session: InterviewSession): string {
 /** One cell of the readout strip on the dark card (white opacities: the card is dark in both themes). */
 function ReadoutCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 flex-[1_1_110px] bg-inv px-3 py-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.08em] text-white/50">{label}</dt>
-      <dd className="m-0 mt-0.5 text-[13px] leading-snug text-white/90">{children}</dd>
+    <div className="min-w-0 flex-[1_1_96px] bg-inv px-[calc(12*var(--u))] py-[calc(8*var(--u))]">
+      <dt className="font-mono text-[length:calc(10.5*var(--u))] uppercase tracking-[0.14em] text-white/50">{label}</dt>
+      <dd className="m-0 mt-0.5 text-[length:calc(14*var(--u))] leading-snug text-white/90">{children}</dd>
     </div>
   );
 }
@@ -39,8 +39,9 @@ function ReadoutCell({ label, children }: { label: string; children: React.React
  * The next round, on the design's dark "up next" card: company + level, round, slot and one
  * action. Without a booked round it points at the company library instead. The status dot uses
  * the interviews list's mapping: it pulses only while prep or the round is actually running.
+ * Sizes follow `--u` (the dashboard fits the viewport).
  */
-export function UpNextCard({ session }: { session: InterviewSession | undefined }) {
+export function UpNextCard({ session, className }: { session: InterviewSession | undefined; className?: string }) {
   const joinable = session ? isJoinable(session) : false;
   const round = session ? (ROUND_LABEL.get(session.roundType) ?? session.roundType) : null;
   const company = session ? (session.companyName ?? session.company) : null;
@@ -49,6 +50,7 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
     <HudCard
       tone="inverse"
       notch
+      glow="br"
       aria-label="Up next"
       title={session ? `Up next · ${company} ${session.level}` : "Up next"}
       meta={
@@ -56,21 +58,21 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
           <StatusDot state={statusDotState(session.status)} label={statusLabel(session)} className="text-white" />
         ) : undefined
       }
-      className="min-h-[250px] flex-[2_1_420px]"
-      bodyClassName="flex flex-col gap-[18px] p-5 sm:p-[26px]"
+      className={className}
+      bodyClassName="flex flex-col gap-[calc(16*var(--u))] px-[calc(18*var(--u))] py-[calc(24*var(--u))] sm:px-[calc(26*var(--u))]"
     >
-      <h3 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.035em] sm:text-[30px]">
+      <h3 className="m-0 text-[length:calc(34*var(--u))] font-normal leading-[1.1] tracking-[-0.035em]">
         {round ?? "No round booked yet"}
       </h3>
-      <p className="m-0 max-w-[520px] text-sm leading-[1.5] text-white/80">
+      <p className="m-0 line-clamp-2 max-w-[520px] text-[length:calc(16*var(--u))] leading-[1.55] text-white/80">
         {session
           ? `${company} · ${session.role}. Your interviewer prepares from your own resume and projects, and follows the company's real process.`
           : "Pick a company and role to see its real interview process, then book round one."}
       </p>
 
-      <div className="mt-auto flex flex-wrap items-center gap-3">
+      <div className="mt-auto flex flex-wrap items-center gap-[calc(12*var(--u))]">
         {session ? (
-          <dl className="m-0 flex min-w-0 flex-[1_1_280px] flex-wrap gap-px overflow-hidden rounded-md border border-white/10 bg-white/10">
+          <dl className="m-0 flex min-w-0 flex-[1_1_100%] flex-wrap gap-px overflow-hidden rounded-md border border-white/10 bg-white/10">
             <ReadoutCell label="Slot">{formatSlot(session.scheduledAt)}</ReadoutCell>
             <ReadoutCell label="Level">{session.level}</ReadoutCell>
             {session.specialization ? <ReadoutCell label="Track">{session.specialization}</ReadoutCell> : null}
@@ -78,10 +80,10 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
         ) : null}
         <Link
           href={session ? sessionHref(session) : ROUTES.jobs}
-          className="ml-auto inline-flex h-[38px] items-center gap-1.5 rounded-full bg-brand px-4 text-[13.5px] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+          className="inline-flex h-[calc(46*var(--u))] items-center gap-[calc(8*var(--u))] rounded-full bg-brand px-[calc(22*var(--u))] text-[length:calc(16*var(--u))] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
         >
           {session ? (joinable ? "Enter room" : "View schedule") : "Browse companies"}
-          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+          <ArrowRight aria-hidden className="size-[calc(16*var(--u))]" />
         </Link>
       </div>
     </HudCard>

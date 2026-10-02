@@ -35,19 +35,25 @@ export function Greeting({ name, summary, roomHref, now = new Date() }: Greeting
   const hello = partOfDay(now.getHours());
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-5">
+    <div className="flex flex-wrap items-end justify-between gap-x-[calc(24*var(--u))] gap-y-4">
       <div className="min-w-0">
         <p className="iq-eyebrow m-0 tabular-nums">{dateEyebrow(now)}</p>
-        <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+        <h1 className="m-0 mt-[calc(10*var(--u))] text-[length:calc(46*var(--u))] font-normal leading-[1.1] tracking-[-0.04em]">
           {firstName ? `${hello}, ${firstName}` : hello}
         </h1>
-        <p className="m-0 mt-1.5 text-[14px] leading-[1.5] text-muted-foreground">{summary}</p>
+        <p className="m-0 mt-[calc(8*var(--u))] text-[length:calc(18.5*var(--u))] leading-[1.5] text-muted-foreground">
+          {summary}
+        </p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
+      <div className="flex flex-wrap gap-[calc(12*var(--u))]">
+        <Button
+          asChild
+          variant="strong"
+          className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]"
+        >
           <Link href={ROUTES.jobs}>Browse companies</Link>
         </Button>
-        <Button asChild className="h-10 px-4 text-[13.5px]">
+        <Button asChild className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]">
           <Link href={roomHref}>Enter interview room</Link>
         </Button>
       </div>

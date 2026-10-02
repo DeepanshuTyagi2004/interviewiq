@@ -7,32 +7,37 @@ import { cn } from "@/lib/utils/cn";
  * status dot or "pending" label: nothing is being computed, so there is no state to show. There is
  * no profile score — sources shape the summary and the interviewer, never a number.
  */
-const TILES = [
-  { label: "Interview score", note: "From your interviews · coming soon" },
-  { label: "College rank", note: "College leaderboards · coming soon" },
-  { label: "Global rank", note: "Global leaderboard · coming soon" },
-];
-
-export function ScoreTiles() {
+function NotYet() {
   return (
-    <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-3">
-      {TILES.map((tile, i) => (
-        // On phones the interview score spans the row, so the two ranks pair up below it.
-        <li key={tile.label} className={cn("flex min-w-0", i === 0 && "col-span-2 lg:col-span-1")}>
-          <HudCard notch as="div" className="flex-1" bodyClassName="p-4 sm:p-5">
-            <Readout
-              label={tile.label}
-              value={
-                <>
-                  <span aria-hidden className="text-faint">—</span>
-                  <span className="sr-only">Not available yet</span>
-                </>
-              }
-              note={tile.note}
-            />
-          </HudCard>
-        </li>
+    <>
+      <span aria-hidden className="text-faint">
+        —
+      </span>
+      <span className="sr-only">Not available yet</span>
+    </>
+  );
+}
+
+const BODY = "px-[calc(18*var(--u))] py-[calc(24*var(--u))] sm:px-[calc(26*var(--u))]";
+
+/** Interview score: from interviews taken, once scoring ships. */
+export function InterviewScoreCard({ className }: { className?: string }) {
+  return (
+    <HudCard aria-label="Interview score" glow="r" className={className} bodyClassName={BODY}>
+      <Readout label="Interview score" value={<NotYet />} note="From your interviews · coming soon" />
+    </HudCard>
+  );
+}
+
+/** College and global rank side by side, split by a hairline. Boards need interview scores first. */
+export function RanksCard({ className }: { className?: string }) {
+  return (
+    <HudCard aria-label="Ranks" glow="tl" className={className} bodyClassName="grid grid-cols-2">
+      {["College rank", "Global rank"].map((label, i) => (
+        <div key={label} className={cn("min-w-0", BODY, i > 0 && "border-l border-line")}>
+          <Readout label={label} value={<NotYet />} note="Coming soon" />
+        </div>
       ))}
-    </ul>
+    </HudCard>
   );
 }

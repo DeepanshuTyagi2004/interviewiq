@@ -14,13 +14,20 @@ export interface RecentInterviewsProps {
   sessions: InterviewSession[];
   isLoading: boolean;
   isError: boolean;
+  className?: string;
 }
 
-/** Finished rounds with a link to each debrief. Scores stay "—" until the scoring contract lands. */
-export function RecentInterviews({ sessions, isLoading, isError }: RecentInterviewsProps) {
+/**
+ * Finished rounds with a link to each debrief. Scores stay "—" until the scoring contract lands.
+ * The list scrolls inside the card when the dashboard is fitted to a short viewport.
+ */
+export function RecentInterviews({ sessions, isLoading, isError, className }: RecentInterviewsProps) {
   return (
     <HudCard
       title="Recent interviews"
+      glow="tr"
+      className={className}
+      bodyClassName="min-h-0 overflow-y-auto"
       meta={
         sessions.length > 0 ? (
           <Count n={sessions.length} label={`${sessions.length} ${sessions.length === 1 ? "interview" : "interviews"}`} />
@@ -29,10 +36,11 @@ export function RecentInterviews({ sessions, isLoading, isError }: RecentIntervi
       action={
         <Link
           href={ROUTES.interviews}
-          className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label="All interviews"
+          className="inline-flex items-center gap-1 text-[length:calc(16*var(--u))] text-foreground hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          All interviews
-          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+          All
+          <ArrowRight aria-hidden className="size-[calc(16*var(--u))]" />
         </Link>
       }
     >
@@ -54,16 +62,16 @@ export function RecentInterviews({ sessions, isLoading, isError }: RecentIntervi
             <li key={s.id} className="border-b border-line last:border-b-0">
               <Link
                 href={`${ROUTES.interviews}/${s.id}/report`}
-                className="grid grid-cols-[28px_minmax(0,1fr)_auto_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-5"
+                className="grid grid-cols-[calc(24*var(--u))_minmax(0,1fr)_auto_calc(24*var(--u))] items-center gap-[calc(14*var(--u))] px-[calc(18*var(--u))] py-[calc(13*var(--u))] transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-[calc(26*var(--u))]"
               >
-                <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint">
+                <span aria-hidden className="font-mono text-[length:calc(12*var(--u))] tabular-nums text-faint">
                   {padCount(i + 1)}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm">
+                  <span className="block truncate text-[length:calc(15.5*var(--u))]">
                     {ROUND_LABEL.get(s.roundType) ?? s.roundType} · {s.companyName ?? s.company}
                   </span>
-                  <span className="mt-0.5 block truncate font-mono text-[11.5px] text-faint">
+                  <span className="mt-0.5 block truncate font-mono text-[length:calc(12*var(--u))] text-faint">
                     {s.level} · {formatDate(s.scheduledAt)}
                   </span>
                 </span>
