@@ -12,7 +12,8 @@ export interface PageHeaderProps {
 
 /**
  * Consistent page top: optional mono eyebrow, a light, tightly-tracked <h1>, an optional muted
- * description and a right-aligned actions slot (stacks under the title on phones).
+ * description and a right-aligned actions slot (stacks under the title on phones). Sizes follow
+ * `--u`, so the header shrinks with a viewport-fit screen.
  */
 export function PageHeader({
   title,
@@ -28,13 +29,13 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="min-w-0 space-y-2">
+      <div className="min-w-0 space-y-[calc(8*var(--u))]">
         {eyebrow ? <p className="iq-eyebrow">{eyebrow}</p> : null}
-        <h1 className="text-[28px] font-normal leading-[1.06] tracking-[-0.04em] text-balance sm:text-[34px]">
+        <h1 className="text-[length:calc(30*var(--u))] font-normal leading-[1.06] tracking-[-0.04em] text-balance sm:text-[length:calc(40*var(--u))]">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-xl text-[14.5px] leading-[1.55] text-muted-foreground">
+          <p className="max-w-2xl text-[length:calc(16*var(--u))] leading-[1.55] text-muted-foreground">
             {description}
           </p>
         ) : null}

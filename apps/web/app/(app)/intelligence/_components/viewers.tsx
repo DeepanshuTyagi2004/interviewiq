@@ -79,7 +79,7 @@ function ViewerShell({
         aria-label={label}
         tabIndex={0}
         className={cn(
-          "max-h-[28rem] overflow-auto rounded-[11px] bg-panel [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "max-h-[28rem] overflow-auto rounded-[11px] bg-panel focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           tone === "error" && "bg-destructive/[0.06] ring-1 ring-inset ring-destructive/25",
           className,
         )}

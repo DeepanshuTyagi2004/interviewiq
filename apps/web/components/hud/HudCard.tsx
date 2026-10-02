@@ -13,6 +13,8 @@ export function spotlightMove(e: React.PointerEvent<HTMLElement>): void {
   el.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
 }
 
+export type HudGlow = "tl" | "tr" | "bl" | "br" | "t" | "r" | "none";
+
 export interface HudCardProps {
   title?: React.ReactNode;
   /** Right of the leader line: a count, a status, a short readout. */
@@ -23,8 +25,13 @@ export interface HudCardProps {
   footer?: React.ReactNode;
   /** 45° top-right cut, the HUD signature. Hero/stat cards and ⌘K only. */
   notch?: boolean;
-  /** `inverse` = the dark card in both themes (Up next). */
-  tone?: "default" | "inverse";
+  /**
+   * `inverse` = the dark card in both themes (Up next). `sunken` sits a step below the page in
+   * dark mode, for a card that holds its own tiles (the calendar).
+   */
+  tone?: "default" | "inverse" | "sunken";
+  /** Where the faint warm ember glow pools; `none` for a card that should stay flat. */
+  glow?: HudGlow;
   as?: "section" | "article" | "div" | "li";
   titleAs?: "h1" | "h2" | "h3";
   /** Brightens the corner ticks (e.g. a live company). */
@@ -41,8 +48,9 @@ export interface HudCardProps {
 
 /**
  * The one bordered card of the signed-in app: hairline frame, a mono header readout
- * (TITLE ──── meta · action), optional footer strip, corner ticks and a cursor spotlight.
- * Decorations only draw inside `.iq-hud`, so the card reads as a plain card anywhere else.
+ * (TITLE ──── meta · action), optional footer strip, corner ticks, an ember glow and a cursor
+ * spotlight. Decorations only draw inside `.iq-hud`, so the card reads as a plain card anywhere
+ * else. Header sizes follow `--u`, so the card shrinks with a viewport-fit screen.
  */
 export function HudCard({
   title,
@@ -51,6 +59,7 @@ export function HudCard({
   footer,
   notch = false,
   tone = "default",
+  glow = "tr",
   as: Tag = "section",
   titleAs: Title = "h2",
   active = false,
@@ -75,11 +84,25 @@ export function HudCard({
       onPointerMove={spotlight ? spotlightMove : undefined}
       className={cn(
         "hud-card relative isolate flex min-w-0 flex-col overflow-hidden rounded-[14px]",
-        inverse ? "bg-inv text-white dark:ring-1 dark:ring-inset dark:ring-line-2" : "border border-line-2 bg-card",
+        inverse
+          ? "bg-inv text-white dark:ring-1 dark:ring-inset dark:ring-line-2"
+          : cn(
+              "border border-line-2 bg-card",
+              tone === "sunken" ? "hud:bg-[hsl(var(--hud-sunk))]" : "hud:bg-[hsl(var(--hud-raise))]",
+            ),
         notch && "hud-notch",
         className,
       )}
     >
+      {glow !== "none" ? (
+        <span
+          aria-hidden
+          className="hud-ember"
+          data-glow={glow}
+          data-inverse={inverse ? "" : undefined}
+          data-sunk={tone === "sunken" ? "" : undefined}
+        />
+      ) : null}
       {spotlight ? <span aria-hidden className="hud-spot" /> : null}
       <span aria-hidden className="hud-ticks" data-notch={notch ? "" : undefined} />
       {notch ? <span aria-hidden className="hud-notch-line" data-inverse={inverse ? "" : undefined} /> : null}
@@ -88,7 +111,7 @@ export function HudCard({
         <div
           data-hud-header
           className={cn(
-            "flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-3 sm:px-5",
+            "flex min-h-[calc(58*var(--u))] flex-wrap items-center gap-x-[calc(14*var(--u))] gap-y-1.5 border-b px-[calc(18*var(--u))] py-[calc(12*var(--u))] sm:px-[calc(26*var(--u))]",
             inverse ? "border-white/10" : "border-line",
             headerClassName,
           )}
@@ -97,7 +120,7 @@ export function HudCard({
             <Title
               id={titleId}
               className={cn(
-                "m-0 min-w-0 font-mono text-[11px] font-normal uppercase leading-normal tracking-[0.08em]",
+                "m-0 min-w-0 font-mono text-[length:calc(12.5*var(--u))] font-normal uppercase leading-normal tracking-[0.18em]",
                 inverse ? "text-white/60" : "text-muted-foreground",
               )}
             >
@@ -108,7 +131,7 @@ export function HudCard({
           {meta != null ? (
             <div
               className={cn(
-                "flex flex-wrap items-center gap-2 font-mono text-[11px] tabular-nums",
+                "flex flex-wrap items-center gap-2 font-mono text-[length:calc(12*var(--u))] tabular-nums tracking-[0.14em]",
                 inverse ? "text-white/60" : "text-faint",
               )}
             >
@@ -124,7 +147,7 @@ export function HudCard({
       {footer != null ? (
         <div
           className={cn(
-            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t px-4 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.08em] sm:px-5",
+            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t px-[calc(18*var(--u))] py-[calc(10*var(--u))] font-mono text-[length:calc(11*var(--u))] uppercase tracking-[0.12em] sm:px-[calc(26*var(--u))]",
             inverse ? "border-white/10 text-white/50" : "border-line text-faint",
           )}
         >

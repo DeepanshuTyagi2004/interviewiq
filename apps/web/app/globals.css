@@ -32,6 +32,9 @@
     --ring: 60 1.7% 54.5%;
     /* Base corner radius: lg = 10px, md = 8px, sm = 6px, plain `rounded` = 6px. */
     --radius: 0.625rem;
+    /* Size unit for fluid screens: 1px everywhere, scaled down inside `.iq-fit` so a screen fits
+       the viewport. Sizes that should follow it are written calc(N * var(--u)). */
+    --u: 1px;
 
     /* Design-specific tokens. The light frame is lighter than the design export's #d6d5d0 so
        the background sits close to the white cards. */
@@ -149,6 +152,13 @@
     --hud-tick: var(--line-4);
     --hud-grid: var(--line-2);
     --hud-glow: 0 0% 0% / 0.035;
+    /* Card fills: `raise` sits a step above the page, `sunk` a step below (the calendar). Both
+       are the plain card in light, where cards are already white on the dotted page. */
+    --hud-raise: var(--card);
+    --hud-sunk: var(--card);
+    /* The ember: a faint, warm, desaturated brand glow pooled in one corner of each card. */
+    --ember: 18 85% 55%;
+    --ember-a: 0.03;
   }
   /* 90% density. Only where CSS zoom exists: without it --hud-zoom stays unset (= 1), so the
      viewport-height compensations (calc(…vh / var(--hud-zoom, 1))) stay neutral. */
@@ -160,6 +170,10 @@
   }
   html.iq-hud.dark {
     --hud-glow: 0 0% 100% / 0.05;
+    --hud-raise: 60 1.5% 10.4%;
+    --hud-sunk: 0 0% 6.9%;
+    --ember: 16 62% 52%;
+    --ember-a: 0.07;
   }
   /* Floating UI positions popovers/menus/tooltips in unzoomed px, so under the page zoom they land
      10% off their trigger. Undo the zoom on the positioned wrapper and re-apply it to the content:
@@ -177,8 +191,14 @@
 }
 
 @layer base {
+  /* No visible scrollbars anywhere (product decision, 2026-10-02). Scrolling still works by wheel,
+     trackpad, touch and keyboard; `.iq-scroll-fade` cues where a scroll box continues. */
   * {
     @apply border-border;
+    scrollbar-width: none;
+  }
+  ::-webkit-scrollbar {
+    display: none;
   }
   html {
     scroll-behavior: smooth;
@@ -205,6 +225,18 @@
       border-color 0.35s ease,
       color 0.35s ease;
   }
+}
+
+/* Fade depths for `.iq-scroll-fade`, registered so they can animate. */
+@property --iq-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --iq-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
 }
 
 /* Theme switch: the new theme is clipped open as a growing circle (see useThemeSwitch). Turn off
@@ -237,18 +269,61 @@
     @apply rounded-[14px] bg-card shadow-float;
   }
 
+  /* Scroll cue for a scroll box (scrollbars are hidden site-wide): the edge that hides content
+     fades it out, and the fade eases away once that edge is reached. useScrollEdges sets the
+     data attributes. A mask, so it works over any background (the dot grid included). */
+  .iq-scroll-fade {
+    --iq-fade-top: 0px;
+    --iq-fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--iq-fade-top),
+      #000 calc(100% - var(--iq-fade-bottom)),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--iq-fade-top),
+      #000 calc(100% - var(--iq-fade-bottom)),
+      transparent
+    );
+    transition:
+      --iq-fade-top 220ms ease,
+      --iq-fade-bottom 220ms ease;
+  }
+  .iq-scroll-fade[data-more-above] {
+    --iq-fade-top: 28px;
+  }
+  .iq-scroll-fade[data-more-below] {
+    --iq-fade-bottom: 48px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .iq-scroll-fade {
+      transition: none;
+    }
+  }
+
   /* ---- HUD decorations: inert outside .iq-hud -------------------------------- */
   .hud-ticks,
   .hud-spot,
+  .hud-ember,
   .hud-notch-line {
     display: none;
+  }
+  /* HUD mono labels (eyebrows, readout labels): a touch larger, widely tracked. `:where` keeps
+     this at the base class's specificity, so a size utility on the element still wins. */
+  :where(.iq-hud) .iq-eyebrow {
+    font-size: calc(12.5 * var(--u));
+    letter-spacing: 0.18em;
   }
   /* Four L-shaped corner ticks, set just inside the card's rounded corners. */
   .iq-hud .hud-ticks {
     --t: hsl(var(--hud-tick));
-    --l: 7px;
+    --l: calc(8 * var(--u));
     position: absolute;
-    inset: 6px;
+    inset: calc(10 * var(--u));
     display: block;
     pointer-events: none;
     background:
@@ -290,6 +365,73 @@
   }
   .iq-hud .hud-card:hover > .hud-spot {
     opacity: 1;
+  }
+  /* The ember: a static warm glow pooled at one edge (data-glow picks it). Under the content,
+     like the spotlight. */
+  .iq-hud .hud-ember {
+    --at: 100% 0%;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    display: block;
+    pointer-events: none;
+    border-radius: inherit;
+    background: radial-gradient(
+      70% 85% at var(--at),
+      hsl(var(--ember) / var(--ember-a)),
+      hsl(var(--ember) / calc(var(--ember-a) * 0.35)) 38%,
+      transparent 72%
+    );
+  }
+  .iq-hud .hud-ember[data-glow="tl"] {
+    --at: 4% 6%;
+  }
+  .iq-hud .hud-ember[data-glow="tr"] {
+    --at: 92% 4%;
+  }
+  .iq-hud .hud-ember[data-glow="bl"] {
+    --at: 6% 96%;
+  }
+  .iq-hud .hud-ember[data-glow="br"] {
+    --at: 96% 96%;
+  }
+  .iq-hud .hud-ember[data-glow="t"] {
+    --at: 50% -10%;
+  }
+  .iq-hud .hud-ember[data-glow="r"] {
+    --at: 104% 50%;
+  }
+  /* The inverse card is dark in both themes: give it the dark-mode ember. */
+  .iq-hud .hud-ember[data-inverse] {
+    --ember: 16 62% 52%;
+    --ember-a: 0.08;
+  }
+  /* A sunken card is darker, so its glow stays quieter. */
+  .iq-hud .hud-ember[data-sunk] {
+    --ember-a: 0.02;
+  }
+  .iq-hud.dark .hud-ember[data-sunk] {
+    --ember-a: 0.04;
+  }
+
+  /* Viewport fit: a screen inside `.iq-fit` never needs to scroll on a laptop or desktop. From
+     lg up the box is a size container and the size unit follows whichever of its height or width
+     is tighter, against a 1000 × 1600 design (clamped). Below lg the screen stacks and scrolls,
+     with a fixed, smaller unit. Never use var(--u) on the .iq-fit element itself: its own
+     container units would resolve against the viewport. */
+  .iq-fit {
+    --u: 0.74px;
+  }
+  @media (min-width: 640px) {
+    .iq-fit {
+      --u: 0.86px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .iq-fit {
+      container-type: size;
+      --u: clamp(0.62px, min(100cqh / 1000, 100cqw / 1600), 1.12px);
+    }
   }
   /* 45° notch, top-right, 18px — larger than the 14px corner so it replaces the curve cleanly.
      The clip removes the border there; .hud-notch-line redraws it along the diagonal. */

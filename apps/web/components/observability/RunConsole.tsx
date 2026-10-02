@@ -63,7 +63,7 @@ export function RunConsole({
               tabIndex={0}
               role="region"
               aria-label={resultTitle}
-              className="m-0 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words bg-panel p-4 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
+              className="m-0 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words bg-panel p-4 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
             >
               {JSON.stringify(snapshot.result, null, 2)}
             </pre>

@@ -65,7 +65,7 @@ export function LogTerminal({
           const el = e.currentTarget;
           followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
         }}
-        className="min-h-0 flex-1 overflow-auto px-4 py-3.5 font-mono text-xs leading-relaxed [scrollbar-color:rgb(255_255_255/0.15)_transparent] [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-white/40 sm:px-5"
+        className="min-h-0 flex-1 overflow-auto px-4 py-3.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-white/40 sm:px-5"
       >
         {logs.length === 0 ? (
           <p className="m-0 text-white/50">{emptyText}</p>

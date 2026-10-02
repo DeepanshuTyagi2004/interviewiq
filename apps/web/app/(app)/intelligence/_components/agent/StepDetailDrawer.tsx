@@ -107,7 +107,7 @@ function MonoField({ label, value }: { label: string; value: string }) {
         tabIndex={0}
         role="region"
         aria-label={label}
-        className="m-0 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-[11px] bg-panel p-3 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="m-0 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-[11px] bg-panel p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {value}
       </pre>

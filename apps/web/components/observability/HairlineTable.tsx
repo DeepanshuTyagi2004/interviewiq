@@ -22,7 +22,7 @@ export function HairlineTable({
       role="region"
       aria-label={label}
       tabIndex={0}
-      className="overflow-x-auto [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+      className="overflow-x-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <table className={cn("w-full border-collapse text-sm", className)}>{children}</table>
     </div>

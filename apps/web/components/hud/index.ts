@@ -1,4 +1,4 @@
-export { HudCard, spotlightMove, type HudCardProps } from "./HudCard";
+export { HudCard, spotlightMove, type HudCardProps, type HudGlow } from "./HudCard";
 export { HudEmpty } from "./HudEmpty";
 export { Readout, type ReadoutProps } from "./Readout";
 export { SegmentMeter, clampFilled, type SegmentMeterProps } from "./SegmentMeter";

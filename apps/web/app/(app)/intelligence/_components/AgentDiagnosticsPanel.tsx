@@ -309,7 +309,7 @@ export function AgentDiagnosticsPanel() {
                 role="region"
                 aria-label="Decision timeline steps"
                 tabIndex={0}
-                className="max-h-[calc(45vh/var(--hud-zoom,1))] overflow-auto [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                className="max-h-[calc(45vh/var(--hud-zoom,1))] overflow-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <DecisionTimeline
                   turns={session.data.turns}

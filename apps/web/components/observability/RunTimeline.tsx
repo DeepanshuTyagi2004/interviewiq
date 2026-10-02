@@ -99,7 +99,7 @@ function DetailField({ label, value }: { label: string; value: unknown }) {
 }
 
 const PRE =
-  "m-0 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-[11px] bg-panel p-3 font-mono text-xs leading-relaxed [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "m-0 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-[11px] bg-panel p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 function DetailValue({ label, value }: { label: string; value: unknown }) {
   if (value == null) return <p className="m-0 text-sm text-faint">—</p>;
