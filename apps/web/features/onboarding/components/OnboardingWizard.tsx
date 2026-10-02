@@ -189,15 +189,15 @@ export function OnboardingWizard() {
           <section aria-labelledby="onboarding-title" className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* The only scroll area: the page itself never scrolls, the step content does. */}
             <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div key={step} className={cn("iq-rise flex w-full flex-col gap-4 px-5 pb-8 pt-8 sm:px-10 sm:pt-10 xl:px-12", STEP_WIDTH)}>
+              <div key={step} className={cn("iq-rise flex w-full flex-col gap-3 px-4 pb-6 pt-5 sm:px-8 sm:pt-7 xl:px-10", STEP_WIDTH)}>
                 <p className="iq-eyebrow m-0">{copy.eyebrow}</p>
                 <h1
                   id="onboarding-title"
-                  className="m-0 text-balance text-[30px] font-normal leading-[1.08] tracking-[-0.04em] sm:text-[36px]"
+                  className="m-0 text-balance text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]"
                 >
                   {copy.title}
                 </h1>
-                <p className="m-0 mb-3 text-[15px] leading-[1.5] text-muted-foreground">{copy.description}</p>
+                <p className="m-0 mb-2 text-[14px] leading-[1.5] text-muted-foreground">{copy.description}</p>
 
                 {/* Prevent implicit submit-on-Enter; navigation is driven by the footer buttons. */}
                 <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-6">
@@ -234,7 +234,7 @@ export function OnboardingWizard() {
               </div>
             </div>
 
-            <footer className="flex-none border-t border-line px-5 py-3.5 sm:px-10 xl:px-12">
+            <footer className="flex-none border-t border-line px-4 py-3 sm:px-8 xl:px-10">
               <div className={cn("flex w-full flex-wrap items-center gap-2.5", STEP_WIDTH)}>
                 {step > 0 ? (
                   <Button type="button" variant="outline" className="h-11 px-[18px]" onClick={() => void back()} disabled={busy}>

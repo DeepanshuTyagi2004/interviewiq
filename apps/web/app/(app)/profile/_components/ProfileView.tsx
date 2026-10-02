@@ -20,8 +20,9 @@ import { ResumeFileRow } from "./ResumeFileRow";
 import { ActivityCard } from "./SourceActivity";
 import { SummaryCard } from "./SummaryCard";
 import { educationLine } from "./identity";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
-const SCAFFOLD = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+const SCAFFOLD = PAGE_SCAFFOLD;
 
 /** A desktop column; below `lg` it dissolves so its cards join the single column in `order`. */
 const COLUMN = "contents lg:flex lg:min-w-0 lg:flex-col lg:gap-3";
@@ -62,16 +63,16 @@ export function ProfileView() {
     <div className={SCAFFOLD}>
       <div className="min-w-0">
         <p className="iq-eyebrow m-0">Profile</p>
-        <h1 className="m-0 mt-2.5 break-words text-[32px] font-normal leading-[1.1] tracking-[-0.045em] sm:text-[38px]">
+        <h1 className="m-0 mt-1.5 break-words text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
           {name ?? "Your profile"}
         </h1>
-        <p className="m-0 mt-2 text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 mt-1.5 text-[14px] leading-[1.5] text-muted-foreground">
           {headline ?? "What your interviewer knows about you, from your resume and connected sources."}
         </p>
       </div>
 
       <DetailsProvider>
-        <div className="mt-7 flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+        <div className="mt-5 flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
           <div className={COLUMN}>
             <Cell order="order-1">
               <IdentityCard

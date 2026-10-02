@@ -11,8 +11,9 @@ import { ROUTES } from "@/lib/constants/shared";
 import { InsightsTab } from "./InsightsTab";
 import { ProcessTab } from "./ProcessTab";
 import { RoadmapHeader } from "./RoadmapHeader";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
-const page = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+const page = PAGE_SCAFFOLD;
 
 /** shadcn Tabs restyled to the design's underline tabs. */
 const tabTrigger =
@@ -29,7 +30,7 @@ function RoadmapSkeleton() {
           <Skeleton className="h-4 w-2/3 max-w-sm" />
         </div>
       </div>
-      <Skeleton className="mt-8 h-7 w-40" />
+      <Skeleton className="mt-5 h-7 w-40" />
       <div className="mt-5 flex flex-col gap-2.5">
         {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-[108px] rounded-[10px]" />
@@ -85,7 +86,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
     <div className={page}>
       <RoadmapHeader jd={data} headquarters={headquarters} />
 
-      <Tabs defaultValue="process" className="mt-7">
+      <Tabs defaultValue="process" className="mt-5">
         <TabsList
           aria-label="Roadmap"
           className="flex h-auto w-full justify-start gap-6 rounded-none border-b border-line-2 bg-transparent p-0 text-faint"

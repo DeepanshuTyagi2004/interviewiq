@@ -15,8 +15,9 @@ import {
   roundLabel,
 } from "@/features/interview/presentation";
 import { StatusPill } from "../../../_components/StatusPill";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
-const PAGE = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+const PAGE = PAGE_SCAFFOLD;
 
 /** What the debrief is for, from the product spec. Shown as a promise of shape, never as results. */
 const WILL_CONTAIN = [
@@ -74,7 +75,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
         <p className="sr-only">Loading your debrief…</p>
         <Skeleton className="h-4 w-48" />
         <Skeleton className="mt-4 h-10 w-80 max-w-full" />
-        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
+        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
           <Skeleton className="h-72 rounded-[10px]" />
           <Skeleton className="h-72 rounded-[10px]" />
         </div>
@@ -106,10 +107,10 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
           <p className="iq-eyebrow m-0">
             Debrief · {companyLabel(session)} · {levelLabel(session.level)}
           </p>
-          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
             {roundLabel(session.roundType)}
           </h1>
-          <p className="m-0 mt-2 max-w-[560px] text-[15px] leading-[1.5] text-muted-foreground">{statusNote(session)}</p>
+          <p className="m-0 mt-1.5 max-w-[560px] text-[14px] leading-[1.5] text-muted-foreground">{statusNote(session)}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-5">
@@ -135,7 +136,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <div className="mt-7 flex flex-wrap items-start gap-3">
+      <div className="mt-5 flex flex-wrap items-start gap-3">
         <section
           aria-labelledby="debrief-round"
           className="min-w-0 flex-[1_1_260px] overflow-hidden rounded-[10px] border border-line-2"

@@ -4,6 +4,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { parseBookingPrefill } from "@/features/interview/presentation";
 import { BookingForm } from "./_components/BookingForm";
 import { SessionsList } from "./_components/SessionsList";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 /**
  * Mock interviews hub: your sessions (upcoming and past) beside the booking form. A roadmap link
@@ -18,14 +19,14 @@ export default async function InterviewsPage({
   const prefill = parseBookingPrefill(await searchParams);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+    <div className={PAGE_SCAFFOLD}>
       <div className="flex flex-wrap items-end justify-between gap-5">
         <div className="min-w-0">
           <p className="iq-eyebrow m-0">Interviews</p>
-          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
             Mock interviews
           </h1>
-          <p className="m-0 mt-2 max-w-[620px] text-[15px] leading-[1.5] text-muted-foreground">
+          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground">
             Book a round and we prepare an interviewer from your own resume and the company&apos;s real
             process. Join from here when it&apos;s ready.
           </p>
@@ -35,7 +36,7 @@ export default async function InterviewsPage({
         </Button>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
         <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <BookingForm
             key={`${prefill.jobDescriptionId ?? ""}:${prefill.roundType ?? ""}`}

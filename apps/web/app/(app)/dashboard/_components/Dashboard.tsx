@@ -11,6 +11,7 @@ import { RecentInterviews } from "./RecentInterviews";
 import { ScoreTiles } from "./ScoreTiles";
 import { formatSlot, recentSessions, sessionHref, upcomingSessions } from "./sessions";
 import { UpNextCard } from "./UpNextCard";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
@@ -30,10 +31,10 @@ export function Dashboard() {
     : "Pick a company and role to start practising its real process.";
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+    <div className={PAGE_SCAFFOLD}>
       <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ROUTES.interviews} />
 
-      <div className="mt-8 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-wrap gap-3">
         <UpNextCard session={next} />
         <ReadinessCard />
       </div>

@@ -16,6 +16,7 @@ import {
   type StatusFilter,
 } from "./library";
 import { RoleList } from "./RoleList";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const STATUS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -150,20 +151,20 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
   const showControls = isLoading || (!jds.isError && entries.length > 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+    <div className={PAGE_SCAFFOLD}>
       <div className="min-w-0">
         <p className="iq-eyebrow m-0">Company library</p>
-        <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+        <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
           Companies
         </h1>
-        <p className="m-0 mt-2 max-w-[560px] text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 mt-1.5 max-w-[560px] text-[14px] leading-[1.5] text-muted-foreground">
           Real interview processes, researched from experiences candidates
           share. Each page is honest about how much data is behind it.
         </p>
       </div>
 
       {showControls ? (
-        <div className="mt-7 flex flex-wrap items-center gap-2.5">
+        <div className="mt-5 flex flex-wrap items-center gap-2.5">
           <Input
             type="search"
             value={query}
@@ -181,7 +182,7 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
       ) : jds.isError ? (
         <div
           role="alert"
-          className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-2 px-5 py-4"
+          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-2 px-5 py-4"
         >
           <p className="m-0 text-sm text-destructive">
             Couldn&apos;t load the company library.
@@ -196,7 +197,7 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
-          className="mt-7"
+          className="mt-5"
           title="No companies yet"
           hint="Companies appear here once their interview processes are being researched. Check back soon."
         />

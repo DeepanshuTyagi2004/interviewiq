@@ -91,7 +91,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
         <div className="flex min-w-0 flex-col gap-[18px]">
           <div className="flex flex-col gap-2.5">
             <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-            <h1 className="m-0 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+            <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
               Before you start
             </h1>
             <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">

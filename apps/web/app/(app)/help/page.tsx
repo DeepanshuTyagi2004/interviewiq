@@ -5,6 +5,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { FAQS } from "@/app/(marketing)/_components/landing/content";
 import { FaqList } from "./_components/FaqList";
 import { HelpCard, Kbd } from "./_components/HelpCard";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const FAQ_ITEMS = FAQS.map(([question, answer]) => ({ question, answer }));
 
@@ -33,18 +34,18 @@ const SHORTCUTS: { action: string; hint?: string; keys: React.ReactNode }[] = [
 
 export default function HelpPage() {
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+    <div className={PAGE_SCAFFOLD}>
       <div className="min-w-0">
         <p className="iq-eyebrow m-0">Help</p>
-        <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+        <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
           How can we help?
         </h1>
-        <p className="m-0 mt-2 max-w-xl text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 mt-1.5 max-w-xl text-[14px] leading-[1.5] text-muted-foreground">
           Answers to common questions, and the shortcuts that get you around faster.
         </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <HelpCard id="help-faq" title="Frequently asked questions">
           <FaqList items={FAQ_ITEMS} />
         </HelpCard>

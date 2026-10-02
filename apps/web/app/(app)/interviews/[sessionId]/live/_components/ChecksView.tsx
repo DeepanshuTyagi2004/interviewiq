@@ -157,7 +157,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
     <RoomCentered>
       <div className="flex flex-col gap-2.5">
         <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-        <h1 className="m-0 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+        <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
           System check
         </h1>
         <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">

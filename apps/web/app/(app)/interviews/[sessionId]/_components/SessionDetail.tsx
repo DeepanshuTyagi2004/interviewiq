@@ -20,8 +20,9 @@ import {
 } from "@/features/interview/presentation";
 import { StatusPill } from "../../_components/StatusPill";
 import { SessionAction } from "./SessionAction";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
-const PAGE = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10";
+const PAGE = PAGE_SCAFFOLD;
 
 /** One line on where the session stands, straight from its status. */
 function statusLine(session: InterviewSession): string {
@@ -181,7 +182,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       <div className={PAGE} aria-busy="true" aria-label="Loading interview">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="mt-4 h-10 w-72 max-w-full" />
-        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           <Skeleton className="h-80 rounded-[10px]" />
           <Skeleton className="h-80 rounded-[10px]" />
         </div>
@@ -213,10 +214,10 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <p className="iq-eyebrow m-0">
             Interview · {company} · {levelLabel(session.level)}
           </p>
-          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
             {roundLabel(session.roundType)}
           </h1>
-          <p className="m-0 mt-2 max-w-[620px] text-[15px] leading-[1.5] text-muted-foreground">{statusLine(session)}</p>
+          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground">{statusLine(session)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <StatusPill status={session.status} />
@@ -229,7 +230,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Progress session={session} />
         <Details session={session} />
       </div>

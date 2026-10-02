@@ -9,6 +9,7 @@ import { QuestionBankPanel } from "./_components/QuestionBankPanel";
 import { ResumeBenchPanel } from "./_components/ResumeBenchPanel";
 import { InterviewPrepBenchPanel } from "./_components/InterviewPrepBenchPanel";
 import { AgentDiagnosticsPanel } from "./_components/AgentDiagnosticsPanel";
+import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const TABS = [
   { value: "ingestion", label: "Live ingestion", Panel: LiveIngestionPanel },
@@ -23,19 +24,19 @@ const TABS = [
 export default function IntelligencePage() {
   return (
     <RequireAdmin>
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-14 pt-6 sm:px-8 sm:pt-9 lg:px-10">
+      <div className={PAGE_SCAFFOLD}>
         <div className="min-w-0">
           <p className="iq-eyebrow m-0">Admin</p>
-          <h1 className="m-0 mt-2.5 text-[32px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[38px]">
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
             Interview Intelligence
           </h1>
-          <p className="m-0 mt-2 max-w-2xl text-[15px] leading-[1.5] text-muted-foreground">
+          <p className="m-0 mt-1.5 max-w-2xl text-[14px] leading-[1.5] text-muted-foreground">
             Trigger and monitor the interview-experience ingestion pipeline, test the resume, prep and
             agent pipelines, and manage who has admin access.
           </p>
         </div>
 
-        <Tabs defaultValue="ingestion" className="mt-7">
+        <Tabs defaultValue="ingestion" className="mt-5">
           {/* Only the tab bar is pinned, so navigation stays in reach while the content scrolls
               normally. On phones the tabs scroll sideways instead of wrapping. */}
           <div className="sticky top-0 z-20 -mx-4 bg-card px-4 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
  */
 export function OnboardingSteps({ steps, current }: { steps: string[]; current: number }) {
   return (
-    <nav aria-label="Onboarding progress" className="border-b border-line px-5 py-5 sm:px-8 sm:py-[22px]">
+    <nav aria-label="Onboarding progress" className="border-b border-line px-4 py-3.5 sm:px-8 sm:py-4">
       <ol className="m-0 flex list-none items-center gap-2 p-0">
         {steps.map((label, i) => {
           const done = i < current;
