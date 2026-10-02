@@ -1,10 +1,11 @@
 "use client";
 
-import { MonoPill } from "@/components/patterns";
+import { StatusDot } from "@/components/hud";
 import type { RunSnapshot, RunStatus } from "@/features/observability";
 import { ConsoleCard } from "./ConsoleCard";
 import { RunLogStream } from "./RunLogStream";
 import { RunTimeline } from "./RunTimeline";
+import { runDotState } from "./status";
 
 /**
  * Full-transparency view of one pipeline run: a card with the run header (label, run id, status),
@@ -24,12 +25,17 @@ export function RunConsole({
       <ConsoleCard
         aria-label={`Run ${snapshot.label}`}
         title={
+          // The run label and id are data, not a section label: keep their case (ids are case-sensitive).
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-[15px] tracking-[-0.01em]">{snapshot.label}</span>
-            <span className="truncate font-mono text-[11.5px] text-faint">{snapshot.run_id}</span>
+            <span className="truncate font-sans text-[15px] normal-case tracking-[-0.01em] text-foreground">
+              {snapshot.label}
+            </span>
+            <span className="truncate font-mono text-[11.5px] normal-case tracking-normal text-faint">
+              {snapshot.run_id}
+            </span>
           </span>
         }
-        meta={<RunStatusPill status={snapshot.status} currentStep={snapshot.current_step} />}
+        meta={<RunStatusDot status={snapshot.status} currentStep={snapshot.current_step} />}
       >
         {snapshot.error ? (
           <div role="alert" className="border-b border-line bg-destructive/[0.06] px-4 py-3 text-sm sm:px-5">
@@ -68,19 +74,15 @@ export function RunConsole({
   );
 }
 
-function RunStatusPill({ status, currentStep }: { status: RunStatus; currentStep: string | null }) {
-  if (status === "running") {
-    return (
-      <MonoPill tone="brand" className="gap-1.5">
-        <span
-          aria-hidden
-          data-motion
-          className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
-        />
-        Running{currentStep ? ` · ${currentStep}` : ""}
-      </MonoPill>
-    );
-  }
-  if (status === "failed") return <MonoPill tone="alert">Failed</MonoPill>;
-  return <MonoPill tone="soft">Completed</MonoPill>;
+/** The run's state as a HUD status dot + mono label (same words as before). Pulses only while running. */
+function RunStatusDot({ status, currentStep }: { status: RunStatus; currentStep: string | null }) {
+  const label =
+    status === "running" ? `Running${currentStep ? ` · ${currentStep}` : ""}` : status === "failed" ? "Failed" : "Completed";
+  return (
+    <StatusDot
+      state={runDotState(status)}
+      label={label}
+      className={status === "running" ? "text-foreground" : status === "failed" ? "text-destructive" : undefined}
+    />
+  );
 }

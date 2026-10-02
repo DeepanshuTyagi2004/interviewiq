@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HudCard } from "@/components/hud";
 import { ResumeUpload } from "@/features/onboarding/components/ResumeUpload";
 import { sourceDate } from "@/app/(app)/connections/_components/format";
 import { useResumeImport } from "@/app/(app)/connections/_components/useResumeImport";
@@ -21,7 +22,7 @@ export function ResumeFileRow() {
   const filename = profile?.resumeFilename;
 
   return (
-    <section aria-label="Resume" className="rounded-[14px] border border-line-2 bg-card px-5 py-[18px]">
+    <HudCard as="section" aria-label="Resume" className="rounded-[14px] border border-line-2 bg-card px-5 py-[18px]">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
         <span
           aria-hidden
@@ -62,6 +63,6 @@ export function ResumeFileRow() {
           </p>
         </div>
       ) : null}
-    </section>
+    </HudCard>
   );
 }

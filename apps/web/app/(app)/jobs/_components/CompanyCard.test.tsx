@@ -23,11 +23,16 @@ function entryOf(jds: JdSummary[]) {
 }
 
 describe("CompanyCard", () => {
-  it("opens the single live role, with a LIVE pill and real depth", () => {
-    render(<CompanyCard entry={entryOf([jd("a", "rich", "SDE I Backend"), jd("b", "none")])} onShowRoles={vi.fn()} />);
+  it("opens the single live role, with a LIVE status and real depth", () => {
+    const { container } = render(
+      <CompanyCard entry={entryOf([jd("a", "rich", "SDE I Backend"), jd("b", "none")])} onShowRoles={vi.fn()} />,
+    );
+    expect(screen.getByRole("article", { name: "Meesho" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open sde i backend/i })).toHaveAttribute("href", "/jobs/a");
     expect(screen.getByText("Live")).toBeInTheDocument();
     expect(screen.getByText("High")).toBeInTheDocument();
+    expect(screen.getByText("5/5")).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-seg="on"]')).toHaveLength(5);
     expect(screen.getByText("2 roles · 1 live")).toBeInTheDocument();
     expect(screen.getByText("1 of 2 roles researched")).toBeInTheDocument();
   });
@@ -40,8 +45,12 @@ describe("CompanyCard", () => {
   });
 
   it("has no notify-me control and no action for a company without roles", () => {
-    render(<CompanyCard entry={entryOf([])} onShowRoles={vi.fn()} />);
+    const { container } = render(<CompanyCard entry={entryOf([])} onShowRoles={vi.fn()} />);
     expect(screen.getByText("Researching")).toBeInTheDocument();
+    expect(screen.getByText("0/5")).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-seg="on"]')).toHaveLength(0);
+    // Not live: the status dot is steady grey, never a pulse.
+    expect(container.querySelector("[data-motion]")).toBeNull();
     expect(screen.getByText("No roles yet")).toBeInTheDocument();
     expect(screen.getByText("Nothing to open yet")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();

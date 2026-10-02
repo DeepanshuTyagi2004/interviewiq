@@ -1,15 +1,10 @@
 import type { SkillItem } from "@/features/profile";
+import { HudCard, Readout } from "@/components/hud";
 import { initialsOf } from "@/lib/utils/format";
 import { PROVIDERS } from "@/app/(app)/connections/_components/providers";
 import { SourceIcon } from "@/app/(app)/connections/_components/SourceIcon";
 
 const SOURCE_LABEL = new Map(PROVIDERS.map((p) => [p.source, p.label]));
-
-/**
- * The design's score tiles. The scoring contract doesn't exist yet (formulas are an open product
- * decision), so both are an honest "—".
- */
-const SCORES = ["Profile score", "Interview score"];
 
 export interface IdentityCardProps {
   name: string | null;
@@ -17,10 +12,20 @@ export interface IdentityCardProps {
   skills: SkillItem[];
 }
 
-/** Avatar, name and education line, the two (not yet scored) score tiles, and most-used skills when known. */
+/**
+ * Avatar, name and education line, the interview score tile, and most-used skills when known. The
+ * scoring contract doesn't exist yet (formulas are an open product decision), so the score is an
+ * honest "—". There is no profile score — sources describe you, they don't score you.
+ */
 export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
   return (
-    <section aria-label="About you" className="flex flex-col gap-4 rounded-[14px] border border-line-2 bg-card p-5 sm:p-[22px]">
+    <HudCard
+      notch
+      as="section"
+      aria-label="About you"
+      className="rounded-[14px] border border-line-2 bg-card p-5 sm:p-[22px]"
+      bodyClassName="flex flex-col gap-4"
+    >
       <div className="flex items-center gap-3.5">
         <span
           aria-hidden
@@ -34,20 +39,21 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
         </div>
       </div>
 
-      <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
-        {SCORES.map((label) => (
-          <li key={label} className="flex min-w-0 flex-col gap-1 rounded-lg bg-panel p-3.5">
-            <span className="text-xs text-faint">{label}</span>
-            <span className="text-[26px] leading-none tracking-[-0.04em] text-faint-2">
-              <span aria-hidden>—</span>
+      <div className="min-w-0 rounded-lg bg-panel p-3.5">
+        {/* The visible note repeats the sr-only text, so it's hidden from screen readers. */}
+        <Readout
+          label="Interview score"
+          value={
+            <>
+              <span aria-hidden className="text-faint">
+                —
+              </span>
               <span className="sr-only">Not scored yet</span>
-            </span>
-            <span aria-hidden className="text-[11.5px] text-muted-foreground">
-              Not scored yet
-            </span>
-          </li>
-        ))}
-      </ul>
+            </>
+          }
+          note={<span aria-hidden>Not scored yet</span>}
+        />
+      </div>
 
       {/* Skills the source summary picked out, each tagged with where it came from. The resume's own
           skills list has its own card, so nothing shows here until the summary has run. */}
@@ -72,6 +78,6 @@ export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
           </ul>
         </div>
       ) : null}
-    </section>
+    </HudCard>
   );
 }

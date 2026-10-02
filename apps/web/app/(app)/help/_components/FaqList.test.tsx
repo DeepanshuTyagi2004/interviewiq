@@ -24,4 +24,12 @@ describe("FaqList", () => {
     await user.click(first);
     expect(first).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("numbers each question with a decorative Q.nn index left out of its name", () => {
+    render(<FaqList items={ITEMS} />);
+    expect(screen.getByText("Q.01")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("Q.02")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("button", { name: ITEMS[0].question })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: ITEMS[1].question })).toBeInTheDocument();
+  });
 });

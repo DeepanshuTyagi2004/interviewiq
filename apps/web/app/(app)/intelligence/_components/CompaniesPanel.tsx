@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormField, MonoPill } from "@/components/patterns";
 import { CardEmpty, ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
+import { Count, padCount } from "@/components/hud";
 import { ApiFetchError } from "@/lib/api-client/client";
 import {
   useAddCompany,
@@ -124,7 +125,7 @@ function AddCompanyForm() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <p id={id("label")} className="m-0 font-mono text-[11.5px] tabular-nums text-faint">
-                    JD {String(i + 1).padStart(2, "0")}
+                    JD <Count n={i + 1} />
                   </p>
                   <Button
                     type="button"
@@ -247,8 +248,9 @@ function Catalogue() {
       title="Catalogue"
       meta={
         <>
-          {data ? <HeaderCount>{count} {count === 1 ? "company" : "companies"}</HeaderCount> : null}
-          <Button variant="outline" size="sm" onClick={onSeed} disabled={seed.isPending}>
+          {data ? <HeaderCount>{padCount(count)} {count === 1 ? "company" : "companies"}</HeaderCount> : null}
+          {/* font-sans: the HUD header's meta slot is mono; the control keeps the app's button face. */}
+          <Button variant="outline" size="sm" onClick={onSeed} disabled={seed.isPending} className="font-sans">
             {seed.isPending ? "Loading…" : "Load starter companies"}
           </Button>
         </>

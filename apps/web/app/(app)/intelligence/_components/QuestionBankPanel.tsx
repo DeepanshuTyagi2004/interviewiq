@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonoPill } from "@/components/patterns";
+import { Count } from "@/components/hud";
 import { CardEmpty, ConsoleCard, HeaderCount, LookPill } from "@/components/observability/ConsoleCard";
 import { HairlineHead, HairlineTable, Td, Th, Tr } from "@/components/observability/HairlineTable";
 import { OUTLINE_PILL } from "@/components/observability/status";
@@ -48,11 +49,20 @@ export function QuestionBankPanel() {
     limit: 200,
   });
 
-  const countLabel = data
-    ? (data.returned ?? data.questions.length) < data.count
-      ? `Showing ${data.returned ?? data.questions.length} of ${data.count} ingested`
-      : `${data.count} questions ingested`
-    : "0 questions ingested";
+  // No count until the data is in: while loading or on error the header shows "—", never a made-up "00".
+  const shown = data ? (data.returned ?? data.questions.length) : 0;
+  const countLabel =
+    !data || isError ? (
+      "—"
+    ) : shown < data.count ? (
+      <>
+        Showing <Count n={shown} /> of <Count n={data.count} /> ingested
+      </>
+    ) : (
+      <>
+        <Count n={data.count} /> questions ingested
+      </>
+    );
 
   return (
     <div className="space-y-4">

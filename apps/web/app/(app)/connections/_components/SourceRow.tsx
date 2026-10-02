@@ -1,5 +1,7 @@
 import * as React from "react";
+import { StatusDot } from "@/components/hud";
 import { cn } from "@/lib/utils/cn";
+import { SOURCE_DOT_LABEL, type SourceDotState } from "./sourceDotState";
 
 /**
  * `stack` — each source is its own bordered row (onboarding's Sources step, the Connections page).
@@ -24,6 +26,18 @@ export interface SourceRowProps {
   /** Hide the expanded area without unmounting it (keeps e.g. a running upload alive). */
   bodyHidden?: boolean;
   connected?: boolean;
+  /**
+   * The source's status dot (see `sourceDotState`). Shown only inside the signed-in HUD scope;
+   * onboarding renders this row too and stays as it was.
+   */
+  state?: SourceDotState;
+  /**
+   * Screen-reader text for the dot. Omitted → the state's default (`SOURCE_DOT_LABEL`); a string
+   * overrides it when the row means something more specific (an OAuth connect that failed is
+   * "Connection failed", not "Sync error"); `null` → no sr text, for rows whose visible status pill
+   * already says the same thing, so it isn't announced twice.
+   */
+  stateLabel?: string | null;
   /** Dims the tile for sources that aren't available yet. */
   unavailable?: boolean;
   variant?: SourceRowVariant;
@@ -65,6 +79,8 @@ export function SourceRow({
   bodyId,
   bodyHidden = false,
   connected = false,
+  state,
+  stateLabel,
   unavailable = false,
   variant = "stack",
   className,
@@ -84,6 +100,13 @@ export function SourceRow({
         <SourceTile code={code} unavailable={unavailable} size={stack ? "md" : "sm"} />
         <div className="min-w-[7rem] flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {state ? (
+              <StatusDot
+                state={state}
+                srLabel={stateLabel === undefined ? SOURCE_DOT_LABEL[state] : (stateLabel ?? undefined)}
+                className="hidden hud:inline-flex"
+              />
+            ) : null}
             <p className={cn("m-0 tracking-[-0.01em]", stack ? "text-[15px]" : "text-sm")}>{name}</p>
             {pill}
           </div>

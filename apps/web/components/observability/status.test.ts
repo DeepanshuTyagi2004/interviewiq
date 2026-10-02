@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RunStepStatus } from "@/features/observability";
-import { STEP_DOT, STEP_PILL, formatDuration, prettyStepName } from "./status";
+import type { RunStatus, RunStepStatus } from "@/features/observability";
+import { STEP_DOT, STEP_PILL, formatDuration, prettyStepName, runDotState } from "./status";
 
 const STATUSES: RunStepStatus[] = ["pending", "running", "ok", "failed", "skipped"];
 const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(emerald|amber|sky|teal|violet|purple|green|red|yellow)-\d/i;
@@ -27,6 +27,21 @@ describe("step status looks", () => {
       expect(STEP_DOT[s]).not.toMatch(RAW_COLOUR);
       expect(STEP_PILL[s].className ?? "").not.toMatch(RAW_COLOUR);
     }
+  });
+});
+
+describe("runDotState", () => {
+  it.each<[RunStatus, string]>([
+    ["running", "live"],
+    ["completed", "active"],
+    ["failed", "error"],
+  ])("maps a %s run to the %s dot", (status, dot) => {
+    expect(runDotState(status)).toBe(dot);
+  });
+
+  it("pulses (live) only while the run is really running", () => {
+    const live = (["running", "completed", "failed"] as RunStatus[]).filter((s) => runDotState(s) === "live");
+    expect(live).toEqual(["running"]);
   });
 });
 

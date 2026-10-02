@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SegmentMeter } from "@/components/hud";
 import type { JdDetail } from "@/features/jobs";
 import { ROUTES } from "@/lib/constants/shared";
 import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
@@ -18,11 +19,7 @@ export function ReadinessMeter() {
         <span className="text-faint">Readiness</span>
         <span>Not started</span>
       </p>
-      <div aria-hidden className="grid grid-cols-4 gap-1">
-        {Array.from({ length: READINESS_STEPS }, (_, i) => (
-          <span key={i} className="h-1.5 rounded-[3px] bg-line-4" />
-        ))}
-      </div>
+      <SegmentMeter segments={READINESS_STEPS} filled={0} size="md" />
     </div>
   );
 }

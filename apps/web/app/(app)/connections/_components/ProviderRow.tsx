@@ -5,6 +5,7 @@ import { ConnectionButton } from "./ConnectionButton";
 import { DisconnectDialog } from "./DisconnectDialog";
 import { joinDetail, sourceDate } from "./format";
 import { SourceRow, type SourceRowVariant } from "./SourceRow";
+import { sourceDotState } from "./sourceDotState";
 import type { ProviderMeta } from "./providers";
 
 export interface ProviderRowProps {
@@ -38,6 +39,9 @@ export function ProviderRow({
       name={provider.label}
       detail={detail}
       connected={connected}
+      state={sourceDotState({ connected, syncing: false, error: Boolean(errored) })}
+      // `errored` here is a failed OAuth connect, not a failed sync.
+      stateLabel={errored ? "Connection failed" : undefined}
       unavailable={!provider.live}
       pill={errored ? <MonoPill tone="alert">Error</MonoPill> : null}
       actions={

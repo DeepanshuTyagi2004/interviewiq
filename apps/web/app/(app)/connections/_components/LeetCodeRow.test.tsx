@@ -110,4 +110,56 @@ describe("LeetCodeRow", () => {
     await user.click(screen.getByRole("button", { name: /retry/i }));
     expect(connectMutate).toHaveBeenCalledWith("asha", expect.any(Object));
   });
+
+  describe("status dot", () => {
+    /** The row's HUD dot: its sr-only label and the dot span before it. */
+    function dot(label: string) {
+      const text = screen.getAllByText(label).find((el) => el.classList.contains("sr-only"));
+      expect(text).toBeDefined();
+      return text!.previousElementSibling as HTMLElement;
+    }
+
+    /** The row's HUD StatusDot (not the status pill's own breathing dot), found by its wrapper. */
+    function hudDot(container: HTMLElement) {
+      const el = container.querySelector(".hud\\:inline-flex > [aria-hidden]");
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    }
+
+    it("pulses only while the import is really syncing, without repeating the pill to screen readers", () => {
+      withSource({ connected: true, status: "SYNCING" }, { username: "asha" });
+      const { container } = render(<LeetCodeRow provider={provider} />);
+      expect(hudDot(container)).toHaveAttribute("data-motion");
+      // The visible "Syncing" pill says it; the dot adds no sr-only "Syncing" of its own.
+      expect(screen.getAllByText("Syncing")).toHaveLength(1);
+      expect(screen.getByText("Syncing")).not.toHaveClass("sr-only");
+    });
+
+    it("is steady once synced", () => {
+      withSource({ connected: true, status: "SYNCED" }, { username: "asha" });
+      render(<LeetCodeRow provider={provider} />);
+      expect(dot("Connected")).not.toHaveAttribute("data-motion");
+    });
+
+    it("shows an error for a failed sync, leaving the 'Sync failed' pill to say so", () => {
+      withSource({ connected: true, status: "FAILED" }, { username: "asha" });
+      const { container } = render(<LeetCodeRow provider={provider} />);
+      expect(hudDot(container)).toHaveClass("bg-destructive");
+      expect(screen.getByText("Sync failed")).not.toHaveClass("sr-only");
+      expect(screen.queryByText("Sync error")).toBeNull();
+    });
+
+    it("labels an errored connect as a failed connection, not a sync error", () => {
+      withSource({ connected: false });
+      render(<LeetCodeRow provider={provider} errored />);
+      expect(dot("Connection failed")).toHaveClass("bg-destructive");
+      expect(screen.queryByText("Sync error")).toBeNull();
+    });
+
+    it("is idle when not connected", () => {
+      withSource({ connected: false });
+      render(<LeetCodeRow provider={provider} />);
+      expect(dot("Not connected")).not.toHaveAttribute("data-motion");
+    });
+  });
 });

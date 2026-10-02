@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
+import { LiveSessionProvider, useLiveSession } from "@/features/interview-live/session/LiveSessionProvider";
 import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
 import { LiveView } from "./LiveView";
 
@@ -132,5 +132,46 @@ describe("LiveView", () => {
     await user.click(endButton);
 
     expect(exitFullscreenSpy).not.toHaveBeenCalled();
+  });
+
+  it("the proctoring dot pulses while the round is live and holds steady while it's paused", async () => {
+    // Drives the machine prejoin -> live -> paused -> live through the same provider as LiveView.
+    function Driver() {
+      const { send } = useLiveSession();
+      return (
+        <div>
+          <button onClick={() => send({ type: "START_CHECKS" })}>start-checks</button>
+          <button onClick={() => send({ type: "CHECKS_PASSED" })}>checks-passed</button>
+          <button onClick={() => send({ type: "CONNECTED" })}>connected</button>
+          <button onClick={() => send({ type: "PAUSE", reason: "fullscreen_exit" })}>pause</button>
+          <button onClick={() => send({ type: "RESUME" })}>resume</button>
+        </div>
+      );
+    }
+    // StatusDot renders its label as text inside the same wrapper as the dot.
+    const proctorDot = () => screen.getByText("Proctored · full screen").querySelector("[aria-hidden]")!;
+
+    const session = new MockLiveSession();
+    await session.connect("s1");
+    const user = userEvent.setup();
+    render(
+      <LiveSessionProvider sessionId="s1" session={session}>
+        <Driver />
+        <LiveView sessionId="s1" />
+      </LiveSessionProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "start-checks" }));
+    await user.click(screen.getByRole("button", { name: "checks-passed" }));
+    await user.click(screen.getByRole("button", { name: "connected" }));
+    expect(proctorDot()).toHaveAttribute("data-motion");
+
+    await user.click(screen.getByRole("button", { name: "pause" }));
+    expect(proctorDot()).not.toHaveAttribute("data-motion");
+    expect(proctorDot()).toHaveClass("bg-faint-2");
+
+    await user.click(screen.getByRole("button", { name: "resume" }));
+    expect(proctorDot()).toHaveAttribute("data-motion");
+
+    await flushTimers();
   });
 });

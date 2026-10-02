@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { Count, HudCard, HudEmpty } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
@@ -112,17 +113,11 @@ function SessionGroup({
   sessions: InterviewSession[];
   empty: { title: string; hint: string };
 }) {
+  const n = sessions.length;
   return (
-    <section aria-label={title} className="min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
-        <h2 className="m-0 text-sm font-normal">{title}</h2>
-        <span className="font-mono text-xs tabular-nums text-faint">{sessions.length}</span>
-      </div>
+    <HudCard title={title} meta={<Count n={n} label={`${n} ${n === 1 ? "session" : "sessions"}`} />}>
       {sessions.length === 0 ? (
-        <div className="flex flex-col gap-1.5 px-4 py-7 sm:px-5">
-          <p className="m-0 text-sm">{empty.title}</p>
-          <p className="m-0 max-w-sm text-[13px] leading-[1.5] text-muted-foreground">{empty.hint}</p>
-        </div>
+        <HudEmpty title={empty.title} hint={empty.hint} />
       ) : (
         <ul className="m-0 list-none p-0">
           {sessions.map((session) => (
@@ -130,7 +125,7 @@ function SessionGroup({
           ))}
         </ul>
       )}
-    </section>
+    </HudCard>
   );
 }
 

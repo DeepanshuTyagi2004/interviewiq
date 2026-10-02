@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { padCount } from "@/components/hud";
 import { LookPill } from "@/components/observability/ConsoleCard";
 import { OUTLINE_PILL } from "@/components/observability/status";
 import {
@@ -199,7 +200,7 @@ function RoundRow({ round }: { round: FinalRound }) {
         aria-hidden
         className="flex h-9 w-9 items-center justify-center rounded-[11px] border border-line-3 font-mono text-[13px] tabular-nums"
       >
-        {n != null ? String(n).padStart(2, "0") : "—"}
+        {padCount(n ?? NaN)}
       </span>
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">

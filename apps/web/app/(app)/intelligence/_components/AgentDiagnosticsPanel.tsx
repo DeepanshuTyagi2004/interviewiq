@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { EmptyState, FormField, MonoPill, type MonoPillTone } from "@/components/patterns";
+import { HudCard, StatusDot } from "@/components/hud";
+import { EmptyState, FormField } from "@/components/patterns";
 import { ConsoleCard } from "@/components/observability/ConsoleCard";
 import { RunConsole } from "@/components/observability/RunConsole";
 import { RunLogStream } from "@/components/observability/RunLogStream";
@@ -10,7 +11,7 @@ import { TranscriptPanel } from "@/features/interview-live/work/TranscriptPanel"
 import { useJds } from "@/features/jobs";
 import { cn } from "@/lib/utils/cn";
 import { usePrepCandidates, usePrepRun, useStartPrepRun } from "@/features/interview-prep-bench";
-import type { AgentSessionStatus, AgentStep } from "@/features/agent-diagnostics";
+import type { AgentStep } from "@/features/agent-diagnostics";
 import {
   isSessionTerminal,
   useAgentSession,
@@ -25,16 +26,7 @@ import { StepDetailDrawer } from "./agent/StepDetailDrawer";
 import { TurnComposer } from "./agent/TurnComposer";
 import { sessionToMarkdown } from "./agent/markdownExport";
 import { SELECT_CLASS, TEXTAREA_CLASS } from "./fields";
-
-/** Session status → pill tone: live states in brand, failure in alert, finished quiet. */
-const SESSION_TONE: Record<AgentSessionStatus, MonoPillTone> = {
-  running: "brand",
-  awaiting_input: "brand",
-  completed: "soft",
-  failed: "alert",
-  abandoned: "ghost",
-  aborted: "ghost",
-};
+import { SESSION_DOT } from "./pills";
 
 /**
  * Admin test-bench for the live-interview agent's decision engine. Phase machine:
@@ -209,25 +201,21 @@ export function AgentDiagnosticsPanel() {
                 <p className="iq-eyebrow m-0">Session</p>
                 <p className="m-0 mt-1 truncate text-[15px] tracking-[-0.01em]">{session.data.label}</p>
               </div>
-              <MonoPill tone={SESSION_TONE[session.data.status] ?? "ghost"} className="gap-1.5">
-                {session.data.status === "running" || session.data.status === "awaiting_input" ? (
-                  <span
-                    aria-hidden
-                    data-motion
-                    className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
-                  />
-                ) : null}
-                {session.data.status.replace(/_/g, " ")}
-              </MonoPill>
+              {/* Pulses only while the session is live (running, or waiting on the next turn). */}
+              <StatusDot
+                state={SESSION_DOT[session.data.status] ?? "idle"}
+                label={session.data.status.replace(/_/g, " ")}
+                className={session.data.status === "failed" ? "text-destructive" : "text-muted-foreground"}
+              />
             </div>
             {/* TranscriptPanel is shared with the live room; the frame around it is ours. */}
-            <div className="h-[42vh] min-h-64 rounded-[14px] border border-line-2 p-3">
+            <HudCard as="div" className="h-[calc(42vh/var(--hud-zoom,1))] min-h-64" bodyClassName="min-h-0 p-3">
               <TranscriptPanel
                 entries={session.data.transcript}
                 interviewerName={String(session.data.plan_summary.persona_name ?? "Interviewer")}
               />
-            </div>
-            <div className="rounded-[14px] border border-line-2 p-3 sm:p-4">
+            </HudCard>
+            <HudCard as="div" bodyClassName="p-3 sm:p-4">
               <TurnComposer
                 status={session.data.status}
                 onSubmit={(body) => submitTurn.mutate({ runId: sessionId, body })}
@@ -239,7 +227,7 @@ export function AgentDiagnosticsPanel() {
                 }
                 onEnd={() => endSession.mutate(sessionId)}
               />
-            </div>
+            </HudCard>
             {submitTurn.isError && (
               <p role="alert" className="m-0 text-sm text-destructive">
                 Turn failed: {(submitTurn.error as Error).message}
@@ -276,8 +264,9 @@ export function AgentDiagnosticsPanel() {
                 meta={
                   <label className="flex items-center gap-2 text-xs text-faint">
                     Turn
+                    {/* font-sans: the HUD header's meta slot is mono; the control keeps the app's face. */}
                     <select
-                      className={cn(SELECT_CLASS, "h-8 w-auto min-w-[140px] text-[13px]")}
+                      className={cn(SELECT_CLASS, "h-8 w-auto min-w-[140px] font-sans text-[13px]")}
                       value={clampedTurnIdx}
                       onChange={(e) => {
                         setManualTurn(true);
@@ -320,7 +309,7 @@ export function AgentDiagnosticsPanel() {
                 role="region"
                 aria-label="Decision timeline steps"
                 tabIndex={0}
-                className="max-h-[45vh] overflow-auto [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                className="max-h-[calc(45vh/var(--hud-zoom,1))] overflow-auto [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <DecisionTimeline
                   turns={session.data.turns}

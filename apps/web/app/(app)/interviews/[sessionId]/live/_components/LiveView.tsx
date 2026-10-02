@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { StatusDot } from '@/components/hud'
 import { MonoPill } from '@/components/patterns'
 import { Waveform } from '@/components/visualizations/Waveform'
 import { cn } from '@/lib/utils/cn'
@@ -45,7 +46,7 @@ function ElapsedClock() {
 // it); LiveView itself doesn't need it — session.connect(sessionId) already ran in ChecksView.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LiveView({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
-  const { session, send, speaking, transcript, ctx } = useLiveSession()
+  const { session, state, send, speaking, transcript, ctx } = useLiveSession()
   const { stream, micOn, camOn, toggleMic, toggleCam } = useLocalMedia(session)
   // LiveView is only mounted while the machine is in `live` or `paused`, so proctoring is always
   // enabled here; ViolationOverlay (rendered above this by LiveInterview when paused) is what
@@ -82,14 +83,13 @@ export function LiveView({ sessionId, meta }: { sessionId: string; meta?: RoomMe
     <div className="flex h-full min-h-0 w-full flex-col">
       <header className="flex h-12 flex-none items-center gap-3 border-b border-line-2 px-3 text-[13px] sm:gap-4 sm:px-4">
         <span className="min-w-0 truncate">{meta ? `${meta.company} · ${meta.level} · ${meta.round}` : 'Interview room'}</span>
-        <span className="ml-auto hidden items-center gap-1.5 text-muted-foreground sm:flex">
-          <span
-            aria-hidden
-            data-motion
-            className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand"
-          />
-          Proctored · full screen
-        </span>
+        {/* LiveView only mounts while the round is live or paused, with proctoring on. It pulses only
+            while the round is actually running; a pause holds it steady. */}
+        <StatusDot
+          state={state === 'paused' ? 'idle' : 'live'}
+          label="Proctored · full screen"
+          className="ml-auto hidden text-muted-foreground sm:inline-flex"
+        />
         {violations > 0 ? (
           <MonoPill tone="alert" className="ml-auto sm:ml-0">
             {violations === 1 ? '1 pause logged' : `${violations} pauses logged`}

@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HudCard } from "@/components/hud";
 import { LookPill } from "@/components/observability/ConsoleCard";
 import { OUTLINE_PILL, STEP_PILL } from "@/components/observability/status";
 import type { AgentStep } from "@/features/agent-diagnostics";
@@ -25,67 +26,76 @@ export function StepDetailDrawer({
   const pill = STEP_PILL[step.status];
 
   return (
-    <section
+    // A raised drawer over the panel: the HUD card with a stronger hairline and a soft shadow.
+    <HudCard
       aria-label={`Step detail: ${step.name}`}
-      className="min-w-0 overflow-hidden rounded-[14px] border border-line-3 bg-card shadow-hairline"
-    >
-      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="iq-eyebrow">Step</span>
-          <h3 className="m-0 truncate font-mono text-[13px] font-normal">{step.name}</h3>
-          <LookPill look={pill ?? OUTLINE_PILL}>{step.status}</LookPill>
-        </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose} className="-mr-2 shrink-0 text-muted-foreground">
+      titleAs="h3"
+      title={
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span>Step</span>
+          {/* The step name is an identifier: keep its case, in ink. */}
+          <span className="truncate text-[13px] normal-case tracking-normal text-foreground">{step.name}</span>
+        </span>
+      }
+      meta={<LookPill look={pill ?? OUTLINE_PILL}>{step.status}</LookPill>}
+      action={
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="-mr-2 shrink-0 text-muted-foreground"
+        >
           <X aria-hidden /> Close
         </Button>
-      </div>
-
-      <div className="space-y-4 px-4 py-4 sm:px-5">
-        <dl className="m-0 flex flex-wrap gap-x-6 gap-y-2">
-          {step.llm_label != null && (
-            <div className="space-y-0.5">
-              <dt className="iq-eyebrow">Model</dt>
-              <dd className="m-0 font-mono text-[13px]">{step.llm_label}</dd>
-            </div>
-          )}
-          {step.duration_ms != null && (
-            <div className="space-y-0.5">
-              <dt className="iq-eyebrow">Duration</dt>
-              <dd className="m-0 font-mono text-[13px] tabular-nums">{step.duration_ms}ms</dd>
-            </div>
-          )}
-          {d.llm_ms != null && (
-            <div className="space-y-0.5">
-              <dt className="iq-eyebrow">Model time</dt>
-              <dd className="m-0 font-mono text-[13px] tabular-nums">{String(d.llm_ms)}ms</dd>
-            </div>
-          )}
-          {(d.prompt_tokens != null || d.completion_tokens != null) && (
-            <div className="space-y-0.5">
-              <dt className="iq-eyebrow">Tokens</dt>
-              <dd className="m-0 font-mono text-[13px] tabular-nums">
-                {String(d.prompt_tokens ?? "?")} in / {String(d.completion_tokens ?? "?")} out
-              </dd>
-            </div>
-          )}
-        </dl>
-
-        {d.branch_reason != null && (
-          <div className="rounded-[11px] bg-panel px-3 py-2.5 text-sm">
-            <span className="iq-eyebrow mr-2">Why</span>
-            {String(d.branch_reason)}
+      }
+      className="border-line-3 shadow-hairline"
+      bodyClassName="space-y-4 px-4 py-4 sm:px-5"
+    >
+      <dl className="m-0 flex flex-wrap gap-x-6 gap-y-2">
+        {step.llm_label != null && (
+          <div className="space-y-0.5">
+            <dt className="iq-eyebrow">Model</dt>
+            <dd className="m-0 font-mono text-[13px]">{step.llm_label}</dd>
           </div>
         )}
+        {step.duration_ms != null && (
+          <div className="space-y-0.5">
+            <dt className="iq-eyebrow">Duration</dt>
+            <dd className="m-0 font-mono text-[13px] tabular-nums">{step.duration_ms}ms</dd>
+          </div>
+        )}
+        {d.llm_ms != null && (
+          <div className="space-y-0.5">
+            <dt className="iq-eyebrow">Model time</dt>
+            <dd className="m-0 font-mono text-[13px] tabular-nums">{String(d.llm_ms)}ms</dd>
+          </div>
+        )}
+        {(d.prompt_tokens != null || d.completion_tokens != null) && (
+          <div className="space-y-0.5">
+            <dt className="iq-eyebrow">Tokens</dt>
+            <dd className="m-0 font-mono text-[13px] tabular-nums">
+              {String(d.prompt_tokens ?? "?")} in / {String(d.completion_tokens ?? "?")} out
+            </dd>
+          </div>
+        )}
+      </dl>
 
-        {d.prompt_system != null && <MonoField label="System prompt" value={String(d.prompt_system)} />}
-        {d.prompt_user != null && <MonoField label="User prompt" value={String(d.prompt_user)} />}
-        {d.raw_response != null && <MonoField label="Raw response" value={String(d.raw_response)} />}
-        {d.parsed_output !== undefined && <JsonField label="Parsed output" value={d.parsed_output} />}
-        {d.thought != null && <MonoField label="Reasoning" value={String(d.thought)} />}
-        {d.inputs !== undefined && <JsonField label="Inputs" value={d.inputs} />}
-        {d.decision !== undefined && <JsonField label="Decision" value={d.decision} />}
-      </div>
-    </section>
+      {d.branch_reason != null && (
+        <div className="rounded-[11px] bg-panel px-3 py-2.5 text-sm">
+          <span className="iq-eyebrow mr-2">Why</span>
+          {String(d.branch_reason)}
+        </div>
+      )}
+
+      {d.prompt_system != null && <MonoField label="System prompt" value={String(d.prompt_system)} />}
+      {d.prompt_user != null && <MonoField label="User prompt" value={String(d.prompt_user)} />}
+      {d.raw_response != null && <MonoField label="Raw response" value={String(d.raw_response)} />}
+      {d.parsed_output !== undefined && <JsonField label="Parsed output" value={d.parsed_output} />}
+      {d.thought != null && <MonoField label="Reasoning" value={String(d.thought)} />}
+      {d.inputs !== undefined && <JsonField label="Inputs" value={d.inputs} />}
+      {d.decision !== undefined && <JsonField label="Decision" value={d.decision} />}
+    </HudCard>
   );
 }
 

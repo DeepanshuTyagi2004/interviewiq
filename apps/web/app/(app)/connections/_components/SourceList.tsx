@@ -31,7 +31,8 @@ export interface SourceListProps {
 /**
  * The rows for each connectable source. LeetCode has a username + async-sync flow of its own and
  * the resume is an upload-and-parse import; the rest use the generic OAuth-style row. All of them
- * read from the same shared profile query.
+ * read from the same shared profile query. Each row derives its status dot (`sourceDotState`) from
+ * the connected / errored / sync state it already has.
  */
 export function SourceList({ profile, variant = "stack", sources, errorSource, className }: SourceListProps) {
   const byKind = Object.fromEntries(profile.sources.map((s) => [s.source, s]));

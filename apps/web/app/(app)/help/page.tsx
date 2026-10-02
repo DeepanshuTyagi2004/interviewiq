@@ -4,7 +4,7 @@ import { Panel } from "@/components/patterns";
 import { ROUTES } from "@/lib/constants/shared";
 import { FAQS } from "@/app/(marketing)/_components/landing/content";
 import { FaqList } from "./_components/FaqList";
-import { HelpCard, Kbd } from "./_components/HelpCard";
+import { Count, HudCard, Kbd } from "@/components/hud";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const FAQ_ITEMS = FAQS.map(([question, answer]) => ({ question, answer }));
@@ -46,12 +46,15 @@ export default function HelpPage() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <HelpCard id="help-faq" title="Frequently asked questions">
+        <HudCard title="Frequently asked questions">
           <FaqList items={FAQ_ITEMS} />
-        </HelpCard>
+        </HudCard>
 
         <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6">
-          <HelpCard id="help-shortcuts" title="Keyboard shortcuts">
+          <HudCard
+            title="Keyboard shortcuts"
+            meta={<Count n={SHORTCUTS.length} label={`${SHORTCUTS.length} shortcuts`} />}
+          >
             <ul className="m-0 list-none p-0">
               {SHORTCUTS.map((s) => (
                 <li
@@ -66,7 +69,7 @@ export default function HelpPage() {
                 </li>
               ))}
             </ul>
-          </HelpCard>
+          </HudCard>
 
           <Panel eyebrow="Still stuck?">
             <div className="iq-float flex flex-col gap-3 p-5">

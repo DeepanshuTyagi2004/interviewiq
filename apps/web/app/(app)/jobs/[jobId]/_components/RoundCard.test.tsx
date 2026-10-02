@@ -38,7 +38,7 @@ describe("RoundCard", () => {
     renderCard({ round_number: 2, type: "system-design", format: "Whiteboard · 60 min", difficulty: "hard", dominant_topics: ["Caching"] });
     const link = screen.getByRole("link", { name: /book this round: system design/i });
     expect(link).toHaveAttribute("href", "/interviews?jd=jd-1&round=system-design");
-    expect(screen.getByText("02")).toBeInTheDocument();
+    expect(screen.getByText("R02")).toBeInTheDocument();
     expect(screen.getByText("Whiteboard · 60 min · hard")).toBeInTheDocument();
     expect(within(screen.getByRole("list", { name: /topics/i })).getByText("Caching")).toBeInTheDocument();
   });
@@ -69,7 +69,11 @@ describe("ProcessTab", () => {
         jd={jd({ interviewProcess: { rounds: [{ round_number: 1, type: "dsa" }, { round_number: 2, type: "behavioural" }] } })}
       />,
     );
-    expect(within(screen.getByRole("list", { name: "Interview rounds" })).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    const list = screen.getByRole("list", { name: "Interview rounds" });
+    expect(within(list).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    // Timeline nodes: R01, R02 (decorative; the headings carry "Round n").
+    expect(within(list).getByText("R01")).toBeInTheDocument();
+    expect(within(list).getByText("R02")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /book this round/i })).toHaveLength(2);
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
@@ -81,6 +85,9 @@ describe("roadmap header", () => {
     const { container } = render(<ReadinessMeter />);
     expect(screen.getByText("Not started")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/progressing|nearly ready|interview-ready/i);
+    const segments = container.querySelectorAll("[data-seg]");
+    expect(segments).toHaveLength(4);
+    expect(container.querySelectorAll('[data-seg="on"]')).toHaveLength(0);
   });
 
   it("builds the meta line from real fields only", () => {

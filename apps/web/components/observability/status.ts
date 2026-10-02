@@ -1,5 +1,6 @@
+import type { DotState } from "@/components/hud";
 import type { MonoPillTone } from "@/components/patterns";
-import type { RunStepStatus } from "@/features/observability";
+import type { RunStatus, RunStepStatus } from "@/features/observability";
 
 /**
  * How a status reads as a MonoPill: one of the pill tones plus optional extra classes for the two
@@ -43,6 +44,16 @@ export const STEP_DOT: Record<RunStepStatus, string> = {
   failed: "bg-destructive",
   skipped: "bg-line-3",
 };
+
+/**
+ * A whole pipeline run as a HUD status dot. Only a run that is really in flight is `live` (the one
+ * state that pulses); a finished run is a steady `active`, a failed one `error`.
+ */
+export function runDotState(status: RunStatus): DotState {
+  if (status === "running") return "live";
+  if (status === "failed") return "error";
+  return "active";
+}
 
 /** "extract_text" → "Extract Text". */
 export function prettyStepName(name: string): string {

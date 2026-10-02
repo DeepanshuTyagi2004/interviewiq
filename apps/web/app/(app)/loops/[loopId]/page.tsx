@@ -1,3 +1,5 @@
+import { StubScreen } from "@/components/layout/StubScreen";
+
 export default async function LoopDetailPage({
   params,
 }: {
@@ -5,5 +7,5 @@ export default async function LoopDetailPage({
 }) {
   const { loopId } = await params;
   // TODO: loop detail view
-  return <section className="flex-1 p-8">Loop {loopId}</section>;
+  return <StubScreen title={`Loop ${loopId}`} />;
 }

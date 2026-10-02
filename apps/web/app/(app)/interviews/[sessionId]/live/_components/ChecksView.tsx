@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { StatusDot, type DotState } from "@/components/hud";
 import { Button } from "@/components/ui/button";
-import { MonoPill } from "@/components/patterns";
 import { cn } from "@/lib/utils/cn";
 import { useExternalDisplay } from "@/features/interview-live/proctor/useExternalDisplay";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
@@ -12,14 +12,15 @@ import { roomEyebrow, type RoomMeta } from "./roomMeta";
 
 type CheckStatus = "checking" | "pass" | "warn" | "fail";
 
-const STATUS_PILL: Record<CheckStatus, { label: string; tone: "ghost" | "soft" | "ink" | "alert" }> = {
-  checking: { label: "Checking", tone: "ghost" },
-  pass: { label: "OK", tone: "soft" },
-  warn: { label: "Warning", tone: "ink" },
-  fail: { label: "Action needed", tone: "alert" },
+/** Each check state as a status dot + its word. Only a check that's really running pulses. */
+const CHECK_DOT: Record<CheckStatus, { label: string; state: DotState; tone: string }> = {
+  checking: { label: "Checking", state: "live", tone: "text-muted-foreground" },
+  pass: { label: "OK", state: "active", tone: "text-foreground" },
+  warn: { label: "Warning", state: "warn", tone: "text-foreground" },
+  fail: { label: "Action needed", state: "error", tone: "text-destructive" },
 };
 
-/** One check in the design's pre-check row style: a square mark, the check, and its status. */
+/** One check as a mono readout row (`MICROPHONE ──── ● OK`) over its detail message. */
 function CheckRow({
   label,
   status,
@@ -29,29 +30,15 @@ function CheckRow({
   status: CheckStatus;
   detail: string;
 }) {
-  const Icon =
-    status === "pass" ? Check : status === "checking" ? Loader2 : status === "warn" ? AlertTriangle : X;
+  const dot = CHECK_DOT[status];
   return (
-    <li className="flex items-start gap-3.5 border-b border-line px-[18px] py-4 last:border-b-0">
-      <span
-        aria-hidden
-        className={cn(
-          "mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[8px] border",
-          status === "pass" && "border-brand bg-brand text-brand-foreground",
-          status === "checking" && "border-line-4 text-faint",
-          status === "warn" && "border-faint-2 text-foreground",
-          status === "fail" && "border-destructive/50 bg-destructive/10 text-destructive",
-        )}
-      >
-        <Icon data-motion className={cn("h-3 w-3", status === "checking" && "animate-spin")} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="m-0 text-[14.5px]">{label}</p>
-        <p className="m-0 text-[12.5px] leading-[1.5] text-muted-foreground">{detail}</p>
+    <li className="flex flex-col gap-1.5 border-b border-line px-[18px] py-4 last:border-b-0">
+      <div className="flex items-center gap-3 font-mono text-[12px] uppercase tracking-[0.06em]">
+        <p className="m-0 min-w-0 text-foreground">{label}</p>
+        <span aria-hidden className="h-px min-w-4 flex-1 bg-line-2" />
+        <StatusDot state={dot.state} label={dot.label} className={cn("text-[12px] tracking-[0.06em]", dot.tone)} />
       </div>
-      <MonoPill tone={STATUS_PILL[status].tone} className="mt-0.5">
-        {STATUS_PILL[status].label}
-      </MonoPill>
+      <p className="m-0 text-[12.5px] leading-[1.5] text-muted-foreground">{detail}</p>
     </li>
   );
 }

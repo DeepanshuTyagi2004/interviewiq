@@ -1,5 +1,6 @@
 "use client";
 
+import { Readout, SegmentMeter, padCount } from "@/components/hud";
 import { Panel } from "@/components/patterns";
 import { useProfile } from "@/features/profile";
 import { PROVIDERS } from "./providers";
@@ -33,11 +34,15 @@ export function ConnectionsAside() {
 
   return (
     <Panel eyebrow="How sources are used" className="lg:sticky lg:top-6">
-      <div className="iq-float flex items-baseline gap-2 px-5 py-4">
-        <span className="text-[30px] leading-none tracking-[-0.045em]">{data ? connected : "—"}</span>
-        <span className="text-[13px] text-muted-foreground">
-          of {live.length} available sources connected
-        </span>
+      <div className="iq-float px-5 py-4">
+        {/* The readout and meter restate the sentence below, which is what screen readers get. */}
+        <div aria-hidden>
+          <Readout label="Sources linked" value={data ? `${padCount(connected)}/${padCount(live.length)}` : "—"} />
+        </div>
+        <SegmentMeter segments={live.length} filled={data ? connected : 0} tone="brand" size="md" className="mt-3" />
+        <p className="sr-only">
+          {data ? connected : "—"} of {live.length} available sources connected
+        </p>
       </div>
       <ul className="m-0 flex list-none flex-col gap-4 p-0 px-1">
         {NOTES.map((note) => (

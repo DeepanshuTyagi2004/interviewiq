@@ -1,16 +1,7 @@
+import { SegmentMeter } from "@/components/hud";
 import type { DataAvailability } from "@/features/jobs";
 import { cn } from "@/lib/utils/cn";
 import { DEPTH_STEPS, depthOf } from "./library";
-
-function Bars({ filled, className }: { filled: number; className?: string }) {
-  return (
-    <span aria-hidden className={cn("grid grid-cols-5 gap-[3px]", className)}>
-      {Array.from({ length: DEPTH_STEPS }, (_, i) => (
-        <span key={i} className={cn("h-1 rounded-sm", i < filled ? "bg-foreground" : "bg-line-2")} />
-      ))}
-    </span>
-  );
-}
 
 export interface DepthMeterProps {
   availability: DataAvailability | undefined;
@@ -19,7 +10,7 @@ export interface DepthMeterProps {
   className?: string;
 }
 
-/** "Data depth" label + the design's 5-bar meter, from the brief's real data confidence. */
+/** "Data depth" label + the design's 5-segment meter, from the brief's real data confidence. */
 export function DepthMeter({ availability, compact = false, className }: DepthMeterProps) {
   const depth = depthOf(availability);
 
@@ -27,7 +18,7 @@ export function DepthMeter({ availability, compact = false, className }: DepthMe
     return (
       <span className={cn("flex flex-none items-center gap-2 text-xs text-muted-foreground", className)}>
         <span className="sr-only">Data depth:</span>
-        <Bars filled={depth.bars} className="w-14" />
+        <SegmentMeter segments={DEPTH_STEPS} filled={depth.bars} className="w-14" />
         <span className="w-[52px] whitespace-nowrap">{depth.label}</span>
       </span>
     );
@@ -35,11 +26,20 @@ export function DepthMeter({ availability, compact = false, className }: DepthMe
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <p className="m-0 flex justify-between gap-3 text-xs">
-        <span className="text-faint">Data depth</span>
-        <span>{depth.label}</span>
+      <p className="m-0 flex items-baseline justify-between gap-3 text-xs">
+        <span className="iq-eyebrow">Data depth</span>
+        <span className="flex items-baseline gap-2">
+          {/* Readout restating the meter; screen readers get it as words instead. */}
+          <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint">
+            {depth.bars}/{DEPTH_STEPS}
+          </span>
+          <span className="sr-only">
+            {depth.bars} of {DEPTH_STEPS},{" "}
+          </span>
+          <span>{depth.label}</span>
+        </span>
       </p>
-      <Bars filled={depth.bars} />
+      <SegmentMeter segments={DEPTH_STEPS} filled={depth.bars} />
     </div>
   );
 }

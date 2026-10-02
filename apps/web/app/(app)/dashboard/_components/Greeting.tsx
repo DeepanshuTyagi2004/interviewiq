@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { padCount } from "@/components/hud";
 import { ROUTES } from "@/lib/constants/shared";
 
 function partOfDay(hour: number): string {
@@ -8,11 +9,15 @@ function partOfDay(hour: number): string {
   return "Good evening";
 }
 
-/** "WEDNESDAY, 30 SEP" */
-function dateEyebrow(now: Date): string {
-  const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+/**
+ * "Fri 02 Oct": the day the page was rendered, as a mono readout. Mixed case in the source:
+ * `.iq-eyebrow` upper-cases it visually, and screen readers read words rather than spelling out
+ * capitals. Date only: a clock time would freeze at render and go stale on an open tab.
+ */
+export function dateEyebrow(now: Date): string {
+  const weekday = now.toLocaleDateString("en-US", { weekday: "short" });
   const month = now.toLocaleDateString("en-US", { month: "short" });
-  return `${weekday}, ${now.getDate()} ${month}`;
+  return `${weekday} ${padCount(now.getDate())} ${month}`;
 }
 
 export interface GreetingProps {
@@ -32,7 +37,7 @@ export function Greeting({ name, summary, roomHref, now = new Date() }: Greeting
   return (
     <div className="flex flex-wrap items-end justify-between gap-5">
       <div className="min-w-0">
-        <p className="iq-eyebrow m-0">{dateEyebrow(now)}</p>
+        <p className="iq-eyebrow m-0 tabular-nums">{dateEyebrow(now)}</p>
         <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
           {firstName ? `${hello}, ${firstName}` : hello}
         </h1>

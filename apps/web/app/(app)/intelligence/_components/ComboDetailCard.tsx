@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { HudCard, padCount } from "@/components/hud";
 import { LookPill } from "@/components/observability/ConsoleCard";
 import { OUTLINE_PILL } from "@/components/observability/status";
 import type { ComboDetail, FinalExperience } from "@/features/intelligence";
@@ -67,15 +68,13 @@ export function ComboDetailCard({
             : "Perplexity request (retry / follow-up)"
           : "Perplexity request";
         return (
-          <section key={i} className="min-w-0 space-y-4 rounded-[14px] border border-line-2 p-3.5 sm:p-4">
-            <h3 className="m-0 flex items-center gap-2 text-sm font-normal">
-              {heading}
-              {multi ? (
-                <span className="font-mono text-[11.5px] tabular-nums text-faint">
-                  {i + 1}/{requests.length}
-                </span>
-              ) : null}
-            </h3>
+          <HudCard
+            key={i}
+            title={heading}
+            titleAs="h3"
+            meta={multi ? `${padCount(i + 1)}/${padCount(requests.length)}` : undefined}
+            bodyClassName="space-y-4 p-3.5 sm:p-4"
+          >
             {req.prompt ? (
               <ViewerSection label="Prompt sent" level={4}>
                 <TextViewer text={req.prompt} label="Prompt sent" />
@@ -91,7 +90,7 @@ export function ComboDetailCard({
                 <UrlList urls={req.citations} />
               </ViewerSection>
             ) : null}
-          </section>
+          </HudCard>
         );
       })}
 

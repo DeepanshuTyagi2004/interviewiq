@@ -1,3 +1,5 @@
+import { StubScreen } from "@/components/layout/StubScreen";
+
 export default async function AdminStudentDetailPage({
   params,
 }: {
@@ -5,5 +7,9 @@ export default async function AdminStudentDetailPage({
 }) {
   const { studentId } = await params;
   // TODO: student detail
-  return <main className="flex-1 p-8">Student {studentId}</main>;
+  return (
+    <main className="flex-1">
+      <StubScreen title={`Student ${studentId}`} />
+    </main>
+  );
 }

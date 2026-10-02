@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/lib/utils/cn";
+import { HudCard, HudEmpty } from "@/components/hud";
 
 export interface ProfileCardProps {
   title: string;
@@ -11,30 +11,23 @@ export interface ProfileCardProps {
   className?: string;
 }
 
-/** The design's bordered card with a title row (`Connected sources`, `Preferences`). */
+/**
+ * A profile card (`Connected sources`, `Preferences`): the shared HUD card with the title as its
+ * mono header readout, `meta` after the leader line and `action` on the right.
+ */
 export function ProfileCard({ title, meta, action, children, className }: ProfileCardProps) {
-  const id = React.useId();
   return (
-    <section aria-labelledby={id} className={cn("min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card", className)}>
-      <div className="flex min-h-[53px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 sm:px-5">
-        <h2 id={id} className="m-0 text-sm font-normal">
-          {title}
-        </h2>
-        {meta ? <span className="min-w-0 truncate font-mono text-xs text-faint">{meta}</span> : null}
-        {action ? <div className="ml-auto flex items-center gap-2">{action}</div> : null}
-      </div>
+    <HudCard title={title} meta={meta} action={action} className={className}>
       {children}
-    </section>
+    </HudCard>
   );
 }
 
 /** Quiet note for a card with nothing to show yet. */
 export function CardEmpty({ title, hint, children }: { title: string; hint: string; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-1.5 px-4 py-6 sm:px-5">
-      <p className="m-0 text-sm">{title}</p>
-      <p className="m-0 max-w-md text-[13px] leading-[1.5] text-muted-foreground">{hint}</p>
-      {children ? <div className="pt-2">{children}</div> : null}
-    </div>
+    <HudEmpty title={title} hint={hint}>
+      {children}
+    </HudEmpty>
   );
 }

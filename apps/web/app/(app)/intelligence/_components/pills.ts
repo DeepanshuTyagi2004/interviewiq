@@ -1,9 +1,11 @@
+import type { DotState } from "@/components/hud";
 import {
   DASHED_PILL,
   GHOST_PILL,
   OUTLINE_PILL,
   type PillLook,
 } from "@/components/observability/status";
+import type { AgentSessionStatus } from "@/features/agent-diagnostics";
 import type { Question, RunStatus } from "@/features/intelligence";
 
 /**
@@ -11,13 +13,29 @@ import type { Question, RunStatus } from "@/features/intelligence";
  * carries meaning: ink (strongest) > soft > outline > dashed > ghost; brand = live, alert = failed.
  */
 
-/** The whole ingestion run. */
-export const RUN_STATUS_PILL: Record<RunStatus, PillLook> = {
-  running: { tone: "brand" },
-  completed: { tone: "soft" },
-  failed: { tone: "alert" },
-  cancelled: OUTLINE_PILL,
-  idle: GHOST_PILL,
+/**
+ * The whole ingestion run, as a HUD status dot. Only a run that is really in flight is `live` (the
+ * one state that pulses); a finished run is a steady `active`, a stopped or never-run one `idle`.
+ */
+export const RUN_STATUS_DOT: Record<RunStatus, DotState> = {
+  running: "live",
+  completed: "active",
+  failed: "error",
+  cancelled: "idle",
+  idle: "idle",
+};
+
+/**
+ * An agent diagnostics session, as a HUD status dot. Both `running` and `awaiting_input` are a live
+ * session (the agent is mid-run, or waiting on the admin's next turn), so both pulse.
+ */
+export const SESSION_DOT: Record<AgentSessionStatus, DotState> = {
+  running: "live",
+  awaiting_input: "live",
+  completed: "active",
+  failed: "error",
+  abandoned: "idle",
+  aborted: "idle",
 };
 
 /** One JD's brief-generation status (per combination / per stored brief). */

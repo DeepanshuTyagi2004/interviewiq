@@ -1,4 +1,6 @@
+import { StubScreen } from "@/components/layout/StubScreen";
+
 export default function LeaderboardPage() {
   // TODO: leaderboard
-  return <section className="flex-1 p-8">Leaderboard</section>;
+  return <StubScreen title="Leaderboard" />;
 }

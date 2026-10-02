@@ -15,6 +15,7 @@ import {
 import { PROFILE_POLLING, PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 import { joinDetail, sourceDate } from "./format";
 import { SourceRow, type SourceRowVariant } from "./SourceRow";
+import { sourceDotState } from "./sourceDotState";
 import type { ProviderMeta } from "./providers";
 
 /** Reduce a pasted URL / @handle to a bare LeetCode username (backend normalizes too). */
@@ -115,6 +116,20 @@ export function LeetCodeRow({
   const solved = fragment?.solved ? (fragment.solved.total ?? fragment.solved.easy + fragment.solved.medium + fragment.solved.hard) : null;
   const synced = status === PROFILE_SYNC_STATUS.synced ? sourceDate(source?.lastRefreshedAt) : null;
 
+  // Same conditions as the pill: live while the import is SYNCING, error on ?error= or a FAILED sync.
+  const state = sourceDotState({
+    connected,
+    syncing: connected && status === PROFILE_SYNC_STATUS.syncing,
+    error: Boolean(errored) || (connected && status === PROFILE_SYNC_STATUS.failed),
+  });
+  // The dot's screen-reader text. `errored` is a failed connect (not a failed sync). While the
+  // visible pill already says "Syncing" / "Sync failed", the dot stays silent so it isn't read twice.
+  const stateLabel = errored
+    ? "Connection failed"
+    : connected && (status === PROFILE_SYNC_STATUS.syncing || status === PROFILE_SYNC_STATUS.failed)
+      ? null
+      : undefined;
+
   const pill = errored ? (
     <MonoPill tone="alert">Error</MonoPill>
   ) : connected && status ? (
@@ -133,6 +148,8 @@ export function LeetCodeRow({
         code={provider.code}
         name={provider.label}
         connected
+        state={state}
+        stateLabel={stateLabel}
         pill={pill}
         detail={joinDetail([
           displayName ? `@${displayName}` : "Connected",
@@ -188,6 +205,8 @@ export function LeetCodeRow({
       variant={variant}
       code={provider.code}
       name={provider.label}
+      state={state}
+      stateLabel={stateLabel}
       pill={pill}
       detail={provider.description}
       bodyId={formId}

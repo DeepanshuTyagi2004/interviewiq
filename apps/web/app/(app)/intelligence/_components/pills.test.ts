@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OUTLINE_PILL } from "@/components/observability/status";
+import type { AgentSessionStatus } from "@/features/agent-diagnostics";
+import type { RunStatus } from "@/features/intelligence";
 import {
   BRIEF_STATUS_PILL,
   CONFIDENCE_PILL,
@@ -8,7 +10,8 @@ import {
   FUNNEL_STATUS,
   MATCH_TIER_META,
   PROVENANCE_META,
-  RUN_STATUS_PILL,
+  RUN_STATUS_DOT,
+  SESSION_DOT,
   lookFor,
 } from "./pills";
 
@@ -16,8 +19,6 @@ const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(emerald|amber|sky|teal|violet|purple|gre
 
 describe("intelligence pill looks", () => {
   it("marks live work with brand and failures with alert", () => {
-    expect(RUN_STATUS_PILL.running.tone).toBe("brand");
-    expect(RUN_STATUS_PILL.failed.tone).toBe("alert");
     expect(BRIEF_STATUS_PILL.running.tone).toBe("brand");
     expect(BRIEF_STATUS_PILL.failed.tone).toBe("alert");
     expect(FUNNEL_STATUS.extract_failed.look.tone).toBe("alert");
@@ -37,7 +38,6 @@ describe("intelligence pill looks", () => {
 
   it("uses only token classes, no raw palette colours", () => {
     const looks = [
-      ...Object.values(RUN_STATUS_PILL),
       ...Object.values(BRIEF_STATUS_PILL),
       ...Object.values(CONFIDENCE_PILL),
       ...Object.values(DIFFICULTY_PILL),
@@ -46,6 +46,36 @@ describe("intelligence pill looks", () => {
       ...Object.values(PROVENANCE_META).map((m) => m.look),
     ];
     for (const look of looks) expect(look.className ?? "").not.toMatch(RAW_COLOUR);
+  });
+});
+
+describe("run + session status dots", () => {
+  it.each<[RunStatus, string]>([
+    ["running", "live"],
+    ["completed", "active"],
+    ["failed", "error"],
+    ["cancelled", "idle"],
+    ["idle", "idle"],
+  ])("maps an ingestion run that is %s to the %s dot", (status, dot) => {
+    expect(RUN_STATUS_DOT[status]).toBe(dot);
+  });
+
+  it.each<[AgentSessionStatus, string]>([
+    ["running", "live"],
+    ["awaiting_input", "live"],
+    ["completed", "active"],
+    ["failed", "error"],
+    ["abandoned", "idle"],
+    ["aborted", "idle"],
+  ])("maps an agent session that is %s to the %s dot", (status, dot) => {
+    expect(SESSION_DOT[status]).toBe(dot);
+  });
+
+  it("pulses (live) only for work that is really in flight", () => {
+    const liveRuns = Object.entries(RUN_STATUS_DOT).filter(([, d]) => d === "live").map(([s]) => s);
+    expect(liveRuns).toEqual(["running"]);
+    const liveSessions = Object.entries(SESSION_DOT).filter(([, d]) => d === "live").map(([s]) => s);
+    expect(liveSessions.sort()).toEqual(["awaiting_input", "running"]);
   });
 });
 

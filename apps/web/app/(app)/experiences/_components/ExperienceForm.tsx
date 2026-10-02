@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { HudCard } from "@/components/hud";
 import { ApiFetchError } from "@/lib/api-client/client";
 import { cn } from "@/lib/utils/cn";
 import { useSubmitExperience } from "@/features/experiences";
@@ -51,16 +52,7 @@ export function ExperienceForm() {
   const justSubmitted = submit.isSuccess && !company && !content;
 
   return (
-    <section
-      aria-labelledby="experience-form-title"
-      className="min-w-0 overflow-hidden rounded-[14px] border border-line-2 bg-card"
-    >
-      <div className="border-b border-line px-4 py-4 sm:px-5">
-        <h2 id="experience-form-title" className="m-0 text-sm font-normal">
-          Your experience
-        </h2>
-      </div>
-
+    <HudCard title="Your experience">
       <form onSubmit={onSubmit} className="flex flex-col">
         <div className="flex flex-col gap-6 px-4 py-5 sm:px-5">
           <div className="flex flex-col gap-1.5">
@@ -145,6 +137,6 @@ export function ExperienceForm() {
           </Button>
         </div>
       </form>
-    </section>
+    </HudCard>
   );
 }

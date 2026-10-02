@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonoPill } from "@/components/patterns";
 import { CardEmpty, ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
+import { padCount } from "@/components/hud";
 import { HairlineHead, HairlineTable, Td, Th, Tr } from "@/components/observability/HairlineTable";
 import { useCurrentUser, type Role } from "@/lib/hooks/useCurrentUser";
 import { useUpdateUserRole, useUsers, type AdminUser } from "@/features/intelligence";
@@ -37,7 +38,8 @@ export function AccessControlPanel() {
       meta={
         users ? (
           <HeaderCount>
-            {users.length} {users.length === 1 ? "user" : "users"} · {admins} {admins === 1 ? "admin" : "admins"}
+            {padCount(users.length)} {users.length === 1 ? "user" : "users"} · {padCount(admins)}{" "}
+            {admins === 1 ? "admin" : "admins"}
           </HeaderCount>
         ) : null
       }

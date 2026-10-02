@@ -1,24 +1,27 @@
 import * as React from "react";
-import { EmptyState } from "@/components/patterns";
+import { Count, HudCard, HudEmpty, padCount } from "@/components/hud";
 import type { JdDetail } from "@/features/jobs";
+import { plural } from "@/app/(app)/jobs/_components/library";
 import { cn } from "@/lib/utils/cn";
 import { groupSources } from "./insights";
 import { topicRows } from "./rounds";
 
+/** One insight: a HUD card whose mono header is the eyebrow (named by it), with an optional count. */
 function InsightCard({
   eyebrow,
+  meta,
   children,
   className,
 }: {
   eyebrow: string;
+  meta?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <section aria-label={eyebrow} className={cn("flex min-w-0 flex-col gap-3 rounded-[14px] border border-line-2 bg-card p-5", className)}>
-      <h3 className="iq-eyebrow m-0">{eyebrow}</h3>
+    <HudCard title={eyebrow} titleAs="h3" meta={meta} className={className} bodyClassName="flex flex-col gap-3 p-4 sm:p-5">
       {children}
-    </section>
+    </HudCard>
   );
 }
 
@@ -44,10 +47,12 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
 
   if (topics.length === 0 && !style && flags.length === 0 && !difficulty && !patterns && sources.length === 0 && !hasAbout) {
     return (
-      <EmptyState
-        title="No insights yet"
-        hint="Topics, interviewer style and red flags appear once this role's interview process has been researched."
-      />
+      <HudCard as="div">
+        <HudEmpty
+          title="No insights yet"
+          hint="Topics, interviewer style and red flags appear once this role's interview process has been researched."
+        />
+      </HudCard>
     );
   }
 
@@ -68,14 +73,14 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
                       {t.rounds.length > 0 ? (
                         <span className="flex-none font-mono text-[11.5px] tabular-nums text-faint">
                           <span className="sr-only">Asked in round {t.rounds.join(", ")}</span>
-                          <span aria-hidden>{t.rounds.map((n) => `R${n}`).join(" · ")}</span>
+                          <span aria-hidden>{t.rounds.map((n) => `R${padCount(n)}`).join(" · ")}</span>
                         </span>
                       ) : null}
                     </li>
                   ))}
                 </ul>
                 {topics.some((t) => t.rounds.length > 0) ? (
-                  <p className="m-0 text-xs text-faint">R1, R2… are the rounds that list the topic.</p>
+                  <p className="m-0 text-xs text-faint">R01, R02… are the rounds that list the topic.</p>
                 ) : null}
               </InsightCard>
             ) : null}
@@ -117,7 +122,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
         ) : null}
 
         {sources.length > 0 ? (
-          <InsightCard eyebrow={`Sources · ${sourceCount}`}>
+          <InsightCard eyebrow="Sources" meta={<Count n={sourceCount} label={plural(sourceCount, "source")} />}>
             <ul className="m-0 list-none p-0">
               {sources.map((s) => (
                 <li key={s.host} className="flex justify-between gap-3 border-b border-line py-1.5 text-[13.5px]">

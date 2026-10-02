@@ -4,7 +4,7 @@ import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { RunStep } from "@/features/observability";
-import { LookPill } from "./ConsoleCard";
+import { CardEmpty, LookPill } from "./ConsoleCard";
 import { STEP_DOT, STEP_PILL, formatDuration, prettyStepName } from "./status";
 
 /**
@@ -24,7 +24,7 @@ export function RunTimeline({ steps }: { steps: RunStep[] }) {
     });
 
   if (steps.length === 0) {
-    return <p className="m-0 px-4 py-6 text-sm text-muted-foreground sm:px-5">No steps reported yet.</p>;
+    return <CardEmpty title="No steps reported yet." />;
   }
 
   return (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act, waitFor } from "@testing-library/react";
+import { render, screen, act, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   LiveSessionProvider,
@@ -63,6 +63,27 @@ describe("ChecksView", () => {
     expect(screen.getByText("Microphone")).toBeInTheDocument();
     expect(screen.getByText("Camera")).toBeInTheDocument();
     expect(screen.getByText("External display")).toBeInTheDocument();
+  });
+
+  it("shows each check as a readout row: steady OK dots once they pass, nothing pulsing", async () => {
+    const session = new MockLiveSession();
+    await renderAtChecks(session);
+
+    const list = screen.getByRole("list", { name: /system checks/i });
+    await waitFor(() => expect(within(list).getAllByText("OK")).toHaveLength(3));
+    expect(list.querySelector("[data-motion]")).toBeNull();
+  });
+
+  it("marks denied devices Action needed and keeps the how-to-fix message", async () => {
+    const gum = vi.mocked(navigator.mediaDevices.getUserMedia);
+    gum.mockRejectedValueOnce(new Error("denied")).mockRejectedValueOnce(new Error("denied"));
+    const session = new MockLiveSession();
+    await renderAtChecks(session);
+
+    const list = screen.getByRole("list", { name: /system checks/i });
+    await waitFor(() => expect(within(list).getAllByText("Action needed")).toHaveLength(2));
+    expect(screen.getByRole("status")).toHaveTextContent(/allow microphone and camera access/i);
+    expect(screen.getByRole("button", { name: /enter interview/i })).toBeDisabled();
   });
 
   it("Enter interview requests fullscreen, connects, and drives the machine to live", async () => {

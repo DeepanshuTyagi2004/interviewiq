@@ -1,7 +1,7 @@
 import { MonoPill } from "@/components/patterns";
 import type { NotableItem } from "@/features/profile";
 import { PROVIDERS } from "@/app/(app)/connections/_components/providers";
-import { ProfileCard } from "./ProfileCard";
+import { CardEmpty, ProfileCard } from "./ProfileCard";
 
 const SOURCE_LABEL = new Map(PROVIDERS.map((p) => [p.source, p.label]));
 
@@ -18,9 +18,10 @@ export function SummaryCard({ atAGlance, notable }: SummaryCardProps) {
   if (!atAGlance.length && !notable.length) {
     return (
       <ProfileCard title="At a glance">
-        <p className="m-0 px-4 py-4 text-[13px] leading-[1.5] text-muted-foreground sm:px-5">
-          No highlights yet. They’re written from your resume and connected accounts once they’ve been read.
-        </p>
+        <CardEmpty
+          title="No highlights yet."
+          hint="They’re written from your resume and connected accounts once they’ve been read."
+        />
       </ProfileCard>
     );
   }
@@ -31,9 +32,12 @@ export function SummaryCard({ atAGlance, notable }: SummaryCardProps) {
         {atAGlance.length ? (
           <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm leading-[1.5]">
             {atAGlance.map((item, i) => (
-              <li key={i} className="flex gap-2.5">
-                <span aria-hidden className="mt-[9px] h-1 w-1 flex-none rounded-full bg-faint" />
-                <span>{item}</span>
+              // items-baseline sits the marker on the first line's baseline, however the bullet wraps.
+              <li key={i} className="flex items-baseline gap-2.5">
+                <span aria-hidden className="flex-none font-mono text-[12px] leading-none text-faint">
+                  ›
+                </span>
+                <span className="min-w-0">{item}</span>
               </li>
             ))}
           </ul>

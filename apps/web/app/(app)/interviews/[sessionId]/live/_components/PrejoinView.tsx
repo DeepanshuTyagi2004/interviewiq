@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, VideoOff, X } from "lucide-react";
+import { HudCard } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -22,17 +23,14 @@ const DONTS = [
   "Don't refresh or close this tab once the interview has started.",
 ];
 
-/** A bordered rule list in the design's pre-check row style. */
-function RuleList({ id, title, items, kind }: { id: string; title: string; items: string[]; kind: "do" | "dont" }) {
+/** A rule list on the HUD card frame (the title is its mono header), rows in the pre-check style. */
+function RuleList({ title, items, kind }: { title: string; items: string[]; kind: "do" | "dont" }) {
   const Icon = kind === "do" ? Check : X;
   return (
-    <section aria-labelledby={id} className="overflow-hidden rounded-[14px] border border-line-2">
-      <h2 id={id} className="iq-eyebrow m-0 border-b border-line px-[18px] py-3 font-normal">
-        {title}
-      </h2>
+    <HudCard title={title}>
       <ul className="m-0 list-none p-0">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0">
+          <li key={item} className="flex items-start gap-3.5 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5">
             <span
               aria-hidden
               className="mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[8px] border border-line-3 text-muted-foreground"
@@ -43,7 +41,7 @@ function RuleList({ id, title, items, kind }: { id: string; title: string; items
           </li>
         ))}
       </ul>
-    </section>
+    </HudCard>
   );
 }
 
@@ -100,8 +98,8 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
             </p>
           </div>
 
-          <RuleList id="prejoin-dos" title="Do" items={DOS} kind="do" />
-          <RuleList id="prejoin-donts" title="Don't" items={DONTS} kind="dont" />
+          <RuleList title="Do" items={DOS} kind="do" />
+          <RuleList title="Don't" items={DONTS} kind="dont" />
 
           <div className="flex items-start gap-3.5 rounded-[14px] border border-line-2 px-[18px] py-4">
             <Checkbox

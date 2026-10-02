@@ -53,9 +53,15 @@ export function bookHref(jdId: string, type: string | null | undefined): string 
   return `${ROUTES.interviews}?${qs.toString()}`;
 }
 
+/** Round-type words that are acronyms and stay upper-case in a title ("hr" → "HR"). */
+const ACRONYMS = new Set(["hr", "oa", "sde", "dsa", "lld", "hld", "ml", "qa"]);
+
 function sentenceCase(s: string): string {
   const t = s.trim();
-  return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  if (!t) return t;
+  const words = t.split(/\s+/).map((w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w));
+  const out = words.join(" ");
+  return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
 export function roundNumber(round: ConsolidatedRound, index: number): number {

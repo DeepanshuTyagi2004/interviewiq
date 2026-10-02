@@ -36,7 +36,7 @@ function Cell({ order, children }: { order: string; children: React.ReactNode })
  * The profile. Desktop: short facts on the left (identity, resume file, contact, education, skills,
  * achievements, sources), the long parts on the right (summary, experience, projects, activity).
  * Phones and tablets get one column in reading order. Each resume section edits on its own.
- * Descriptive throughout — the only score slots are the identity card's two "—" tiles.
+ * Descriptive throughout — the only score slot is the identity card's interview score "—" tile.
  */
 export function ProfileView() {
   const { data, isLoading, isError } = useProfile();

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { MonoPill } from "@/components/patterns";
-import { LookPill } from "@/components/observability/ConsoleCard";
+import { CardEmpty, LookPill } from "@/components/observability/ConsoleCard";
 import { STEP_DOT, STEP_PILL, formatDuration, prettyStepName } from "@/components/observability/status";
 import { cn } from "@/lib/utils/cn";
 import type { AgentStep, AgentTurn } from "@/features/agent-diagnostics";
@@ -22,7 +22,7 @@ export function DecisionTimeline({
   onSelectStep?: (turnIndex: number, stepIndex: number) => void;
 }) {
   if (turns.length === 0) {
-    return <p className="m-0 px-4 py-6 text-sm text-muted-foreground sm:px-5">No turns yet.</p>;
+    return <CardEmpty title="No turns yet." />;
   }
 
   return (

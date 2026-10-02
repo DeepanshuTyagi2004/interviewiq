@@ -22,7 +22,7 @@ function RoleRow({ jd }: { jd: JdSummary }) {
     <li className="min-w-0">
       <Link
         href={`${ROUTES.jobs}/${jd.id}`}
-        className="iq-float flex h-full items-center gap-3.5 border border-transparent px-4 py-3.5 transition-colors hover:border-faint-2 focus-visible:border-faint focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:outline-none"
+        className="group/role iq-float flex h-full items-center gap-3.5 border border-transparent px-4 py-3.5 transition-colors hover:border-faint-2 focus-visible:border-faint focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:outline-none"
       >
         <CompanyTile name={jd.companyName} live={isLiveJd(jd)} size="sm" />
         <span className="min-w-0 flex-1">
@@ -34,7 +34,10 @@ function RoleRow({ jd }: { jd: JdSummary }) {
           </span>
         </span>
         <DepthMeter availability={jd.dataAvailability} compact className="hidden min-[420px]:flex" />
-        <ArrowRight aria-hidden className="h-4 w-4 flex-none text-faint" />
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 flex-none text-faint group-hover/role:translate-x-0.5 group-focus-visible/role:translate-x-0.5 motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-iq"
+        />
       </Link>
     </li>
   );

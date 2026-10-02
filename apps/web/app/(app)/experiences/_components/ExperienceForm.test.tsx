@@ -49,6 +49,12 @@ describe("ExperienceForm", () => {
     );
   });
 
+  it("sits in a card region named by its title", () => {
+    render(<ExperienceForm />);
+    expect(screen.getByRole("region", { name: "Your experience" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your experience" })).toBeInTheDocument();
+  });
+
   it("shows the level choices as a radio group with Fresher selected by default", () => {
     render(<ExperienceForm />);
     expect(screen.getByRole("group", { name: /level/i })).toBeInTheDocument();

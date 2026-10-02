@@ -156,7 +156,7 @@ export function ActivityCard({ profile, className }: { profile: ProfileResponse;
         title="Activity"
         meta={handleOf(profile, shown)}
         action={
-          <TabsList aria-label="Activity source" className="h-8 rounded-md bg-panel p-0.5">
+          <TabsList aria-label="Activity source" className="-my-1 h-8 rounded-md bg-panel p-0.5">
             {connected.map((s) => (
               <TabsTrigger
                 key={s}

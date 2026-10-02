@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { padCount } from "@/components/hud";
+import { cn } from "@/lib/utils/cn";
 import type { ConsolidatedRound } from "@/features/jobs";
 import {
   bookHref,
@@ -12,6 +14,18 @@ import {
   toRoundType,
 } from "./rounds";
 
+/**
+ * The timeline rail, drawn by the rounds list (`<ol>`) as a `::before` so the list keeps only `<li>`
+ * children. It sits on the number tiles' centre line: card border (1px) + card padding + half the
+ * 40px tile. It paints over the cards' fill and under the tiles (`relative bg-card`).
+ */
+export const ROUND_RAIL =
+  "relative before:pointer-events-none before:absolute before:inset-y-px before:left-[calc(1rem+20px)] before:w-px before:bg-line-3 sm:before:left-[calc(1.25rem+20px)]";
+
+/** The first tile hides the rail above it and the last one the rail below it (clipped by the card). */
+const RAIL_ENDS =
+  "group-first/round:before:absolute group-first/round:before:bottom-[calc(100%+1px)] group-first/round:before:left-1/2 group-first/round:before:h-screen group-first/round:before:w-[5px] group-first/round:before:-translate-x-1/2 group-first/round:before:bg-card group-last/round:after:absolute group-last/round:after:top-[calc(100%+1px)] group-last/round:after:left-1/2 group-last/round:after:h-screen group-last/round:after:w-[5px] group-last/round:after:-translate-x-1/2 group-last/round:after:bg-card";
+
 export interface RoundCardProps {
   round: ConsolidatedRound;
   index: number;
@@ -19,8 +33,9 @@ export interface RoundCardProps {
 }
 
 /**
- * One round of the suggested process: number tile, title, format/difficulty, topic chips and a
- * booking link. Deliberately no locked, cleared or scored state: gating isn't built.
+ * One round of the suggested process, as a node on the rounds timeline: `R01` tile, title,
+ * format/difficulty, topic chips and a booking link. Deliberately no locked, cleared or scored
+ * state: gating isn't built.
  */
 export function RoundCard({ round, index, jdId }: RoundCardProps) {
   const n = roundNumber(round, index);
@@ -32,12 +47,16 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
   const cta = mapped ? "Book this round" : "Book a round";
 
   return (
-    <li className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
+    <li className="hud-card group/round relative grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 overflow-hidden rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
+      <span aria-hidden className="hud-ticks" />
       <span
         aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-line-4 font-mono text-[13px] tabular-nums"
+        className={cn(
+          "relative flex h-10 w-10 items-center justify-center rounded-lg border border-line-4 bg-card font-mono text-[13px] tabular-nums",
+          RAIL_ENDS,
+        )}
       >
-        {String(n).padStart(2, "0")}
+        R{padCount(n)}
       </span>
 
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -49,7 +68,7 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
         {topics.length > 0 ? (
           <ul aria-label={`${title} topics`} className="m-0 mt-0.5 flex list-none flex-wrap gap-[5px] p-0">
             {topics.map((t) => (
-              <li key={t} className="rounded-full bg-panel px-2.5 py-[3px] text-[11.5px] text-muted-foreground">
+              <li key={t} className="rounded-full bg-panel px-2.5 py-[3px] font-mono text-[11px] text-muted-foreground">
                 {t}
               </li>
             ))}

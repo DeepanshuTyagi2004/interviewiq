@@ -9,6 +9,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { ResumeUpload } from "@/features/onboarding/components/ResumeUpload";
 import { joinDetail, sourceDate } from "./format";
 import { SourceRow, type SourceRowVariant } from "./SourceRow";
+import { sourceDotState } from "./sourceDotState";
 import { useResumeImport } from "./useResumeImport";
 import type { ProviderMeta } from "./providers";
 
@@ -27,7 +28,7 @@ export function ResumeRow({
   provider: ProviderMeta;
   variant?: SourceRowVariant;
 }) {
-  const { profile, hasProfile, importDraft } = useResumeImport();
+  const { profile, hasProfile, importDraft, saving } = useResumeImport();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelId = useId();
@@ -53,6 +54,8 @@ export function ResumeRow({
       name={provider.label}
       detail={detail}
       connected={hasProfile}
+      // Live only while the parsed resume is really being saved to the profile.
+      state={sourceDotState({ connected: hasProfile, syncing: saving, error: false })}
       pill={hasProfile ? <MonoPill tone="soft">Parsed</MonoPill> : null}
       actions={
         <Button

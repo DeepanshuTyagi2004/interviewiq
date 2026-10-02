@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { padCount } from "@/components/hud";
 
 export interface FaqItem {
   question: string;
@@ -44,7 +45,12 @@ export function FaqList({ items }: { items: FaqItem[] }) {
                 onClick={() => toggle(i)}
                 className="flex w-full items-center justify-between gap-4 bg-transparent px-4 py-4 text-left text-[15px] tracking-[-0.01em] text-foreground transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-5"
               >
-                {item.question}
+                <span className="flex min-w-0 items-baseline gap-3">
+                  <span aria-hidden className="flex-none font-mono text-[11px] tabular-nums text-faint">
+                    Q.{padCount(i + 1)}
+                  </span>
+                  <span className="min-w-0">{item.question}</span>
+                </span>
                 <Plus
                   aria-hidden
                   data-motion

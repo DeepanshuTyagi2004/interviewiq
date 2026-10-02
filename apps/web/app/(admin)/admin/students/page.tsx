@@ -1,4 +1,10 @@
+import { StubScreen } from "@/components/layout/StubScreen";
+
 export default function AdminStudentsPage() {
   // TODO: students list
-  return <main className="flex-1 p-8">Admin · Students</main>;
+  return (
+    <main className="flex-1">
+      <StubScreen title="Admin · Students" />
+    </main>
+  );
 }

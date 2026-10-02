@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { HudCard } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/lib/constants/shared";
@@ -137,16 +138,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
       </div>
 
       <div className="mt-5 flex flex-wrap items-start gap-3">
-        <section
-          aria-labelledby="debrief-round"
-          className="min-w-0 flex-[1_1_260px] overflow-hidden rounded-[14px] border border-line-2"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 text-sm sm:px-5">
-            <h2 id="debrief-round" className="m-0 text-sm font-normal">
-              This round
-            </h2>
-            <StatusPill status={session.status} />
-          </div>
+        <HudCard title="This round" action={<StatusPill status={session.status} />} className="flex-[1_1_260px]">
           <dl className="m-0">
             {(
               [
@@ -165,15 +157,14 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
               </div>
             ))}
           </dl>
-        </section>
+        </HudCard>
 
-        <section
-          aria-labelledby="debrief-contents"
-          className="flex min-w-0 flex-[2.2_1_440px] flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5"
+        {/* Not built yet: the debrief's shape on the HUD frame, on its panel fill. Never results. */}
+        <HudCard
+          title="What your debrief will contain"
+          className="flex-[2.2_1_440px]"
+          bodyClassName="bg-panel p-4 sm:p-5"
         >
-          <h2 id="debrief-contents" className="iq-eyebrow m-0 font-normal">
-            What your debrief will contain
-          </h2>
           <ul className="m-0 grid list-none grid-cols-1 gap-2.5 p-0 sm:grid-cols-2">
             {WILL_CONTAIN.map((item) => (
               <li key={item.eyebrow} className="iq-float flex flex-col gap-1.5 p-4">
@@ -183,7 +174,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
               </li>
             ))}
           </ul>
-        </section>
+        </HudCard>
       </div>
     </div>
   );

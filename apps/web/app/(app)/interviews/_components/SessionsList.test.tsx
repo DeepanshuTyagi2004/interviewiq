@@ -103,4 +103,20 @@ describe("SessionsList", () => {
     const retryButton = screen.getByRole("button", { name: /retry/i });
     expect(retryButton).toBeInTheDocument();
   });
+
+  it("shows each group's count padded for the eye and in words for screen readers", () => {
+    mockMySessions.mockReturnValue({
+      data: { sessions: [baseSession] },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<SessionsList />);
+
+    // Upcoming has one session, Past none.
+    expect(screen.getByText("01")).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("1 session")).toHaveClass("sr-only");
+    expect(screen.getByText("00")).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("0 sessions")).toHaveClass("sr-only");
+  });
 });

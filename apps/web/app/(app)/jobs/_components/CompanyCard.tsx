@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
-import { MonoPill } from "@/components/patterns";
+import { HudCard, StatusDot } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
@@ -51,17 +51,20 @@ function CardAction({ entry, onShowRoles }: CompanyCardProps) {
   );
 }
 
-/** One company in the library grid: tile, name, role count, status pill, data depth and action. */
+/** One company in the library grid: tile, name, role count, status dot, data depth and action. */
 export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
   const headingId = `company-${entry.slug}`;
   const researched = researchedLine(entry);
   return (
-    <article
+    <HudCard
+      as="article"
       aria-labelledby={headingId}
+      active={entry.live}
       className={cn(
-        "flex min-h-[200px] min-w-0 flex-col gap-3.5 rounded-[14px] border bg-card p-5 transition-shadow duration-300 ease-iq hover:shadow-lift",
+        "rounded-[14px] border transition-shadow duration-300 ease-iq hover:shadow-lift",
         entry.live ? "border-line-4" : "border-line-2",
       )}
+      bodyClassName="flex min-h-[200px] flex-col gap-3.5 p-5"
     >
       <div className="flex items-center gap-3">
         <CompanyTile name={entry.name} live={entry.live} />
@@ -71,11 +74,11 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
           </h2>
           <p className="m-0 text-xs text-faint">{rolesLine(entry)}</p>
         </div>
-        {entry.live ? (
-          <MonoPill tone="brand">Live</MonoPill>
-        ) : (
-          <MonoPill className="bg-panel text-faint">Researching</MonoPill>
-        )}
+        <StatusDot
+          state={entry.live ? "active" : "idle"}
+          label={entry.live ? "Live" : "Researching"}
+          className={cn("flex-none", !entry.live && "text-faint")}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -84,6 +87,6 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
       </div>
 
       <CardAction entry={entry} onShowRoles={onShowRoles} />
-    </article>
+    </HudCard>
   );
 }

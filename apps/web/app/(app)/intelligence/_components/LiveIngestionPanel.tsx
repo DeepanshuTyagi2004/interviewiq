@@ -5,8 +5,9 @@ import { ListChecks, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot, padCount } from "@/components/hud";
 import { StatRow, StatTile } from "@/components/patterns";
-import { CardEmpty, ConsoleCard, HeaderCount, LookPill } from "@/components/observability/ConsoleCard";
+import { CardEmpty, ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
 import {
   useBriefs,
   useClearBriefs,
@@ -20,7 +21,7 @@ import { ApiFetchError } from "@/lib/api-client/client";
 import { LogStream } from "./LogStream";
 import { ComboDetailCard } from "./ComboDetailCard";
 import { GeneratedBriefCard } from "./GeneratedBriefCard";
-import { RUN_STATUS_PILL } from "./pills";
+import { RUN_STATUS_DOT } from "./pills";
 
 export function LiveIngestionPanel() {
   const { data, isLoading } = useScrapeStatus();
@@ -70,16 +71,12 @@ export function LiveIngestionPanel() {
       {/* status + run controls */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
-          <LookPill look={RUN_STATUS_PILL[status]} className="gap-1.5">
-            {running ? (
-              <span
-                aria-hidden
-                data-motion
-                className="h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand-foreground"
-              />
-            ) : null}
-            {status}
-          </LookPill>
+          {/* Pulses only while a run is really in flight. */}
+          <StatusDot
+            state={RUN_STATUS_DOT[status] ?? "idle"}
+            label={status}
+            className={status === "failed" ? "text-destructive" : running ? "text-foreground" : "text-muted-foreground"}
+          />
           {data?.stage ? (
             <span className="text-muted-foreground">
               stage <span className="font-mono text-foreground">{data.stage}</span>
@@ -162,7 +159,7 @@ export function LiveIngestionPanel() {
         {showGenerated ? (
           <ConsoleCard
             title="Generated briefs"
-            meta={<HeaderCount>{generated.length} {generated.length === 1 ? "brief" : "briefs"}</HeaderCount>}
+            meta={<HeaderCount>{padCount(generated.length)} {generated.length === 1 ? "brief" : "briefs"}</HeaderCount>}
           >
             {briefsQuery.isLoading ? (
               <div className="space-y-2 p-4 sm:px-5" aria-busy="true" aria-label="Loading already-generated briefs">
@@ -191,7 +188,7 @@ export function LiveIngestionPanel() {
         ) : (
           <ConsoleCard
             title="Combinations"
-            meta={<HeaderCount>{combos.length} in this run</HeaderCount>}
+            meta={<HeaderCount>{padCount(combos.length)} in this run</HeaderCount>}
           >
             <ul className="m-0 list-none divide-y divide-line p-0">
               {combos.map((c) => (
@@ -206,7 +203,7 @@ export function LiveIngestionPanel() {
         <LogStream
           logs={data?.logs ?? []}
           meta={isLoading ? "Connecting…" : undefined}
-          className="h-96 xl:sticky xl:top-[68px] xl:h-[min(34rem,calc(100vh-15rem))]"
+          className="h-96 xl:sticky xl:top-[68px] xl:h-[min(34rem,calc(100vh/var(--hud-zoom,1)-15rem))]"
         />
       </div>
     </div>

@@ -51,6 +51,8 @@ describe("round display", () => {
     expect(roundTitle({ type: "lld" }, 0)).toBe("Low-Level Design");
     expect(roundTitle({ type: "online-assessment" }, 0)).toBe("Online Assessment");
     expect(roundTitle({ type: "bar_raiser" }, 0)).toBe("Bar raiser");
+    expect(roundTitle({ type: "hr" }, 0)).toBe("HR");
+    expect(roundTitle({ type: "hr_screen" }, 0)).toBe("HR screen");
     expect(roundTitle({ round_number: 3 }, 0)).toBe("Round 3");
     expect(roundTitle({}, 1)).toBe("Round 2");
     expect(isOnlineAssessment("OA")).toBe(true);

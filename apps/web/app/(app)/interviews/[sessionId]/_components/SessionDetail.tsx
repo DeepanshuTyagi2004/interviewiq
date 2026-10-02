@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { HudCard, StatusDot, padCount, type DotState } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
@@ -46,30 +47,21 @@ function statusLine(session: InterviewSession): string {
   }
 }
 
-function StepMark({ step, index }: { step: SessionStep; index: number }) {
-  const pending = step.state === "current" && step.key === "prep";
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex h-[30px] w-[30px] flex-none items-center justify-center rounded-md border font-mono text-[11px]",
-        step.state === "done" && "border-foreground bg-primary text-primary-foreground",
-        step.state === "current" && "border-faint-2 text-foreground",
-        step.state === "upcoming" && "border-line-3 text-faint",
-        step.state === "failed" && "border-destructive/40 bg-destructive/10 text-destructive",
-      )}
-    >
-      {step.state === "done" ? (
-        <Check className="h-3.5 w-3.5" />
-      ) : step.state === "failed" ? (
-        <X className="h-3.5 w-3.5" />
-      ) : pending ? (
-        <Loader2 data-motion className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        String(index + 1).padStart(2, "0")
-      )}
-    </span>
-  );
+/**
+ * The step's dot on the rail. Done = solid ink, upcoming = idle, failed = error. The current step
+ * is the brand dot, and it pulses only while that step is really running (prep in flight, or the
+ * round live); a current step that's just waiting (ready to join, debrief) stays steady.
+ */
+function StepDot({ step, status }: { step: SessionStep; status: InterviewSession["status"] }) {
+  if (step.state === "done") {
+    return <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-foreground" />;
+  }
+  const running =
+    step.state === "current" &&
+    (step.key === "prep" || (step.key === "interview" && status === "LIVE_IN_PROGRESS"));
+  const state: DotState =
+    step.state === "failed" ? "error" : step.state === "upcoming" ? "idle" : running ? "live" : "active";
+  return <StatusDot state={state} />;
 }
 
 const STATE_TEXT: Record<SessionStep["state"], string> = {
@@ -79,7 +71,10 @@ const STATE_TEXT: Record<SessionStep["state"], string> = {
   failed: "Needs attention",
 };
 
-/** The lifecycle as the design's round rows: a mark, the step, and a short note. */
+/**
+ * The lifecycle as a vertical step timeline: a dot per step on a 1px rail, the step with its mono
+ * index, and a short note. The rail is drawn per step, from this dot down to the next one.
+ */
 function Progress({ session }: { session: InterviewSession }) {
   const steps = sessionSteps(session.status);
   return (
@@ -87,18 +82,25 @@ function Progress({ session }: { session: InterviewSession }) {
       <h2 id="session-progress" className="iq-eyebrow m-0 font-normal">
         Progress
       </h2>
-      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+      <ol className="iq-float m-0 flex list-none flex-col px-4 py-1.5">
         {steps.map((step, i) => (
-          <li
-            key={step.key}
-            className={cn(
-              "iq-float flex items-center gap-3.5 px-4 py-3.5",
-              step.state === "current" && "ring-1 ring-line-4",
-            )}
-          >
-            <StepMark step={step} index={i} />
+          <li key={step.key} className="relative flex items-start gap-3.5 py-3">
+            {i < steps.length - 1 ? (
+              <span aria-hidden data-rail className="absolute left-[5px] top-[23px] h-full w-px bg-line-3" />
+            ) : null}
+            <span className="relative flex h-[22px] w-[11px] flex-none items-center justify-center">
+              <StepDot step={step} status={session.status} />
+            </span>
             <div className="min-w-0 flex-1">
-              <p className={cn("m-0 text-[14.5px]", step.state === "upcoming" ? "text-faint" : "text-foreground")}>
+              <p
+                className={cn(
+                  "m-0 flex items-baseline gap-2 text-[14.5px] leading-[22px]",
+                  step.state === "upcoming" ? "text-faint" : "text-foreground",
+                )}
+              >
+                <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint">
+                  {padCount(i + 1)}
+                </span>
                 {step.label}
               </p>
               <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">
@@ -140,12 +142,7 @@ function Details({ session }: { session: InterviewSession }) {
   ];
 
   return (
-    <section aria-labelledby="session-details" className="min-w-0 overflow-hidden rounded-[14px] border border-line-2">
-      <div className="border-b border-line px-4 py-4 text-sm sm:px-5">
-        <h2 id="session-details" className="m-0 text-sm font-normal">
-          Details
-        </h2>
-      </div>
+    <HudCard title="Details">
       <dl className="m-0">
         {rows.map(([label, value]) => (
           <div
@@ -157,7 +154,7 @@ function Details({ session }: { session: InterviewSession }) {
           </div>
         ))}
       </dl>
-    </section>
+    </HudCard>
   );
 }
 

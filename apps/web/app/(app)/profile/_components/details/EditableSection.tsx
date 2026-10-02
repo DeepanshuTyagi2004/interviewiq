@@ -6,6 +6,7 @@ import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonoPill } from "@/components/patterns";
+import { HudEmpty, padCount } from "@/components/hud";
 import { ProfileCard } from "../ProfileCard";
 import { SECTION_LABEL, useDetails, type SectionKey } from "./DetailsProvider";
 
@@ -45,15 +46,28 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
     wasEditing.current = isEditing;
   }, [isEditing, editing]);
 
+  // Header counts read as a zero-padded mono readout ("02"); screen readers hear "2 entries".
   const meta = isEditing ? (
     <MonoPill tone="brand">Editing</MonoPill>
   ) : count ? (
-    <span aria-label={`${count} ${count === 1 ? "entry" : "entries"}`}>{count}</span>
+    <>
+      <span aria-hidden>{padCount(count)}</span>
+      <span className="sr-only">{`${count} ${count === 1 ? "entry" : "entries"}`}</span>
+    </>
   ) : undefined;
 
+  // -my-1 keeps the 32px button inside the header's 48px row, so the header doesn't grow with it
+  // (or jump when Edit gives way to the "Editing" pill).
   const action =
     isEditing || isLoading || isEmpty ? undefined : (
-      <Button ref={editRef} variant="outline" size="sm" onClick={() => open(section)} aria-label={`Edit ${label.toLowerCase()}`}>
+      <Button
+        ref={editRef}
+        variant="outline"
+        size="sm"
+        className="-my-1"
+        onClick={() => open(section)}
+        aria-label={`Edit ${label.toLowerCase()}`}
+      >
         <Pencil aria-hidden /> Edit
       </Button>
     );
@@ -95,19 +109,17 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
     );
   } else if (isEmpty) {
     body = (
-      <div className="flex items-center gap-4 px-4 py-4 sm:px-5">
-        <p className="m-0 min-w-0 flex-1 text-[13px] leading-[1.5] text-muted-foreground">{emptyHint}</p>
+      <HudEmpty title={emptyHint}>
         <Button
           ref={editRef}
           variant="outline"
           size="sm"
-          className="flex-none"
           onClick={() => open(section, { seed: true })}
           aria-label={`Add ${label.toLowerCase()}`}
         >
           <Plus aria-hidden /> Add
         </Button>
-      </div>
+      </HudEmpty>
     );
   } else {
     body = children;
