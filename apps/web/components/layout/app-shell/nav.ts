@@ -26,7 +26,7 @@ export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard, keywords: ["home"] },
   { label: "Companies", href: ROUTES.jobs, icon: Building2, keywords: ["jobs", "roles", "roadmap"] },
   { label: "Interviews", href: ROUTES.interviews, icon: Mic, keywords: ["room", "schedule", "book", "debrief"] },
-  { label: "Profile", href: ROUTES.profile, icon: UserRound, keywords: ["résumé", "resume", "skills"] },
+  { label: "Profile", href: ROUTES.profile, icon: UserRound, keywords: ["resume", "skills"] },
   { label: "Connections", href: ROUTES.connections, icon: Link2, keywords: ["github", "leetcode", "sources"] },
   { label: "Share experience", href: ROUTES.shareExperience, icon: Send, keywords: ["experience", "contribute"] },
   { label: "Help", href: ROUTES.help, icon: LifeBuoy, keywords: ["support", "faq"] },

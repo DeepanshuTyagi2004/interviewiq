@@ -25,6 +25,8 @@ export interface CandidateProfileDoc {
   location: string | null;
   headline: string | null;
   targetRole: string | null;
+  /** Absent on documents written before the Target step stored an id. */
+  targetJdId?: string | null;
   education: EducationDto[];
   experience: ExperienceDto[];
   projects: ProjectDto[];

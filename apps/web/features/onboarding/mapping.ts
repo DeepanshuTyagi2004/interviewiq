@@ -15,6 +15,7 @@ export function responseToForm(r: CandidateProfileResponse): CandidateFormValues
     location: r.location ?? "",
     headline: r.headline ?? "",
     targetRole: r.targetRole ?? "",
+    targetJdId: r.targetJdId ?? "",
     education: (r.education ?? []).map((e) => ({
       institution: e.institution ?? "",
       degree: e.degree ?? "",
@@ -112,6 +113,7 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
     location: trimToNull(v.location),
     headline: trimToNull(v.headline),
     targetRole: trimToNull(v.targetRole),
+    targetJdId: trimToNull(v.targetJdId),
     education,
     experience,
     projects,

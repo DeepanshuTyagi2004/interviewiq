@@ -12,7 +12,7 @@ const FILE_INPUT_CLASS =
   "block w-full min-w-0 rounded-md text-[13px] text-muted-foreground file:mr-3 file:h-8 file:cursor-pointer file:rounded-md file:border file:border-solid file:border-line-3 file:bg-card file:px-3 file:text-[13px] file:text-foreground file:transition-colors hover:file:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 /**
- * Admin test-bench for the résumé-parse pipeline: upload a PDF, start an instrumented run, and
+ * Admin test-bench for the resume-parse pipeline: upload a PDF, start an instrumented run, and
  * watch every step (extract → prompt → LLM response → validate → final draft) with live logs.
  */
 export function ResumeBenchPanel() {
@@ -31,7 +31,7 @@ export function ResumeBenchPanel() {
     <div className="space-y-4">
       <ConsoleCard title="Run a parse">
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
-          <FormField label="Résumé (PDF)" htmlFor={inputId} className="min-w-0 sm:max-w-sm sm:flex-1">
+          <FormField label="Resume (PDF)" htmlFor={inputId} className="min-w-0 sm:max-w-sm sm:flex-1">
             <input
               id={inputId}
               type="file"
@@ -58,7 +58,7 @@ export function ResumeBenchPanel() {
       ) : (
         <EmptyState
           title="No run yet"
-          hint="Upload a PDF résumé and hit “Run parse” to watch the pipeline execute step by step."
+          hint="Upload a PDF resume and hit “Run parse” to watch the pipeline execute step by step."
         />
       )}
     </div>

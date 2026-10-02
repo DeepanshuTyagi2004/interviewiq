@@ -8,7 +8,7 @@ function joinParts(parts: (string | undefined)[]): string {
   return parts.map((p) => p?.trim()).filter(Boolean).join(" · ");
 }
 
-/** What the résumé parse found, as the design's key/value table with a FOUND tag per row. */
+/** What the resume parse found, as the design's key/value table with a FOUND tag per row. */
 export function ParsedSummary({ control }: { control: Control<CandidateFormValues> }) {
   const [fullName, education, experience, projects, skillsText] = useWatch({
     control,

@@ -28,7 +28,7 @@ function useStartFree() {
   };
 }
 
-/** Hero sign-up block: email + "Start for free", then Google / résumé alternatives. */
+/** Hero sign-up block: email + "Start for free", then Google / resume alternatives. */
 export function HeroSignup() {
   const { login } = useAuth();
   const onSubmit = useStartFree();
@@ -54,11 +54,11 @@ export function HeroSignup() {
       </form>
       <p className="m-0 text-xs text-faint">or</p>
       <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-        <button type="button" onClick={login} className={lineButton}>
+        <button type="button" onClick={() => login()} className={lineButton}>
           Sign up with Google
         </button>
         <Link href={ROUTES.signup} className={lineButton}>
-          Start with your résumé
+          Start with your resume
         </Link>
       </div>
       <p className="m-0 text-[11.5px] text-faint">

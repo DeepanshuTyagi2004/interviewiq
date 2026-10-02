@@ -68,25 +68,25 @@ export function requiredBody(req: Request): unknown {
   return req.body;
 }
 
-// --- résumé uploads ------------------------------------------------------------------------------
+// --- resume uploads ------------------------------------------------------------------------------
 
-/** Authoritative résumé cap. The multipart limit below is a slightly higher backstop. */
+/** Authoritative resume cap. The multipart limit below is a slightly higher backstop. */
 export const MAX_RESUME_BYTES = 6 * 1024 * 1024;
 
 export const resumeUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024, files: 1 },
-  defParamCharset: "utf8", // non-ASCII filenames like "résumé.pdf"
+  defParamCharset: "utf8", // non-ASCII filenames like "resume.pdf"
 }).single("file");
 
-/** Shared résumé validation (present / size / looks like a PDF). Returns the bytes + filename. */
+/** Shared resume validation (present / size / looks like a PDF). Returns the bytes + filename. */
 export function readResume(req: Request): { bytes: Buffer; filename: string | null } {
   const file = req.file;
-  if (!file || file.size === 0) throw new InvalidArgumentError("the résumé file is empty");
+  if (!file || file.size === 0) throw new InvalidArgumentError("the resume file is empty");
   if (file.size > MAX_RESUME_BYTES) throw resumeTooLarge();
   const filename = file.originalname || null;
   const looksPdf = (file.mimetype ?? "").toLowerCase().includes("pdf") || (filename ?? "").toLowerCase().endsWith(".pdf");
-  if (!looksPdf) throw new InvalidArgumentError("please upload a PDF résumé");
+  if (!looksPdf) throw new InvalidArgumentError("please upload a PDF resume");
   return { bytes: file.buffer, filename };
 }
 

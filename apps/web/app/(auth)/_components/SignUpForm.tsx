@@ -53,7 +53,7 @@ export function SignUpForm() {
       <AuthHeading
         eyebrow="Create account"
         title="Start rehearsing the real interview"
-        description="Free to start. One click, then your résumé."
+        description="Free to start. One click, then your resume."
       />
       <div className="mt-2">
         <GoogleButton />

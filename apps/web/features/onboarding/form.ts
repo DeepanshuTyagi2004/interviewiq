@@ -6,7 +6,7 @@ import { z } from "zod";
 
 /**
  * Form-side shape of the candidate profile. It deliberately differs from the API DTOs in two
- * spots for editing ergonomics: résumé bullets are edited as a single multiline string
+ * spots for editing ergonomics: resume bullets are edited as a single multiline string
  * (`bulletsText`, one per line) and skills as one comma-separated string (`skillsText`). The
  * mapping module converts to/from the API's arrays. All fields are plain strings (never null) so
  * inputs stay controlled; the mapping trims empties back to null on save.
@@ -49,6 +49,7 @@ export const candidateFormSchema = z.object({
   location: z.string(),
   headline: z.string(),
   targetRole: z.string(),
+  targetJdId: z.string(), // "" = no target picked
   education: z.array(educationRowSchema),
   experience: z.array(experienceRowSchema),
   projects: z.array(projectRowSchema),
@@ -100,6 +101,7 @@ export const emptyCandidateForm: CandidateFormValues = {
   location: "",
   headline: "",
   targetRole: "",
+  targetJdId: "",
   education: [],
   experience: [],
   projects: [],

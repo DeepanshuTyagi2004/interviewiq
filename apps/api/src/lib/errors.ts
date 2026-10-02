@@ -1,7 +1,7 @@
 /**
  * Error types. Routers map these onto the stable `{ code, message }` ApiError envelope the
  * frontend keys on — per router, the same way the Spring controllers each had their own
- * `@ExceptionHandler`s (e.g. a bad request is `resume_bad_request` on the résumé endpoints but
+ * `@ExceptionHandler`s (e.g. a bad request is `resume_bad_request` on the resume endpoints but
  * `session_bad_request` on the interview endpoints).
  */
 
@@ -46,8 +46,8 @@ export class BadRequestError extends ApiError {
   }
 }
 
-/** Uploaded résumé over the 6 MB cap. */
-export const resumeTooLarge = () => new ApiError(413, "resume_too_large", "The résumé must be 6 MB or smaller.");
+/** Uploaded resume over the 6 MB cap. */
+export const resumeTooLarge = () => new ApiError(413, "resume_too_large", "The resume must be 6 MB or smaller.");
 
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

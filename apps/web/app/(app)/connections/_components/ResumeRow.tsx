@@ -13,7 +13,7 @@ import { useResumeImport } from "./useResumeImport";
 import type { ProviderMeta } from "./providers";
 
 /**
- * Résumé "connection": upload a PDF → parse it (async fire-and-poll, so a slow model can't time
+ * Resume "connection": upload a PDF → parse it (async fire-and-poll, so a slow model can't time
  * out) → save the result to the candidate profile. Unlike GitHub/LeetCode this isn't an OAuth/paste
  * link — it's a one-shot import that populates the profile, which the user can then edit on Profile.
  *
@@ -72,7 +72,7 @@ export function ResumeRow({
         <div className="space-y-3">
           <ResumeUpload
             compact
-            successMessage="Résumé saved to your profile — review or edit it on your Profile page."
+            successMessage="Resume saved to your profile — review or edit it on your Profile page."
             onParsed={importDraft}
           />
           {hasProfile ? (

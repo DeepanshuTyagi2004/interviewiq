@@ -26,7 +26,7 @@ export default async function InterviewsPage({
             Mock interviews
           </h1>
           <p className="m-0 mt-2 max-w-[620px] text-[15px] leading-[1.5] text-muted-foreground">
-            Book a round and we prepare an interviewer from your own résumé and the company&apos;s real
+            Book a round and we prepare an interviewer from your own resume and the company&apos;s real
             process. Join from here when it&apos;s ready.
           </p>
         </div>

@@ -5,7 +5,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { SourceList } from "@/app/(app)/connections/_components/SourceList";
 import { ProfileCard } from "./ProfileCard";
 
-/** The résumé has its own file row on the left, so this card lists the account sources. */
+/** The resume has its own file row on the left, so this card lists the account sources. */
 const SOURCES = ["GITHUB", "LEETCODE", "LINKEDIN", "X"] as const;
 
 /** "Connected sources": the same live rows as the Connections page, inside one card. */

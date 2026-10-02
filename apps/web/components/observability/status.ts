@@ -26,7 +26,7 @@ export const DASHED_PILL: PillLook = {
 /** Faint text, no chrome: quiet metadata (a source name, a detected level). */
 export const GHOST_PILL: PillLook = { tone: "ghost" };
 
-/** One pipeline step's status pill (résumé / prep run timelines and the agent decision trail). */
+/** One pipeline step's status pill (resume / prep run timelines and the agent decision trail). */
 export const STEP_PILL: Record<RunStepStatus, PillLook & { label: string }> = {
   pending: { label: "Pending", ...OUTLINE_PILL },
   running: { label: "Running", tone: "brand" },

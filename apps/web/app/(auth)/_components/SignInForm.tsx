@@ -49,7 +49,7 @@ export function SignInForm() {
     <>
       <AuthHeading eyebrow="Log in" title="Welcome back" description="Pick up where you left off." />
       <div className="mt-2">
-        <GoogleButton />
+        <GoogleButton next={next} />
       </div>
       <OrDivider />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-[18px]">

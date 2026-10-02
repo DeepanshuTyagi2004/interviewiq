@@ -15,7 +15,7 @@ const TABS = [
   { value: "companies", label: "Companies & JDs", Panel: CompaniesPanel },
   { value: "access", label: "Access", Panel: AccessControlPanel },
   { value: "questions", label: "Question bank", Panel: QuestionBankPanel },
-  { value: "resume", label: "Résumé bench", Panel: ResumeBenchPanel },
+  { value: "resume", label: "Resume bench", Panel: ResumeBenchPanel },
   { value: "prep", label: "Interview prep", Panel: InterviewPrepBenchPanel },
   { value: "agent", label: "Agent diagnostics", Panel: AgentDiagnosticsPanel },
 ] as const;
@@ -30,7 +30,7 @@ export default function IntelligencePage() {
             Interview Intelligence
           </h1>
           <p className="m-0 mt-2 max-w-2xl text-[15px] leading-[1.5] text-muted-foreground">
-            Trigger and monitor the interview-experience ingestion pipeline, test the résumé, prep and
+            Trigger and monitor the interview-experience ingestion pipeline, test the resume, prep and
             agent pipelines, and manage who has admin access.
           </p>
         </div>

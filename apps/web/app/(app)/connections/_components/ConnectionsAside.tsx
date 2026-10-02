@@ -8,7 +8,7 @@ import { useResumeImport } from "./useResumeImport";
 const NOTES = [
   {
     title: "Optional, always",
-    body: "A résumé is enough to start. Connected sources just give the interviewer more of your own work to ask about.",
+    body: "A resume is enough to start. Connected sources just give the interviewer more of your own work to ask about.",
   },
   {
     title: "Public data only",
@@ -26,7 +26,7 @@ export function ConnectionsAside() {
   const { hasProfile } = useResumeImport();
 
   const live = PROVIDERS.filter((p) => p.live);
-  // The résumé's "connection" is the saved candidate profile; the others come from /profile/me.
+  // The resume's "connection" is the saved candidate profile; the others come from /profile/me.
   const connected = live.filter((p) =>
     p.source === "RESUME" ? hasProfile : Boolean(data?.sources.some((s) => s.source === p.source && s.connected)),
   ).length;

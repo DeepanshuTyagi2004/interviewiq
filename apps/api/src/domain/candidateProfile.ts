@@ -8,7 +8,7 @@ import { isObject, items } from "../lib/json.js";
  * stable regardless of what extra or missing keys a client sends.
  */
 
-/** Years are verbatim strings from the résumé ("2021", "2021-2025", or null). */
+/** Years are verbatim strings from the resume ("2021", "2021-2025", or null). */
 export interface EducationDto {
   institution: string | null;
   degree: string | null;
@@ -27,7 +27,7 @@ export interface ExperienceDto {
   bullets: string[] | null;
 }
 
-/** A résumé project (personal/academic/side) — distinct from work experience. */
+/** A resume project (personal/academic/side) — distinct from work experience. */
 export interface ProjectDto {
   name: string | null;
   description: string | null;
@@ -36,7 +36,7 @@ export interface ProjectDto {
   link: string | null;
 }
 
-/** Profile URLs detected in the résumé — prefill the connectors step. */
+/** Profile URLs detected in the resume — prefill the connectors step. */
 export interface ResumeLinksDto {
   github: string | null;
   leetcode: string | null;
@@ -50,6 +50,8 @@ export interface CandidateProfileResponse {
   location: string | null;
   headline: string | null;
   targetRole: string | null;
+  /** The JD picked on onboarding's Target step (its label is `targetRole`). */
+  targetJdId: string | null;
   education: EducationDto[];
   experience: ExperienceDto[];
   projects: ProjectDto[];
@@ -137,6 +139,7 @@ export function draftFromParsedResume(parsed: unknown, filename: string | null):
     location: str(p.location),
     headline: str(p.headline),
     targetRole: null,
+    targetJdId: null,
     education: items(p.education).map((e) => {
       const o = isObject(e) ? e : {};
       return {

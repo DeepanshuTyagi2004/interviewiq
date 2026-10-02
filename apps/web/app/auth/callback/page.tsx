@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { consumeNext, safeNextPath } from "@/lib/auth/next";
 import { ROUTES } from "@/lib/constants/shared";
 
 /**
@@ -26,8 +27,8 @@ function AuthCallbackInner() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      const next = params.get("next");
-      router.replace(next && next.startsWith("/") ? next : ROUTES.dashboard);
+      // `?next` (rare) or the destination remembered before leaving for Google — same-origin only.
+      router.replace(safeNextPath(params.get("next") ?? consumeNext()));
     } else if (status === "unauthenticated") {
       router.replace(`${ROUTES.login}?error=oauth`);
     }

@@ -6,7 +6,7 @@ import type {
   ResumeParseRunResponse,
 } from "./types";
 
-/** POST the résumé PDF (multipart) → unsaved draft profile. Synchronous (blocks on the LLM). */
+/** POST the resume PDF (multipart) → unsaved draft profile. Synchronous (blocks on the LLM). */
 export function parseResume(file: File): Promise<CandidateProfileResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -16,7 +16,7 @@ export function parseResume(file: File): Promise<CandidateProfileResponse> {
   });
 }
 
-/** POST the résumé PDF (multipart) → {run_id} — starts an async parse (fire-and-poll). */
+/** POST the resume PDF (multipart) → {run_id} — starts an async parse (fire-and-poll). */
 export function startResumeParse(file: File): Promise<{ run_id: string; status: string }> {
   const form = new FormData();
   form.append("file", file);

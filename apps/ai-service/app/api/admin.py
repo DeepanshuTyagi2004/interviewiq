@@ -130,7 +130,7 @@ async def clear_briefs() -> dict:
 
 @router.post("/resume/parse/run")
 async def start_resume_parse_run(
-    request: Request, filename: str = Query("résumé.pdf")
+    request: Request, filename: str = Query("resume.pdf")
 ) -> dict:
     """Start an instrumented résumé-parse run. Body is the raw PDF (Content-Type: application/pdf),
     same contract as /resumes/parse. Returns the run_id to poll."""
@@ -138,7 +138,7 @@ async def start_resume_parse_run(
     if not pdf_bytes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="empty file")
     if len(pdf_bytes) > _MAX_RESUME_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="résumé exceeds 6 MB")
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="resume exceeds 6 MB")
     settings = get_settings()
     run_id = start_resume_run(filename, len(pdf_bytes))
     asyncio.create_task(run_resume_parse(pdf_bytes, filename, run_id, settings))

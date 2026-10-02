@@ -9,7 +9,7 @@ import { FakeFetch, json, status, text } from "../support/fakeFetch.js";
 
 /**
  * Ported from integrations/aiservice/AiServiceClientBodyIT.java — regression guard for the "empty
- * file" résumé-parse bug: the PDF bytes must reach the ai-service intact, as application/pdf, with
+ * file" resume-parse bug: the PDF bytes must reach the ai-service intact, as application/pdf, with
  * the internal key, and without an h2c upgrade (which made uvicorn drop the body). Plus request-shape
  * checks for the other body-carrying calls.
  */
@@ -58,6 +58,7 @@ describe("AiServiceClient request shape (FakeFetch)", () => {
 
   it("startResumeParseRun sends the same PDF body contract with an encoded filename", async () => {
     fake.on("POST", `${BASE}/admin/resume/parse/run`, { run_id: "r1", status: "running" });
+    // Non-ASCII filename on purpose: checks the query-string encoding.
     await expect(client.startResumeParseRun(pdfBytes, "my résumé.pdf")).resolves.toEqual({ run_id: "r1", status: "running" });
     const call = fake.calls[0]!;
     expect(call.url).toBe(`${BASE}/admin/resume/parse/run?filename=my%20r%C3%A9sum%C3%A9.pdf`);

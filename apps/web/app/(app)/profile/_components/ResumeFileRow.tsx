@@ -7,8 +7,8 @@ import { sourceDate } from "@/app/(app)/connections/_components/format";
 import { useResumeImport } from "@/app/(app)/connections/_components/useResumeImport";
 
 /**
- * The design's résumé file row: file name, when it was parsed, and Replace. Replacing runs the same
- * import as the Résumé source on Connections (parse, then save to the profile). The upload zone
+ * The design's resume file row: file name, when it was parsed, and Replace. Replacing runs the same
+ * import as the Resume source on Connections (parse, then save to the profile). The upload zone
  * stays mounted once opened so a parse that's still running finishes and saves.
  */
 export function ResumeFileRow() {
@@ -21,7 +21,7 @@ export function ResumeFileRow() {
   const filename = profile?.resumeFilename;
 
   return (
-    <section aria-label="Résumé" className="rounded-[10px] border border-line-2 bg-card px-5 py-[18px]">
+    <section aria-label="Resume" className="rounded-[10px] border border-line-2 bg-card px-5 py-[18px]">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
         <span
           aria-hidden
@@ -30,7 +30,7 @@ export function ResumeFileRow() {
           PDF
         </span>
         <div className="min-w-[7rem] flex-1">
-          <p className="m-0 truncate text-sm">{filename ?? (hasProfile ? "Résumé details added" : "No résumé yet")}</p>
+          <p className="m-0 truncate text-sm">{filename ?? (hasProfile ? "Resume details added" : "No resume yet")}</p>
           <p className="m-0 mt-0.5 text-xs text-faint">
             {filename ? (parsed ? `Parsed ${parsed}` : "Parsed") : "Upload a PDF and we’ll fill in your details"}
           </p>
@@ -54,11 +54,11 @@ export function ResumeFileRow() {
         <div id={panelId} hidden={!open} className="mt-4 space-y-2">
           <ResumeUpload
             compact
-            successMessage="Résumé saved to your profile. Your details below are up to date."
+            successMessage="Resume saved to your profile. Your details below are up to date."
             onParsed={importDraft}
           />
           <p className="m-0 text-xs leading-[1.5] text-faint">
-            A new résumé replaces the details on your profile with what we read from it. You can edit them afterwards.
+            A new resume replaces the details on your profile with what we read from it. You can edit them afterwards.
           </p>
         </div>
       ) : null}

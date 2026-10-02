@@ -4,7 +4,7 @@ import { bearer, createUser, createTestEnv, TEST_INTERNAL_KEY, type TestEnv } fr
 import { AI, aiCalls, PDF_BYTES, sentBytes } from "./helpers.js";
 
 /**
- * Port of CandidateProfileControllerTest (onboarding résumé parse + candidate-profile read/upsert
+ * Port of CandidateProfileControllerTest (onboarding resume parse + candidate-profile read/upsert
  * under /api/v1/users/me). Drives the real service + Mongo; only the AI service is stubbed.
  */
 
@@ -17,7 +17,7 @@ beforeEach(() => env.fetch.reset());
 
 const PARSE = "/api/v1/users/me/resume/parse";
 const PROFILE = "/api/v1/users/me/candidate-profile";
-const UNAVAILABLE = "Résumé parsing is temporarily unavailable. Please try again or enter your details manually.";
+const UNAVAILABLE = "Resume parsing is temporarily unavailable. Please try again or enter your details manually.";
 
 /** What the AI service's /resumes/parse returns (snake_case). */
 const PARSED = {
@@ -51,6 +51,7 @@ const DRAFT = {
   location: "Delhi",
   headline: "Aspiring SDE",
   targetRole: null,
+  targetJdId: null,
   education: [{ institution: "IIT", degree: "B.Tech", field: "CS", startYear: "2021", endYear: "2025", grade: "8.9" }],
   experience: [{ company: "Acme", title: "Intern", startDate: "2024", endDate: "2024", location: "Remote", bullets: ["Built X"] }],
   projects: [
@@ -156,7 +157,7 @@ describe("POST /users/me/resume/parse (synchronous parse)", () => {
       .set("Authorization", await auth())
       .attach("file", Buffer.alloc(6 * 1024 * 1024 + 1), { filename: "big.pdf", contentType: "application/pdf" });
     expect(res.status).toBe(413);
-    expect(res.body).toEqual({ code: "resume_too_large", message: "The résumé must be 6 MB or smaller." });
+    expect(res.body).toEqual({ code: "resume_too_large", message: "The resume must be 6 MB or smaller." });
     expect(aiCalls(env)).toHaveLength(0);
   });
 
@@ -219,11 +220,11 @@ describe("POST /users/me/resume/parse/start + GET /resume/parse/runs/:runId (fir
     const res = await env.http
       .post(`${PARSE}/start`)
       .set("Authorization", await auth())
-      .attach("file", PDF_BYTES, { filename: "résumé 2025.pdf", contentType: "application/pdf" });
+      .attach("file", PDF_BYTES, { filename: "resume 2025.pdf", contentType: "application/pdf" });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ run_id: "run-1", status: "running" });
     const [call] = aiCalls(env);
-    expect(new URL(call!.url).searchParams.get("filename")).toBe("résumé 2025.pdf");
+    expect(new URL(call!.url).searchParams.get("filename")).toBe("resume 2025.pdf");
     expect(call?.headers["content-type"]).toBe("application/pdf");
     expect(sentBytes(call).equals(PDF_BYTES)).toBe(true);
   });
@@ -271,7 +272,7 @@ describe("POST /users/me/resume/parse/start + GET /resume/parse/runs/:runId (fir
     expect(b.body).toEqual({
       status: "failed",
       profile: null,
-      error: "We couldn't parse that résumé. Please try again or enter your details manually.",
+      error: "We couldn't parse that resume. Please try again or enter your details manually.",
     });
   });
 
@@ -279,7 +280,7 @@ describe("POST /users/me/resume/parse/start + GET /resume/parse/runs/:runId (fir
     env.fetch.on("GET", `${AI}/admin/resume/parse/runs/gone`, () => json({ detail: "not found" }, 404));
     const res = await env.http.get(`${PARSE}/runs/gone`).set("Authorization", await auth());
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "failed", profile: null, error: "This parse expired — please upload the résumé again." });
+    expect(res.body).toEqual({ status: "failed", profile: null, error: "This parse expired — please upload the resume again." });
   });
 
   it("poll: AI service down is 502 resume_parse_failed", async () => {
@@ -343,6 +344,7 @@ describe("GET/PUT /users/me/candidate-profile", () => {
       location: "Delhi",
       headline: null,
       targetRole: "SDE",
+      targetJdId: null,
       education: [{ institution: "IIT", degree: "B.Tech", field: "CS", startYear: "2021", endYear: "2025", grade: "8.9" }],
       experience: [],
       projects: [],
@@ -355,6 +357,26 @@ describe("GET/PUT /users/me/candidate-profile", () => {
     });
     // hard rule: descriptive only, no scoring
     expect(res.body.score).toBeUndefined();
+  });
+
+  it("stores the chosen target JD id alongside its label, and clears it with null", async () => {
+    const authz = await auth();
+    const jdId = "6f1c2b9a-3d4e-4f50-8a1b-2c3d4e5f6a7b";
+    const saved = await env.http.put(PROFILE).set("Authorization", authz).send({ ...saveBody, targetRole: "Meesho · SDE I", targetJdId: jdId });
+    expect(saved.status).toBe(200);
+    expect(saved.body.targetJdId).toBe(jdId);
+    expect((await env.http.get(PROFILE).set("Authorization", authz)).body.targetJdId).toBe(jdId);
+
+    const cleared = await env.http.put(PROFILE).set("Authorization", authz).send({ ...saveBody, targetJdId: null });
+    expect(cleared.body.targetJdId).toBeNull();
+  });
+
+  it("a malformed target JD id is 400 invalid_target_jd and nothing is saved", async () => {
+    const authz = await auth();
+    const res = await env.http.put(PROFILE).set("Authorization", authz).send({ ...saveBody, targetJdId: "not-a-uuid" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("invalid_target_jd");
+    expect((await env.http.get(PROFILE).set("Authorization", authz)).status).toBe(204);
   });
 
   it("saving without complete leaves onboarding incomplete; nulls default to empty lists", async () => {
@@ -372,7 +394,7 @@ describe("GET/PUT /users/me/candidate-profile", () => {
     expect(res.body.resumeParsedAt).toBeNull();
   });
 
-  it("resumeParsedAt is stamped only when the résumé filename changes", async () => {
+  it("resumeParsedAt is stamped only when the resume filename changes", async () => {
     const user = await createUser(env);
     const authz = await bearer(env, user);
     const first = await env.http.put(PROFILE).set("Authorization", authz).send({ ...saveBody, complete: false });

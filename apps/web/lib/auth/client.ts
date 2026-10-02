@@ -17,12 +17,17 @@
 import { toApiFetchError } from "@/lib/api-client/errors";
 import type { components } from "@/lib/api-client/generated/schema";
 import { APP_CONFIG, AUTH_ENDPOINTS } from "@/lib/constants/shared";
+import { rememberNext } from "./next";
 import { clearAccessToken, setAccessToken } from "./token-store";
 
 const API_URL = APP_CONFIG.apiUrl;
 
-/** Backend's Spring-default OAuth2 entry point for Google. */
-export function loginWithGoogle(): void {
+/**
+ * Backend's Spring-default OAuth2 entry point for Google. `next` (same-origin only) is remembered
+ * for this tab so the callback page can land the user back where they started.
+ */
+export function loginWithGoogle(next?: string | null): void {
+  rememberNext(next);
   window.location.href = `${API_URL}/oauth2/authorization/google`;
 }
 

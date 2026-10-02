@@ -24,8 +24,8 @@ type AuthContextValue = {
   status: AuthStatus;
   isAuthenticated: boolean;
   isLoading: boolean;
-  /** Start the Google OAuth redirect. */
-  login: () => void;
+  /** Start the Google OAuth redirect; `next` is where to land afterwards (same-origin only). */
+  login: (next?: string | null) => void;
   /** Email + password sign-in. Rejects with ApiFetchError (e.g. `invalid_credentials`). */
   signIn: (input: { email: string; password: string }) => Promise<void>;
   /** Email + password sign-up. Rejects with ApiFetchError (e.g. `email_taken`, `use_google`). */
@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [runRefresh, clearTimer]);
 
-  const login = useCallback(() => {
-    loginWithGoogle();
+  const login = useCallback((next?: string | null) => {
+    loginWithGoogle(next);
   }, []);
 
   const signIn = useCallback<AuthContextValue["signIn"]>(

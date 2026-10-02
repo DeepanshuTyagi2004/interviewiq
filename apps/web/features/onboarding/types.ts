@@ -1,6 +1,6 @@
 /**
  * Mirrors the backend candidate-profile DTOs (camelCase). Every string field is nullable because
- * the résumé parse may not find it and the user may leave it blank.
+ * the resume parse may not find it and the user may leave it blank.
  */
 
 export interface EducationDto {
@@ -35,7 +35,7 @@ export interface ResumeLinksDto {
   linkedin: string | null;
 }
 
-/** GET/PUT response, and the unsaved draft returned by résumé parsing. */
+/** GET/PUT response, and the unsaved draft returned by resume parsing. */
 export interface CandidateProfileResponse {
   fullName: string | null;
   email: string | null;
@@ -43,6 +43,8 @@ export interface CandidateProfileResponse {
   location: string | null;
   headline: string | null;
   targetRole: string | null;
+  /** The JD picked on onboarding's Target step; `targetRole` holds its label. */
+  targetJdId: string | null;
   education: EducationDto[];
   experience: ExperienceDto[];
   projects: ProjectDto[];
@@ -54,7 +56,7 @@ export interface CandidateProfileResponse {
   onboardingComplete: boolean;
 }
 
-/** Status of an async résumé-parse run (fire-and-poll). */
+/** Status of an async resume-parse run (fire-and-poll). */
 export interface ResumeParseRunResponse {
   status: "running" | "completed" | "failed";
   profile: CandidateProfileResponse | null;
@@ -69,6 +71,7 @@ export interface CandidateProfileRequest {
   location: string | null;
   headline: string | null;
   targetRole: string | null;
+  targetJdId: string | null;
   education: EducationDto[];
   experience: ExperienceDto[];
   projects: ProjectDto[];

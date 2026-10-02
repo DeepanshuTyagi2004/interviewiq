@@ -80,7 +80,7 @@ describe("TokenCipher — Java wire format [12-byte IV][ciphertext][16-byte tag]
 
   it("encrypt/decrypt is symmetric for arbitrary UTF-8 (incl. empty and multi-byte)", () => {
     const cipher = new TokenCipher(JAVA_KEY_B64);
-    for (const p of ["", "a", "ghp_" + "x".repeat(200), "résumé 🔑 токен"]) {
+    for (const p of ["", "a", "ghp_" + "x".repeat(200), "resume 🔑 токен"]) {
       expect(cipher.decrypt(cipher.encrypt(p))).toBe(p);
     }
   });

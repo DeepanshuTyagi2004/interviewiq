@@ -6,7 +6,7 @@ export interface ProviderMeta {
   /** Two-letter mono mark on the source's ink tile (the design's "GH", "LC", …). */
   code: string;
   description: string;
-  /** GitHub, résumé and LeetCode are live; the rest are "coming soon" placeholders. */
+  /** GitHub, resume and LeetCode are live; the rest are "coming soon" placeholders. */
   live: boolean;
 }
 
@@ -20,7 +20,7 @@ export const PROVIDERS: ProviderMeta[] = [
   },
   {
     source: "RESUME",
-    label: "Résumé",
+    label: "Resume",
     code: "CV",
     description: "Work history, education, projects and achievements.",
     live: true,

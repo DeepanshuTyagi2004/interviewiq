@@ -21,10 +21,10 @@ export function usersRouter(c: Container): Router {
   return r;
 }
 
-const PARSE_UNAVAILABLE = "Résumé parsing is temporarily unavailable. Please try again or enter your details manually.";
+const PARSE_UNAVAILABLE = "Resume parsing is temporarily unavailable. Please try again or enter your details manually.";
 
 /**
- * Onboarding candidate profile under /users/me: résumé parse (prefill) + read/upsert. The résumé
+ * Onboarding candidate profile under /users/me: resume parse (prefill) + read/upsert. The resume
  * file is only forwarded to the AI service — never stored. Known failures map to stable codes the
  * frontend renders inline and uses to fall back to manual entry.
  */
@@ -40,7 +40,7 @@ export function candidateProfileRouter(c: Container): Router {
   /** Async parse (fire-and-poll): returns the AI service's `{run_id, status}` immediately. */
   r.post("/resume/parse/start", resumeUpload, async (req, res) => {
     const { bytes, filename } = readResume(req);
-    res.json(await c.candidateProfiles.startResumeParse(bytes, filename ?? "résumé.pdf"));
+    res.json(await c.candidateProfiles.startResumeParse(bytes, filename ?? "resume.pdf"));
   });
 
   /** Poll: `{status: running|completed|failed, profile?, error?}`. */
@@ -76,8 +76,8 @@ export function candidateProfileRouter(c: Container): Router {
           message: "We couldn't read that PDF — it may be a scanned image. Please enter your details manually.",
         };
       }
-      if (err instanceof UpstreamHttpError) c.log.warn(`résumé parse upstream error ${err.status}: ${err.message}`);
-      else if (err instanceof UpstreamError) c.log.warn(`résumé parse upstream failure: ${err.message}`);
+      if (err instanceof UpstreamHttpError) c.log.warn(`resume parse upstream error ${err.status}: ${err.message}`);
+      else if (err instanceof UpstreamError) c.log.warn(`resume parse upstream failure: ${err.message}`);
       if (err instanceof UpstreamError) return { status: 502, code: "resume_parse_failed", message: PARSE_UNAVAILABLE };
       return undefined;
     }),

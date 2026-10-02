@@ -13,9 +13,12 @@ import { SourceList } from "./SourceList";
  */
 export function ConnectionsGrid({
   errorSource,
+  exclude,
   className,
 }: {
   errorSource?: SourceKind;
+  /** Sources to leave out, e.g. the resume on onboarding (it has its own step). */
+  exclude?: SourceKind[];
   /** Merged onto the list container, e.g. for narrower containers like onboarding. */
   className?: string;
 }) {
@@ -49,5 +52,6 @@ export function ConnectionsGrid({
     );
   }
 
-  return <SourceList profile={data} errorSource={errorSource} className={className} />;
+  const sources = exclude?.length ? PROVIDERS.map((p) => p.source).filter((s) => !exclude.includes(s)) : undefined;
+  return <SourceList profile={data} sources={sources} errorSource={errorSource} className={className} />;
 }

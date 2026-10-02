@@ -9,6 +9,7 @@ const sample: CandidateProfileResponse = {
   location: "Delhi",
   headline: null,
   targetRole: "SDE",
+  targetJdId: "6f1c2b9a-3d4e-4f50-8a1b-2c3d4e5f6a7b",
   education: [
     { institution: "IIT", degree: "B.Tech", field: "CS", startYear: "2021", endYear: "2025", grade: "8.9" },
   ],
@@ -53,6 +54,11 @@ describe("formToRequest", () => {
     expect(req.achievements).toEqual(["SIH 2024 finalist", "GSoC 2023"]);
     expect(req.detectedLinks.github).toBe("https://github.com/asha");
     expect(req.detectedLinks.leetcode).toBeNull();
+    expect(req.targetJdId).toBe("6f1c2b9a-3d4e-4f50-8a1b-2c3d4e5f6a7b");
+  });
+
+  it("an unpicked target is sent as null", () => {
+    expect(formToRequest({ ...responseToForm(sample), targetJdId: "" }, false).targetJdId).toBeNull();
   });
 
   it("drops fully-empty education/experience rows", () => {

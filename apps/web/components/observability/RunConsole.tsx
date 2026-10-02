@@ -9,7 +9,7 @@ import { RunTimeline } from "./RunTimeline";
 /**
  * Full-transparency view of one pipeline run: a card with the run header (label, run id, status),
  * any error and the expandable step timeline; then the live log stream and the final artifact.
- * Pipeline-agnostic — both the résumé and interview-prep consoles render this with their own run.
+ * Pipeline-agnostic — both the resume and interview-prep consoles render this with their own run.
  */
 export function RunConsole({
   snapshot,

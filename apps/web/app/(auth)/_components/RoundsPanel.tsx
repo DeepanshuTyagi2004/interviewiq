@@ -25,7 +25,7 @@ export function RoundsPanel() {
   return (
     <aside
       aria-label="What you'll practise"
-      className="m-3 flex min-h-[420px] min-w-0 flex-[1_1_460px] flex-col overflow-hidden rounded-lg bg-panel sm:min-h-[520px]"
+      className="m-3 flex min-h-[420px] min-w-0 flex-none flex-col overflow-hidden rounded-lg bg-panel lg:min-h-0 lg:flex-1"
     >
       <p className="iq-eyebrow m-0 p-5 sm:p-7">What you&apos;ll practise</p>
       <div aria-hidden className="relative mx-auto w-[min(420px,88%)] flex-1 [--step:58px] sm:[--step:66px]">

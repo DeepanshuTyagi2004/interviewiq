@@ -56,7 +56,7 @@ export function UpNextCard({ session }: { session: InterviewSession | undefined 
       </h2>
       <p className="m-0 max-w-[520px] text-sm leading-[1.5] text-[#c9c8c3]">
         {session
-          ? `${company} · ${session.role}. Your interviewer prepares from your own résumé and projects, and follows the company's real process.`
+          ? `${company} · ${session.role}. Your interviewer prepares from your own resume and projects, and follows the company's real process.`
           : "Pick a company and role to see its real interview process, then book round one."}
       </p>
 

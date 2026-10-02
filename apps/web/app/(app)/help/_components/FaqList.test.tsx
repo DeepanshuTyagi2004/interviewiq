@@ -5,7 +5,7 @@ import { FaqList } from "./FaqList";
 
 const ITEMS = [
   { question: "Is interview-ready a certification?", answer: "No." },
-  { question: "Do I need GitHub or LeetCode?", answer: "No. A résumé is enough to start." },
+  { question: "Do I need GitHub or LeetCode?", answer: "No. A resume is enough to start." },
 ];
 
 describe("FaqList", () => {

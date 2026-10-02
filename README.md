@@ -4,7 +4,7 @@
 
 **Rehearse the interview you're actually walking into.**
 
-An AI interviewer that knows your résumé and your target company's real interview process.
+An AI interviewer that knows your resume and your target company's real interview process.
 You practise round by round, out loud, and get a debrief after every round.
 
 `Next.js 16` · `Node 22 / Express 5` · `Python / FastAPI` · `LiveKit + Deepgram` · `Postgres (Supabase)` · `MongoDB (Atlas)`
@@ -49,7 +49,7 @@ has full context on you and on the job:
 - **It knows the company.** A research pipeline turns interview experiences candidates share
   across the web into one round-by-round process per company, role and level: the rounds, the
   topics, the difficulty, the interviewer's style and the red flags.
-- **It knows you.** It reads your résumé, GitHub and LeetCode, then asks about *your* projects,
+- **It knows you.** It reads your resume, GitHub and LeetCode, then asks about *your* projects,
   so there's nothing to memorise.
 - **It behaves like a real interviewer.** It speaks and listens, reads your code and whiteboard,
   gives hints when you're stuck and harder follow-ups when you're flying, and runs proctored in
@@ -77,15 +77,15 @@ parallel, then company partnerships with exclusive openings, then automated earl
 | --- | --- | --- | --- |
 | **Landing** | `/` | Marketing site: research, interview, debrief, readiness, universities, FAQ | ✅ Built |
 | **Sign up / Log in** | `/signup`, `/login` | Google or email + password; also forgot and reset password, and email verification | ✅ Built |
-| **Onboarding** | `/onboarding` | 4 steps: **Résumé → Profile → Sources → Target**, with a live profile preview | ✅ Built |
+| **Onboarding** | `/onboarding` | 4 steps: **Resume → Profile → Sources → Target**, with a live profile preview | ✅ Built |
 | **Dashboard** | `/dashboard` | Up next, readiness, score tiles, recent interviews, leaderboard | ✅ Built (scores are *coming soon*) |
 | **Companies** | `/jobs` | Company library with each company's data depth and live or researching status | ✅ Built |
 | **Roadmap** | `/jobs/[id]` | A JD's real interview process, round by round, plus insights; book any round | ✅ Built |
 | **Interviews** | `/interviews` | Book a round (day and time chips), see upcoming and past sessions | ✅ Built |
 | **Interview room** | `/interviews/[id]/live` | Pre-check, then a proctored voice interview with a code editor and whiteboard | ✅ Built (beta) |
 | **Debrief** | `/interviews/[id]/report` | Layout ready; needs the scoring contract | 🟡 Placeholder |
-| **Profile** | `/profile` | Identity, résumé, connected sources, and a descriptive summary of your work | ✅ Built |
-| **Connections** | `/connections` | Connect GitHub (OAuth), LeetCode (username) and your résumé (PDF) | ✅ Built |
+| **Profile** | `/profile` | Identity, resume, connected sources, and a descriptive summary of your work | ✅ Built |
+| **Connections** | `/connections` | Connect GitHub (OAuth), LeetCode (username) and your resume (PDF) | ✅ Built |
 | **Share experience** | `/experiences` | Contribute your own interview experience to the research pipeline | ✅ Built |
 | **Intelligence** | `/intelligence` | **Admin** console: ingestion, catalogue, access, question bank, test benches, agent diagnostics | ✅ Built |
 | **University admin** | `/admin/*` | TPO dashboard, student roster, placement drives | ⏳ Planned |
@@ -103,7 +103,7 @@ flowchart TD
     A([Visitor on landing page]) --> B{Sign up}
     B -->|Google| C[Account created]
     B -->|Email + password| C
-    C --> D["Onboarding 1 · Résumé<br/>upload a PDF, AI parses it"]
+    C --> D["Onboarding 1 · Resume<br/>upload a PDF, AI parses it"]
     D --> E["Onboarding 2 · Profile<br/>review and edit every field"]
     E --> F["Onboarding 3 · Sources<br/>GitHub · LeetCode (optional)"]
     F --> G["Onboarding 4 · Target<br/>pick a company and role (optional)"]
@@ -163,7 +163,7 @@ flowchart LR
 
     subgraph ai["apps/ai-service · Python / FastAPI"]
         B1[Research pipeline<br/>collect → extract → aggregate]
-        B2[Résumé parser]
+        B2[Resume parser]
         B3[Interview prep<br/>plan generator]
         B4[Voice agent worker<br/>LiveKit Agents]
     end
@@ -192,7 +192,7 @@ flowchart LR
 | --- | --- | --- |
 | **`apps/web`** | Every screen: landing, auth, onboarding, app, admin | A pure client of the API. Server Components by default |
 | **`apps/api`** | Domain logic, persistence, auth, OAuth, collectors, session orchestration | Owns the data and every rule, e.g. gating is enforced server-side |
-| **`apps/ai-service`** | **All** LLM work: briefs, résumé parsing, interview plans, the live voice agent | Python ecosystem, and we can swap LLM providers without touching the API |
+| **`apps/ai-service`** | **All** LLM work: briefs, resume parsing, interview plans, the live voice agent | Python ecosystem, and we can swap LLM providers without touching the API |
 | **`packages/contracts`** | `openapi.yaml`, the source of truth between the apps | The web app **generates** its types from it and never hand-writes DTOs |
 
 ### Company research pipeline
@@ -226,11 +226,11 @@ flowchart LR
 ### Profile builder
 
 The interviewer is personal because it reads *your* work. Every source is **additive and
-optional**, and a résumé alone is enough to start.
+optional**, and a resume alone is enough to start.
 
 ```mermaid
 flowchart LR
-    R["Résumé PDF"] -- "parse (async run)" --> AI[ai-service<br/>résumé parser]
+    R["Resume PDF"] -- "parse (async run)" --> AI[ai-service<br/>resume parser]
     AI --> CP[(candidate profile<br/>MongoDB)]
     GH["GitHub OAuth"] --> GC["GitHub collector<br/>GraphQL: languages, repos,<br/>contributions, external PRs"]
     LC["LeetCode username"] --> LCC["LeetCode collector<br/>solved by difficulty and topic,<br/>contest, recent activity"]
@@ -245,7 +245,7 @@ flowchart LR
 - **Descriptive, never comparative.** We write "412 problems solved (78 Easy, 268 Medium, 66
   Hard)", never "an above-average solver".
 - **Every claim carries evidence.** Each skill names the sources behind it (for example "GitHub
-  52%, LeetCode preferred, résumé claimed"), and each achievement names its source.
+  52%, LeetCode preferred, resume claimed"), and each achievement names its source.
 - **Hash-based change detection.** A fragment is only rebuilt when its source data actually
   changed.
 
@@ -390,7 +390,7 @@ interviewiq/
 │       ├── app/jobs/           brief generation, question collection, scheduler
 │       ├── app/interview_prep/ interview-plan generation
 │       ├── app/interview_agent/ LiveKit voice agent (worker, dialogue graph, pacing)
-│       └── app/resume/         résumé parsing
+│       └── app/resume/         resume parsing
 ├── packages/contracts/         openapi.yaml: the web ↔ api ↔ ai-service contract
 ├── infra/                      docker-compose (local stack) + env template
 └── docs/                       product overview
@@ -544,7 +544,7 @@ Every page is built for **375px phones, iPads (768 and 1024px) and desktop**, an
 5. **Gating is server-enforced.** Pass marks, cooldowns and unlocks live in the API; the UI only
    reflects them.
 6. **Readiness is never a badge or certificate,** and never worded as if the company endorsed it.
-7. **Sources are additive, never required.** A résumé alone gives a useful profile.
+7. **Sources are additive, never required.** A resume alone gives a useful profile.
 
 ---
 
@@ -554,7 +554,7 @@ Every page is built for **375px phones, iPads (768 and 1024px) and desktop**, an
 
 | # | Module | Status | What's next |
 | --- | --- | --- | --- |
-| 1 | **Profile Builder** | ✅ Résumé, GitHub and LeetCode collectors, descriptive profile | LLM-written profile summary (prompt under review); LinkedIn / Codeforces / HackerRank (V2) |
+| 1 | **Profile Builder** | ✅ Resume, GitHub and LeetCode collectors, descriptive profile | LLM-written profile summary (prompt under review); LinkedIn / Codeforces / HackerRank (V2) |
 | 2 | **Job & Loop Setup** | ✅ Catalogue, research briefs, roadmap | Per-JD **loop dashboard**; editable rounds (an edited loop is standalone) |
 | 3 | **Live Interview Session** | ✅ Booking, plan prep, LiveKit voice room, proctoring | Live signals during the round; hint requests; code-aware follow-ups |
 | 4 | **Post-Interview Report** | 🟡 Layout ready | **Scoring contract**: per-question breakdown, strong answers, learn-next, pass mark → unlock or cooldown |

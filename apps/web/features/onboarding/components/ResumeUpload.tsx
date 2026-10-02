@@ -10,26 +10,29 @@ import { RESUME_MAX_BYTES } from "@/lib/constants/onboarding";
 import { useResumeParseRun, useStartResumeParse } from "../hooks";
 import type { CandidateProfileResponse } from "../types";
 
-const SUCCESS_MSG = "Résumé parsed — your details below have been updated. Review and save.";
-const FAIL_MSG = "We couldn't parse that résumé. Please try again or enter your details manually.";
+const SUCCESS_MSG = "Resume parsed — your details below have been updated. Review and save.";
+const FAIL_MSG = "We couldn't parse that resume. Please try again or enter your details manually.";
 
 /**
- * Résumé drop-zone. Fire-and-poll: uploading STARTS a background parse (returns immediately), then
+ * Resume drop-zone. Fire-and-poll: uploading STARTS a background parse (returns immediately), then
  * we poll until it finishes — so a slow LLM can't time out the request. On completion it hands the
  * draft up; on failure it shows the backend's message. `compact` trims copy for the profile-edit
- * "Replace résumé" affordance.
+ * "Replace resume" affordance.
  */
 export function ResumeUpload({
   onParsed,
   onSkip,
   compact = false,
   successMessage = SUCCESS_MSG,
+  currentFilename = null,
 }: {
   onParsed: (draft: CandidateProfileResponse) => void;
   onSkip?: () => void;
   compact?: boolean;
   /** Banner copy on a successful parse — override where there are no "fields below" to review. */
   successMessage?: string;
+  /** A resume already on file (e.g. a restored onboarding draft) — shown until a new upload. */
+  currentFilename?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -50,7 +53,7 @@ export function ResumeUpload({
     if (!runId || !run.data || handledRef.current === runId) return;
     if (run.data.status === "completed" && run.data.profile) {
       handledRef.current = runId;
-      toast.success("Résumé parsed — review your details below.");
+      toast.success("Resume parsed — review your details below.");
       onParsed({
         ...run.data.profile,
         resumeFilename: filenameRef.current || run.data.profile.resumeFilename,
@@ -74,13 +77,13 @@ export function ResumeUpload({
     const isPdf =
       file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf) {
-      setLocalError("Please upload a PDF résumé.");
-      toast.error("Please upload a PDF résumé.");
+      setLocalError("Please upload a PDF resume.");
+      toast.error("Please upload a PDF resume.");
       return;
     }
     if (file.size > RESUME_MAX_BYTES) {
-      setLocalError("The résumé must be 6 MB or smaller.");
-      toast.error("The résumé must be 6 MB or smaller.");
+      setLocalError("The resume must be 6 MB or smaller.");
+      toast.error("The resume must be 6 MB or smaller.");
       return;
     }
     setLocalError(null);
@@ -92,7 +95,7 @@ export function ResumeUpload({
         const message =
           err instanceof ApiFetchError
             ? err.message
-            : "We couldn't start parsing that résumé. Please try again or enter your details manually.";
+            : "We couldn't start parsing that resume. Please try again or enter your details manually.";
         setLocalError(message);
         toast.error(message);
       },
@@ -125,7 +128,7 @@ export function ResumeUpload({
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[10px] text-center transition-colors duration-200 hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           compact ? "border border-dashed border-line-4 bg-card p-6" : "min-h-[220px] border-[1.5px] border-dashed bg-panel p-7",
-          !compact && (runStatus === "completed" ? "border-foreground" : "border-line-4"),
+          !compact && (runStatus === "completed" || (!runStatus && currentFilename) ? "border-foreground" : "border-line-4"),
           dragging && "border-foreground bg-accent",
           busy && "pointer-events-none",
         )}
@@ -142,16 +145,20 @@ export function ResumeUpload({
         <div className="space-y-1.5">
           <p className={cn("m-0 tracking-[-0.01em]", compact ? "text-sm" : "text-base")}>
             {busy
-              ? "Reading your résumé — this can take a minute…"
+              ? "Reading your resume — this can take a minute…"
               : compact
-                ? "Upload a new résumé (PDF)"
-                : runStatus === "completed"
-                  ? filename || "Résumé parsed"
-                  : "Drop your résumé, or click to upload"}
+                ? "Upload a new resume (PDF)"
+                : runStatus === "completed" || (!runStatus && currentFilename)
+                  ? filename || currentFilename || "Resume parsed"
+                  : "Drop your resume, or click to upload"}
           </p>
           {!compact ? (
             <p className="m-0 text-[13px] text-faint">
-              {busy ? "Extracting education, projects and skills" : runStatus === "completed" ? "Parsed · click to replace" : "PDF only, up to 6 MB"}
+              {busy
+                ? "Extracting education, projects and skills"
+                : runStatus === "completed" || (!runStatus && currentFilename)
+                  ? "Parsed · click to replace"
+                  : "PDF only, up to 6 MB"}
             </p>
           ) : null}
         </div>

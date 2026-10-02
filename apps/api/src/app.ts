@@ -109,7 +109,7 @@ function globalErrorHandler(c: Container) {
     if (err instanceof ApiError) return sendError(res, err.status, err.code, err.message);
     // Multipart limits fire during parsing, before any route logic runs.
     if (err instanceof multer.MulterError) {
-      if (err.code === "LIMIT_FILE_SIZE") return sendError(res, 413, "resume_too_large", "The résumé must be 6 MB or smaller.");
+      if (err.code === "LIMIT_FILE_SIZE") return sendError(res, 413, "resume_too_large", "The resume must be 6 MB or smaller.");
       return sendError(res, 400, "bad_request", err.message);
     }
     const type = (err as { type?: string } | null)?.type;

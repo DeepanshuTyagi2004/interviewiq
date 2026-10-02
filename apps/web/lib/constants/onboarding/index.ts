@@ -1,5 +1,5 @@
 /**
- * Constants for the Onboarding module (résumé parse + candidate profile).
+ * Constants for the Onboarding module (resume parse + candidate profile).
  * Import per group, e.g. `import { ONBOARDING_ENDPOINTS } from "@/lib/constants/onboarding";`
  */
 
@@ -22,5 +22,5 @@ export const ONBOARDING_QUERY_KEYS = {
 /** How often the client polls an in-flight async parse run. */
 export const RESUME_PARSE_POLL_MS = 2000;
 
-/** Client-side résumé size cap; mirrors the backend's authoritative 6 MB check. */
+/** Client-side resume size cap; mirrors the backend's authoritative 6 MB check. */
 export const RESUME_MAX_BYTES = 6 * 1024 * 1024;

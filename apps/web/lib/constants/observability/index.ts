@@ -1,5 +1,5 @@
 /**
- * Endpoints for the admin pipeline-observability consoles (résumé parse, interview-prep).
+ * Endpoints for the admin pipeline-observability consoles (resume parse, interview-prep).
  * ADMIN-only backend proxies to the AI service; the browser never holds the internal key.
  */
 

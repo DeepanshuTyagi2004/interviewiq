@@ -16,7 +16,7 @@ const AUTHORIZE_PATH: Partial<Record<SourceKind, string>> = {
 /** Human-readable label per source, used when no label prop is provided. */
 const SOURCE_LABELS: Record<SourceKind, string> = {
   GITHUB: "GitHub",
-  RESUME: "Résumé",
+  RESUME: "Resume",
   LEETCODE: "LeetCode",
   LINKEDIN: "LinkedIn",
   X: "X",

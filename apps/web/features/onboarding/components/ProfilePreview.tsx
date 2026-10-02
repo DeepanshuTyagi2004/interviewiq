@@ -28,7 +28,7 @@ export function ProfilePreview({ control, target }: ProfilePreviewProps) {
   const edu = education[0];
   const subtitle = edu?.institution
     ? [edu.institution, edu.endYear].filter(Boolean).join(" · ")
-    : "Upload a résumé to fill this in";
+    : "Upload a resume to fill this in";
   const roles = experience.filter((e) => e.company || e.title).length;
   const connected = profile.data?.sources.filter((s) => s.connected).length ?? 0;
   const skills = parseSkills(skillsText).slice(0, MAX_SKILLS);
@@ -78,7 +78,7 @@ export function ProfilePreview({ control, target }: ProfilePreviewProps) {
         ) : null}
       </div>
       <p className="m-0 mt-auto text-[13px] leading-[1.5] text-muted-foreground">
-        Your résumé and sources shape every question the interviewer asks. You can edit all of this later.
+        Your resume and sources shape every question the interviewer asks. You can edit all of this later.
       </p>
     </aside>
   );

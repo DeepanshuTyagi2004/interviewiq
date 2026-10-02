@@ -11,9 +11,9 @@ import {
 } from "@/features/onboarding";
 
 /**
- * The résumé "connection": a parsed draft is saved straight to the candidate profile (the user
+ * The resume "connection": a parsed draft is saved straight to the candidate profile (the user
  * reviews or edits it on Profile afterwards). Shared by the Connections row and the profile's
- * résumé file row so both behave identically.
+ * resume file row so both behave identically.
  */
 export function useResumeImport() {
   const { data: profile } = useCandidateProfile();
@@ -32,8 +32,8 @@ export function useResumeImport() {
   const importDraft = useCallback(
     (draft: CandidateProfileResponse) => {
       mutate(formToRequest(responseToForm(draft), false), {
-        onSuccess: () => toast.success("Résumé saved to your profile."),
-        onError: () => toast.error("Couldn’t save your résumé. Please try again."),
+        onSuccess: () => toast.success("Resume saved to your profile."),
+        onError: () => toast.error("Couldn’t save your resume. Please try again."),
       });
     },
     [mutate],

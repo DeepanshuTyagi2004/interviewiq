@@ -103,10 +103,10 @@ export class AiServiceClient {
     return this.postJson("/admin/experiences", { company, role, level, raw_content: rawContent });
   }
 
-  // --- résumé parsing ------------------------------------------------------------------------
+  // --- resume parsing ------------------------------------------------------------------------
 
   /**
-   * Synchronous résumé parse (raw PDF bytes in, snake_case JSON text out). Does NOT swallow
+   * Synchronous resume parse (raw PDF bytes in, snake_case JSON text out). Does NOT swallow
    * failures — a 422 (scanned/image-only PDF) must reach the user so they can enter details manually.
    */
   async parseResume(pdf: Uint8Array): Promise<string> {
@@ -115,7 +115,7 @@ export class AiServiceClient {
     return body;
   }
 
-  /** Start a background (observable) résumé-parse run → `{run_id, status}`. */
+  /** Start a background (observable) resume-parse run → `{run_id, status}`. */
   async startResumeParseRun(pdf: Uint8Array, filename: string): Promise<unknown> {
     return this.nonEmptyJson(
       await this.send({

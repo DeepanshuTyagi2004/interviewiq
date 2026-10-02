@@ -18,7 +18,7 @@ import { WhyCards } from "./_components/landing/WhyCards";
 export const metadata: Metadata = {
   title: "InterviewIQ — Rehearse the interview you're actually walking into",
   description:
-    "An AI interviewer that knows your résumé and your target company's real process. Practise round by round, get a debrief after every round, and track your readiness.",
+    "An AI interviewer that knows your resume and your target company's real process. Practise round by round, get a debrief after every round, and track your readiness.",
 };
 
 export default function MarketingHomePage() {

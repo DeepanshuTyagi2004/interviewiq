@@ -3,7 +3,7 @@
  * product decision), so every value is an honest "—" with a note on what it will be based on.
  */
 const TILES = [
-  { label: "Profile score", note: "From your résumé and sources · coming soon" },
+  { label: "Profile score", note: "From your resume and sources · coming soon" },
   { label: "Interview score", note: "From your interviews · coming soon" },
   { label: "College rank", note: "College leaderboards · coming soon" },
   { label: "Global rank", note: "Global leaderboard · coming soon" },

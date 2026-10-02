@@ -9,7 +9,7 @@ export function useStartResumeRun() {
   return useMutation({ mutationFn: (file: File) => startResumeRun(file) });
 }
 
-/** Poll a résumé-parse run (accumulating logs) until it terminates. */
+/** Poll a resume-parse run (accumulating logs) until it terminates. */
 export function useResumeRun(runId: string | null) {
   return useRunPolling("resume-bench", runId, getResumeRun);
 }

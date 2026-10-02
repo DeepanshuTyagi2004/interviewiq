@@ -4,7 +4,7 @@ import type { RunStepStatus } from "@/features/observability";
 
 /**
  * Node chrome per step status, in the token palette (was raw hex fills). Same semantics:
- * idle = not reached this turn, pending = queued, running = live (brand), ok = done (ink hairline),
+ * idle = not reached this turn, pending = queued, running = live (brand), ok = done (a darker hairline than pending),
  * failed = destructive, skipped = muted panel. Brand/destructive are the only accents.
  */
 export const STEP_STATUS_CLASS: Record<RunStepStatus | "idle", string> = {

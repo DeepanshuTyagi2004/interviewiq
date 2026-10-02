@@ -14,7 +14,7 @@ export function getResumeRun(runId: string, after = 0): Promise<RunSnapshot> {
   return apiFetch<RunSnapshot>(`${RESUME_BENCH_ENDPOINTS.run(runId)}?after=${after}`);
 }
 
-/** GET recent résumé-parse runs (newest first). */
+/** GET recent resume-parse runs (newest first). */
 export function listResumeRuns(): Promise<{ runs: RunSummary[] }> {
   return apiFetch<{ runs: RunSummary[] }>(RESUME_BENCH_ENDPOINTS.runs);
 }

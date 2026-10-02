@@ -13,6 +13,7 @@ import {
 } from "../domain/candidateProfile.js";
 import type { AiServiceClient } from "../integrations/aiService/client.js";
 import { isUpstreamStatus, parseJsonBody } from "../lib/http.js";
+import { BadRequestError } from "../lib/errors.js";
 import { asString, isObject, path, trimToNull } from "../lib/json.js";
 import type { CandidateProfileRepository } from "../repositories/mongo.js";
 import type { UserRepository } from "../repositories/pg.js";
@@ -31,6 +32,7 @@ export interface CandidateProfileRequest {
   location: string | null;
   headline: string | null;
   targetRole: string | null;
+  targetJdId: string | null;
   education: unknown;
   experience: unknown;
   projects: unknown;
@@ -39,6 +41,16 @@ export interface CandidateProfileRequest {
   detectedLinks: unknown;
   resumeFilename: string | null;
   complete: boolean;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `targetJdId` is optional; when present it must look like a JD id. */
+function targetJdIdOf(v: unknown): string | null {
+  const id = trimToNull(str(v));
+  if (id === null) return null;
+  if (!UUID_RE.test(id)) throw new BadRequestError("targetJdId must be a JD id (UUID)", "invalid_target_jd");
+  return id.toLowerCase();
 }
 
 export function parseCandidateProfileRequest(body: unknown): CandidateProfileRequest {
@@ -50,6 +62,7 @@ export function parseCandidateProfileRequest(body: unknown): CandidateProfileReq
     location: str(b.location),
     headline: str(b.headline),
     targetRole: str(b.targetRole),
+    targetJdId: targetJdIdOf(b.targetJdId),
     education: b.education,
     experience: b.experience,
     projects: b.projects,
@@ -62,7 +75,7 @@ export function parseCandidateProfileRequest(body: unknown): CandidateProfileReq
 }
 
 /**
- * Onboarding candidate profile: résumé parsing (stateless proxy to the AI service), read, and
+ * Onboarding candidate profile: resume parsing (stateless proxy to the AI service), read, and
  * upsert. The profile document lives in MongoDB; the `onboardingComplete` flag stays on the
  * Postgres user row (it gates app entry).
  */
@@ -74,7 +87,7 @@ export class CandidateProfileService {
   ) {}
 
   /**
-   * Parse a résumé PDF into an unsaved draft (prefills the wizard). Nothing is stored. Upstream
+   * Parse a resume PDF into an unsaved draft (prefills the wizard). Nothing is stored. Upstream
    * failures (e.g. 422 for a scanned PDF) propagate so the router can surface them.
    */
   async parseResume(pdf: Uint8Array, filename: string | null): Promise<CandidateProfileResponse> {
@@ -94,7 +107,7 @@ export class CandidateProfileService {
       snap = await this.aiService.getResumeParseRun(runId, 0);
     } catch (err) {
       if (isUpstreamStatus(err, 404)) {
-        return { status: "failed", profile: null, error: "This parse expired — please upload the résumé again." };
+        return { status: "failed", profile: null, error: "This parse expired — please upload the resume again." };
       }
       throw err;
     }
@@ -111,7 +124,7 @@ export class CandidateProfileService {
         profile: null,
         error:
           message === undefined || message === null
-            ? "We couldn't parse that résumé. Please try again or enter your details manually."
+            ? "We couldn't parse that resume. Please try again or enter your details manually."
             : asString(message, ""),
       };
     }
@@ -130,7 +143,7 @@ export class CandidateProfileService {
 
     const existing = await this.profiles.findByUserId(userId);
 
-    // Stamp parse time only when the résumé actually changed — re-saving the same filename on a
+    // Stamp parse time only when the resume actually changed — re-saving the same filename on a
     // plain details edit must not keep bumping resumeParsedAt.
     let resumeFilename = existing?.resumeFilename ?? null;
     let resumeParsedAt = existing?.resumeParsedAt ?? null;
@@ -148,6 +161,7 @@ export class CandidateProfileService {
       location: req.location,
       headline: req.headline,
       targetRole: req.targetRole,
+      targetJdId: req.targetJdId,
       education: listOf(req.education, education) ?? [],
       experience: listOf(req.experience, experience) ?? [],
       projects: listOf(req.projects, project) ?? [],
@@ -174,6 +188,7 @@ export function toResponse(doc: CandidateProfileDoc, onboardingComplete: boolean
     location: doc.location ?? null,
     headline: doc.headline ?? null,
     targetRole: doc.targetRole ?? null,
+    targetJdId: doc.targetJdId ?? null,
     education: (doc.education ?? []).map(education),
     experience: (doc.experience ?? []).map(experience),
     projects: (doc.projects ?? []).map(project),

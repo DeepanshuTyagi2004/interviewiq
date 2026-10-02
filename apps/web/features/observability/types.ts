@@ -1,5 +1,5 @@
 /**
- * Shared types for the admin pipeline-observability consoles (résumé parse, interview-prep).
+ * Shared types for the admin pipeline-observability consoles (resume parse, interview-prep).
  * These mirror the ai-service keyed run store's snapshot shape, proxied 1:1 by the backend.
  */
 

@@ -2,13 +2,13 @@
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 
-/** Hands off to the backend's Google OAuth flow. */
-export function GoogleButton() {
+/** Hands off to the backend's Google OAuth flow; returns to `next` afterwards. */
+export function GoogleButton({ next }: { next?: string | null }) {
   const { login, status } = useAuth();
   return (
     <button
       type="button"
-      onClick={login}
+      onClick={() => login(next)}
       disabled={status === "loading"}
       className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] border border-line-3 bg-card text-[13.5px] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
     >

@@ -14,7 +14,7 @@ export function Hero() {
         </h1>
         <p className="iq-intro m-0 mt-[22px] max-w-[560px] text-pretty text-base leading-[1.55] text-muted-foreground [--i:1] sm:text-[17px]">
           Spend less time guessing, more time practising — with an AI interviewer that knows your
-          résumé and your target company&apos;s real process.
+          resume and your target company&apos;s real process.
         </p>
         <p className="iq-intro m-0 mt-3.5 flex items-center gap-1.5 text-xs text-faint [--i:2]">
           <span

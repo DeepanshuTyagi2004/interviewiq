@@ -8,7 +8,7 @@ export type ListItem = { icon: string; b: string; t: string };
 
 /** Hero "connected sources" stack. */
 export const SOURCE_STACK = [
-  { icon: "CV", name: "Résumé", detail: "B.Tech CSE · 2 internships · parsed" },
+  { icon: "CV", name: "Resume", detail: "B.Tech CSE · 2 internships · parsed" },
   { icon: "GH", name: "GitHub", detail: "order-tracking-svc · Go · Kafka" },
   { icon: "LC", name: "LeetCode", detail: "412 solved · weak: sliding window" },
   { icon: "IN", name: "LinkedIn", detail: "Backend intern · logistics startup" },
@@ -35,7 +35,7 @@ export const LIST_RESEARCH: ListItem[] = [
 ];
 
 export const LIST_INTERVIEW: ListItem[] = [
-  { icon: "◐", b: "Voice interviewer", t: "that builds on your own résumé and projects" },
+  { icon: "◐", b: "Voice interviewer", t: "that builds on your own resume and projects" },
   { icon: "⌗", b: "Code editor and whiteboard", t: "read live as you work" },
   { icon: "↻", b: "Adaptive difficulty", t: "— hints when stuck, harder follow-ups when flying" },
 ];
@@ -91,7 +91,7 @@ export const TRACKS: { role: string; level: string; left: string; width: string;
 
 export const FEATURES = [
   { icon: "◎", title: "Built on the real process", body: "Rounds, topics and difficulty researched from real candidate experiences." },
-  { icon: "◐", title: "Personal by default", body: "Questions come from your résumé and projects — nothing to memorise." },
+  { icon: "◐", title: "Personal by default", body: "Questions come from your resume and projects — nothing to memorise." },
   { icon: "↻", title: "Adapts in real time", body: "Hints, harder follow-ups and course-correction, like a real interviewer." },
   { icon: "◇", title: "Readiness you can trust", body: "Pass marks, cooldowns and proctoring make every level mean something." },
 ];
@@ -100,7 +100,7 @@ export const UNIVERSITY_POINTS: [title: string, body: string][] = [
   ["Batch readiness at a glance", "See every student’s readiness level for the companies coming to campus, and where the batch needs help."],
   ["Aligned to your placement calendar", "Prioritise the processes of the companies visiting this season."],
   ["Fair and proctored", "Pass marks, cooldowns and full-screen proctoring mean readiness reflects real preparation."],
-  ["Onboarding in a week", "Students sign up in one click with their résumé. We handle the rest."],
+  ["Onboarding in a week", "Students sign up in one click with their resume. We handle the rest."],
 ];
 
 export const PERSONAS = [
@@ -116,6 +116,6 @@ export const FAQS: [q: string, a: string][] = [
   ["Which companies can I practise for?", "We launched with Meesho, and the research engine is building more companies and roles continuously. Each company page shows how much data is behind it."],
   ["What happens if I don’t pass a round?", "You get the full debrief, then retake after 1–2 weeks — enough time to act on the feedback."],
   ["Can I change the rounds?", "Yes. Edited rounds become standalone practice with full analysis, but don’t count towards readiness."],
-  ["Do I need GitHub or LeetCode?", "No. A résumé is enough to start; connected sources just give the interviewer more of your own work to ask about."],
+  ["Do I need GitHub or LeetCode?", "No. A resume is enough to start; connected sources just give the interviewer more of your own work to ask about."],
   ["How is it proctored?", "Interviews run full-screen. Leaving full-screen or switching tabs pauses the round until you return."],
 ];

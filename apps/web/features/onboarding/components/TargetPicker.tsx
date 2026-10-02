@@ -19,7 +19,8 @@ export function targetLabel(jd: JdSummary): string {
 }
 
 export interface TargetPickerProps {
-  value: JdSummary | null;
+  /** The chosen JD's id (stored on the profile as `targetJdId`), or null. */
+  valueId: string | null;
   onChange: (jd: JdSummary | null) => void;
 }
 
@@ -27,11 +28,12 @@ export interface TargetPickerProps {
  * Onboarding's optional last step: search the real company catalogue, pick a company, then one of
  * its roles. Companies still being researched are listed but can't be picked yet.
  */
-export function TargetPicker({ value, onChange }: TargetPickerProps) {
+export function TargetPicker({ valueId, onChange }: TargetPickerProps) {
   const companies = useJobCompanies();
   const jds = useJds();
   const [search, setSearch] = useState("");
-  const [picked, setPicked] = useState<string | null>(value?.company ?? null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const value = valueId ? (jds.data ?? []).find((jd) => jd.id === valueId) ?? null : null;
 
   const jdsByCompany = useMemo(() => {
     const map = new Map<string, JdSummary[]>();
@@ -50,8 +52,8 @@ export function TargetPicker({ value, onChange }: TargetPickerProps) {
       .sort((a, b) => Number(b.live) - Number(a.live) || b.roles.length - a.roles.length);
   }, [companies.data, jdsByCompany, search]);
 
-  // Default to the first live company so the role list isn't empty on arrival.
-  const selectedSlug = picked ?? rows.find((r) => r.live)?.slug ?? null;
+  // Default to the chosen JD's company, else the first live one, so the role list isn't empty.
+  const selectedSlug = picked ?? value?.company ?? rows.find((r) => r.live)?.slug ?? null;
   const selected = rows.find((r) => r.slug === selectedSlug) ?? null;
 
   if (companies.isLoading || jds.isLoading) {

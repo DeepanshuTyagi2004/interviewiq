@@ -4,7 +4,7 @@ import { bearer, createUser, createTestEnv, TEST_INTERNAL_KEY, type TestEnv } fr
 import { AI, aiCalls, PDF_BYTES, sentBytes } from "./helpers.js";
 
 /**
- * Port of AdminResumeParseControllerTest (admin résumé-parse observability bench under
+ * Port of AdminResumeParseControllerTest (admin resume-parse observability bench under
  * /api/v1/intelligence/resume). ADMIN-only; forwards to the AI service with the internal key.
  */
 
@@ -43,9 +43,9 @@ describe("POST /intelligence/resume/parse/run", () => {
     await env.http
       .post(`${BASE}/parse/run`)
       .set("Authorization", admin)
-      .attach("file", PDF_BYTES, { filename: "résumé final.pdf", contentType: "application/pdf" })
+      .attach("file", PDF_BYTES, { filename: "resume final.pdf", contentType: "application/pdf" })
       .expect(200);
-    expect(new URL(aiCalls(env)[0]!.url).searchParams.get("filename")).toBe("résumé final.pdf");
+    expect(new URL(aiCalls(env)[0]!.url).searchParams.get("filename")).toBe("resume final.pdf");
   });
 
   it("startRun_nonPdf_isBadRequest", async () => {
@@ -54,7 +54,7 @@ describe("POST /intelligence/resume/parse/run", () => {
       .set("Authorization", admin)
       .attach("file", Buffer.from("hello"), { filename: "resume.txt", contentType: "text/plain" });
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ code: "resume_bad_request", message: "please upload a PDF résumé" });
+    expect(res.body).toEqual({ code: "resume_bad_request", message: "please upload a PDF resume" });
     expect(aiCalls(env)).toHaveLength(0);
   });
 
@@ -64,7 +64,7 @@ describe("POST /intelligence/resume/parse/run", () => {
       .set("Authorization", admin)
       .attach("file", Buffer.alloc(0), { filename: "resume.pdf", contentType: "application/pdf" });
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ code: "resume_bad_request", message: "the résumé file is empty" });
+    expect(res.body).toEqual({ code: "resume_bad_request", message: "the resume file is empty" });
   });
 
   it("over 6 MB is 413 resume_too_large", async () => {
@@ -109,7 +109,7 @@ describe("GET /intelligence/resume/parse/runs[/:runId]", () => {
     env.fetch.on("GET", `${AI}/admin/resume/parse/runs/nope`, () => json({ detail: "no such run" }, 404));
     const res = await env.http.get(`${BASE}/parse/runs/nope`).set("Authorization", admin);
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ code: "run_not_found", message: "no such résumé-parse run" });
+    expect(res.body).toEqual({ code: "run_not_found", message: "no such resume-parse run" });
   });
 
   it("list proxies the AI service's run list", async () => {

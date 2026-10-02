@@ -136,13 +136,13 @@ export function interviewPrepBenchRouter(c: Container): Router {
   return r;
 }
 
-/** Résumé-parse observability bench (admin copy of the onboarding parse, fully instrumented). */
+/** Resume-parse observability bench (admin copy of the onboarding parse, fully instrumented). */
 export function resumeBenchRouter(c: Container): Router {
   const r = router();
 
   r.post("/parse/run", resumeUpload, async (req, res) => {
     const { bytes, filename } = readResume(req);
-    res.json(await c.aiService.startResumeParseRun(bytes, filename ?? "résumé.pdf"));
+    res.json(await c.aiService.startResumeParseRun(bytes, filename ?? "resume.pdf"));
   });
 
   r.get("/parse/runs", async (_req, res) => {
@@ -153,7 +153,7 @@ export function resumeBenchRouter(c: Container): Router {
     res.json(await c.aiService.getResumeParseRun(stringParam(req, "runId"), queryInt(req, "after", 0)));
   });
 
-  r.use(runProxyErrors(c, "resume_bad_request", "no such résumé-parse run", "AI service résumé-run call failed"));
+  r.use(runProxyErrors(c, "resume_bad_request", "no such resume-parse run", "AI service resume-run call failed"));
   return r;
 }
 
