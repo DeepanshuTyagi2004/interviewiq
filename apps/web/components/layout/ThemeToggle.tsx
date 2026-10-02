@@ -6,13 +6,14 @@ import { useThemeSwitch } from "./useThemeSwitch";
 /**
  * Sun/moon pill switch from the design. The knob position and glyph colours are driven by the
  * `.dark` class (set before paint by next-themes), so it renders correctly without waiting for
- * hydration. `useThemeSwitch` eases every colour across the swap.
+ * hydration. `useThemeSwitch` reveals the new theme as a circle growing from the toggle.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, switchTo } = useThemeSwitch();
 
-  function toggle() {
-    switchTo(theme === "dark" ? "light" : "dark");
+  function toggle(e: React.MouseEvent<HTMLButtonElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    switchTo(theme === "dark" ? "light" : "dark", { x: r.left + r.width / 2, y: r.top + r.height / 2 });
   }
 
   return (

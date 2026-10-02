@@ -172,6 +172,14 @@
   }
 }
 
+/* Theme switch: the new theme is clipped open as a growing circle (see useThemeSwitch). Turn off
+   the default cross-fade so only the reveal animates. */
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 @layer components {
   /* Uppercase mono label that heads every section ("COMPANY RESEARCH"). */
   .iq-eyebrow {
