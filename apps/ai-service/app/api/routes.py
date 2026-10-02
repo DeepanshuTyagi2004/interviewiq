@@ -29,6 +29,7 @@ from app.interview_prep.schema import GenerateInterviewPlanRequest
 from app.models.resume import ParsedResume
 from app.prompts.parse_resume import RESUME_SYSTEM, build_parse_resume_prompt
 from app.resume.extract import ResumeExtractError, extract_text
+from app.resume.formatting import restore_nesting
 from app.targets import Combination, fetch_combinations
 
 router = APIRouter()
@@ -165,7 +166,7 @@ async def parse_resume(request: Request) -> dict:
     pdf_bytes = await request.body()
     if len(pdf_bytes) > _MAX_RESUME_BYTES:
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                            detail="résumé exceeds 6 MB")
+                            detail="resume exceeds 6 MB")
     try:
         text = extract_text(pdf_bytes)
     except ResumeExtractError as exc:
@@ -179,11 +180,11 @@ async def parse_resume(request: Request) -> dict:
                 RESUME_SYSTEM, build_parse_resume_prompt(text), label="resume-parse")
     except LLMError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"résumé parsing failed: {exc}")
+                            detail=f"resume parsing failed: {exc}")
 
     try:
         parsed = ParsedResume.model_validate(data)
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"résumé parse produced invalid data: {exc.errors()[:3]}")
-    return parsed.model_dump()
+                            detail=f"resume parse produced invalid data: {exc.errors()[:3]}")
+    return restore_nesting(parsed, text).model_dump()

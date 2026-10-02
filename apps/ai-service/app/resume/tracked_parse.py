@@ -18,6 +18,7 @@ from app.llm.client import LLMError, build_llm_client
 from app.models.resume import ParsedResume
 from app.prompts.parse_resume import RESUME_SYSTEM, RESUME_VERSION, build_parse_resume_prompt
 from app.resume.extract import ResumeExtractError, extract_text
+from app.resume.formatting import restore_nesting
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ _PREVIEW_CHARS = 2000
 def start_resume_run(filename: str, size_bytes: int, *, source: str = "bench") -> str:
     """Register a résumé-parse run and return its id. The caller then launches
     :func:`run_resume_parse` as a background task."""
-    label = f"{filename or 'résumé.pdf'} ({size_bytes} bytes)"
+    label = f"{filename or 'resume.pdf'} ({size_bytes} bytes)"
     return RUNS.start_run(PIPELINE, source, label, STEP_NAMES)
 
 
@@ -96,8 +97,8 @@ async def run_resume_parse(pdf_bytes: bytes, filename: str, run_id: str, setting
             return
         RUNS.end_step(run_id, "validate", "ok", {"validation_ok": True})
 
-        # --- done ---
-        result = parsed.model_dump()
+        # --- done (nesting the model flattened is restored from the extracted layout) ---
+        result = restore_nesting(parsed, text).model_dump()
         RUNS.begin_step(run_id, "done")
         RUNS.set_result(run_id, result)
         RUNS.end_step(run_id, "done", "ok", {"experience_count": len(result.get("experience", []))})

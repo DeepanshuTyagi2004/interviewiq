@@ -7,7 +7,7 @@ import { z } from "zod";
 /**
  * Form-side shape of the candidate profile. It deliberately differs from the API DTOs in two
  * spots for editing ergonomics: resume bullets are edited as a single multiline string
- * (`bulletsText`, one per line) and skills as one comma-separated string (`skillsText`). The
+ * (`bulletsText`, one Markdown line per entry — see highlights-format.ts) and skills as one comma-separated string (`skillsText`). The
  * mapping module converts to/from the API's arrays. All fields are plain strings (never null) so
  * inputs stay controlled; the mapping trims empties back to null on save.
  */
@@ -38,7 +38,7 @@ const projectRowSchema = z.object({
   name: z.string(),
   description: z.string(),
   techText: z.string(), // comma-separated
-  bulletsText: z.string(), // one per line
+  bulletsText: z.string(), // one Markdown line per entry
   link: z.string(),
 });
 

@@ -22,3 +22,6 @@ export type { MonoPillProps, MonoPillTone } from "./MonoPill";
 
 export { Panel } from "./Panel";
 export type { PanelProps } from "./Panel";
+
+export { FormattedLines, parseLines, renderInline } from "./FormattedLines";
+export type { FormattedLinesProps } from "./FormattedLines";

@@ -49,6 +49,25 @@ class Education(BaseModel):
                           mode="before")(_coerce_str)
 
 
+def _coerce_line_list(v) -> list[str]:
+    """Like _coerce_str_list, but for Markdown highlight lines: keep each line's leading
+    indentation (it encodes nested bullets), drop trailing whitespace and blank lines."""
+    if v is None:
+        return []
+    if isinstance(v, str):
+        v = v.split("\n")
+    if not isinstance(v, (list, tuple)):
+        return []
+    out: list[str] = []
+    for item in v:
+        if item is None:
+            continue
+        line = str(item).rstrip()
+        if line.strip():
+            out.append(line)
+    return out
+
+
 class Experience(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -57,11 +76,13 @@ class Experience(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     location: str | None = None
+    # Markdown lines in the resume's own order: "- " bullets, "  - " nested bullets, plain
+    # sub-heading lines, **bold** where the resume has it.
     bullets: list[str] = []
 
     _s = field_validator("company", "title", "start_date", "end_date", "location",
                          mode="before")(_coerce_str)
-    _b = field_validator("bullets", mode="before")(_coerce_str_list)
+    _b = field_validator("bullets", mode="before")(_coerce_line_list)
 
 
 class Project(BaseModel):
@@ -70,11 +91,12 @@ class Project(BaseModel):
     name: str | None = None
     description: str | None = None      # one-line summary of what the project is
     tech: list[str] = []                # technologies/stack used
-    bullets: list[str] = []             # what was built / achieved (verbatim résumé lines)
+    bullets: list[str] = []             # Markdown lines, as for Experience.bullets
     link: str | None = None             # repo or live URL if present
 
     _s = field_validator("name", "description", "link", mode="before")(_coerce_str)
-    _l = field_validator("tech", "bullets", mode="before")(_coerce_str_list)
+    _l = field_validator("tech", mode="before")(_coerce_str_list)
+    _b = field_validator("bullets", mode="before")(_coerce_line_list)
 
 
 class ResumeLinks(BaseModel):

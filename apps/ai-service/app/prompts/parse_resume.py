@@ -7,12 +7,13 @@ null rather than inventing. Output is validated against app.models.resume.Parsed
 """
 from __future__ import annotations
 
-RESUME_VERSION = "v3"
+RESUME_VERSION = "v4"  # v4: highlight lines keep the resume's Markdown formatting
 
 RESUME_SYSTEM = (
     "You extract structured data from a candidate's résumé. Report ONLY what the résumé text "
     "states — never infer, rate, rank, or embellish. Where the résumé doesn't say, use null (or an "
-    "empty list). Keep values verbatim from the résumé (don't reword bullets or normalise dates). "
+    "empty list). Keep values verbatim from the résumé (don't reword bullets or normalise dates), "
+    "and keep the résumé's own formatting in highlight lines as Markdown. "
     "Respond with VALID JSON ONLY — a single JSON object and nothing else: no reasoning, no "
     "preamble, no explanation, no markdown fences, no text before or after it."
 )
@@ -38,12 +39,12 @@ Return a JSON object with EXACTLY this shape (use null / [] where the résumé d
   "experience": [
     { "company": "<employer>", "title": "<role>", "start_date": "<as written or null>",
       "end_date": "<as written, 'Present' if ongoing, or null>", "location": "<or null>",
-      "bullets": ["<each responsibility/achievement line, verbatim>"] }
+      "bullets": ["<each line under this role as Markdown, verbatim — see FORMATTING>"] }
   ],
   "projects": [
     { "name": "<project name>", "description": "<one-line summary if the résumé gives one, or null>",
       "tech": ["<each technology/tool the project lists>"],
-      "bullets": ["<each project detail line, verbatim>"],
+      "bullets": ["<each detail line as Markdown, verbatim — see FORMATTING>"],
       "link": "<repo/live URL if present, else null>" }
   ],
   "skills": ["<each distinct skill/technology named>"],
@@ -56,15 +57,40 @@ Rules:
   one job), that is still ONE experience entry — do NOT emit multiple entries that repeat the same
   company. Only create separate experience entries when the employer, title, OR date range differs.
 - When a role has named sub-projects, keep all of their lines in that one entry's "bullets", and put
-  each sub-project's heading as its own bullet immediately before that sub-project's lines, so the
-  grouping is preserved (e.g. "SFA, Supervisor and EB2B Flutter Apps", then its lines, then
-  "AI Sales Agent", then its lines).
-- "bullets" are the résumé's own lines for that role — copy the wording verbatim, but drop any
-  leading bullet marker (–, -, •, *); do not summarise or reword.
+  each sub-project's heading as its own line immediately before that sub-project's lines, so the
+  grouping is preserved (e.g. "**SFA, Supervisor and EB2B Flutter Apps**", then its bullets, then
+  "**AI Sales Agent**", then its bullets).
+- "bullets" are the résumé's own lines for that role or project — copy the wording verbatim; do
+  not summarise, reword, merge separate points, or split one point into several.
+FORMATTING (applies to "bullets" only):
+- The résumé text marks bold with **double asterisks** and shows indentation with leading spaces
+  (two per level). Keep every **bold** span exactly where the text has it — never add or remove
+  bold.
+- Write each line as Markdown, one array entry per line, in the résumé's order:
+  - a bullet point → "- <text>" (replace any glyph such as •, ▪, ◦, –, *, - with "- ");
+  - a bullet nested under another (deeper indent or a sub-bullet glyph) → "  - <text>"
+    (two spaces per extra level);
+  - a numbered point → "1. <text>" (keep the résumé's numbering);
+  - a sub-heading or a plain sentence that isn't a bullet → the text with no marker (keep its bold).
+  An indented line under a role or project with no glyph is still a bullet. Nesting is relative:
+  a line indented one level deeper than the bullet above it is that bullet's sub-bullet.
+  Example — résumé text:
+      **Payments Platform**
+        Migrated **billing** to event sourcing.
+          Wrote the **replay** tooling.
+        Led a team of 4.
+  becomes:
+      "bullets": ["**Payments Platform**", "- Migrated **billing** to event sourcing.",
+                  "  - Wrote the **replay** tooling.", "- Led a team of 4."]
+- PDF text wraps long lines: if a line is just the continuation of the previous point (it starts
+  mid-sentence, lower-case, or the previous line stops without finishing), join it onto that
+  point with a single space instead of starting a new entry.
+- No Markdown anywhere else: company, title, dates, names, links, tech, skills, education and
+  achievements are plain text — strip any ** from them.
 - "skills" are concrete technologies/tools/languages; skip soft-skill adjectives.
 - "projects" is a SEPARATE section from work experience — personal/academic/side projects the
   résumé lists under a Projects heading. Include EVERY one. Put its own tech list in "tech" and its
-  detail lines (verbatim, minus the leading marker) in "bullets"; fill "link" only if the project
+  detail lines (as Markdown, per FORMATTING) in "bullets"; fill "link" only if the project
   states a repo/live URL. Do NOT duplicate a work role here, and do NOT invent projects.
 - "achievements" are awards, honours, hackathon/competition results, scholarships, or ranked
   standings the résumé states — copy each verbatim. Empty list if the résumé lists none; never invent.

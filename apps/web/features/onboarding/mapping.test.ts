@@ -91,4 +91,14 @@ describe("formToRequest", () => {
     expect(req.experience).toHaveLength(1);
     expect(req.experience[0].bullets).toEqual(["Did a thing"]);
   });
+
+  it("keeps the leading spaces that nest a highlight, trimming only trailing space", () => {
+    const form = responseToForm(sample);
+    form.projects[0].bulletsText = "**Relay**\n- Built **agent**  \n  - Nested point\n\n1. Numbered";
+    const req = formToRequest(form, false);
+    expect(req.projects[0].bullets).toEqual(["**Relay**", "- Built **agent**", "  - Nested point", "1. Numbered"]);
+    expect(responseToForm({ ...sample, projects: req.projects }).projects[0].bulletsText).toBe(
+      "**Relay**\n- Built **agent**\n  - Nested point\n1. Numbered",
+    );
+  });
 });

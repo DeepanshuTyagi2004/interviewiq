@@ -6,6 +6,16 @@ const trimToNull = (s: string): string | null => {
   return t === "" ? null : t;
 };
 
+/**
+ * Highlights text → lines. Keeps leading spaces (they encode nested bullets in the Markdown
+ * format — see highlights-format.ts) and drops blank lines.
+ */
+const toLines = (text: string): string[] =>
+  text
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== "");
+
 /** API response (or parsed draft) → editable form values. */
 export function responseToForm(r: CandidateProfileResponse): CandidateFormValues {
   return {
@@ -70,10 +80,7 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
       startDate: trimToNull(x.startDate),
       endDate: trimToNull(x.endDate),
       location: trimToNull(x.location),
-      bullets: x.bulletsText
-        .split("\n")
-        .map((b) => b.trim())
-        .filter(Boolean),
+      bullets: toLines(x.bulletsText),
     }))
     .filter(
       (x) =>
@@ -88,10 +95,7 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
-      bullets: p.bulletsText
-        .split("\n")
-        .map((b) => b.trim())
-        .filter(Boolean),
+      bullets: toLines(p.bulletsText),
       link: trimToNull(p.link),
     }))
     .filter((p) => p.name || p.description || p.link || p.tech.length > 0 || p.bullets.length > 0);
