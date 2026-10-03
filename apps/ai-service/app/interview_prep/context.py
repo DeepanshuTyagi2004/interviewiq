@@ -1,6 +1,7 @@
 """Stage 1 (no LLM): assemble everything needed to build a plan, and compute the cache key.
 
-Gathers the pre-generated brief (`repo.get_brief`) and the question bank (`repo.query_questions`,
+Uses the backend's published brief when supplied, otherwise the pre-generated brief (`repo.get_brief`),
+and the question bank (`repo.query_questions`,
 filtered by round_type + company + the brief's difficulty calibration, relaxing filters if a strict
 match is empty). The JD and candidate profile arrive in the request body. Computes a deterministic
 input hash over the fused inputs (brief timestamp, profile hash, jd id, round_type, sorted question
@@ -19,6 +20,7 @@ from app.db import repositories as repo
 from app.interview_prep.schema import GenerateInterviewPlanRequest
 
 logger = logging.getLogger(__name__)
+INPUT_HASH_VERSION = "prep-context-v2-published-brief"
 
 
 def _sha256(payload: dict) -> str:
@@ -33,11 +35,14 @@ def compute_profile_hash(profile: dict) -> str:
 
 
 def compute_input_hash(*, brief_generated_at: str | None, profile_hash: str, jd_id: str,
-                       round_type: str, question_slugs: list[str]) -> str:
+                       round_type: str, question_slugs: list[str], brief: dict | None = None) -> str:
     """The cache key. Any change to the brief timestamp, profile, JD, round, or the set of seed
     question slugs yields a new hash → a fresh plan; identical inputs → identical hash → cache hit."""
     return _sha256({
+        "version": INPUT_HASH_VERSION,
         "brief_generated_at": brief_generated_at,
+        "brief_content_hash": _sha256(brief) if brief is not None else None,
+        "published_revision": brief.get("published_revision") if brief else None,
         "profile_hash": profile_hash,
         "jd_id": jd_id,
         "round_type": round_type,
@@ -139,6 +144,7 @@ def _round_scoped_brief(fe: dict, round_type: str, difficulty: str | None) -> di
     topics: list[str] = []
     problems: list[str] = []
     formats: list[str] = []
+    duration_minutes: int | None = None
     provenance: str | None = None
     for r in fe.get("rounds", []):
         if r.get("type") != round_type:
@@ -153,11 +159,17 @@ def _round_scoped_brief(fe: dict, round_type: str, difficulty: str | None) -> di
         if fmt and fmt not in formats:
             formats.append(fmt)
         provenance = provenance or r.get("provenance")
+        # A session is one round, not the entire loop. When a type appears more than once,
+        # use its first configured timebox, never the sum of separate interviews.
+        duration = r.get("duration_minutes")
+        if duration_minutes is None and type(duration) is int and 1 <= duration <= 240:
+            duration_minutes = duration
     return {
         "difficulty": difficulty,
         "topics": topics,
         "problems": problems,          # named questions real candidates got in THIS round
         "formats": formats,
+        "durationMinutes": duration_minutes,
         "provenance": provenance,
     }
 
@@ -198,7 +210,9 @@ async def build_context(req: GenerateInterviewPlanRequest, settings: Settings) -
     jd = req.job_description
     round_type = session.round_type.value
 
-    brief = await repo.get_brief(session.company, session.role, session.level, session.specialization)
+    brief = (req.company_brief.model_dump(mode="json", by_alias=True, exclude_unset=True)
+             if req.company_brief is not None else
+             await repo.get_brief(session.company, session.role, session.level, session.specialization))
     fe = _final_experience(brief)
     difficulty = _derive_difficulty(fe, round_type)
 
@@ -211,9 +225,11 @@ async def build_context(req: GenerateInterviewPlanRequest, settings: Settings) -
     brief_generated_at = _brief_generated_at(brief)
     input_hash = compute_input_hash(
         brief_generated_at=brief_generated_at, profile_hash=profile_hash, jd_id=jd.id,
-        round_type=round_type, question_slugs=question_slugs)
+        round_type=round_type, question_slugs=question_slugs, brief=brief)
 
     grounding = _build_grounding(session=session, jd=jd, profile=profile, fe=fe, difficulty=difficulty)
+    if brief and brief.get("company_overview"):
+        grounding["companyOverview"] = brief["company_overview"]
 
     ctx = PrepContext(
         company=session.company, role=session.role, level=session.level,

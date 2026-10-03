@@ -1,7 +1,7 @@
 """Persona + round-arc prompt: build the interviewer persona, opening/closing script, and the
 timed round arc (intro → warm-up → core → curveball → candidate-qs → wrap) for one session.
 
-v1 DRAFT — real interviewer-voice text (product IP). Reviewed/tuned by a human before production.
+v5 DRAFT — real interviewer-voice text (product IP). Human review required before production.
 Bump PERSONA_PROMPT_VERSION on any change so provenance tracks which prompt produced a plan.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import json
 
 from app.interview_prep.prompts.style import PLATFORM_CONTEXT, SPOKEN_STYLE
 
-PERSONA_PROMPT_VERSION = "v4"
+PERSONA_PROMPT_VERSION = "v5-published-brief-draft"
 
 # The interviewer-persona system prompt. The LLM client folds this into the user turn (Gemma has
 # no system role), so keep it self-contained.
@@ -37,7 +37,9 @@ PERSONA_SYSTEM = (
     "not a script read aloud (see SPEAKING STYLE below). closing: 1-2 spoken sentences to wrap — "
     "thank them, say what happens next.\n"
     "- round_arc: an ordered set of beats using ONLY the allowed phases, timeboxed to add up to a "
-    "realistic single round (typically 30-60 minutes). Skip phases that don't fit the round type "
+    "single round: use round.durationMinutes as the total timebox when present; otherwise typically "
+    "30-60 minutes. Follow the published guidance in round.formats for how to conduct this round. "
+    "Skip phases that don't fit the round type "
     "(a pure DSA screen may have no curveball); always leave a candidate-qs beat.\n"
     "- grounded_in: name the specific signals (brief field, JD line, or profile item) each major "
     "persona choice rests on. Never invent facts not present in the grounding.\n"

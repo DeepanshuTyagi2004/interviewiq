@@ -25,12 +25,34 @@ from app.interview_prep.schema import (
     PlanProvenance,
 )
 from app.models.brief import utcnow
+from app.llm.client import LLMError
 
 logger = logging.getLogger(__name__)
 
 
 class PrepDataError(RuntimeError):
     """No brief content AND no questions for this JD — nothing to ground a plan in (maps to 422)."""
+
+
+def _timeboxed_arc(arc: list, duration: int | None) -> list:
+    """Honor a published single-round duration even when generated beat timings drift.
+
+    Preserve beat order/content and relative weights; largest remainders keep integer minutes
+    summing exactly to the published duration. Never invent an arc if generation omitted it.
+    """
+    if duration is None:
+        return arc
+    if not arc:
+        raise LLMError("generated round arc is empty for a published round duration")
+    weights = [max(0, beat.timebox_mins) for beat in arc]
+    if not sum(weights):
+        weights = [1] * len(arc)
+    total = sum(weights)
+    minutes = [duration * w // total for w in weights]
+    order = sorted(range(len(arc)), key=lambda i: -(duration * weights[i] % total))
+    for index in order[:duration - sum(minutes)]:
+        minutes[index] += 1
+    return [beat.model_copy(update={"timebox_mins": minutes[i]}) for i, beat in enumerate(arc)]
 
 
 def _assemble_plan(req: GenerateInterviewPlanRequest, ctx: PrepContext,
@@ -59,7 +81,9 @@ def _assemble_plan(req: GenerateInterviewPlanRequest, ctx: PrepContext,
         provenance=provenance,
         persona=persona_and_arc.persona,
         candidate_profile=req.candidate_profile,
-        round_arc=persona_and_arc.round_arc,
+        round_arc=_timeboxed_arc(persona_and_arc.round_arc,
+                                ctx.grounding.get("round", {}).get("durationMinutes")
+                                if req.company_brief is not None else None),
         question_ladders=ladders,
         candidate_probes=probes_list,
         red_flag_watchlist=ctx.red_flags,

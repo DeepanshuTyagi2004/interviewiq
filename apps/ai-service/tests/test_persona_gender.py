@@ -62,7 +62,7 @@ def test_persona_prompt_asks_for_gender():
 
 
 def test_persona_prompt_version_bumped():
-    assert persona.PERSONA_PROMPT_VERSION == "v4"
+    assert persona.PERSONA_PROMPT_VERSION == "v5-published-brief-draft"
 
 
 def test_prep_plan_version_bumped():

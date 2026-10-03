@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.models.brief import Difficulty, RoundType
@@ -313,7 +313,67 @@ class PlanCandidateProfile(_CamelModel):
     _l = field_validator("skills", "achievements", mode="before")(_coerce_str_list)
 
 
+class PublishedBriefRound(BaseModel):
+    """Backend publication wire values match RoundType exactly; no fuzzy type mapping."""
+    id: str | None = None
+    round_number: int | None = None
+    name: str | None = None
+    type: RoundType
+    duration_minutes: int | None = Field(default=None, ge=1, le=240, strict=True)
+    difficulty: Difficulty | None = None
+    topics: list[str] = Field(default_factory=list)
+    problems: list[str] = Field(default_factory=list)
+    format: str | None = None  # Published admin guidance, not just a format label.
+    provenance: str | None = None
+    source_urls: list[str] = Field(default_factory=list)
+
+
+class PublishedBriefExperience(BaseModel):
+    rounds: list[PublishedBriefRound] = Field(default_factory=list)
+    dominant_topics: list[str] = Field(default_factory=list)
+    company_specific_patterns: str | None = None
+    interviewer_style_notes: str | None = None
+    difficulty_calibration: str | None = None
+    red_flags: list[str] = Field(default_factory=list)
+
+
+class PublishedCompanyOverview(_CamelModel):
+    overview: str | None = None
+    culture: str | None = None
+    benefits: str | None = None
+    source_urls: list[str] = Field(default_factory=list)
+    verified: bool | None = None
+
+
+class PublishedCompanyBrief(BaseModel):
+    """Internal backend-owned publication, separate from candidate profile input.
+
+    Only known brief fields enter grounding; extra candidate/profile keys cannot override it.
+    """
+    company: str | None = None
+    role: str | None = None
+    level: str | None = None
+    specialization: str | None = None
+    generated_at: str | None = None
+    published_revision: int | None = Field(default=None, ge=0, strict=True)
+    generation_status: str | None = None
+    provenance: str | None = None
+    sources: list[str] = Field(default_factory=list)
+    company_overview: PublishedCompanyOverview | None = None
+    final_experience: PublishedBriefExperience | None = None
+
+
 class GenerateInterviewPlanRequest(_CamelModel):
     session: PlanSessionContext
     job_description: PlanJobDescription
     candidate_profile: PlanCandidateProfile
+    company_brief: PublishedCompanyBrief | None = None
+
+    @model_validator(mode="after")
+    def validate_brief_identity(self):
+        if self.company_brief is not None:
+            for name in ("company", "role", "level", "specialization"):
+                supplied = getattr(self.company_brief, name)
+                if supplied is not None and supplied != getattr(self.session, name):
+                    raise ValueError(f"companyBrief.{name} must match session.{name}")
+        return self
