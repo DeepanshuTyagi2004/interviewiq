@@ -1,0 +1,44 @@
+import Link from "next/link";
+import { MonoPill } from "@/components/patterns";
+import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
+import { levelLabel, specializationLabel } from "@/app/(app)/jobs/_components/library";
+import type { JdBrief, Loop } from "@/features/loops";
+import { ROUTES } from "@/lib/constants/shared";
+
+/** "Software Engineer (Fresher)" with "Company · Fresher · Backend" underneath. */
+export function JdTitle({ jd, href, live = true }: { jd: JdBrief | null; href?: string; live?: boolean }) {
+  if (!jd) return <span className="text-sm text-faint">Role no longer available</span>;
+  const sub = [jd.companyName, levelLabel(jd.level), jd.specialization ? specializationLabel(jd.specialization) : null].filter(Boolean).join(" · ");
+  const body = (
+    <>
+      <span className="block truncate text-[15px]">{jd.title}</span>
+      <span className="block truncate text-xs text-faint">{sub}</span>
+    </>
+  );
+  return (
+    <div className="flex min-w-0 items-center gap-3.5">
+      <CompanyTile name={jd.companyName} live={live} size="sm" />
+      <div className="min-w-0">
+        {href ? <Link href={href} className="block min-w-0 hover:underline underline-offset-4">{body}</Link> : body}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_LABEL: Record<Loop["status"], string> = { active: "Active", paused: "Paused", abandoned: "Abandoned", completed: "Completed" };
+
+export function LoopStatusPill({ status }: { status: Loop["status"] }) {
+  return <MonoPill tone={status === "active" ? "brand" : status === "completed" ? "ink" : "ghost"}>{STATUS_LABEL[status]}</MonoPill>;
+}
+
+/** Official tracks count towards readiness; edited ones are standalone practice. Never a badge. */
+export function KindPill({ loop }: { loop: Pick<Loop, "kind" | "countsTowardReadiness"> }) {
+  return loop.countsTowardReadiness ? (
+    <MonoPill tone="soft" title="Unedited process: counts towards readiness for this role">Official process</MonoPill>
+  ) : (
+    <MonoPill tone="ghost" title="Edited process: fully analysed, but not counted towards readiness">Standalone · not counted</MonoPill>
+  );
+}
+
+export const loopHref = (id: string) => `${ROUTES.loops}/${id}`;
+export const processHref = (id: string) => `${ROUTES.processes}/${id}`;

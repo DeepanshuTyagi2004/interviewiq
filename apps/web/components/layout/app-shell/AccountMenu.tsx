@@ -78,8 +78,10 @@ const kbd = "ml-auto rounded border border-line-3 px-1.5 py-0.5 font-mono text-[
 export interface AccountMenuProps {
   name: string;
   email?: string;
-  /** Secondary line, e.g. "Active · Meesho SDE I". */
+  /** Secondary line, e.g. "Active track · Meesho · SDE I". */
   status: string;
+  /** Lights the status dot; only true while a track is active. */
+  statusActive?: boolean;
   isAdmin: boolean;
   onOpenSearch: () => void;
   onToggleMenu: () => void;
@@ -94,6 +96,7 @@ export function AccountMenu({
   name,
   email,
   status,
+  statusActive = false,
   isAdmin,
   onOpenSearch,
   onToggleMenu,
@@ -146,7 +149,7 @@ export function AccountMenu({
           </div>
         </div>
         <p className="m-0 mx-1 mb-1 flex items-center gap-2 rounded-md bg-foreground/[0.05] px-2.5 py-2 text-xs text-muted-foreground">
-          <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-brand" />
+          <span aria-hidden className={cn("h-1.5 w-1.5 flex-none rounded-full", statusActive ? "bg-brand" : "bg-faint-2")} />
           <span className="truncate">{status}</span>
         </p>
 

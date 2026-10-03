@@ -1,11 +1,6 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { LoopDetail } from "../_components/LoopDetail";
 
-export default async function LoopDetailPage({
-  params,
-}: {
-  params: Promise<{ loopId: string }>;
-}) {
+export default async function LoopDetailPage({ params }: { params: Promise<{ loopId: string }> }) {
   const { loopId } = await params;
-  // TODO: loop detail view
-  return <StubScreen title={`Loop ${loopId}`} />;
+  return <LoopDetail loopId={loopId} />;
 }

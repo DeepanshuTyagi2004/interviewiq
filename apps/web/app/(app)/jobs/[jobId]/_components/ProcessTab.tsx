@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { JdDetail } from "@/features/jobs";
 import { cn } from "@/lib/utils/cn";
 import { confidenceWord } from "./insights";
+import { ProcessFlow } from "./ProcessFlow";
 import { ROUND_RAIL, RoundCard } from "./RoundCard";
 import { bookHref, isAdminVerifiedProcess } from "./rounds";
 
@@ -28,11 +29,22 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
     );
   }
 
+  // Interview rounds are numbered; info steps (online tests, take-homes) are shown but not counted.
+  let interviewNo = 0;
   return (
     <>
+      <ProcessFlow jd={jd} />
+
+      <h2 className="m-0 mb-3 mt-6 text-lg font-normal tracking-[-0.02em]">Round details</h2>
       <ol aria-label="Interview rounds" className={cn(ROUND_RAIL, "m-0 flex list-none flex-col gap-2.5 p-0")}>
         {rounds.map((round, i) => (
-          <RoundCard key={round.id ?? `${round.round_number ?? i}-${round.type ?? ""}`} round={round} index={i} jdId={jd.id} />
+          <RoundCard
+            key={round.id ?? `${round.round_number ?? i}-${round.type ?? ""}`}
+            round={round}
+            index={i}
+            jdId={jd.id}
+            number={round.kind === "info" ? undefined : ++interviewNo}
+          />
         ))}
       </ol>
 
@@ -40,8 +52,8 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
         <p className="m-0 text-sm">{verified ? "Admin-verified process" : "Suggested process"}</p>
         <p className="m-0 mt-0.5 text-[12.5px] leading-[1.5] text-muted-foreground">
           {verified ? "Reviewed and published by an InterviewIQ admin using the linked sources. " : confidence === "low" ? "Built from limited shared data, so treat it as a rough guide. " : "Built from interview experiences candidates share. "}
-          Customising rounds isn&apos;t available yet. When it is, a customised loop will be standalone practice: fully
-          analysed, but not counted towards readiness.
+          Duplicate it to add, remove or reorder rounds. A customised process is standalone practice: fully analysed, but
+          not counted towards readiness.
         </p>
       </div>
     </>

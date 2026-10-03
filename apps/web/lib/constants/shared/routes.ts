@@ -19,6 +19,7 @@ export const ROUTES = {
   jobs: "/jobs",
   interviews: "/interviews",
   loops: "/loops",
+  processes: "/processes",
   intelligence: "/intelligence",
   shareExperience: "/experiences",
   settings: {

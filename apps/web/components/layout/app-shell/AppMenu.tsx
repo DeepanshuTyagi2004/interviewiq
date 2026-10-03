@@ -10,13 +10,21 @@ import { isActivePath, type AppNavItem } from "./nav";
 
 const READINESS_SEGMENTS = 4;
 
+function filledSegments(r: { completed: number; total: number } | null): number {
+  return r && r.total > 0 ? Math.round((r.completed / r.total) * READINESS_SEGMENTS) : 0;
+}
+
 export interface AppMenuProps {
   id: string;
   open: boolean;
   items: AppNavItem[];
   name: string;
-  /** Secondary line under the name, e.g. the target role. */
+  /** Secondary line under the name: your active track, or your target role. */
   status: string;
+  /** Lights the status dot; only true while a track is active. */
+  statusActive?: boolean;
+  /** Rounds completed across unedited (official) tracks; null when there are none. */
+  readiness?: { completed: number; total: number } | null;
   onNavigate: () => void;
   onSignOut: () => void;
 }
@@ -26,7 +34,7 @@ export interface AppMenuProps {
  * as the card slides away), readiness and sign out. Hidden from assistive tech while closed.
  */
 export const AppMenu = forwardRef<HTMLElement, AppMenuProps>(function AppMenu(
-  { id, open, items, name, status, onNavigate, onSignOut },
+  { id, open, items, name, status, statusActive = false, readiness = null, onNavigate, onSignOut },
   ref,
 ) {
   const pathname = usePathname();
@@ -55,7 +63,7 @@ export const AppMenu = forwardRef<HTMLElement, AppMenuProps>(function AppMenu(
         <div className="min-w-0">
           <p className="m-0 truncate text-[17px] tracking-[-0.02em]">{name}</p>
           <p className="m-0 mt-[3px] flex items-center gap-1.5 truncate text-[12.5px] text-muted-foreground">
-            <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-brand" />
+            <span aria-hidden className={cn("h-1.5 w-1.5 flex-none rounded-full", statusActive ? "bg-brand" : "bg-faint-2")} />
             {status}
           </p>
         </div>
@@ -102,15 +110,17 @@ export const AppMenu = forwardRef<HTMLElement, AppMenuProps>(function AppMenu(
           open ? "opacity-100" : "opacity-0",
         )}
       >
-        {/* Readiness isn't computed yet — show the empty meter, never a made-up level. */}
+        {/* Rounds completed in unedited tracks; no readiness levels until the product defines them. */}
         <div className="flex max-w-[220px] flex-col gap-2 rounded-[14px] bg-foreground/[0.07] p-3.5">
           <p className="m-0 font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-foreground">Readiness</p>
           <div aria-hidden className="grid grid-cols-4 gap-[3px]">
             {Array.from({ length: READINESS_SEGMENTS }, (_, i) => (
-              <span key={i} className="h-1 rounded-sm bg-foreground/[0.14]" />
+              <span key={i} className={cn("h-1 rounded-sm", i < filledSegments(readiness) ? "bg-brand" : "bg-foreground/[0.14]")} />
             ))}
           </div>
-          <p className="m-0 text-xs text-muted-foreground">No official loop started yet</p>
+          <p className="m-0 text-xs text-muted-foreground">
+            {readiness ? `${readiness.completed} of ${readiness.total} rounds completed` : "No official track started yet"}
+          </p>
         </div>
         <button
           type="button"

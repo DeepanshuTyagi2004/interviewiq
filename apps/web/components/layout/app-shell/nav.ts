@@ -7,6 +7,8 @@ import {
   Mic,
   Send,
   UserRound,
+  Waypoints,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/lib/constants/shared";
@@ -25,6 +27,8 @@ export interface AppNavItem {
 export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard, keywords: ["home"] },
   { label: "Companies", href: ROUTES.jobs, icon: Building2, keywords: ["jobs", "roles", "roadmap"] },
+  { label: "My tracks", href: ROUTES.loops, icon: Waypoints, keywords: ["tracks", "loops", "subscribed", "schedule", "slots", "targets", "watchlist"] },
+  { label: "Interview processes", href: ROUTES.processes, icon: Workflow, keywords: ["process", "custom", "create", "editor", "flow", "rounds"] },
   { label: "Interviews", href: ROUTES.interviews, icon: Mic, keywords: ["room", "schedule", "book", "debrief"] },
   { label: "Profile", href: ROUTES.profile, icon: UserRound, keywords: ["resume", "skills"] },
   { label: "Connections", href: ROUTES.connections, icon: Link2, keywords: ["github", "leetcode", "sources"] },
@@ -45,7 +49,10 @@ export function isActivePath(pathname: string, href: string): boolean {
 export function titleForPath(pathname: string): string {
   if (/^\/interviews\/[^/]+\/live/.test(pathname)) return "Interview room";
   if (/^\/interviews\/[^/]+\/report/.test(pathname)) return "Debrief";
+  if (/^\/jobs\/c\//.test(pathname)) return "Companies";
   if (/^\/jobs\/[^/]+/.test(pathname)) return "Roadmap";
+  if (/^\/processes\/[^/]+/.test(pathname)) return "Process editor";
+  if (/^\/loops\/[^/]+/.test(pathname)) return "Track";
   if (pathname.startsWith("/settings")) return "Settings";
   if (isActivePath(pathname, ROUTES.leaderboard)) return "Leaderboard";
   const match = APP_NAV.find((item) => isActivePath(pathname, item.href));

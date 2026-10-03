@@ -1,6 +1,7 @@
 "use client";
 
 import { useMySessions } from "@/features/interview";
+import { useLoops } from "@/features/loops";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -25,20 +26,27 @@ export function Dashboard() {
   const { user } = useCurrentUser();
   const sessions = useMySessions();
 
-  const all = sessions.data?.sessions ?? [];
+  const loops = useLoops();
+
+  // Cancelled interviews no longer hold a slot: keep them off the calendar and out of "up next".
+  const all = (sessions.data?.sessions ?? []).filter((s) => s.status !== "CANCELLED");
   const next = upcomingSessions(all, 1)[0];
   const recent = recentSessions(all);
 
+  // With nothing booked, point at the loop that has a round ready to book.
+  const ready = (loops.data ?? []).find((l) => l.status === "active" && l.progress.nextNodeIds.length > 0);
   const summary = next
     ? `Your ${next.companyName ?? next.company} ${ROUND_LABEL.get(next.roundType) ?? next.roundType} round is ${
         next.status === "PREP_READY" ? "ready to join" : `booked for ${formatSlot(next.scheduledAt)}`
       }.`
-    : "Pick a company and role to start practising its real process.";
+    : ready
+      ? `Your ${ready.jd?.companyName ?? "interview"} track has a round ready to book.`
+      : "Pick a company and role to start practising its real process.";
 
   return (
     <div className="iq-fit mx-auto flex w-full max-w-[1760px] flex-none flex-col lg:min-h-0 lg:flex-1">
-      <div className="flex flex-col px-[calc(22*var(--u))] pb-[calc(36*var(--u))] pt-[calc(34*var(--u))] sm:px-[calc(40*var(--u))] lg:h-full lg:min-h-0">
-        <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ROUTES.interviews} />
+      <div className="flex flex-col px-[calc(16*var(--u))] pb-[calc(24*var(--u))] pt-[calc(26*var(--u))] sm:px-[calc(26*var(--u))] lg:h-full lg:min-h-0">
+        <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ready ? `${ROUTES.loops}/${ready.id}` : ROUTES.interviews} />
 
         <div className="mt-[calc(30*var(--u))] grid grid-cols-1 gap-[calc(20*var(--u))] md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.73fr)_minmax(0,1fr)] lg:grid-rows-[minmax(min-content,1.1fr)_auto_minmax(0,1fr)]">
           <UpNextCard session={next} className="lg:col-start-1 lg:row-start-1" />

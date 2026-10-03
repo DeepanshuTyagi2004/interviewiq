@@ -30,6 +30,8 @@ export interface RoundCardProps {
   round: ConsolidatedRound;
   index: number;
   jdId: string;
+  /** Position among interview rounds only (info rounds are not numbered). */
+  number?: number;
 }
 
 /**
@@ -37,19 +39,20 @@ export interface RoundCardProps {
  * format/difficulty, topic chips and a booking link. Deliberately no locked, cleared or scored
  * state: gating isn't built.
  */
-export function RoundCard({ round, index, jdId }: RoundCardProps) {
-  const n = roundNumber(round, index);
+export function RoundCard({ round, index, jdId, number }: RoundCardProps) {
+  const info = round.kind === "info";
+  const n = number ?? roundNumber(round, index);
   const title = roundTitle(round, index);
   const meta = roundMeta(round);
   const topics = roundTopics(round);
   const mapped = toRoundType(round.type) !== null;
-  const note = isOnlineAssessment(round.type) ? "Automated test · not run as a mock" : roundEvidence(round);
+  const note = info ? "Not an interview round, for information only" : isOnlineAssessment(round.type) ? "Automated test · not run as a mock" : roundEvidence(round);
   const cta = mapped ? "Book this round" : "Book a round";
   const sources = [...new Set(round.source_urls?.map((url) => url.trim()).filter(Boolean) ?? [])];
   const questions = [...new Set(round.problems?.map((question) => question.trim()).filter(Boolean) ?? [])];
 
   return (
-    <li className="hud-card group/round relative grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 overflow-hidden rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
+    <li className={cn("hud-card group/round relative grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 overflow-hidden rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5", info && "border-dashed opacity-70")}>
       <span aria-hidden className="hud-ticks" />
       <span
         aria-hidden
@@ -58,12 +61,12 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
           RAIL_ENDS,
         )}
       >
-        R{padCount(n)}
+        {info ? "i" : `R${padCount(n)}`}
       </span>
 
       <div className="flex min-w-0 flex-col gap-1.5">
         <h3 className="m-0 text-base font-normal tracking-[-0.01em]">
-          <span className="sr-only">Round {n}: </span>
+          <span className="sr-only">{info ? "Info step" : `Round ${n}`}: </span>
           {title}
         </h3>
         {meta ? <p className="m-0 text-[12.5px] leading-[1.45] text-faint">{meta}</p> : null}
@@ -82,11 +85,13 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
 
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:col-start-3 sm:flex-col sm:items-end sm:justify-center">
         {note ? <span className="text-[12.5px] text-muted-foreground">{note}</span> : null}
-        <Button asChild variant="strong" className="h-9 px-3.5 text-[13px]">
-          <Link href={bookHref(jdId, round.type)} aria-label={`${cta}: ${title}`}>
-            {cta}
-          </Link>
-        </Button>
+        {info ? null : (
+          <Button asChild variant="strong" className="h-9 px-3.5 text-[13px]">
+            <Link href={bookHref(jdId, round.type)} aria-label={`${cta}: ${title}`}>
+              {cta}
+            </Link>
+          </Button>
+        )}
       </div>
     </li>
   );

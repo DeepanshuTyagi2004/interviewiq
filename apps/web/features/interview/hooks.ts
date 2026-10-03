@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTERVIEW_POLLING, INTERVIEW_QUERY_KEYS } from "@/lib/constants/interview";
-import { createSession, getLive, getSession, listMySessions, regenerateSession } from "./api";
+import { cancelSession, createSession, getLive, getSession, listMySessions, regenerateSession, rescheduleSession } from "./api";
 import type {
   CreateInterviewSessionRequest,
   GoLiveResponse,
@@ -28,10 +28,27 @@ export function useCreateSession() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateInterviewSessionRequest) => createSession(body),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: INTERVIEW_QUERY_KEYS.sessions });
-    },
+    onSuccess: () => invalidateSessionsAndLoops(queryClient),
   });
+}
+
+/** Booking, moving or cancelling a round changes loops (node state, progress) as well as sessions. */
+function invalidateSessionsAndLoops(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: INTERVIEW_QUERY_KEYS.sessions });
+  void queryClient.invalidateQueries({ queryKey: ["loops"] });
+}
+
+export function useRescheduleSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; scheduledAt: string; timezone: string }) => rescheduleSession(id, body),
+    onSuccess: () => invalidateSessionsAndLoops(queryClient),
+  });
+}
+
+export function useCancelSession() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => cancelSession(id), onSuccess: () => invalidateSessionsAndLoops(queryClient) });
 }
 
 export function useRegenerateSession() {

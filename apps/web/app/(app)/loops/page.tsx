@@ -1,6 +1,10 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { Suspense } from "react";
+import { LoopsHub } from "./_components/LoopsHub";
 
 export default function LoopsPage() {
-  // TODO: loops list
-  return <StubScreen title="Loops" />;
+  return (
+    <Suspense>
+      <LoopsHub />
+    </Suspense>
+  );
 }

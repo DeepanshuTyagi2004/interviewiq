@@ -10,6 +10,8 @@ export const INTERVIEW_ENDPOINTS = {
   session: (id: string) => `${SESSIONS}/${id}`,
   regenerate: (id: string) => `${SESSIONS}/${id}/regenerate`,
   live: (id: string) => `${SESSIONS}/${id}/live`,
+  reschedule: (id: string) => `${SESSIONS}/${id}/reschedule`,
+  cancel: (id: string) => `${SESSIONS}/${id}/cancel`,
 } as const;
 
 export const INTERVIEW_QUERY_KEYS = {

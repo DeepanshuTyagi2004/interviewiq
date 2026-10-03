@@ -18,7 +18,7 @@ export function recentSessions(sessions: InterviewSession[], limit = 4): Intervi
 /** Sessions still ahead of the candidate, soonest first. */
 export function upcomingSessions(sessions: InterviewSession[], limit = 4): InterviewSession[] {
   return sessions
-    .filter((s) => !isFinished(s))
+    .filter((s) => !isFinished(s) && s.status !== "CANCELLED")
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, limit);
 }
@@ -46,6 +46,8 @@ export function sessionPill(session: Pick<InterviewSession, "status" | "schedule
       return { label: "DONE", tone: "muted" };
     case "ABORTED_TECHNICAL":
       return { label: "INTERRUPTED", tone: "muted" };
+    case "CANCELLED":
+      return { label: "CANCELLED", tone: "muted" };
     default:
       return { label: shortDate(session.scheduledAt), tone: "soft" };
   }

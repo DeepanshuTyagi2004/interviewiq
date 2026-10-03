@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROUTES } from "@/lib/constants/shared";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useCandidateProfile } from "@/features/onboarding/hooks";
+import { readinessSummary, trackStatus, useLoops } from "@/features/loops";
 import { useHudScope } from "@/components/hud/scope";
 import { AppMenu } from "./AppMenu";
 import { AppTopBar } from "./AppTopBar";
@@ -42,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { logout } = useAuth();
   const { user, isAdmin } = useCurrentUser();
   const candidate = useCandidateProfile();
+  const loops = useLoops();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -51,7 +53,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const items = navFor(isAdmin);
   const name = user?.name ?? candidate.data?.fullName ?? "Your account";
-  const status = candidate.data?.targetRole ? `Active · ${candidate.data.targetRole}` : "Active";
+  // From your real tracks; the onboarding target role alone never reads as "active".
+  const track = trackStatus(loops.data ?? [], candidate.data?.targetRole);
+  const status = track.text;
+  const readiness = readinessSummary(loops.data ?? []);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
@@ -100,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           setMenuOpen(false);
           setSearchOpen(true);
         }}
-        account={{ name, email: user?.email, status, isAdmin, onSignOut: () => void signOut() }}
+        account={{ name, email: user?.email, status, statusActive: track.active, isAdmin, onSignOut: () => void signOut() }}
       />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -111,6 +116,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           items={items}
           name={name}
           status={status}
+          statusActive={track.active}
+          readiness={readiness}
           onNavigate={closeMenu}
           onSignOut={() => void signOut()}
         />

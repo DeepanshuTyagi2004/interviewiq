@@ -12,6 +12,7 @@ import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { useJds, type JdSummary } from "@/features/jobs";
 import { useCreateSession, type CreateInterviewSessionRequest, type RoundType } from "@/features/interview";
 import { levelLabel, roundLabel } from "@/features/interview/presentation";
+import { bookingError } from "@/features/loops/errors";
 
 // Bookable hourly slots (local time). Kept simple for V1 — a fixed daytime window.
 const SLOT_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
@@ -139,7 +140,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         toast.success("Interview booked — we'll prepare it before your slot.");
         reset();
       },
-      onError: () => toast.error("Couldn't book that interview. Please try again."),
+      onError: (err) => toast.error(bookingError(err, "Couldn't book that interview. Please try again.")),
     });
   }
 

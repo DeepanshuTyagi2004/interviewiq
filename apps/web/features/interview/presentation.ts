@@ -53,6 +53,7 @@ export const STATUS_META: Record<SessionStatus, StatusMeta> = {
   LIVE_IN_PROGRESS: { label: "Live", tone: "ink", pending: false, live: true },
   COMPLETED: { label: "Done", tone: "soft", pending: false },
   ABORTED_TECHNICAL: { label: "Interrupted", tone: "ghost", pending: false },
+  CANCELLED: { label: "Cancelled", tone: "ghost", pending: false },
 };
 
 export function statusMeta(status: string): StatusMeta {
@@ -75,8 +76,9 @@ const byTime = (s: Pick<InterviewSession, "scheduledAt">) => new Date(s.schedule
 export function partitionSessions<T extends Pick<InterviewSession, "status" | "scheduledAt">>(
   sessions: T[],
 ): { upcoming: T[]; past: T[] } {
-  const upcoming = sessions.filter((s) => !isFinished(s)).sort((a, b) => byTime(a) - byTime(b));
-  const past = sessions.filter(isFinished).sort((a, b) => byTime(b) - byTime(a));
+  const closed = (s: Pick<InterviewSession, "status">) => isFinished(s) || s.status === "CANCELLED";
+  const upcoming = sessions.filter((s) => !closed(s)).sort((a, b) => byTime(a) - byTime(b));
+  const past = sessions.filter(closed).sort((a, b) => byTime(b) - byTime(a));
   return { upcoming, past };
 }
 

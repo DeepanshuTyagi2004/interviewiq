@@ -36,3 +36,13 @@ export function goLive(id: string): Promise<GoLiveResponse> {
 export function getLive(id: string): Promise<GoLiveResponse> {
   return apiFetch<GoLiveResponse>(INTERVIEW_ENDPOINTS.live(id));
 }
+
+/** POST /api/v1/interviews/sessions/{id}/reschedule — move a not-yet-started interview (409 session_slot_taken on a clash). */
+export function rescheduleSession(id: string, body: { scheduledAt: string; timezone: string }): Promise<InterviewSession> {
+  return apiFetch<InterviewSession>(INTERVIEW_ENDPOINTS.reschedule(id), { method: "POST", json: body });
+}
+
+/** POST /api/v1/interviews/sessions/{id}/cancel — cancel a not-yet-started interview. */
+export function cancelSession(id: string): Promise<InterviewSession> {
+  return apiFetch<InterviewSession>(INTERVIEW_ENDPOINTS.cancel(id), { method: "POST" });
+}

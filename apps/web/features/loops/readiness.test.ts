@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+import { readinessSummary, trackStatus } from "./readiness";
+import type { Loop } from "./types";
+
+const loop = (over: Partial<Loop>): Loop => ({
+  id: "l", jdId: "j", processId: null, kind: "official", status: "active", countsTowardReadiness: true,
+  confirmedAt: "2030-01-01T00:00:00Z", graph: { nodes: [], edges: [] }, nodeStates: {},
+  progress: { total: 4, completed: 1, nextNodeIds: [] }, sessions: [],
+  jd: { jdId: "j", title: "SDE I", company: "meesho", companyName: "Meesho", role: "software-engineer", level: "fresher", specialization: null, techStack: [] },
+  ...over,
+});
+
+describe("trackStatus", () => {
+  it("never calls a target role active", () => {
+    expect(trackStatus([], "Meesho · SDE I — Backend")).toEqual({ text: "Target · Meesho · SDE I — Backend", active: false });
+    expect(trackStatus([])).toEqual({ text: "No active track", active: false });
+  });
+
+  it("names the one active track, counts several, and reports paused ones as not active", () => {
+    expect(trackStatus([loop({})])).toEqual({ text: "Active track · Meesho · SDE I", active: true });
+    expect(trackStatus([loop({}), loop({ id: "m" })]).text).toBe("2 active tracks");
+    expect(trackStatus([loop({ status: "paused" })], "X")).toEqual({ text: "1 paused track", active: false });
+    expect(trackStatus([loop({ status: "abandoned" })], "X").text).toBe("Target · X");
+  });
+});
+
+describe("readinessSummary", () => {
+  it("counts only unedited, non-abandoned tracks", () => {
+    expect(readinessSummary([])).toBeNull();
+    expect(readinessSummary([loop({ kind: "standalone", countsTowardReadiness: false })])).toBeNull();
+    expect(readinessSummary([loop({}), loop({ status: "abandoned" }), loop({ kind: "standalone", countsTowardReadiness: false })])).toEqual({ completed: 1, total: 4 });
+  });
+});
