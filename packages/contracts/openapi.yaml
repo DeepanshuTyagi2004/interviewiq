@@ -422,6 +422,16 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/jds/{jdId}:
+    get:
+      tags: [catalogue]
+      operationId: getJobDescription
+      summary: Read a published JD with its current candidate-visible interview process.
+      parameters:
+        - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: JD and verified manual process when available., content: { application/json: { schema: { $ref: "#/components/schemas/JobDescriptionDetail" } } } }
+        "404": { description: JD is unavailable. }
   /api/v1/admin/companies:
     get:
       operationId: listAdminCompanies
@@ -475,6 +485,96 @@ paths:
         "204": { description: Deleted. }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/admin/companies/{companyId}/enrichment:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Admin]
+      operationId: getCompanyEnrichment
+      summary: Read the enrichment draft, prefilling available research on first open (ADMIN only).
+      responses:
+        "200": { description: Current draft and publication metadata., content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentResponse" } } } }
+    put:
+      tags: [Admin]
+      operationId: saveCompanyEnrichment
+      summary: Save an incomplete draft using optimistic revision (ADMIN only).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentWriteRequest" } } }
+      responses:
+        "200": { description: Saved draft., content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentResponse" } } } }
+        "409": { description: Stale revision; reload before saving. }
+  /api/v1/admin/companies/{companyId}/enrichment/prefill:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Admin]
+      operationId: prefillCompanyEnrichment
+      summary: Fill blank unverified fields from available research without replacing saved values (ADMIN only).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentPrefillRequest" } } }
+      responses:
+        "200": { description: Current draft; revision advances only when values change., content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentResponse" } } } }
+        "409": { description: Stale revision. }
+        "502": { description: Research service unavailable; draft unchanged. }
+  /api/v1/admin/companies/{companyId}/enrichment/publish:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Admin]
+      operationId: publishCompanyEnrichment
+      summary: Atomically publish verified company, roles and linear round sequences (ADMIN only).
+      description: Archived companies must first be restored. Existing JD role, level and specialization are immutable; add a new role to change identity.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentWriteRequest" } } }
+      responses:
+        "200": { description: Immediately published., content: { application/json: { schema: { $ref: "#/components/schemas/EnrichmentResponse" } } } }
+        "400": { description: Invalid or unverified content. }
+        "409": { description: Stale revision, archived company or changed JD identity; no changes published. }
+  /api/v1/admin/companies/{companyId}/draft:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getCompanyDraft
+      tags: [admin-companies]
+      summary: The newest research draft (any status) with the company, for the review view.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Draft., content: { application/json: { schema: { $ref: "#/components/schemas/CompanyDraftResponse" } } } }
+        "404": { description: "`company_not_found` | `draft_not_found` (no research has produced a draft yet).", content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /api/v1/admin/companies/{companyId}/draft/{draftId}/approve:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: draftId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: approveCompanyDraft
+      tags: [admin-companies]
+      summary: Approve a pending draft and publish its identity, profile and compensation onto the company.
+      description: Roles remain in the approved research snapshot; this does not publish JDs, booking configurations or interview briefs. Missing or unavailable profile and compensation values preserve existing published facts.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/DraftDecisionRequest" } } }
+      responses:
+        "200": { description: The published company., content: { application/json: { schema: { $ref: "#/components/schemas/AdminCompany" } } } }
+        "400": { description: Invalid draft values; the company is not changed., content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "409": { description: "`draft_stale` | `draft_not_pending` | `draft_not_approvable` (research says it is not a company).", content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /api/v1/admin/companies/{companyId}/draft/{draftId}/reject:
+    parameters:
+      - { name: companyId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: draftId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: rejectCompanyDraft
+      tags: [admin-companies]
+      summary: Reject a pending draft. The company stays as it was.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/DraftDecisionRequest" } } }
+      responses:
+        "204": { description: Rejected. }
+        "409": { description: "`draft_stale` | `draft_not_pending`.", content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
   /api/v1/admin/research/runs:
     get:
       operationId: listResearchRuns
@@ -1117,6 +1217,10 @@ components:
           $ref: "#/components/schemas/PlanJobDescription"
         candidateProfile:
           $ref: "#/components/schemas/PlanCandidateProfile"
+        companyBrief:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Optional backend-owned verified publication. When present, prep uses this instead of the AI research brief. Contains generated_at, published_revision and final_experience with ordered rounds (type, topics, problems, format, duration_minutes).
 
     PlanSessionContext:
       type: object
@@ -1470,6 +1574,132 @@ components:
         lastStatus: { type: string, nullable: true, description: The company's item status in its latest run (ResearchItemStatus). }
         latestDraftId: { type: string, nullable: true }
         latestDraftStatus: { type: string, nullable: true, description: "pending_review | approved | rejected | superseded" }
+        latestDraftCoverage:
+          allOf: [{ $ref: "#/components/schemas/DraftCoverageSummary" }]
+          nullable: true
+          description: How many tracked research fields the latest draft fills; below total means partial research.
+    JobDescriptionDetail:
+      type: object
+      required: [id, company, companyName, role, level, title, specialization, description, techStack, sourceUrl, yoeMin, yoeMax, ctcMinLpa, ctcMaxLpa, dataConfidence, dataAvailability, interviewProcess, sources]
+      properties:
+        id: { type: string, format: uuid }
+        company: { type: string }
+        companyName: { type: string }
+        role: { type: string }
+        level: { type: string }
+        title: { type: string }
+        specialization: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        techStack: { type: array, items: { type: string } }
+        sourceUrl: { type: [string, 'null'] }
+        yoeMin: { type: [number, 'null'] }
+        yoeMax: { type: [number, 'null'] }
+        ctcMinLpa: { type: [number, 'null'] }
+        ctcMaxLpa: { type: [number, 'null'] }
+        dataConfidence: { type: [string, 'null'] }
+        dataAvailability: { type: string, enum: [rich, available, limited, none] }
+        sources: { type: array, items: { type: string } }
+        companyOverview:
+          $ref: "#/components/schemas/EnrichmentCompany"
+        interviewProcess:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Candidate-safe process. Verified manual rounds retain their explicit array order and source evidence.
+          properties:
+            rounds:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  round_number: { type: integer }
+                  type: { type: string }
+                  duration_minutes: { type: number }
+                  difficulty: { type: string }
+                  topics: { type: array, items: { type: string } }
+                  problems: { type: array, items: { type: string } }
+                  format: { type: string }
+                  source_urls: { type: array, items: { type: string } }
+    EnrichmentCompany:
+      type: object
+      additionalProperties: false
+      required: [overview, culture, benefits, sourceUrls, verified]
+      properties:
+        overview: { type: string, maxLength: 10000 }
+        culture: { type: string, maxLength: 10000 }
+        benefits: { type: string, maxLength: 10000 }
+        sourceUrls: { type: array, maxItems: 20, items: { type: string, format: uri, maxLength: 2048 } }
+        verified: { type: boolean }
+    EnrichmentRound:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, durationMinutes, difficulty, topics, questions, guidance, sourceUrls, verified]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 255 }
+        type: { type: string, enum: [dsa, system-design, lld, behavioural, hiring-manager] }
+        durationMinutes: { type: integer, minimum: 1, maximum: 240 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        topics: { type: array, maxItems: 30, items: { type: string, maxLength: 255 } }
+        questions: { type: array, maxItems: 30, items: { type: string, maxLength: 2000 } }
+        guidance: { type: string, maxLength: 10000 }
+        sourceUrls: { type: array, maxItems: 20, items: { type: string, format: uri, maxLength: 2048 } }
+        verified: { type: boolean }
+    EnrichmentRole:
+      type: object
+      additionalProperties: false
+      required: [id, title, role, level, specialization, description, techStack, yoeMin, yoeMax, ctcMinLpa, ctcMaxLpa, sourceUrls, verified, rounds]
+      properties:
+        id: { type: string, format: uuid }
+        jdId: { type: [string, 'null'], format: uuid }
+        title: { type: string, maxLength: 255 }
+        role: { type: string, maxLength: 255 }
+        level: { type: string, maxLength: 16 }
+        specialization: { type: [string, 'null'], maxLength: 32 }
+        description: { type: string, maxLength: 20000 }
+        techStack: { type: array, maxItems: 50, items: { type: string, maxLength: 255 } }
+        yoeMin: { type: [number, 'null'], minimum: 0, maximum: 99.9 }
+        yoeMax: { type: [number, 'null'], minimum: 0, maximum: 99.9 }
+        ctcMinLpa: { type: [number, 'null'], minimum: 0, maximum: 9999.99 }
+        ctcMaxLpa: { type: [number, 'null'], minimum: 0, maximum: 9999.99 }
+        sourceUrls: { type: array, maxItems: 20, items: { type: string, format: uri, maxLength: 2048 } }
+        verified: { type: boolean }
+        rounds:
+          type: array
+          maxItems: 12
+          description: Array order defines the connected linear interview sequence. Publication requires at least one verified round.
+          items: { $ref: "#/components/schemas/EnrichmentRound" }
+    EnrichmentDocument:
+      type: object
+      additionalProperties: false
+      required: [company, roles]
+      properties:
+        company: { $ref: "#/components/schemas/EnrichmentCompany" }
+        roles: { type: array, maxItems: 50, items: { $ref: "#/components/schemas/EnrichmentRole" } }
+    EnrichmentPrefillRequest:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
+        revision: { type: integer, minimum: 0, maximum: 2147483646 }
+    EnrichmentWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [revision, document]
+      properties:
+        revision: { type: integer, minimum: 0, maximum: 2147483646 }
+        document: { $ref: "#/components/schemas/EnrichmentDocument" }
+    EnrichmentResponse:
+      type: object
+      required: [revision, publishedRevision, publishedAt, verifiedBy, document]
+      properties:
+        revision: { type: integer }
+        publishedRevision: { type: [integer, 'null'] }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        verifiedBy: { type: [string, 'null'], format: uuid }
+        document: { $ref: "#/components/schemas/EnrichmentDocument" }
     AdminCompany:
       type: object
       required: [id, name, slug, website, aliases, status, origin, tier, publishedVersion, publishedAt, createdAt, research]
@@ -1488,6 +1718,156 @@ components:
         research:
           allOf: [{ $ref: "#/components/schemas/CompanyResearchState" }]
           nullable: true
+    DraftField:
+      type: object
+      required: [value, confidence, provenance, source_urls, note]
+      properties:
+        value: { nullable: true, description: "Arbitrary JSON: a string, number, boolean, object, array or null (unavailable). Includes structured JD/interview-process objects and arrays of attributed review quotes." }
+        confidence: { type: string, enum: [high, medium, low] }
+        provenance: { type: string, description: "evidence | derived | inferred_from_similar | template | admin_override | unavailable" }
+        source_urls: { type: array, items: { type: string } }
+        note: { type: string, nullable: true }
+        alternatives:
+          type: array
+          description: Values other sources reported, highest-weighted first. Empty when the sources agree; never silently dropped.
+          items: { $ref: "#/components/schemas/DraftAlternative" }
+        as_of: { type: string, nullable: true, description: "Date (YYYY-MM-DD) of the newest supporting source, when known." }
+    DraftAlternative:
+      type: object
+      required: [value, source_urls, as_of]
+      properties:
+        value: { nullable: true, description: "Arbitrary JSON, same shape as the field's value." }
+        source_urls: { type: array, items: { type: string } }
+        as_of: { type: string, nullable: true }
+    UnverifiedClaim:
+      type: object
+      description: Evidence the pipeline could not confirm (its geography or role is not established by the page). Shown to reviewers only; never published.
+      required: [field, value, quote, url, reason]
+      properties:
+        field: { type: string }
+        value: { nullable: true }
+        quote: { type: string }
+        url: { type: string }
+        source_name: { type: string, nullable: true }
+        date: { type: string, nullable: true }
+        tier: { type: integer, nullable: true, description: "1 official · 2 established secondary · 3 community" }
+        reason: { type: string, enum: [geo_unconfirmed, role_not_in_context, role_mismatch] }
+        role_title: { type: string, nullable: true }
+    DraftCoverageSummary:
+      type: object
+      required: [filled, total]
+      properties:
+        filled: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+    DraftCoverage:
+      allOf:
+        - { $ref: "#/components/schemas/DraftCoverageSummary" }
+        - type: object
+          required: [missing]
+          properties:
+            missing: { type: array, items: { type: string }, description: "Tracked paths still unavailable, e.g. roles[<role_key>].jd. Reported pay (ctc_observations) and supported total CTC (ctc_min_lpa) are separate slots; reported pay alone does not fill total-CTC coverage." }
+    DraftChange:
+      type: object
+      required: [path, change, before, after]
+      properties:
+        path: { type: string }
+        change: { type: string, enum: [added, removed, changed] }
+        before: { nullable: true }
+        after: { nullable: true }
+    DraftConflict:
+      type: object
+      required: [type, message]
+      properties:
+        type: { type: string, description: "not_a_company | possible_duplicate" }
+        message: { type: string }
+      additionalProperties: true
+    DraftProfile:
+      type: object
+      description: Optional company profile facts. Each field's value may be null when unavailable.
+      properties:
+        sector: { $ref: "#/components/schemas/DraftField" }
+        business_model: { $ref: "#/components/schemas/DraftField" }
+        hq: { $ref: "#/components/schemas/DraftField" }
+        headcount_band: { $ref: "#/components/schemas/DraftField" }
+        revenue_band: { $ref: "#/components/schemas/DraftField" }
+        funding_stage: { $ref: "#/components/schemas/DraftField" }
+        funding_round: { $ref: "#/components/schemas/DraftField" }
+        unverified: { type: array, items: { $ref: "#/components/schemas/UnverifiedClaim" } }
+    DraftCompensation:
+      type: object
+      description: Optional work-life-balance and review facts. Rating values are numbers from 0 to 5; counts are nonnegative integers. review_quotes.value is an array of at most five {text, sourceUrl, sourceName, date} objects, with text up to 300 characters and absolute http(s) source URLs without credentials.
+      properties:
+        wlb_rating: { $ref: "#/components/schemas/DraftField" }
+        wlb_review_count: { $ref: "#/components/schemas/DraftField" }
+        review_summary: { $ref: "#/components/schemas/DraftField" }
+        review_quotes: { $ref: "#/components/schemas/DraftField" }
+        unverified: { type: array, items: { $ref: "#/components/schemas/UnverifiedClaim" } }
+    DraftRole:
+      type: object
+      description: Research-only role facts retained in the approved snapshot; not yet published to booking JDs or interview briefs.
+      required: [role_key, title, level, specialization, yoe_min, yoe_max, ctc_min_lpa, ctc_max_lpa, ctc_source_count, jd, interview_process]
+      properties:
+        role_key: { type: string }
+        title: { $ref: "#/components/schemas/DraftField" }
+        level: { $ref: "#/components/schemas/DraftField", description: "Unavailable when the sources do not support a level; unknown levels remain unknown." }
+        specialization: { $ref: "#/components/schemas/DraftField" }
+        yoe_min: { $ref: "#/components/schemas/DraftField" }
+        yoe_max: { $ref: "#/components/schemas/DraftField", description: "Unavailable when no upper experience bound is supported; never capped by an invented maximum." }
+        ctc_min_lpa: { $ref: "#/components/schemas/DraftField", description: "Derived median lower bound using only observations explicitly labelled total_ctc, after outlier removal. Unspecified LPA pay is excluded. INR annual LPA." }
+        ctc_max_lpa: { $ref: "#/components/schemas/DraftField", description: "Derived median of reported upper bounds from total_ctc observations only. Open-ended observations do not support this field; unavailable if no upper bound is reported. INR annual LPA." }
+        ctc_source_count: { type: integer, minimum: 0, description: "Distinct source URLs contributing explicit total_ctc observations to the derived range after outlier removal; excludes unspecified pay. Zero when no supported range can be derived." }
+        jd: { $ref: "#/components/schemas/DraftField" }
+        interview_process: { $ref: "#/components/schemas/DraftField", description: "Official (company-published) process passages only." }
+        employment_type: { $ref: "#/components/schemas/DraftField", description: "full_time | intern | contract" }
+        job_ids: { $ref: "#/components/schemas/DraftField", description: "Job codes from official posting URLs and role titles." }
+        required_skills: { $ref: "#/components/schemas/DraftField" }
+        preferred_skills: { $ref: "#/components/schemas/DraftField" }
+        tech_stack: { $ref: "#/components/schemas/DraftField" }
+        locations: { $ref: "#/components/schemas/DraftField", description: "Indian cities, normalized names." }
+        ctc_observations: { $ref: "#/components/schemas/DraftField", description: "Source-reported pay, including observations excluded from the derived total-CTC range. Array of {min_lpa, max_lpa, basis: total_ctc | lpa_unspecified, source_url, source_name, tier, date}. lpa_unspecified means the source reports annual INR LPA but does not establish total CTC; do not label it verified CTC. A null max_lpa is open-ended, not a capped range." }
+        reported_interview_process: { $ref: "#/components/schemas/DraftField", description: "Array of {text, evidence_type: candidate_report | secondhand, source_url, source_name, date}; not official policy." }
+        unverified: { type: array, items: { $ref: "#/components/schemas/UnverifiedClaim" } }
+    CompanyDraft:
+      type: object
+      required: [draft_id, company_id, version, run_id, status, created_at, snapshot, conflicts, diff]
+      properties:
+        draft_id: { type: string }
+        company_id: { type: string }
+        version: { type: integer }
+        run_id: { type: string }
+        status: { type: string, enum: [pending_review, approved, rejected, superseded] }
+        created_at: { type: string, format: date-time }
+        decided_at: { type: string, format: date-time, nullable: true }
+        decided_by: { type: string, nullable: true }
+        decision_note: { type: string, nullable: true }
+        notes: { type: array, items: { type: string }, description: Research limitations such as roles omitted by the run cap. }
+        snapshot:
+          type: object
+          required: [identity]
+          properties:
+            identity:
+              type: object
+              required: [name, website, aliases]
+              properties:
+                name: { $ref: "#/components/schemas/DraftField" }
+                website: { $ref: "#/components/schemas/DraftField" }
+                aliases: { $ref: "#/components/schemas/DraftField" }
+            profile: { $ref: "#/components/schemas/DraftProfile" }
+            compensation: { $ref: "#/components/schemas/DraftCompensation" }
+            roles: { type: array, items: { $ref: "#/components/schemas/DraftRole" } }
+        conflicts: { type: array, items: { $ref: "#/components/schemas/DraftConflict" } }
+        diff: { type: array, items: { $ref: "#/components/schemas/DraftChange" }, description: Changes against the last approved draft. }
+        coverage: { $ref: "#/components/schemas/DraftCoverage" }
+    CompanyDraftResponse:
+      type: object
+      required: [company, draft]
+      properties:
+        company: { $ref: "#/components/schemas/AdminCompany" }
+        draft: { $ref: "#/components/schemas/CompanyDraft" }
+    DraftDecisionRequest:
+      type: object
+      properties:
+        note: { type: string, maxLength: 1000 }
     AdminCompanyList:
       type: object
       required: [companies, researchAvailable]

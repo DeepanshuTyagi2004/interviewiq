@@ -100,14 +100,16 @@ describe("company CRUD", () => {
     const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Groww" });
     env.fetch.on("GET", `${AI}/research/companies/state`, {
       states: [{ company_id: created.body.id, last_run_id: "r1", last_researched_at: "2026-10-02T10:00:00Z",
-                 last_status: "done", latest_draft_id: "d1", latest_draft_status: "pending_review" }],
+                 last_status: "done", latest_draft_id: "d1", latest_draft_status: "pending_review",
+                 latest_draft_coverage: { filled: 18, total: 34 } }],
     });
     const res = await env.http.get(BASE).set("Authorization", admin);
     expect(res.status).toBe(200);
     expect(res.body.researchAvailable).toBe(true);
     const groww = res.body.companies.find((c: { slug: string }) => c.slug === "groww");
     expect(groww.research).toEqual({ lastRunId: "r1", lastResearchedAt: "2026-10-02T10:00:00Z", lastStatus: "done",
-                                     latestDraftId: "d1", latestDraftStatus: "pending_review" });
+                                     latestDraftId: "d1", latestDraftStatus: "pending_review",
+                                     latestDraftCoverage: { filled: 18, total: 34 } });
     expect(aiCalls(env)[0]!.url).toContain(created.body.id);
   });
 

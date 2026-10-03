@@ -1,5 +1,6 @@
 import type { EducationDto, ExperienceDto, ProjectDto, ResumeLinksDto } from "../../domain/candidateProfile.js";
 import type { RoundType } from "../../domain/enums.js";
+import type { EnrichmentBrief } from "../../domain/enrichment.js";
 
 /**
  * The body POSTed to the ai-service `/interview-plans*` endpoints. Mirrors
@@ -10,6 +11,8 @@ export interface GenerateInterviewPlanRequest {
   session: PlanSessionContext;
   jobDescription: PlanJobDescription;
   candidateProfile: PlanCandidateProfile;
+  /** PG-owned verified brief takes precedence over AI-service research briefs. */
+  companyBrief?: EnrichmentBrief;
 }
 
 export interface PlanSessionContext {

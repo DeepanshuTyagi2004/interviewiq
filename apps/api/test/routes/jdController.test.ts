@@ -140,6 +140,8 @@ describe("GET /jds/:id", () => {
   const DETAIL_KEYS = [
     "company",
     "companyName",
+    "ctcMaxLpa",
+    "ctcMinLpa",
     "dataAvailability",
     "dataConfidence",
     "description",
@@ -152,6 +154,8 @@ describe("GET /jds/:id", () => {
     "specialization",
     "techStack",
     "title",
+    "yoeMax",
+    "yoeMin",
   ];
 
   it("embeds the brief's consolidated_process, confidence and sources", async () => {
@@ -177,6 +181,10 @@ describe("GET /jds/:id", () => {
       description: "Build backend services.",
       techStack: ["Java", "Go", "Spring Boot"],
       sourceUrl: "https://www.meesho.io/jobs",
+      yoeMin: null,
+      yoeMax: null,
+      ctcMinLpa: null,
+      ctcMaxLpa: null,
       dataConfidence: "high",
       dataAvailability: "rich",
       interviewProcess: process,

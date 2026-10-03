@@ -9,6 +9,7 @@ import type {
   JobDescriptionRepository,
 } from "../repositories/pg.js";
 import type { InterviewPrepService } from "./interviewPrep.js";
+import type { CompanyEnrichmentService } from "./companyEnrichment.js";
 
 /** A booking/session error carrying the HTTP status + the stable code the frontend keys on. */
 export class InterviewSessionError extends ApiError {
@@ -114,6 +115,7 @@ export class InterviewSessionService {
     private readonly roleConfigs: CompanyRoleConfigRepository,
     private readonly companies: CompanyRepository,
     private readonly prep: InterviewPrepService,
+    private readonly enrichment?: CompanyEnrichmentService,
   ) {}
 
   async createSession(candidateId: string, req: CreateSessionRequest): Promise<InterviewSessionResponse> {
@@ -122,7 +124,6 @@ export class InterviewSessionService {
     }
     // The candidate does not pick the round — every booking starts on the first round for now.
     // A round sent by a trusted caller (e.g. the admin bench) is still honoured.
-    const roundType = req.roundType ?? DEFAULT_ROUND_TYPE;
     if (!req.scheduledAt) {
       throw InterviewSessionError.badRequest("session_slot_required", "scheduledAt is required");
     }
@@ -136,7 +137,9 @@ export class InterviewSessionService {
     }
 
     const jd = await this.jds.findById(req.jobDescriptionId);
-    if (!jd) throw InterviewSessionError.badRequest("session_jd_not_found", "job description not found");
+    if (!jd || !jd.active) throw InterviewSessionError.badRequest("session_jd_not_found", "job description not found");
+    const manual = await this.enrichment?.briefForJd(jd.id);
+    const roundType = req.roundType ?? manual?.final_experience.rounds[0]?.type ?? DEFAULT_ROUND_TYPE;
 
     // The JD must map to a configured, enabled company/role/level — the key the brief + question
     // bank are built on.

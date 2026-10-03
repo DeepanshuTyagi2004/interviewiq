@@ -366,7 +366,22 @@ export class JobDescriptionRepository {
       .then((r) => r[0]!);
   }
 
-  /** Remove ALL of a company's JDs (used on re-seed and on catalogue delete). */
+  /** Refresh a starter posting in place; manual publications and booked JD identities survive. */
+  async refreshSeed(row: Insert<typeof jobDescriptions>): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.select().from(companies).where(eq(companies.slug, row.company)).for("update");
+      const matches = await tx.select().from(jobDescriptions).where(and(
+        eq(jobDescriptions.company, row.company), eq(jobDescriptions.role, row.role), eq(jobDescriptions.level, row.level),
+        row.specialization == null ? isNull(jobDescriptions.specialization) : eq(jobDescriptions.specialization, row.specialization),
+      ));
+      if (matches.some((j) => j.source === "manual")) return;
+      const seed = matches.find((j) => j.source === "seed");
+      if (seed) await tx.update(jobDescriptions).set(row).where(eq(jobDescriptions.id, seed.id));
+      else await tx.insert(jobDescriptions).values(row);
+    });
+  }
+
+  /** Remove ALL of a company's JDs (catalogue delete only). */
   async deleteByCompany(company: string): Promise<void> {
     await this.db.delete(jobDescriptions).where(eq(jobDescriptions.company, company));
   }

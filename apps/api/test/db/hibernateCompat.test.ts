@@ -85,7 +85,7 @@ describe("adopting the Hibernate-created database", () => {
     expect(keyCons(after.cons)).toEqual(expect.arrayContaining(keyCons(before.cons)));
     expect(after.idx).toEqual(expect.arrayContaining(before.idx));
 
-    // ...and the additions are exactly 0001_password_auth's and 0002_company_research's.
+    // ...and the additions are exactly password auth, company research and manual enrichment.
     const added = <T>(xs: T[], base: T[]) => xs.filter((x) => !base.some((b) => JSON.stringify(b) === JSON.stringify(x)));
     expect(added(after.cols, expectedCols).map((c) => `${c.t}.${c.c} ${c.ty} null=${c.n}`)).toEqual([
       "app_user.email_verified_at timestamp with time zone null=YES",
@@ -113,24 +113,44 @@ describe("adopting the Hibernate-created database", () => {
       "companies.website character varying null=YES",
       "companies.wlb_rating numeric null=YES",
       "companies.wlb_review_count integer null=YES",
+      "company_enrichments.company_id uuid null=NO",
+      "company_enrichments.document jsonb null=NO",
+      "company_enrichments.published_at timestamp with time zone null=YES",
+      "company_enrichments.published_document jsonb null=YES",
+      "company_enrichments.published_revision integer null=YES",
+      "company_enrichments.revision integer null=NO",
+      "company_enrichments.verified_by uuid null=YES",
       "job_descriptions.ctc_max_lpa numeric null=YES",
       "job_descriptions.ctc_min_lpa numeric null=YES",
       "job_descriptions.ctc_source_count integer null=YES",
       "job_descriptions.role_key character varying null=YES",
       "job_descriptions.yoe_max numeric null=YES",
       "job_descriptions.yoe_min numeric null=YES",
+      "manual_jd_briefs.brief jsonb null=NO",
+      "manual_jd_briefs.company_id uuid null=NO",
+      "manual_jd_briefs.jd_id uuid null=NO",
+      "manual_jd_briefs.role_id uuid null=NO",
     ]);
     expect(added(keyCons(after.cons), keyCons(before.cons)).map((c) => `${c.t} ${c.def}`)).toEqual([
       "auth_token FOREIGN KEY (user_id) REFERENCES app_user(id)",
       "auth_token PRIMARY KEY (id)",
       "auth_token UNIQUE (token_hash)",
+      "company_enrichments FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE",
+      "company_enrichments PRIMARY KEY (company_id)",
       "job_descriptions UNIQUE (company, role_key)",
+      "manual_jd_briefs FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE",
+      "manual_jd_briefs FOREIGN KEY (jd_id) REFERENCES job_descriptions(id) ON DELETE CASCADE",
+      "manual_jd_briefs PRIMARY KEY (jd_id)",
+      "manual_jd_briefs UNIQUE (company_id, role_id)",
     ]);
     expect(added(after.idx, before.idx).map((i) => i.i)).toEqual([
       "CREATE INDEX idx_auth_token_user_purpose ON public.auth_token USING btree (user_id, purpose)",
       "CREATE UNIQUE INDEX auth_token_pkey ON public.auth_token USING btree (id)",
       "CREATE UNIQUE INDEX auth_token_token_hash_unique ON public.auth_token USING btree (token_hash)",
+      "CREATE UNIQUE INDEX company_enrichments_pkey ON public.company_enrichments USING btree (company_id)",
+      "CREATE UNIQUE INDEX manual_jd_briefs_pkey ON public.manual_jd_briefs USING btree (jd_id)",
       "CREATE UNIQUE INDEX uq_jd_company_role_key ON public.job_descriptions USING btree (company, role_key)",
+      "CREATE UNIQUE INDEX uq_manual_company_role ON public.manual_jd_briefs USING btree (company_id, role_id)",
     ]);
   });
 

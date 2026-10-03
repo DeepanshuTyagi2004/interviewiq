@@ -10,6 +10,7 @@ import type { Logger } from "../lib/logger.js";
 import type { InterviewSessionRepository, JobDescriptionRepository } from "../repositories/pg.js";
 import type { CandidateProfileService } from "./candidateProfileService.js";
 import type { CodingSignalsProvider } from "./codingSignals.js";
+import type { CompanyEnrichmentService } from "./companyEnrichment.js";
 
 /** Terminal prep failure carrying the `prep_error` code recorded on the session. */
 class PrepGenerationError extends Error {
@@ -75,6 +76,7 @@ export class InterviewPrepService {
     private readonly background: BackgroundTasks,
     private readonly log: Logger,
     private readonly opts: { planPollIntervalMs: number; planMaxWaitMs: number },
+    private readonly enrichment?: CompanyEnrichmentService,
   ) {}
 
   /** Fire-and-forget generation (manual regenerate returns immediately). */
@@ -115,6 +117,7 @@ export class InterviewPrepService {
   async assembleRequest(session: InterviewSessionRow): Promise<GenerateInterviewPlanRequest> {
     const jd = await this.jds.findById(session.jobDescriptionId);
     if (!jd) throw new Error(`job description ${session.jobDescriptionId} gone for session ${session.id}`);
+    const companyBrief = await this.enrichment?.briefForJd(jd.id);
     return {
       session: {
         sessionId: session.id,
@@ -127,6 +130,7 @@ export class InterviewPrepService {
       },
       jobDescription: { id: jd.id, title: jd.title, description: jd.description, techStack: jd.techStack },
       candidateProfile: await resolvePlanProfile(this.candidateProfiles, this.codingSignals, session.candidateId),
+      ...(companyBrief ? { companyBrief } : {}),
     };
   }
 

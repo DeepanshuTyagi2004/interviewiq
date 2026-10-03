@@ -6,8 +6,10 @@ import { COMPANY_STATUSES, companies, type CompanyRow, type CompanyStatus } from
 import { slugify } from "../domain/slug.js";
 import { ApiError } from "../lib/errors.js";
 import { isObject, items, path } from "../lib/json.js";
-import { sendError, uuidParam, router } from "../http/support.js";
+import { sendError, uuidParam, stringParam, userId, routerErrors, router } from "../http/support.js";
+import { UpstreamError, UpstreamHttpError } from "../lib/http.js";
 import { toUserResponse } from "../services/userService.js";
+import { companyDraftPublication } from "../services/companyDraftPublication.js";
 
 const MAX_ALIASES = 10;
 const MAX_ALIAS_LENGTH = 100;
@@ -20,6 +22,7 @@ interface ResearchState {
   last_status?: string | null;
   latest_draft_id?: string | null;
   latest_draft_status?: string | null;
+  latest_draft_coverage?: { filled: number; total: number } | null;
 }
 
 function toAdminCompany(row: CompanyRow, state: ResearchState | undefined) {
@@ -42,6 +45,7 @@ function toAdminCompany(row: CompanyRow, state: ResearchState | undefined) {
           lastStatus: state.last_status ?? null,
           latestDraftId: state.latest_draft_id ?? null,
           latestDraftStatus: state.latest_draft_status ?? null,
+          latestDraftCoverage: state.latest_draft_coverage ?? null,
         }
       : null,
   };
@@ -151,6 +155,76 @@ export function adminCompaniesRouter(c: Container): Router {
     res.json(toAdminCompany(row, undefined));
   });
 
+  r.get("/:id/enrichment", async (req, res) => {
+    res.json(await c.enrichment.get(uuidParam(req, "id")));
+  });
+  r.put("/:id/enrichment", async (req, res) => {
+    res.json(await c.enrichment.write(uuidParam(req, "id"), req.body, userId(req), false));
+  });
+  r.post("/:id/enrichment/prefill", async (req, res) => {
+    res.json(await c.enrichment.prefill(uuidParam(req, "id"), req.body));
+  });
+  r.post("/:id/enrichment/publish", async (req, res) => {
+    res.json(await c.enrichment.write(uuidParam(req, "id"), req.body, userId(req), true));
+  });
+
+  /** The newest research draft (any status), for the admin review view. 404 when none exists yet. */
+  r.get("/:id/draft", async (req, res) => {
+    const id = uuidParam(req, "id");
+    const row = await c.repos.companies.findById(id);
+    if (!row) {
+      sendError(res, 404, "company_not_found", "no company with that id");
+      return;
+    }
+    res.json({ company: toAdminCompany(row, undefined), draft: await c.aiService.getCompanyDraft(id) });
+  });
+
+  /**
+   * Approve a pending draft: copy its identity, profile and compensation onto the company, stamp
+   * publishedVersion/publishedAt (students see the company from here), then close the draft.
+   * The company write is idempotent, so a failure on the last step is safe to retry.
+   */
+  r.post("/:id/draft/:draftId/approve", async (req, res) => {
+    const id = uuidParam(req, "id");
+    const draft = await pendingDraft(c, id, stringParam(req, "draftId"));
+    const blocking = draftConflicts(draft).find((x) => x === "not_a_company");
+    if (blocking) throw new ApiError(409, "draft_not_approvable", "research says this is not a company; reject the draft instead");
+    const identity = path(draft, "snapshot", "identity");
+    const name = path(identity, "name", "value");
+    const website = path(identity, "website", "value");
+    const aliases = path(identity, "aliases", "value");
+    const version = path(draft, "version");
+    if (typeof version !== "number" || !Number.isInteger(version) || version < 1 || version > 2_147_483_647) {
+      throw new ApiError(400, "invalid_draft", "draft version must be a positive integer");
+    }
+    const patch: Partial<typeof companies.$inferInsert> = {
+      ...companyDraftPublication(path(draft, "snapshot")),
+      publishedVersion: version,
+      publishedAt: new Date(),
+    };
+    if (typeof name === "string") patch.name = parseName(name).name;
+    if (typeof website === "string") patch.website = parseWebsite(website);
+    if (Array.isArray(aliases)) patch.aliases = parseAliases(aliases);
+    const row = await c.enrichment.approveResearch(id, patch);
+    if (!row) {
+      sendError(res, 404, "company_not_found", "no company with that id");
+      return;
+    }
+    await c.aiService.decideCompanyDraft(String(path(draft, "draft_id")), {
+      decision: "approve", note: bodyNote(req.body), decided_by: userId(req),
+    });
+    res.json(toAdminCompany(row, undefined));
+  });
+
+  r.post("/:id/draft/:draftId/reject", async (req, res) => {
+    const id = uuidParam(req, "id");
+    const draft = await pendingDraft(c, id, stringParam(req, "draftId"));
+    await c.aiService.decideCompanyDraft(String(path(draft, "draft_id")), {
+      decision: "reject", note: bodyNote(req.body), decided_by: userId(req),
+    });
+    res.status(204).end();
+  });
+
   r.delete("/:id", async (req, res) => {
     const id = uuidParam(req, "id");
     const row = await c.repos.companies.findById(id);
@@ -164,7 +238,46 @@ export function adminCompaniesRouter(c: Container): Router {
     res.status(204).end();
   });
 
+  r.use(
+    routerErrors((err) => {
+      if (err instanceof UpstreamHttpError && [404, 409, 503].includes(err.status)) {
+        const body = parseUpstreamEnvelope(err.responseBody);
+        return { status: err.status, code: body.code ?? "research_request_failed", message: body.message ?? err.message };
+      }
+      if (err instanceof UpstreamError) return { status: 502, code: "ai_service_unreachable", message: "the research service is not reachable" };
+      return undefined;
+    }),
+  );
   return r;
+}
+
+/** The company's latest draft, which must be `draftId` and still pending review (409 otherwise). */
+async function pendingDraft(c: Container, companyId: string, draftId: string): Promise<unknown> {
+  if (!(await c.repos.companies.findById(companyId))) throw new ApiError(404, "company_not_found", "no company with that id");
+  const draft = await c.aiService.getCompanyDraft(companyId);
+  if (path(draft, "company_id") !== companyId) throw new ApiError(409, "draft_stale", "draft belongs to another company; reload the company");
+  if (path(draft, "draft_id") !== draftId) throw new ApiError(409, "draft_stale", "a newer draft exists; reload and review that one");
+  if (path(draft, "status") !== "pending_review") throw new ApiError(409, "draft_not_pending", `this draft is already ${String(path(draft, "status"))}`);
+  return draft;
+}
+
+function draftConflicts(draft: unknown): string[] {
+  return items(path(draft, "conflicts")).flatMap((x) => (isObject(x) && typeof x.type === "string" ? [x.type] : []));
+}
+
+function bodyNote(body: unknown): string | null {
+  const note = isObject(body) ? str(body.note) : null;
+  return note ? note.trim().slice(0, 1000) || null : null;
+}
+
+function parseUpstreamEnvelope(text: string): { code?: string; message?: string } {
+  try {
+    const v: unknown = JSON.parse(text);
+    if (!isObject(v)) return {};
+    return { code: typeof v.code === "string" ? v.code : undefined, message: typeof v.message === "string" ? v.message : undefined };
+  } catch {
+    return {};
+  }
 }
 
 /** Admin user management — list users and promote/demote their role. */

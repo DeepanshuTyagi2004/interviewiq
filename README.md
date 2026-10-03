@@ -197,31 +197,41 @@ flowchart LR
 
 ### Company research pipeline
 
-How a company's "real interview process" is built: it collects interview experiences, extracts
-structured signals from each one, and aggregates them into one round-by-round process per company, role, level and
-specialisation.
+**Current workflow (2026-10-03): overview automation, human-owned detail.** The background job
+resolves the company and researches its overview only. Detailed compensation, culture, role/JD
+profiles and interview rounds are manually researched, edited and verified in Intelligence.
 
 ```mermaid
 flowchart LR
-    S1[Catalogue<br/>company · role · level] --> C["1 · Collect<br/>Exa search → N source URLs"]
-    X["Share experience<br/>first-party paste-ins"] --> E
-    C --> E["2 · Extract<br/>LLM: one RawExperience per source<br/>(level, geo, rounds, topics)"]
-    E --> F{"Filter<br/>on-level? in-India?<br/>first-hand?"}
-    F -- kept --> G["3 · Aggregate<br/>LLM merges into one<br/>FinalExperience"]
-    F -- dropped --> Z[source funnel<br/>audit trail]
-    G --> T["Trust metadata<br/>support_count · source_count_total<br/>data_confidence"]
-    T --> DB[(briefs<br/>MongoDB)]
-    DB --> API[API /jds/:id] --> R[Roadmap page]
+    C[Curated companies] --> A[Resolve + overview research]
+    A --> S[Source-backed suggestions]
+    S --> E[Human enrichment editor]
+    E --> D[Save draft privately]
+    D --> V[Verify company, role and round evidence]
+    V --> P[Submit and publish immediately]
+    P --> DB[(Atomic Postgres publication)]
+    DB --> R[Candidate roadmap]
+    DB --> I[Interview preparation]
 ```
 
-- **Honest about data depth.** Each round records how many sources attest to it ("reported in 7
-  of 8 sources"), and each brief carries a `data_confidence`. The UI shows this as a data-depth
-  meter, so a page with thin data looks thin.
-- **Refreshes itself.** A brief regenerates when it's missing, stale, built by an older pipeline
-  version, or previously failed. Admins can trigger and watch runs live from **Intelligence →
-  Live ingestion**.
-- **Never leaks internals.** The API passes only the public fields of the brief to candidates;
-  the model reasoning and the source funnel stay in the admin console.
+- **Open the editor:** Intelligence → Companies → **Enrich company**. This is admin-only; a role
+  profile means a company's job/level, not a candidate's personal profile.
+- **Start from collected information:** new enrichment drafts prefill available research facts,
+  existing JDs and supported interview rounds, with sources and verification unchecked. Saved
+  drafts are never refreshed over human edits. For an existing draft, save your edits and choose
+  **Fill missing from research** to import into blank, unverified fields without publishing.
+  Incomplete round evidence remains a quoted reference until a reviewer supplies missing details.
+- **React Flow rounds:** add, edit, remove and reorder a linear sequence. Up/down controls persist
+  order; canvas dragging only changes the visual layout. There are no branching or scoring rules.
+- **Immediate publication:** Save draft is private. Submit & publish requires explicit verification
+  and evidence URLs for the company, each role and each round, then publishes without another approval.
+- **Preserve work:** optimistic revisions prevent overwrites. Automated refreshes cannot overwrite
+  manually published content. Existing JD identities remain stable; new identities require new roles.
+- **One source of truth:** candidate detail and interview preparation use the same published brief.
+  Historical AI briefs remain available for legacy JDs. Scheduled detailed scraping/backfill is disabled.
+- **Database setup:** migration `apps/api/drizzle/0003_supreme_grandmaster.sql` adds enrichment and
+  manual brief storage; apply with the existing migration command before using the editor. It was
+  generated and tested locally, not applied to your configured database during implementation.
 
 ### Profile builder
 

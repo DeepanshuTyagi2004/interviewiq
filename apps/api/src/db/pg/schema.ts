@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { ROLES, ROUND_TYPES, SESSION_STATUSES, SYNC_STATUSES } from "../../domain/enums.js";
+import type { EnrichmentDocument, EnrichmentBrief } from "../../domain/enrichment.js";
 
 /**
  * Relational data in Postgres (Supabase in production).
@@ -201,6 +202,25 @@ export const jobDescriptions = pgTable(
   },
   (t) => [index("idx_jd_company_level").on(t.company, t.level), unique("uq_jd_company_role_key").on(t.company, t.roleKey)],
 );
+
+/** Authoritative admin draft and human-verified publication, atomically versioned in Postgres. */
+export const companyEnrichments = pgTable("company_enrichments", {
+  companyId: uuid("company_id").primaryKey().references(() => companies.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull().default(0),
+  document: jsonb("document").$type<EnrichmentDocument>().notNull(),
+  publishedDocument: jsonb("published_document").$type<EnrichmentDocument>(),
+  publishedRevision: integer("published_revision"),
+  publishedAt: instant("published_at"),
+  verifiedBy: uuid("verified_by"),
+});
+
+/** Retained for archived JDs so existing booked sessions can still prepare. */
+export const manualJdBriefs = pgTable("manual_jd_briefs", {
+  jdId: uuid("jd_id").primaryKey().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+  companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  roleId: uuid("role_id").notNull(),
+  brief: jsonb("brief").$type<EnrichmentBrief>().notNull(),
+}, (t) => [unique("uq_manual_company_role").on(t.companyId, t.roleId)]);
 
 export const githubConnections = pgTable("github_connection", {
   id: id(),

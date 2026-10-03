@@ -125,10 +125,9 @@ export class CatalogueSeeder {
       }
     }
 
-    // Replace ALL of the company's JDs so re-running is a clean idempotent refresh.
-    await this.jds.deleteByCompany(COMPANY);
+    // Refresh seed-owned postings in place, preserving bookings and manual enrichment.
     for (const j of JD_SEEDS) {
-      await this.jds.insert({
+      await this.jds.refreshSeed({
         company: COMPANY,
         role: ROLE,
         level: j.level,

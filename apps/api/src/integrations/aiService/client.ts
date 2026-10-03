@@ -33,11 +33,12 @@ export class AiServiceClient {
   // --- briefs --------------------------------------------------------------------------------
 
   /** Full brief for one JD (company+role+level+specialization); null when absent or on failure. */
-  async fetchBrief(company: string, role: string, level: string, specialization: string | null): Promise<unknown | null> {
+  async fetchBrief(company: string, role: string, level: string, specialization: string | null, options?: { timeoutMs?: number; strict?: boolean }): Promise<unknown | null> {
     try {
-      return await this.getJson(`/briefs/${seg(company)}/${seg(role)}/${seg(level)}/${seg(specialization)}`);
+      return await this.getJson(`/briefs/${seg(company)}/${seg(role)}/${seg(level)}/${seg(specialization)}`, options?.timeoutMs);
     } catch (err) {
       if (isUpstreamStatus(err, 404)) return null;
+      if (options?.strict) throw err;
       if (err instanceof UpstreamError) {
         this.log.warn({ err: err.message }, `AI service brief fetch failed for ${company}/${role}/${level}/${specialization}`);
         return null;
@@ -241,6 +242,16 @@ export class AiServiceClient {
     return this.getJson(`/research/spans/${seg(spanId)}`);
   }
 
+  /** Newest research draft for a company. 404 `draft_not_found` → UpstreamHttpError. */
+  getCompanyDraft(companyId: string, options?: { timeoutMs?: number }): Promise<unknown> {
+    return this.getJson(`/research/companies/${seg(companyId)}/draft`, options?.timeoutMs);
+  }
+
+  /** pending_review → approved|rejected. 409 `draft_not_pending` → UpstreamHttpError. */
+  decideCompanyDraft(draftId: string, body: { decision: "approve" | "reject"; note: string | null; decided_by: string | null }): Promise<unknown> {
+    return this.postJson(`/research/drafts/${seg(draftId)}/decision`, body);
+  }
+
   // --- account deletion ----------------------------------------------------------------------
 
   /** Drop everything the AI service stores for these sessions (their interview plans). Throws UpstreamError. */
@@ -270,8 +281,8 @@ export class AiServiceClient {
       : { method: "POST", url: this.url(pathAndQuery), body: JSON.stringify(body), headers: { "Content-Type": "application/json" } };
   }
 
-  private async getJson(pathAndQuery: string): Promise<unknown> {
-    return parseJsonBody(await this.send({ method: "GET", url: this.url(pathAndQuery) }), pathAndQuery.split("?")[0]!);
+  private async getJson(pathAndQuery: string, timeoutMs?: number): Promise<unknown> {
+    return parseJsonBody(await this.send({ method: "GET", url: this.url(pathAndQuery), timeoutMs }), pathAndQuery.split("?")[0]!);
   }
 
   private async postJson(pathAndQuery: string, body?: unknown): Promise<unknown> {

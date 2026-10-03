@@ -41,24 +41,26 @@ export function jdsRouter(c: Container): Router {
     const company = queryString(req, "company");
     const level = queryString(req, "level");
     const specialization = queryString(req, "specialization");
-    const [companies, jds, summaries] = await Promise.all([
+    const [companies, jds, manualJds] = await Promise.all([
       c.repos.companies.findAll(),
       c.repos.jds.findAllActiveOrdered(),
-      c.aiService.listBriefSummaries(),
+      c.enrichment.publishedJdIds(),
     ]);
     const names = new Map<string, string>();
     for (const co of companies) if (!names.has(co.slug)) names.set(co.slug, co.name);
     const hidden = hiddenSlugs(companies);
+    const visible = jds
+      .filter((j) => !hidden.has(j.company))
+      .filter((j) => company === null || eqIgnoreCase(company, j.company))
+      .filter((j) => level === null || eqIgnoreCase(level, j.level))
+      .filter((j) => specialization === null || eqIgnoreCase(specialization, j.specialization));
+    const summaries = visible.some((j) => !manualJds.has(j.id)) ? await c.aiService.listBriefSummaries() : null;
     const confidence = confidenceByKey(summaries);
 
     res.json(
-      jds
-        .filter((j) => !hidden.has(j.company))
-        .filter((j) => company === null || eqIgnoreCase(company, j.company))
-        .filter((j) => level === null || eqIgnoreCase(level, j.level))
-        .filter((j) => specialization === null || eqIgnoreCase(specialization, j.specialization))
+      visible
         .map((j) => {
-          const conf = confidence.get(key(j.company, j.role, j.level, j.specialization)) ?? null;
+          const conf = manualJds.has(j.id) ? "high" : confidence.get(key(j.company, j.role, j.level, j.specialization)) ?? null;
           return {
             id: j.id,
             company: j.company,
@@ -77,11 +79,12 @@ export function jdsRouter(c: Container): Router {
   r.get("/:id", async (req, res) => {
     const j = await c.repos.jds.findById(uuidParam(req, "id"));
     const company = j ? await c.repos.companies.findBySlug(j.company) : null;
-    if (!j || (company !== null && isHidden(company))) {
+    if (!j || (!j.active && j.source === "manual") || (company !== null && isHidden(company))) {
       sendError(res, 404, "jd_not_found", "no JD with that id");
       return;
     }
-    const brief = await c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization);
+    const manual = await c.enrichment.briefForJd(j.id);
+    const brief = manual ?? await c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization);
     let interviewProcess: unknown = null;
     let conf: string | null = null;
     let sources: string[] = [];
@@ -101,10 +104,15 @@ export function jdsRouter(c: Container): Router {
       description: j.description,
       techStack: splitCsv(j.techStack),
       sourceUrl: j.sourceUrl,
+      yoeMin: j.yoeMin === null ? null : Number(j.yoeMin),
+      yoeMax: j.yoeMax === null ? null : Number(j.yoeMax),
+      ctcMinLpa: j.ctcMinLpa === null ? null : Number(j.ctcMinLpa),
+      ctcMaxLpa: j.ctcMaxLpa === null ? null : Number(j.ctcMaxLpa),
       dataConfidence: conf,
       dataAvailability: availability(conf),
       interviewProcess,
       sources,
+      ...(manual ? { companyOverview: manual.company_overview } : {}),
     });
   });
 

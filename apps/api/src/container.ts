@@ -46,6 +46,7 @@ import { AccountExportService } from "./services/accountExport.js";
 import { PreferencesService } from "./services/preferencesService.js";
 import { ProfileService } from "./services/profileService.js";
 import { UserService } from "./services/userService.js";
+import { CompanyEnrichmentService } from "./services/companyEnrichment.js";
 
 export interface ContainerDeps {
   config: Config;
@@ -133,11 +134,12 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
   const candidateProfiles = new CandidateProfileService(repos.candidateProfiles, repos.users, aiService);
   const codingSignals = new CodingSignalsProvider(repos.fragments);
   const profiles = new ProfileService(repos.users, repos.githubConnections, repos.leetcodeConnections, repos.fragments, githubCollector);
+  const enrichment = new CompanyEnrichmentService(db, aiService);
   const prep = new InterviewPrepService(repos.sessions, repos.jds, candidateProfiles, codingSignals, aiService, background, log, {
     planPollIntervalMs: config.interviewPrep.planPollIntervalMs,
     planMaxWaitMs: config.interviewPrep.planMaxWaitMs,
-  });
-  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, prep);
+  }, enrichment);
+  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, prep, enrichment);
   const liveSessions = new LiveSessionService(repos.sessions, repos.outcomes, liveKit);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
@@ -168,6 +170,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     codingSignals,
     profiles,
     prep,
+    enrichment,
     sessions,
     liveSessions,
     seeder,
