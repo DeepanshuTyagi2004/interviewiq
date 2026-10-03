@@ -71,6 +71,11 @@ describe("CompaniesTab", () => {
     expect(h.push).toHaveBeenCalledWith(`?tab=runs&run=${"f".repeat(32)}`);
   });
 
+  it("opens the full enrichment editor from each company", () => {
+    render(<CompaniesTab />);
+    expect(within(row("Razorpay")).getByRole("link", { name: "Enrich company" })).toHaveAttribute("href", `/intelligence/companies/${RAZORPAY.id}/edit`);
+  });
+
   it("explains a 409 run_active instead of failing silently", async () => {
     h.startMutateAsync.mockRejectedValue(new ApiFetchError(409, "run_active", "run x is still active"));
     render(<CompaniesTab />);

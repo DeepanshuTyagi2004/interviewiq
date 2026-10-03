@@ -277,6 +277,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jds/{jdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a published JD with its current candidate-visible interview process. */
+        get: operations["getJobDescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/companies": {
         parameters: {
             query?: never;
@@ -330,6 +347,129 @@ export interface paths {
         head?: never;
         /** Edit identity fields or archive. The slug never changes. */
         patch: operations["updateCompany"];
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/enrichment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        /** Read the enrichment draft, prefilling available research on first open (ADMIN only). */
+        get: operations["getCompanyEnrichment"];
+        /** Save an incomplete draft using optimistic revision (ADMIN only). */
+        put: operations["saveCompanyEnrichment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/enrichment/prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fill blank unverified fields from available research without replacing saved values (ADMIN only). */
+        post: operations["prefillCompanyEnrichment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/enrichment/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Atomically publish verified company, roles and linear round sequences (ADMIN only).
+         * @description Archived companies must first be restored. Existing JD role, level and specialization are immutable; add a new role to change identity.
+         */
+        post: operations["publishCompanyEnrichment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        /** The newest research draft (any status) with the company, for the review view. */
+        get: operations["getCompanyDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/draft/{draftId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending draft and publish its identity, profile and compensation onto the company.
+         * @description Roles remain in the approved research snapshot; this does not publish JDs, booking configurations or interview briefs. Missing or unavailable profile and compensation values preserve existing published facts.
+         */
+        post: operations["approveCompanyDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/companies/{companyId}/draft/{draftId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a pending draft. The company stays as it was. */
+        post: operations["rejectCompanyDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/research/runs": {
@@ -739,6 +879,10 @@ export interface components {
             session: components["schemas"]["PlanSessionContext"];
             jobDescription: components["schemas"]["PlanJobDescription"];
             candidateProfile: components["schemas"]["PlanCandidateProfile"];
+            /** @description Optional backend-owned verified publication. When present, prep uses this instead of the AI research brief. Contains generated_at, published_revision and final_experience with ordered rounds (type, topics, problems, format, duration_minutes). */
+            companyBrief?: {
+                [key: string]: unknown;
+            } | null;
         };
         PlanSessionContext: {
             /** Format: uuid */
@@ -909,6 +1053,112 @@ export interface components {
             latestDraftId: string | null;
             /** @description pending_review | approved | rejected | superseded */
             latestDraftStatus: string | null;
+            /** @description How many tracked research fields the latest draft fills; below total means partial research. */
+            latestDraftCoverage?: components["schemas"]["DraftCoverageSummary"] | null;
+        };
+        JobDescriptionDetail: {
+            /** Format: uuid */
+            id: string;
+            company: string;
+            companyName: string;
+            role: string;
+            level: string;
+            title: string;
+            specialization: string | null;
+            description: string | null;
+            techStack: string[];
+            sourceUrl: string | null;
+            yoeMin: number | null;
+            yoeMax: number | null;
+            ctcMinLpa: number | null;
+            ctcMaxLpa: number | null;
+            dataConfidence: string | null;
+            /** @enum {string} */
+            dataAvailability: "rich" | "available" | "limited" | "none";
+            sources: string[];
+            companyOverview?: components["schemas"]["EnrichmentCompany"];
+            /** @description Candidate-safe process. Verified manual rounds retain their explicit array order and source evidence. */
+            interviewProcess: ({
+                rounds?: ({
+                    /** Format: uuid */
+                    id?: string;
+                    name?: string;
+                    round_number?: number;
+                    type?: string;
+                    duration_minutes?: number;
+                    difficulty?: string;
+                    topics?: string[];
+                    problems?: string[];
+                    format?: string;
+                    source_urls?: string[];
+                } & {
+                    [key: string]: unknown;
+                })[];
+            } & {
+                [key: string]: unknown;
+            }) | null;
+        };
+        EnrichmentCompany: {
+            overview: string;
+            culture: string;
+            benefits: string;
+            sourceUrls: string[];
+            verified: boolean;
+        };
+        EnrichmentRound: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            type: "dsa" | "system-design" | "lld" | "behavioural" | "hiring-manager";
+            durationMinutes: number;
+            /** @enum {string} */
+            difficulty: "easy" | "medium" | "hard";
+            topics: string[];
+            questions: string[];
+            guidance: string;
+            sourceUrls: string[];
+            verified: boolean;
+        };
+        EnrichmentRole: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            jdId?: string | null;
+            title: string;
+            role: string;
+            level: string;
+            specialization: string | null;
+            description: string;
+            techStack: string[];
+            yoeMin: number | null;
+            yoeMax: number | null;
+            ctcMinLpa: number | null;
+            ctcMaxLpa: number | null;
+            sourceUrls: string[];
+            verified: boolean;
+            /** @description Array order defines the connected linear interview sequence. Publication requires at least one verified round. */
+            rounds: components["schemas"]["EnrichmentRound"][];
+        };
+        EnrichmentDocument: {
+            company: components["schemas"]["EnrichmentCompany"];
+            roles: components["schemas"]["EnrichmentRole"][];
+        };
+        EnrichmentPrefillRequest: {
+            revision: number;
+        };
+        EnrichmentWriteRequest: {
+            revision: number;
+            document: components["schemas"]["EnrichmentDocument"];
+        };
+        EnrichmentResponse: {
+            revision: number;
+            publishedRevision: number | null;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /** Format: uuid */
+            verifiedBy: string | null;
+            document: components["schemas"]["EnrichmentDocument"];
         };
         AdminCompany: {
             /** Format: uuid */
@@ -928,6 +1178,152 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             research: components["schemas"]["CompanyResearchState"] | null;
+        };
+        DraftField: {
+            /** @description Arbitrary JSON: a string, number, boolean, object, array or null (unavailable). Includes structured JD/interview-process objects and arrays of attributed review quotes. */
+            value: unknown;
+            /** @enum {string} */
+            confidence: "high" | "medium" | "low";
+            /** @description evidence | derived | inferred_from_similar | template | admin_override | unavailable */
+            provenance: string;
+            source_urls: string[];
+            note: string | null;
+            /** @description Values other sources reported, highest-weighted first. Empty when the sources agree; never silently dropped. */
+            alternatives?: components["schemas"]["DraftAlternative"][];
+            /** @description Date (YYYY-MM-DD) of the newest supporting source, when known. */
+            as_of?: string | null;
+        };
+        DraftAlternative: {
+            /** @description Arbitrary JSON, same shape as the field's value. */
+            value: unknown;
+            source_urls: string[];
+            as_of: string | null;
+        };
+        /** @description Evidence the pipeline could not confirm (its geography or role is not established by the page). Shown to reviewers only; never published. */
+        UnverifiedClaim: {
+            field: string;
+            value: unknown;
+            quote: string;
+            url: string;
+            source_name?: string | null;
+            date?: string | null;
+            /** @description 1 official · 2 established secondary · 3 community */
+            tier?: number | null;
+            /** @enum {string} */
+            reason: "geo_unconfirmed" | "role_not_in_context" | "role_mismatch";
+            role_title?: string | null;
+        };
+        DraftCoverageSummary: {
+            filled: number;
+            total: number;
+        };
+        DraftCoverage: components["schemas"]["DraftCoverageSummary"] & {
+            /** @description Tracked paths still unavailable, e.g. roles[<role_key>].jd. Reported pay (ctc_observations) and supported total CTC (ctc_min_lpa) are separate slots; reported pay alone does not fill total-CTC coverage. */
+            missing: string[];
+        };
+        DraftChange: {
+            path: string;
+            /** @enum {string} */
+            change: "added" | "removed" | "changed";
+            before: unknown;
+            after: unknown;
+        };
+        DraftConflict: {
+            /** @description not_a_company | possible_duplicate */
+            type: string;
+            message: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Optional company profile facts. Each field's value may be null when unavailable. */
+        DraftProfile: {
+            sector?: components["schemas"]["DraftField"];
+            business_model?: components["schemas"]["DraftField"];
+            hq?: components["schemas"]["DraftField"];
+            headcount_band?: components["schemas"]["DraftField"];
+            revenue_band?: components["schemas"]["DraftField"];
+            funding_stage?: components["schemas"]["DraftField"];
+            funding_round?: components["schemas"]["DraftField"];
+            unverified?: components["schemas"]["UnverifiedClaim"][];
+        };
+        /** @description Optional work-life-balance and review facts. Rating values are numbers from 0 to 5; counts are nonnegative integers. review_quotes.value is an array of at most five {text, sourceUrl, sourceName, date} objects, with text up to 300 characters and absolute http(s) source URLs without credentials. */
+        DraftCompensation: {
+            wlb_rating?: components["schemas"]["DraftField"];
+            wlb_review_count?: components["schemas"]["DraftField"];
+            review_summary?: components["schemas"]["DraftField"];
+            review_quotes?: components["schemas"]["DraftField"];
+            unverified?: components["schemas"]["UnverifiedClaim"][];
+        };
+        /** @description Research-only role facts retained in the approved snapshot; not yet published to booking JDs or interview briefs. */
+        DraftRole: {
+            role_key: string;
+            title: components["schemas"]["DraftField"];
+            /** @description Unavailable when the sources do not support a level; unknown levels remain unknown. */
+            level: components["schemas"]["DraftField"];
+            specialization: components["schemas"]["DraftField"];
+            yoe_min: components["schemas"]["DraftField"];
+            /** @description Unavailable when no upper experience bound is supported; never capped by an invented maximum. */
+            yoe_max: components["schemas"]["DraftField"];
+            /** @description Derived median lower bound using only observations explicitly labelled total_ctc, after outlier removal. Unspecified LPA pay is excluded. INR annual LPA. */
+            ctc_min_lpa: components["schemas"]["DraftField"];
+            /** @description Derived median of reported upper bounds from total_ctc observations only. Open-ended observations do not support this field; unavailable if no upper bound is reported. INR annual LPA. */
+            ctc_max_lpa: components["schemas"]["DraftField"];
+            /** @description Distinct source URLs contributing explicit total_ctc observations to the derived range after outlier removal; excludes unspecified pay. Zero when no supported range can be derived. */
+            ctc_source_count: number;
+            jd: components["schemas"]["DraftField"];
+            /** @description Official (company-published) process passages only. */
+            interview_process: components["schemas"]["DraftField"];
+            /** @description full_time | intern | contract */
+            employment_type?: components["schemas"]["DraftField"];
+            /** @description Job codes from official posting URLs and role titles. */
+            job_ids?: components["schemas"]["DraftField"];
+            required_skills?: components["schemas"]["DraftField"];
+            preferred_skills?: components["schemas"]["DraftField"];
+            tech_stack?: components["schemas"]["DraftField"];
+            /** @description Indian cities, normalized names. */
+            locations?: components["schemas"]["DraftField"];
+            /** @description Source-reported pay, including observations excluded from the derived total-CTC range. Array of {min_lpa, max_lpa, basis: total_ctc | lpa_unspecified, source_url, source_name, tier, date}. lpa_unspecified means the source reports annual INR LPA but does not establish total CTC; do not label it verified CTC. A null max_lpa is open-ended, not a capped range. */
+            ctc_observations?: components["schemas"]["DraftField"];
+            /** @description Array of {text, evidence_type: candidate_report | secondhand, source_url, source_name, date}; not official policy. */
+            reported_interview_process?: components["schemas"]["DraftField"];
+            unverified?: components["schemas"]["UnverifiedClaim"][];
+        };
+        CompanyDraft: {
+            draft_id: string;
+            company_id: string;
+            version: number;
+            run_id: string;
+            /** @enum {string} */
+            status: "pending_review" | "approved" | "rejected" | "superseded";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            decided_at?: string | null;
+            decided_by?: string | null;
+            decision_note?: string | null;
+            /** @description Research limitations such as roles omitted by the run cap. */
+            notes?: string[];
+            snapshot: {
+                identity: {
+                    name: components["schemas"]["DraftField"];
+                    website: components["schemas"]["DraftField"];
+                    aliases: components["schemas"]["DraftField"];
+                };
+                profile?: components["schemas"]["DraftProfile"];
+                compensation?: components["schemas"]["DraftCompensation"];
+                roles?: components["schemas"]["DraftRole"][];
+            };
+            conflicts: components["schemas"]["DraftConflict"][];
+            /** @description Changes against the last approved draft. */
+            diff: components["schemas"]["DraftChange"][];
+            coverage?: components["schemas"]["DraftCoverage"];
+        };
+        CompanyDraftResponse: {
+            company: components["schemas"]["AdminCompany"];
+            draft: components["schemas"]["CompanyDraft"];
+        };
+        DraftDecisionRequest: {
+            note?: string;
         };
         AdminCompanyList: {
             companies: components["schemas"]["AdminCompany"][];
@@ -1596,6 +1992,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getJobDescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JD and verified manual process when available. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description JD is unavailable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listAdminCompanies: {
         parameters: {
             query?: never;
@@ -1734,6 +2159,251 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getCompanyEnrichment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current draft and publication metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrichmentResponse"];
+                };
+            };
+        };
+    };
+    saveCompanyEnrichment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrichmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrichmentResponse"];
+                };
+            };
+            /** @description Stale revision; reload before saving. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prefillCompanyEnrichment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrichmentPrefillRequest"];
+            };
+        };
+        responses: {
+            /** @description Current draft; revision advances only when values change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrichmentResponse"];
+                };
+            };
+            /** @description Stale revision. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Research service unavailable; draft unchanged. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    publishCompanyEnrichment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrichmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Immediately published. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrichmentResponse"];
+                };
+            };
+            /** @description Invalid or unverified content. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCompanyDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyDraftResponse"];
+                };
+            };
+            /** @description `company_not_found` | `draft_not_found` (no research has produced a draft yet). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    approveCompanyDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DraftDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description The published company. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompany"];
+                };
+            };
+            /** @description Invalid draft values; the company is not changed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `draft_stale` | `draft_not_pending` | `draft_not_approvable` (research says it is not a company). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    rejectCompanyDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DraftDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Rejected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `draft_stale` | `draft_not_pending`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     listResearchRuns: {

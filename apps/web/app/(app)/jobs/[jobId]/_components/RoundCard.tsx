@@ -45,6 +45,8 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
   const mapped = toRoundType(round.type) !== null;
   const note = isOnlineAssessment(round.type) ? "Automated test · not run as a mock" : roundEvidence(round);
   const cta = mapped ? "Book this round" : "Book a round";
+  const sources = [...new Set(round.source_urls?.map((url) => url.trim()).filter(Boolean) ?? [])];
+  const questions = [...new Set(round.problems?.map((question) => question.trim()).filter(Boolean) ?? [])];
 
   return (
     <li className="hud-card group/round relative grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-4 gap-y-3.5 overflow-hidden rounded-[14px] border border-line-2 bg-card p-4 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-[18px] sm:p-5">
@@ -74,6 +76,8 @@ export function RoundCard({ round, index, jdId }: RoundCardProps) {
             ))}
           </ul>
         ) : null}
+        {questions.length ? <details className="mt-2 text-[13px]"><summary className="cursor-pointer text-muted-foreground">Practice questions</summary><ul className="mb-0 mt-2 space-y-2 pl-4">{questions.map((question) => <li key={question} className="whitespace-pre-wrap leading-relaxed">{question}</li>)}</ul></details> : null}
+        {sources.length ? <details className="mt-2 text-[13px]"><summary className="cursor-pointer text-muted-foreground">Round sources</summary><ul className="mb-0 mt-2 space-y-2 pl-4">{sources.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="break-all text-xs underline underline-offset-4">{url}</a></li>)}</ul></details> : null}
       </div>
 
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:col-start-3 sm:flex-col sm:items-end sm:justify-center">

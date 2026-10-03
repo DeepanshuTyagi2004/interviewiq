@@ -3,7 +3,6 @@
 import { useId, useMemo } from "react";
 import { Position, ReactFlow, ReactFlowProvider, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { NODE_ORDER } from "@/lib/constants/research";
 import { nodeStates, type NodeState, type ResearchItem } from "@/features/research";
 
 const NODE_CLASS: Record<NodeState, string> = {
@@ -12,8 +11,6 @@ const NODE_CLASS: Record<NodeState, string> = {
   ok: "border-faint-2 bg-card text-foreground",
   error: "border-destructive bg-destructive/10 text-destructive",
 };
-
-const EDGES: Edge[] = NODE_ORDER.slice(0, -1).map((name, i) => ({ id: `${name}->${NODE_ORDER[i + 1]}`, source: name, target: NODE_ORDER[i + 1]! }));
 
 export default function GraphMiniMapInner({ item }: { item: ResearchItem }) {
   const id = useId();
@@ -32,6 +29,7 @@ export default function GraphMiniMapInner({ item }: { item: ResearchItem }) {
       })),
     [item],
   );
+  const edges = useMemo<Edge[]>(() => nodes.slice(1).map((node, i) => ({ id: `${nodes[i]!.id}->${node.id}`, source: nodes[i]!.id, target: node.id })), [nodes]);
   // Same HUD-zoom inversion as PipelineCanvasInner: React Flow must run at an effective zoom of 1.
   return (
     <div className="h-14">
@@ -44,7 +42,7 @@ export default function GraphMiniMapInner({ item }: { item: ResearchItem }) {
               nodesFocusable={false}
               edgesFocusable={false}
               nodes={nodes}
-              edges={EDGES}
+              edges={edges}
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable={false}

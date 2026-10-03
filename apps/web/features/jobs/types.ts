@@ -1,6 +1,10 @@
 /** JD library types. Top-level JD fields are camelCase (backend DTOs); `interviewProcess`
  *  is the brief's round-by-round process from the AI service (snake_case) — the public fields of
  *  `final_experience` for current briefs, or the legacy `consolidated_process`. */
+import type { components } from "@/lib/api-client/generated/schema";
+
+type JobDescriptionDetail = components["schemas"]["JobDescriptionDetail"];
+type PublishedRound = NonNullable<NonNullable<JobDescriptionDetail["interviewProcess"]>["rounds"]>[number];
 
 export type DataAvailability = "rich" | "available" | "limited" | "none";
 
@@ -16,7 +20,8 @@ export type JdSummary = {
   dataAvailability: DataAvailability;
 };
 
-export type ConsolidatedRound = {
+export type ConsolidatedRound = Pick<PublishedRound, "id" | "name" | "duration_minutes" | "problems" | "source_urls"> & {
+  provenance?: string | null;
   round_number?: number | null;
   type?: string | null;
   consistency?: string | null;
@@ -41,21 +46,9 @@ export type InterviewProcess = {
   data_confidence?: string | null;
 };
 
-export type JdDetail = {
-  id: string;
-  company: string;
-  companyName: string;
-  role: string;
-  level: string;
-  title: string;
-  specialization: string | null;
-  description: string | null;
-  techStack: string[];
-  sourceUrl: string | null;
-  dataConfidence: string | null;
-  dataAvailability: DataAvailability;
+/** Top-level DTO is generated; retain the typed legacy brief fields in its open process payload. */
+export type JdDetail = Omit<JobDescriptionDetail, "interviewProcess"> & {
   interviewProcess: InterviewProcess | null;
-  sources: string[];
 };
 
 export type JobCompany = {

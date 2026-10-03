@@ -4,7 +4,7 @@ import type { JdDetail } from "@/features/jobs";
 import { plural } from "@/app/(app)/jobs/_components/library";
 import { cn } from "@/lib/utils/cn";
 import { groupSources } from "./insights";
-import { topicRows } from "./rounds";
+import { isAdminVerifiedProcess, topicRows } from "./rounds";
 
 /** One insight: a HUD card whose mono header is the eyebrow (named by it), with an optional count. */
 function InsightCard({
@@ -39,7 +39,8 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
   const style = p?.interviewer_style_notes?.trim();
   const flags = (p?.red_flags ?? []).map((f) => f.trim()).filter(Boolean);
   const difficulty = p?.difficulty_calibration?.trim();
-  const patterns = p?.company_specific_patterns?.trim();
+  const publishedCompanyText = jd.companyOverview ? [jd.companyOverview.overview, jd.companyOverview.culture, jd.companyOverview.benefits].filter(Boolean).join("\n\n").trim() : null;
+  const patterns = p?.company_specific_patterns?.trim() === publishedCompanyText ? null : p?.company_specific_patterns?.trim();
   const sources = groupSources(jd.sources);
   const sourceCount = sources.reduce((n, s) => n + s.urls.length, 0);
   const description = jd.description?.trim();
@@ -65,7 +66,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
         {leftColumn ? (
           <div className="flex min-w-0 flex-col gap-3">
             {topics.length > 0 ? (
-              <InsightCard eyebrow="Most-asked topics">
+              <InsightCard eyebrow={isAdminVerifiedProcess(p) ? "Interview topics" : "Most-asked topics"}>
                 <ul className="m-0 list-none p-0">
                   {topics.map((t) => (
                     <li key={t.topic} className="flex items-baseline justify-between gap-3 border-b border-line py-2 text-[13.5px] last:border-b-0">

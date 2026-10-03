@@ -11,6 +11,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { InsightsTab } from "./InsightsTab";
 import { ProcessTab } from "./ProcessTab";
 import { RoadmapHeader } from "./RoadmapHeader";
+import { PublishedDetails } from "./PublishedDetails";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const page = PAGE_SCAFFOLD;
@@ -85,6 +86,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
   return (
     <div className={page}>
       <RoadmapHeader jd={data} headquarters={headquarters} />
+      <PublishedDetails jd={data} />
 
       <Tabs defaultValue="process" className="mt-5">
         <TabsList

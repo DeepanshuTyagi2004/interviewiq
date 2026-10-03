@@ -5,6 +5,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
 import { isLiveJd, levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
 import { confidenceWord } from "./insights";
+import { isAdminVerifiedProcess } from "./rounds";
 
 const READINESS_STEPS = 4;
 
@@ -27,12 +28,13 @@ export function ReadinessMeter() {
 /** "Bengaluru, India · Fresher · Backend · Data depth high · 12 sources": real fields only. */
 export function roadmapMeta(jd: JdDetail, headquarters: string | null | undefined): string {
   const confidence = confidenceWord(jd.dataConfidence ?? jd.interviewProcess?.data_confidence);
+  const sourceCount = new Set(jd.sources.map((source) => source.trim()).filter(Boolean)).size;
   return [
     headquarters?.trim() || null,
     levelLabel(jd.level),
     jd.specialization ? specializationLabel(jd.specialization) : null,
-    confidence ? `Data depth ${confidence}` : "No interview data yet",
-    jd.sources.length > 0 ? plural(jd.sources.length, "source") : null,
+    isAdminVerifiedProcess(jd.interviewProcess) ? "Admin-verified process" : confidence ? `Data depth ${confidence}` : "No interview data yet",
+    sourceCount > 0 ? plural(sourceCount, "source") : null,
   ]
     .filter(Boolean)
     .join(" · ");

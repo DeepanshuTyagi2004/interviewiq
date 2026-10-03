@@ -70,6 +70,7 @@ export function roundNumber(round: ConsolidatedRound, index: number): number {
 
 /** "DSA", "System Design", "Online Assessment"; an unknown type is shown humanized. */
 export function roundTitle(round: ConsolidatedRound, index: number): string {
+  if (round.name?.trim()) return round.name.trim();
   const mapped = toRoundType(round.type);
   if (mapped) return ROUND_LABEL.get(mapped) ?? mapped;
   if (isOnlineAssessment(round.type)) return "Online Assessment";
@@ -79,7 +80,9 @@ export function roundTitle(round: ConsolidatedRound, index: number): string {
 
 /** "Live coding on a shared editor · medium" — from the brief's format and difficulty. */
 export function roundMeta(round: ConsolidatedRound): string {
-  return [round.format?.trim(), round.difficulty?.trim().toLowerCase()].filter(Boolean).join(" · ");
+  const duration = typeof round.duration_minutes === "number" && round.duration_minutes > 0 ? `${round.duration_minutes} min` : null;
+  const type = round.name?.trim() && round.type ? (ROUND_LABEL.get(toRoundType(round.type) ?? "") ?? sentenceCase(round.type.replace(/[-_]+/g, " "))) : null;
+  return [type, duration, round.format?.trim(), round.difficulty?.trim().toLowerCase()].filter(Boolean).join(" · ");
 }
 
 /** Topics for a round: the legacy `dominant_topics`, else the staged pipeline's `topics`. */
@@ -90,11 +93,16 @@ export function roundTopics(round: ConsolidatedRound): string[] {
 
 /** How well-attested the round is, when the brief says so. Never a score. */
 export function roundEvidence(round: ConsolidatedRound): string | null {
+  if (round.provenance === "admin_verified") return "Admin-verified";
   const n = round.support_count ?? 0;
   const total = round.source_count_total ?? 0;
   if (n > 0 && total > 0) return `Reported in ${n} of ${total} sources`;
   if (round.consistency?.trim()) return sentenceCase(round.consistency);
   return null;
+}
+
+export function isAdminVerifiedProcess(process: InterviewProcess | null | undefined): boolean {
+  return !!process?.rounds?.length && process.rounds.every((round) => round.provenance === "admin_verified");
 }
 
 export type TopicRow = { topic: string; rounds: number[] };

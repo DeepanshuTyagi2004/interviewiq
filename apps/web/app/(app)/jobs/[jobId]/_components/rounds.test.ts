@@ -74,6 +74,13 @@ describe("round display", () => {
     expect(roundEvidence({ support_count: 3, source_count_total: 5 })).toBe("Reported in 3 of 5 sources");
     expect(roundEvidence({ consistency: "appears in 4 of 5 experiences" })).toBe("Appears in 4 of 5 experiences");
     expect(roundEvidence({ support_count: 0, source_count_total: 5 })).toBeNull();
+    expect(roundEvidence({ provenance: "admin_verified", source_urls: ["https://example.com"], support_count: 3, source_count_total: 5 })).toBe("Admin-verified");
+  });
+
+  it("uses manual names and explicit durations without inventing defaults", () => {
+    expect(roundTitle({ name: "Architecture deep dive", type: "system-design" }, 0)).toBe("Architecture deep dive");
+    expect(roundMeta({ duration_minutes: 75, difficulty: "hard" })).toBe("75 min · hard");
+    expect(roundMeta({ duration_minutes: 0 })).toBe("");
   });
 });
 

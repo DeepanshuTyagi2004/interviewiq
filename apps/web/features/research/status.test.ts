@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { companyResearchStatus, nodeStates, runControls } from "./status";
+import { companyResearchStatus, companyStatusLabel, nodeStates, runControls } from "./status";
 import { makeCompany, makeItem } from "./testing";
 import type { CompanyResearchState } from "./types";
 
@@ -24,6 +24,22 @@ describe("companyResearchStatus", () => {
   });
 });
 
+describe("companyStatusLabel", () => {
+  const pending = (over: Partial<CompanyResearchState>) =>
+    state({ lastStatus: "done", latestDraftStatus: "pending_review", ...over });
+  it.each([
+    [makeCompany({ research: pending({ latestDraftCoverage: { filled: 18, total: 34 } }) }), "Awaiting review · partial 18/34"],
+    [makeCompany({ research: pending({ latestDraftCoverage: { filled: 8, total: 8 } }) }), "Awaiting review"],
+    [makeCompany({ publishedAt: PUBLISHED, research: pending({ latestDraftCoverage: { filled: 3, total: 13 } }) }),
+      "Published · update pending review · partial 3/13"],
+    [makeCompany({ publishedAt: PUBLISHED, research: state({ lastStatus: "done", latestDraftStatus: "approved",
+      latestDraftCoverage: { filled: 3, total: 13 } }) }), "Published"],
+    [makeCompany({ research: pending({}) }), "Awaiting review"],
+  ] as const)("%#: %s", (company, expected) => {
+    expect(companyStatusLabel(company)).toBe(expected);
+  });
+});
+
 describe("runControls", () => {
   it.each([
     ["running", { start: false, pause: true, resume: false, stop: true }],
@@ -45,8 +61,14 @@ describe("runControls", () => {
 describe("nodeStates", () => {
   it("lists every graph node in order, idle until it starts", () => {
     expect(nodeStates(makeItem({ nodes: { resolve: { status: "ok" }, write_draft: { status: "running" } } }))).toEqual([
-      { name: "resolve", state: "ok" }, { name: "write_draft", state: "running" },
+      { name: "resolve", state: "ok" }, { name: "profile", state: "idle" }, { name: "write_draft", state: "running" },
     ]);
-    expect(nodeStates(undefined)).toEqual([{ name: "resolve", state: "idle" }, { name: "write_draft", state: "idle" }]);
+    expect(nodeStates(undefined)).toEqual([{ name: "resolve", state: "idle" }, { name: "profile", state: "idle" }, { name: "write_draft", state: "idle" }]);
+  });
+  it("retains historical research steps in old traces", () => {
+    const states = nodeStates(makeItem({ nodes: { compensation: { status: "ok" }, roles: { status: "error" } } }));
+    expect(states).toContainEqual({ name: "compensation", state: "ok" });
+    expect(states).toContainEqual({ name: "roles", state: "error" });
+    expect(states.at(-1)?.name).toBe("write_draft");
   });
 });

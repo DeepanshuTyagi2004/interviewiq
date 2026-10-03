@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiFetchError } from "@/lib/api-client/client";
 import { CONSOLE_MAX_ROWS, EVENTS_PAGE_LIMIT, RESEARCH_POLLING, RESEARCH_QUERY_KEYS as K } from "@/lib/constants/research";
 import {
-  controlRun, createCompany, deleteCompany, getRun, getSpan, listAdminCompanies, listRunEvents, listRunSpans,
+  approveCompanyDraft, controlRun, createCompany, getCompanyDraft, rejectCompanyDraft, deleteCompany, getRun, getSpan, listAdminCompanies, listRunEvents, listRunSpans,
   listRuns, raiseBudget, seedCompanies, startRun, updateCompany,
 } from "./api";
 import { appendCapped, initialAfterSeq, olderPageQuery } from "./event-filters";
@@ -163,4 +163,23 @@ export function useRunEvents(runId: string | null, opts: { live: boolean; lastSe
   }, [oldest, runId, setEvents]);
 
   return { events, error: query.error, refetch: query.refetch, loadOlder, canLoadOlder: olderPageQuery(oldest, EVENTS_PAGE_LIMIT) !== null, loadingOlder };
+}
+
+/** The newest draft for a company; `enabled` keeps it from fetching until the review dialog opens. */
+export function useCompanyDraft(companyId: string, enabled: boolean) {
+  return useQuery({ queryKey: K.draft(companyId), queryFn: () => getCompanyDraft(companyId), enabled, retry: false });
+}
+
+export function useDecideDraft(companyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ draftId, decision, note }: { draftId: string; decision: "approve" | "reject"; note?: string }) => {
+      if (decision === "approve") await approveCompanyDraft(companyId, draftId, note);
+      else await rejectCompanyDraft(companyId, draftId, note);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: K.companies });
+      qc.invalidateQueries({ queryKey: K.draft(companyId) });
+    },
+  });
 }

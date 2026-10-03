@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { StatusDot, padCount } from "@/components/hud";
@@ -11,6 +12,7 @@ import { ApiFetchError } from "@/lib/api-client/client";
 import {
   COMPANY_STATUS_META,
   companyResearchStatus,
+  companyStatusLabel,
   deepLinkHref,
   isRunActive,
   timeAgo,
@@ -23,6 +25,7 @@ import {
   type AdminCompany,
 } from "@/features/research";
 import { AddCompanyForm } from "./AddCompanyForm";
+import { DraftReviewDialog } from "./DraftReviewDialog";
 
 function errorMessage(err: unknown): string {
   return err instanceof ApiFetchError ? err.message : "Something went wrong. Check the API logs.";
@@ -167,6 +170,7 @@ function CompanyRow({
   const update = useUpdateCompany();
   const del = useDeleteCompany();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [reviewing, setReviewing] = React.useState(false);
   const status = COMPANY_STATUS_META[companyResearchStatus(company)];
   const archived = company.status === "archived";
   const lastRunId = company.research?.lastRunId ?? null;
@@ -185,7 +189,7 @@ function CompanyRow({
           </span>
         </div>
       </Td>
-      <Td><StatusDot state={status.dot} label={status.label} /></Td>
+      <Td><StatusDot state={status.dot} label={companyStatusLabel(company)} /></Td>
       <Td className="whitespace-nowrap text-[13px] text-muted-foreground">
         {company.research?.lastResearchedAt ? timeAgo(company.research.lastResearchedAt) : "—"}
       </Td>
@@ -194,6 +198,8 @@ function CompanyRow({
       </Td>
       <Td>
         <div className="flex flex-wrap justify-end gap-1.5">
+          {!archived ? <Button size="sm" asChild><Link href={`/intelligence/companies/${encodeURIComponent(company.id)}/edit`}>Enrich company</Link></Button> : null}
+          {company.research?.latestDraftId ? <Button size="sm" variant="strong" onClick={() => setReviewing(true)}>View research</Button> : null}
           <Button size="sm" variant="strong" disabled={busy || archived} onClick={onResearch}>Research now</Button>
           {lastRunId ? <Button size="sm" variant="ghost" onClick={() => onOpenRun(lastRunId)}>Last run</Button> : null}
           <Button
@@ -227,6 +233,7 @@ function CompanyRow({
             <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(true)}>Delete</Button>
           )}
         </div>
+        {reviewing ? <DraftReviewDialog company={company} open onOpenChange={setReviewing} readOnly /> : null}
       </Td>
     </Tr>
   );

@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api-client/client";
 import { EVENTS_PAGE_LIMIT, RESEARCH_ENDPOINTS as E } from "@/lib/constants/research";
 import type {
-  AdminCompany, AdminCompanyList, CreateCompanyRequest, ResearchBudgetUpdate, ResearchEvent, ResearchEventPage,
+  AdminCompany, AdminCompanyList, CompanyDraftResponse, CreateCompanyRequest, ResearchBudgetUpdate, ResearchEvent, ResearchEventPage,
   ResearchLevel, ResearchRun, ResearchRunDetail, ResearchRunList, ResearchSpanDetailResponse, ResearchSpanList,
   RunAction, SeedResult, StartResearchRunRequest, UpdateCompanyRequest,
 } from "./types";
@@ -20,6 +20,18 @@ export function updateCompany(id: string, patch: UpdateCompanyRequest): Promise<
 
 export function deleteCompany(id: string): Promise<void> {
   return apiFetch<void>(E.company(id), { method: "DELETE" });
+}
+
+export function getCompanyDraft(companyId: string): Promise<CompanyDraftResponse> {
+  return apiFetch<CompanyDraftResponse>(E.draft(companyId));
+}
+
+export function approveCompanyDraft(companyId: string, draftId: string, note?: string): Promise<AdminCompany> {
+  return apiFetch<AdminCompany>(E.draftDecision(companyId, draftId, "approve"), { method: "POST", json: { note } });
+}
+
+export function rejectCompanyDraft(companyId: string, draftId: string, note?: string): Promise<void> {
+  return apiFetch<void>(E.draftDecision(companyId, draftId, "reject"), { method: "POST", json: { note } });
 }
 
 export function seedCompanies(): Promise<SeedResult> {

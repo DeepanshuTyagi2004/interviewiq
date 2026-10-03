@@ -1,6 +1,6 @@
 /** The Intelligence page's URL state: ?tab=&run=&company=&span= (spec §9.1 deep links). */
 
-export const INTELLIGENCE_TABS = ["companies", "runs", "briefs", "access", "questions", "resume", "prep", "agent"] as const;
+export const INTELLIGENCE_TABS = ["companies", "runs", "access"] as const;
 export type IntelligenceTab = (typeof INTELLIGENCE_TABS)[number];
 
 export interface DeepLink {

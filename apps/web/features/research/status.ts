@@ -1,5 +1,5 @@
 import type { DotState } from "@/components/hud";
-import { NODE_ORDER, type NodeName } from "@/lib/constants/research";
+import { NODE_ORDER } from "@/lib/constants/research";
 import type { AdminCompany, ResearchItem, ResearchItemStatus, ResearchRunStatus, ResearchSpan } from "./types";
 
 export type CompanyResearchStatus =
@@ -25,6 +25,15 @@ export function companyResearchStatus(company: AdminCompany): CompanyResearchSta
   if (research?.latestDraftStatus === "pending_review") return company.publishedAt ? "update_pending" : "awaiting_review";
   if (company.publishedAt) return "published";
   return "never_researched";
+}
+
+/** The status label, flagging a draft awaiting review that leaves tracked research fields empty. */
+export function companyStatusLabel(company: AdminCompany): string {
+  const status = companyResearchStatus(company);
+  const label = COMPANY_STATUS_META[status].label;
+  const coverage = company.research?.latestDraftCoverage;
+  const reviewing = status === "awaiting_review" || status === "update_pending";
+  return reviewing && coverage && coverage.filled < coverage.total ? `${label} · partial ${coverage.filled}/${coverage.total}` : label;
 }
 
 export const RUN_STATUS_DOT: Record<ResearchRunStatus, DotState> = {
@@ -59,8 +68,11 @@ export function runControls(status: ResearchRunStatus | undefined, pending = fal
 
 export type NodeState = "idle" | "running" | "ok" | "error";
 
-export function nodeStates(item: Pick<ResearchItem, "nodes"> | undefined): Array<{ name: NodeName; state: NodeState }> {
-  return NODE_ORDER.map((name) => {
+export function nodeStates(item: Pick<ResearchItem, "nodes"> | undefined): Array<{ name: string; state: NodeState }> {
+  // Retain historical pipeline steps when opening older research runs.
+  const legacy = Object.keys(item?.nodes ?? {}).filter((name) => !(NODE_ORDER as readonly string[]).includes(name));
+  const order = [...NODE_ORDER.slice(0, -1), ...legacy, NODE_ORDER[NODE_ORDER.length - 1]!];
+  return order.map((name) => {
     const s = item?.nodes?.[name]?.status;
     return { name, state: s === "running" || s === "ok" || s === "error" ? s : "idle" };
   });
