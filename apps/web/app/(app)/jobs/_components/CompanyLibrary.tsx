@@ -1,21 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/patterns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJds, useJobCompanies } from "@/features/jobs";
+import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { CompanyCard } from "./CompanyCard";
 import {
   buildCompanyEntries,
   filterLibrary,
-  groupByLevel,
-  specializationsOf,
   type StatusFilter,
 } from "./library";
-import { RoleList } from "./RoleList";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const STATUS: { value: StatusFilter; label: string }[] = [
@@ -77,27 +76,13 @@ function LibrarySkeleton() {
   );
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
-export interface CompanyLibraryProps {
-  /** Company slug to narrow the role list to on arrival (`/jobs?company=meesho`). */
-  initialCompany?: string | null;
-}
-
-/** `/jobs`: search + status filter, the company grid, then every role grouped by level. */
-export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
+/** `/jobs`: search + status filter and the company grid. A card opens that company's roles page. */
+export function CompanyLibrary() {
+  const router = useRouter();
   const companies = useJobCompanies();
   const jds = useJds();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [company, setCompany] = useState<string | null>(initialCompany);
-  const [specialization, setSpecialization] = useState<string | null>(null);
-  const rolesHeading = useRef<HTMLHeadingElement>(null);
 
   const entries = useMemo(
     () => buildCompanyEntries(companies.data, jds.data),
@@ -108,42 +93,13 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
     [entries, query, status],
   );
 
-  const selected = company
-    ? (entries.find((e) => e.slug === company) ?? null)
-    : null;
-  const visibleRoles = matches
-    .filter((m) => !selected || m.entry.slug === selected.slug)
-    .flatMap((m) => m.jds);
-  const specializations = specializationsOf(visibleRoles);
-  const activeSpec =
-    specialization && specializations.includes(specialization)
-      ? specialization
-      : null;
-  const groups = groupByLevel(
-    activeSpec
-      ? visibleRoles.filter((jd) => jd.specialization === activeSpec)
-      : visibleRoles,
-  );
-
   function showRoles(slug: string) {
-    setCompany(slug);
-    setSpecialization(null);
-    requestAnimationFrame(() => {
-      const heading = rolesHeading.current;
-      if (!heading) return;
-      heading.focus({ preventScroll: true });
-      heading.scrollIntoView({
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-        block: "start",
-      });
-    });
+    router.push(`${ROUTES.jobs}/c/${encodeURIComponent(slug)}`);
   }
 
   function clearFilters() {
     setQuery("");
     setStatus("all");
-    setCompany(null);
-    setSpecialization(null);
   }
 
   const isLoading = jds.isLoading || companies.isLoading;
@@ -227,18 +183,6 @@ export function CompanyLibrary({ initialCompany = null }: CompanyLibraryProps) {
               />
             ))}
           </div>
-
-          <RoleList
-            ref={rolesHeading}
-            groups={groups}
-            company={
-              selected ? { slug: selected.slug, name: selected.name } : null
-            }
-            onClearCompany={() => setCompany(null)}
-            specializations={specializations}
-            specialization={activeSpec}
-            onSpecialization={setSpecialization}
-          />
         </>
       )}
     </div>

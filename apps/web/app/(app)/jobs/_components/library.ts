@@ -4,8 +4,11 @@
  */
 import type { DataAvailability, JdSummary, JobCompany } from "@/features/jobs";
 
-const LEVEL_ORDER = ["fresher", "sde1", "sde2", "sde3"];
+const LEVEL_ORDER = ["intern", "fresher", "sde1", "sde2", "sde3", "staff", "principal"];
 const LEVEL_LABEL: Record<string, string> = {
+  intern: "Intern",
+  staff: "Staff",
+  principal: "Principal",
   fresher: "Fresher",
   sde1: "SDE I",
   sde2: "SDE II",

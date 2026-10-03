@@ -59,7 +59,7 @@ export function RoadmapHeader({ jd, headquarters }: RoadmapHeaderProps) {
             <span aria-hidden>›</span>
           </li>
           <li className="flex items-center gap-2">
-            <Link href={`${ROUTES.jobs}?company=${encodeURIComponent(jd.company)}`} className={crumb}>
+            <Link href={`${ROUTES.jobs}/c/${encodeURIComponent(jd.company)}`} className={crumb}>
               {jd.companyName}
             </Link>
             <span aria-hidden>›</span>

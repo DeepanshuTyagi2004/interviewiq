@@ -36,7 +36,9 @@ describe("labels", () => {
   it("maps known levels and passes unknown ones through", () => {
     expect(levelLabel("sde1")).toBe("SDE I");
     expect(levelLabel("fresher")).toBe("Fresher");
-    expect(levelLabel("staff")).toBe("staff");
+    expect(levelLabel("staff")).toBe("Staff");
+    expect(levelLabel("intern")).toBe("Intern");
+    expect(levelLabel("lead")).toBe("lead");
   });
 
   it("humanizes specializations", () => {

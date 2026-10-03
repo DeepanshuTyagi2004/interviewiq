@@ -16,6 +16,12 @@ export type JdSummary = {
   level: string;
   title: string;
   specialization: string | null;
+  /** Technologies the role uses; absent on older API responses. */
+  techStack?: string[];
+  yoeMin?: number | null;
+  yoeMax?: number | null;
+  ctcMinLpa?: number | null;
+  ctcMaxLpa?: number | null;
   dataConfidence: string | null;
   dataAvailability: DataAvailability;
 };
@@ -24,6 +30,8 @@ export type ConsolidatedRound = Pick<PublishedRound, "id" | "name" | "duration_m
   provenance?: string | null;
   round_number?: number | null;
   type?: string | null;
+  /** `info` = not an interview (online test, take-home…): shown, never booked or counted. */
+  kind?: string | null;
   consistency?: string | null;
   format?: string | null;
   dominant_topics?: string[];
