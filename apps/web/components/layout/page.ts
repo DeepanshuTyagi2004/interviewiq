@@ -1,5 +1,7 @@
 /**
  * Page content inside the app shell's card: centred and capped, with tight padding so the card's
- * space goes to content rather than margins. Every in-app page uses this.
+ * space goes to content rather than margins. Its width and responsive gutters mirror the
+ * dashboard shell; every in-app page uses this.
  */
-export const PAGE_SCAFFOLD = "mx-auto flex w-full max-w-[1600px] flex-col px-4 pb-10 pt-5 sm:px-6 sm:pt-6 lg:px-8";
+export const PAGE_SCAFFOLD =
+  "iq-page mx-auto flex w-full max-w-[1760px] flex-col px-[calc(16*var(--u))] pb-[calc(24*var(--u))] pt-[calc(26*var(--u))] sm:px-[calc(26*var(--u))]";

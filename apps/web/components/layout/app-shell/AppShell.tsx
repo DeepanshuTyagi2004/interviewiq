@@ -17,7 +17,6 @@ import { VerifyEmailBanner } from "./VerifyEmailBanner";
 const MENU_ID = "app-menu";
 /** Card slides right (never further than leaves a sliver on phones) and shrinks to reveal the menu. */
 const CARD_OPEN = "translate(min(300px, calc(100vw - 88px)), 7%) scale(0.84)";
-const GHOST_OPEN = "translate(min(262px, calc(100vw - 118px)), 13%) scale(0.74)";
 
 /** Keys typed into a field, or into an open dropdown (its typeahead), aren't shell shortcuts. */
 function ownsKeys(target: EventTarget | null): boolean {
@@ -33,7 +32,8 @@ function ownsKeys(target: EventTarget | null): boolean {
  * Signed-in shell from the design: a top bar on the grey frame (menu toggle, current screen,
  * search, account menu) and the page in a rounded card below it. The menu lives *behind* the
  * card — the 4-dot button (or the M key) slides the card aside to reveal it; clicking the card or
- * pressing Esc brings it back. ⌘K / Ctrl+K opens search.
+ * pressing Esc brings it back. The card has no fill; its border
+ * is transparent (melting into the frame) when closed and fades in while the menu is open. ⌘K / Ctrl+K opens search.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   useHudScope();
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         account={{ name, email: user?.email, status, isAdmin, onSignOut: () => void signOut() }}
       />
 
-      <div className="relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-[18px] sm:mx-3 sm:mb-3">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <AppMenu
           ref={menuRef}
           id={MENU_ID}
@@ -115,23 +115,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onSignOut={() => void signOut()}
         />
 
-        {/* A second, fainter card trailing behind the first — depth while the menu is open. */}
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-0 z-[1] origin-top-left rounded-[26px] bg-card transition-[transform,opacity] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
-            menuOpen ? "opacity-35" : "opacity-0",
-          )}
-          style={{ transform: menuOpen ? GHOST_OPEN : "none" }}
-        />
-
         <div
           inert={menuOpen}
           className={cn(
-            "absolute inset-0 z-[2] flex origin-top-left flex-col overflow-hidden border border-line-3 bg-card transition-[transform,border-radius,box-shadow] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
-            menuOpen
-              ? "rounded-[30px] shadow-[0_50px_100px_-20px_rgba(0,0,0,.28)] dark:shadow-[0_50px_100px_-20px_rgba(0,0,0,.7)]"
-              : "rounded-[18px]",
+            "absolute inset-0 z-[2] flex origin-top-left flex-col overflow-hidden border transition-[transform,border-radius,border-color] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none",
+            menuOpen ? "rounded-[30px] border-line-3" : "rounded-[18px] border-transparent",
           )}
           style={{ transform: menuOpen ? CARD_OPEN : "none" }}
         >

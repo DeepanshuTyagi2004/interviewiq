@@ -17,7 +17,6 @@ import { IdentityCard } from "./IdentityCard";
 import { LogoutButton } from "./LogoutButton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { ResumeFileRow } from "./ResumeFileRow";
-import { NotableCard } from "./NotableCard";
 import { ScrollColumn } from "./ScrollColumn";
 import { ActivityCard } from "./SourceActivity";
 import { educationLine } from "./identity";
@@ -34,7 +33,7 @@ function Cell({ order, children }: { order: string; children: React.ReactNode })
 
 /**
  * The profile. Desktop: short facts on the left (identity, resume file, contact, education, skills,
- * achievements, sources), the long parts on the right (notable, experience, projects, activity),
+ * achievements, sources), the long parts on the right (experience, projects, activity),
  * each column scrolling on its own under a fixed header. Phones and tablets get one column in
  * reading order, scrolling with the page. Each resume section edits on its own.
  * Descriptive throughout — the only score slot is the identity card's interview score "—" tile.
@@ -103,9 +102,6 @@ export function ProfileView() {
           </ScrollColumn>
 
           <ScrollColumn>
-            <Cell order="order-8">
-              <NotableCard notable={data.notable} />
-            </Cell>
             <Cell order="order-3">
               <ExperienceSection />
             </Cell>

@@ -433,6 +433,22 @@
       --u: clamp(0.62px, min(100cqh / 1000, 100cqw / 1600), 1.12px);
     }
   }
+  /* Page shells share the dashboard's responsive gutters without inheriting its viewport-fit
+     sizing behaviour. Regular pages need to keep their natural content height, so they use the
+     same fluid unit but intentionally do not become size containers. */
+  .iq-page {
+    --u: 0.74px;
+  }
+  @media (min-width: 640px) {
+    .iq-page {
+      --u: 0.86px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .iq-page {
+      --u: clamp(0.62px, min(100dvh / 1000, 100vw / 1600), 1.12px);
+    }
+  }
   /* 45° notch, top-right, 18px — larger than the 14px corner so it replaces the curve cleanly.
      The clip removes the border there; .hud-notch-line redraws it along the diagonal. */
   .iq-hud .hud-notch {
