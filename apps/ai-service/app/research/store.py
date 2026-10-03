@@ -98,6 +98,8 @@ class ResearchStore(Protocol):
     async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None: ...
     async def insert_draft(self, draft: dict) -> None: ...
     async def supersede_pending_drafts(self, company_id: str) -> int: ...
+    async def get_draft(self, draft_id: str) -> dict | None: ...
+    async def decide_draft(self, draft_id: str, *, status: str, fields: dict) -> bool: ...
 
 
 def _update_doc(fields: dict | None, inc: dict | None) -> dict:
@@ -306,6 +308,16 @@ class MongoResearchStore:
             {"company_id": company_id, "status": "pending_review"}, {"$set": {"status": "superseded"}},
         )
         return res.modified_count
+
+    async def get_draft(self, draft_id: str) -> dict | None:
+        return await self._db[DRAFTS].find_one({"draft_id": draft_id}, {"_id": 0})
+
+    async def decide_draft(self, draft_id: str, *, status: str, fields: dict) -> bool:
+        """pending_review → approved|rejected, atomically; False when the draft was not pending."""
+        res = await self._db[DRAFTS].update_one(
+            {"draft_id": draft_id, "status": "pending_review"}, {"$set": {**fields, "status": status}},
+        )
+        return res.modified_count == 1
 
 
 async def ensure_research_indexes(db: AsyncIOMotorDatabase, *, ttl_days: int) -> None:

@@ -23,10 +23,12 @@ class FakeExa:
         self._respond = respond or (lambda q: [])
         self._fail = fail
         self.calls: list[str] = []
+        self.includes: list[list[str]] = []
 
     async def collect_sources(self, queries, *, include_domains, exclude_domains):
         query = queries[0]
         self.calls.append(query)
+        self.includes.append(list(include_domains))
         if self._fail is not None:
             raise self._fail
         return copy.deepcopy(self._respond(query))

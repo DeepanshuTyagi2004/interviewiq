@@ -9,6 +9,7 @@
     # catalogue companies by slug (needs interviewiq-api running); writes to MONGODB_DB
     python -m app.research.cli run --company meesho --company razorpay --mode live
 
+Live/record runs use research's Groq-first client and the configured LLM provider as fallback.
 Exit code: 0 all companies done/skipped, 1 any failed, 2 bad arguments / nothing to run."""
 from __future__ import annotations
 

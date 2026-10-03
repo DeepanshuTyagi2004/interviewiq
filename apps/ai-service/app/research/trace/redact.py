@@ -17,9 +17,12 @@ def secrets_from_settings(settings: Any) -> dict[str, str]:
     named: dict[str, str] = {
         "EXA_API_KEY": settings.exa_api_key,
         "INTERNAL_API_KEY": settings.internal_api_key,
+        "CLOUDFLARE_API_TOKEN": getattr(settings, "cloudflare_api_token", ""),
     }
     for i, key in enumerate(settings.llm_api_keys):
         named[f"LLM_API_KEY#{i}"] = key
+    for i, key in enumerate(getattr(settings, "groq_api_keys", [])):
+        named[f"GROQ_API_KEY#{i}"] = key
     return {name: value for name, value in named.items() if value and len(value) >= _MIN_SECRET_LEN}
 
 

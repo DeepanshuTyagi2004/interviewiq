@@ -22,12 +22,16 @@ RAZORPAY = ResearchTarget(id="c-razorpay", name="Razorpay", slug="razorpay", web
 
 
 def research_settings(**overrides) -> Settings:
-    return Settings(_env_file=None).model_copy(update={"research_concurrency": 1, **overrides})
+    # Follow-up searches are off by default so call counts stay exact; follow-up tests enable them.
+    return Settings(_env_file=None).model_copy(update={"research_concurrency": 1,
+                                                      "research_followup_max_queries": 0, **overrides})
 
 
 def company_exa(**kw) -> FakeExa:
     """Answers "<Name> company official website India" with https://<name>.com."""
     def respond(query: str) -> list[dict]:
+        if "company official website India" not in query:
+            return []
         name = query.split()[0]
         return [result(f"https://{name.lower()}.com", title=f"{name} — official site")]
     return FakeExa(respond, **kw)

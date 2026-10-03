@@ -14,7 +14,7 @@ from app.research.models import InvalidTransition
 from app.research.runner import NoCompaniesSelected, ResearchRunner, RunActive, RunNotFound
 from app.research.store import EventFilter
 from app.research.targets import TargetsUnavailable
-from app.research.trace.tracer import hydrate_span
+from app.research.trace.tracer import hydrate_span, utcnow
 
 router = APIRouter(prefix="/research", dependencies=[Depends(require_internal_key)])
 
@@ -184,3 +184,38 @@ async def companies_state(runner: RunnerDep, ids: Annotated[str, Query(max_lengt
         return _disabled()
     wanted = [i for i in ids.split(",") if i]
     return {"states": await runner.store.list_company_states(wanted or None)}
+
+
+@router.get("/companies/{company_id}/draft")
+async def latest_draft(company_id: str, runner: RunnerDep):
+    """The newest draft for a company, whatever its status: what the admin reviews."""
+    if runner is None:
+        return _disabled()
+    draft = await runner.store.latest_draft(company_id)
+    if draft is None:
+        return error(404, "draft_not_found", "this company has no research draft yet")
+    return draft
+
+
+class DraftDecisionBody(BaseModel):
+    decision: Literal["approve", "reject"]
+    note: str | None = Field(None, max_length=1000)
+    decided_by: str | None = None
+
+
+@router.post("/drafts/{draft_id}/decision")
+async def decide_draft(draft_id: str, body: DraftDecisionBody, runner: RunnerDep):
+    """pending_review → approved | rejected. Only a pending draft can be decided (409 otherwise)."""
+    if runner is None:
+        return _disabled()
+    draft = await runner.store.get_draft(draft_id)
+    if draft is None:
+        return error(404, "draft_not_found", f"no draft {draft_id}")
+    status = "approved" if body.decision == "approve" else "rejected"
+    fields = {"decided_at": utcnow(), "decided_by": body.decided_by, "decision_note": body.note}
+    if not await runner.store.decide_draft(draft_id, status=status, fields=fields):
+        return error(409, "draft_not_pending", f"draft is {draft['status']}, only a pending_review draft can be decided")
+    state = {c["company_id"]: c for c in await runner.store.list_company_states([draft["company_id"]])}.get(draft["company_id"])
+    if state and state.get("latest_draft_id") == draft_id:
+        await runner.store.upsert_company_state(draft["company_id"], fields={"latest_draft_status": status})
+    return {**draft, **fields, "status": status}

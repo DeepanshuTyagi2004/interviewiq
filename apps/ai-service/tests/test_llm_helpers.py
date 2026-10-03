@@ -91,7 +91,7 @@ def test_complete_rotates_on_any_error_and_raises_last():
         asyncio.run(c.complete("sys", "usr"))
         raise AssertionError("expected LLMError")
     except LLMError as e:
-        assert "500" in str(e) and "server boom" in str(e)   # last error surfaced, not swallowed
+        assert "500" in str(e) and "server boom" not in str(e)   # category only, never raw provider text
     assert {"Bearer a", "Bearer b"} <= set(used)              # rotated across BOTH keys, not just one
     asyncio.run(c.aclose())
 

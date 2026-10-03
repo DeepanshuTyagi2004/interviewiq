@@ -191,3 +191,14 @@ class InMemoryResearchStore:
                 d["status"] = "superseded"
                 n += 1
         return n
+
+    async def get_draft(self, draft_id: str) -> dict | None:
+        return _copy(next((d for d in self.drafts if d["draft_id"] == draft_id), None))
+
+    async def decide_draft(self, draft_id: str, *, status: str, fields: dict) -> bool:
+        for d in self.drafts:
+            if d["draft_id"] == draft_id and d["status"] == "pending_review":
+                d.update(copy.deepcopy(fields))
+                d["status"] = status
+                return True
+        return False

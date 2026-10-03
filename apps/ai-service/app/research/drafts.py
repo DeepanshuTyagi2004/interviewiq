@@ -1,5 +1,6 @@
 """Draft diffing (spec §4.2 `diff`): compare two snapshots by the VALUES of their Field leaves.
-Confidence/provenance changes alone are not a change the admin needs to review."""
+Confidence/provenance changes alone are not a change the admin needs to review, and neither are
+`unverified` lists (review material that is never published; evidence-hardening §7.4)."""
 from __future__ import annotations
 
 from typing import Any
@@ -12,6 +13,8 @@ def _is_field(value: Any) -> bool:
 def flatten_snapshot(snapshot: dict, prefix: str = "") -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key in sorted(snapshot):
+        if key == "unverified":
+            continue
         value = snapshot[key]
         path = f"{prefix}{key}"
         if _is_field(value):

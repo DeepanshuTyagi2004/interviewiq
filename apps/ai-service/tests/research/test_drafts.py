@@ -40,3 +40,13 @@ def test_changes_and_removals_compare_values_not_metadata():
 
 def test_identical_snapshots_have_no_diff():
     assert snapshot_diff(V1, V1) == []
+
+
+def test_unverified_claims_are_review_material_not_changes():
+    before = {"profile": {"sector": field("fintech", confidence="low", provenance="evidence"), "unverified": []},
+              "roles": [{"role_key": "sde", "title": field("SDE", confidence="low", provenance="evidence"), "unverified": []}]}
+    after = {"profile": {"sector": field("fintech", confidence="low", provenance="evidence"),
+                         "unverified": [{"field": "hq", "value": "Pune", "reason": "geo_unconfirmed"}]},
+             "roles": [{"role_key": "sde", "title": field("SDE", confidence="low", provenance="evidence"),
+                        "unverified": [{"field": "jd", "value": "x", "reason": "role_not_in_context"}]}]}
+    assert snapshot_diff(before, after) == []

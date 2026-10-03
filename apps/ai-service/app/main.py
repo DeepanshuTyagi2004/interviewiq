@@ -4,12 +4,11 @@ Startup order, all fail-fast:
   1. load settings (missing required env -> pydantic ValidationError, process exits)
   2. connect MongoDB (unreachable -> RuntimeError, process exits)
   3. build the Exa client (missing key -> error, process exits)
-  4. start the scheduler (if enabled) + generate briefs on startup if any are missing
+  4. start the overview-only research scheduler (if enabled)
   5. research runner: indexes, crash recovery, weekly cron
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -17,14 +16,13 @@ from fastapi import FastAPI
 
 from app.api.admin import router as admin_router
 from app.api.routes import router
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.db import mongo
-from app.jobs.brief_generation import any_combination_missing_brief, execute_tracked_run
 from app.interview_agent.diagnostics_emit import AgentDiagLogHandler
 from app.jobs.pipeline_runs import PipelineRunLogHandler
-from app.jobs.run_store import RUN_STORE, RunLogHandler, new_run_id
+from app.jobs.run_store import RunLogHandler
 from app.jobs.scheduler import create_scheduler
-from app.exa.client import ExaClient, build_exa_client
+from app.exa.client import build_exa_client
 from app.research.api import router as research_router
 from app.research.store import MongoResearchStore, ensure_research_indexes
 from app.research.trace.log_handler import ResearchLogHandler
@@ -79,9 +77,6 @@ async def lifespan(app: FastAPI):
     if settings.scheduler_enabled:
         scheduler = create_scheduler(app.state.exa, settings, research=research)
         scheduler.start()
-        # Populate briefs on a fresh deploy rather than waiting for the schedule.
-        # Gated with the scheduler so SCHEDULER_ENABLED=false => fully manual (UI-only).
-        asyncio.create_task(_startup_generate_if_needed(app.state.exa, settings))
     app.state.scheduler = scheduler
 
     logger.info("interviewiq-ai-service started (scheduler=%s)", bool(scheduler))
@@ -91,18 +86,6 @@ async def lifespan(app: FastAPI):
         if scheduler:
             scheduler.shutdown(wait=False)
         await mongo.close()
-
-
-async def _startup_generate_if_needed(exa: ExaClient, settings: Settings) -> None:
-    try:
-        if not await any_combination_missing_brief(settings):
-            return
-        run_id = new_run_id()
-        if RUN_STORE.start(run_id, trigger="startup"):
-            logger.info("Startup: combinations without briefs detected — generating now")
-            await execute_tracked_run(exa, settings, run_id)
-    except Exception:  # noqa: BLE001 — startup generation must never crash the service
-        logger.exception("Startup brief generation failed")
 
 
 app = FastAPI(title="interviewiq-ai-service", version="0.1.0", lifespan=lifespan)

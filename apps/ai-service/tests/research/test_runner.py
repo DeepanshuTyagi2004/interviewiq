@@ -93,7 +93,7 @@ def test_pause_after_first_node_then_resume_runs_each_node_exactly_once(tmp_path
         assert _statuses(await store.list_items(run["run_id"])) == {"c-meesho": "done", "c-razorpay": "done"}
         assert llm.calls == ["resolve:meesho", "resolve:razorpay"]           # resolve never re-ran
         meesho_nodes = [s for s in await store.list_spans(run["run_id"], "c-meesho") if s["kind"] == "node"]
-        assert [s["name"] for s in meesho_nodes] == ["resolve", "write_draft"]
+        assert [s["name"] for s in meesho_nodes] == ["resolve", "profile", "write_draft"]
         resumed = [s for s in await store.list_spans(run["run_id"], "c-meesho") if s["kind"] == "company"]
         assert [s["attrs"]["resumed_after"] for s in resumed] == [None, "resolve"]
         assert len(store.drafts) == 2
@@ -182,7 +182,7 @@ def test_budget_exhaustion_auto_pauses_and_resume_after_raise_finishes(tmp_path)
         await runner.wait_idle()
         run = await store.get_run(run["run_id"])
         assert run["status"] == "completed" and run["budget"]["llm_used"] == 2 and run["budget"]["llm_cap"] == 5
-        assert len(exa.calls) == 3     # razorpay's resolve search ran again after the pause
+        assert len(exa.calls) == 7    # three searches each; Razorpay resolve repeats after the pause
         assert llm.calls == ["resolve:meesho", "resolve:razorpay"]
     asyncio.run(go())
 
@@ -212,7 +212,7 @@ def test_crash_recovery_resumes_from_the_saved_node_then_fails_a_crash_loop(tmp_
         items = {i["company_id"]: i for i in await store.list_items(run_id)}
         assert (await store.get_run(run_id))["status"] == "completed"
         assert items["c-meesho"]["status"] == "done" and items["c-meesho"]["attempts"] == 2
-        assert llm2.calls == ["resolve:razorpay"]                  # Meesho resumed at write_draft
+        assert llm2.calls == ["resolve:razorpay"]                  # Meesho resumed at profile (empty evidence)
         recovered = await store.list_events(run_id, EventFilter(type_prefix="run.recovered"))
         assert len(recovered) == 1
 
@@ -314,7 +314,7 @@ def test_one_company_failing_does_not_stop_the_others(tmp_path):
         items = {i["company_id"]: i for i in await store.list_items(run["run_id"])}
         assert run["status"] == "completed" and run["counters"]["failed"] == 1 and run["counters"]["done"] == 1
         assert items["c-meesho"]["status"] == "failed"
-        assert items["c-meesho"]["error"]["code_ref"] == "app/research/gateway.py:extract_json"
+        assert items["c-meesho"]["error"]["code_ref"] == "app/research/gateway.py:_extract_json"
         assert items["c-razorpay"]["status"] == "done"
         state = {s["company_id"]: s for s in await store.list_company_states()}
         assert state["c-meesho"]["last_status"] == "failed" and "last_researched_at" not in state["c-meesho"]

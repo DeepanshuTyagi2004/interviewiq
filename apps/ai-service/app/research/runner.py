@@ -118,7 +118,7 @@ class ResearchRunner:
                            "llm_used": 0, "llm_cap": self._settings.research_max_llm_calls,
                            "tokens_in": 0, "tokens_out": 0},
                 "last_seq": 0, "created_at": now, "started_at": None, "finished_at": None, "error": None,
-                "pipeline_version": PIPELINE_VERSION,
+                "pipeline_version": PIPELINE_VERSION, "node_order": list(NODE_ORDER),
             }
             await self._store.insert_run(run)
             await self._store.insert_items([self._new_item(run_id, i, t) for i, t in enumerate(chosen)])
@@ -147,6 +147,8 @@ class ResearchRunner:
             check_transition(run["status"], "resume")
             if self._driving_run_id == run_id:
                 raise InvalidTransition("the previous drive is still winding down; try again in a moment")
+            if not await self._check_compatible(run):
+                raise InvalidTransition("incompatible research checkpoint; start a new overview run (history retained)")
             await self._store.update_run(run_id, fields={"control": Control.NONE.value, "status": RunStatus.QUEUED.value,
                                                          "pause_reason": None})
             await self._note(run_id, "control.resume", "resume requested")
@@ -182,9 +184,13 @@ class ResearchRunner:
 
     async def recover_on_startup(self) -> None:
         runs = await self._store.find_runs_by_status(
-            [RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.PAUSING, RunStatus.STOPPING])
+            [RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.PAUSING, RunStatus.STOPPING, RunStatus.PAUSED])
         for run in runs:
             run_id = run["run_id"]
+            if not await self._check_compatible(run):
+                continue
+            if run["status"] == RunStatus.PAUSED:
+                continue
             for item in await self._store.list_items(run_id):
                 if item["status"] != ItemStatus.RUNNING:
                     continue
@@ -220,6 +226,9 @@ class ResearchRunner:
 
     async def _drive(self, run_id: str) -> None:
         run = await self._store.get_run(run_id)
+        if not await self._check_compatible(run):
+            self._driving_run_id = None
+            return
         tracer = Tracer(self._store, run_id, secrets=self._secrets, start_seq=await self._resume_seq(run), echo=self._echo)
         await tracer.start()
         self._tracer, self._active_run_id = tracer, run_id
@@ -423,6 +432,8 @@ class ResearchRunner:
             extra["error"] = err
         if outcome in (ItemStatus.DONE, ItemStatus.SKIPPED):
             extra["draft_id"] = draft.get("draft_id")
+            if draft.get("coverage"):
+                extra["coverage"] = draft["coverage"]
         await self._set_item_status(run_id, cid, ItemStatus.RUNNING, outcome, extra=extra)
 
         company_state: dict[str, Any] = {"last_status": outcome.value}
@@ -431,6 +442,8 @@ class ResearchRunner:
             if draft.get("status") == "created":
                 company_state["latest_draft_id"] = draft["draft_id"]
                 company_state["latest_draft_status"] = "pending_review"
+            if draft.get("coverage"):
+                company_state["latest_draft_coverage"] = draft["coverage"]
         await self._store.upsert_company_state(cid, fields=company_state)
 
         message = {
@@ -477,6 +490,31 @@ class ResearchRunner:
             await self._note(run_id, f"run.{fields['status']}", summary, data=data)
 
     # --- helpers -----------------------------------------------------------------------------------
+    async def _check_compatible(self, run: dict) -> bool:
+        """Fail closed before opening clients or seeding a graph with an old/unknown node.
+
+        Saved states, completed items and drafts remain intact for inspection. A fresh run is
+        required after a graph migration; never silently treat a full-research checkpoint as overview.
+        """
+        items = await self._store.list_items(run["run_id"])
+        pending = [i for i in items if i["status"] not in _TERMINAL_ITEM]
+        compatible = (run.get("pipeline_version") == PIPELINE_VERSION
+                      and run.get("node_order") == list(NODE_ORDER)
+                      and all(i.get("last_node") in (None, *NODE_ORDER)
+                              and i.get("current_node") in (None, *NODE_ORDER) for i in pending))
+        if compatible:
+            return True
+        message = "Incompatible research checkpoint; start a new overview run. Saved state and draft history retained."
+        info = {"type": "PipelineVersionMismatch", "message": message, "traceback": "", "code_ref": None}
+        for item in pending:
+            await self._set_item_status(run["run_id"], item["company_id"], ItemStatus(item["status"]), ItemStatus.FAILED,
+                                        extra={"error": info, "finished_at": utcnow()})
+            await self._store.upsert_company_state(item["company_id"], fields={"last_status": ItemStatus.FAILED.value})
+        await self._store.update_run(run["run_id"], fields={"status": RunStatus.FAILED.value,
+            "control": Control.NONE.value, "pause_reason": None, "error": message, "finished_at": utcnow()})
+        await self._note(run["run_id"], "run.incompatible", message, level="error", data=info)
+        return False
+
     async def _require(self, run_id: str) -> dict:
         run = await self._store.get_run(run_id)
         if run is None:

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from app.config import Settings
 from app.exa.client import build_exa_client
-from app.llm.client import build_llm_client
+from app.llm.client import build_research_llm_client
 from app.research.runner import ResearchRunner
 from app.research.store import ResearchStore
 from app.research.targets import ResearchTarget, fetch_research_targets
@@ -20,7 +20,7 @@ def build_research_runner(settings: Settings, *, store: ResearchStore,
     @asynccontextmanager
     async def clients():
         exa = build_exa_client(settings)
-        llm = build_llm_client(settings)
+        llm = build_research_llm_client(settings)
         try:
             yield exa, llm
         finally:

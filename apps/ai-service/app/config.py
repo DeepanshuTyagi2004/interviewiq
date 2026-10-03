@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Absolute path to the vendored seed data directory, resolved relative to this file.
@@ -97,6 +97,44 @@ class Settings(BaseSettings):
     # 120s, not 60: Gemma 4 31B always emits a <thought> preamble, so responses are slow (seen 12-31s)
     # and the tail runs past 60s -> httpx ReadTimeout (surfaces as "transport error", not a 429).
     llm_timeout_seconds: float = Field(120.0, alias="LLM_TIMEOUT_SECONDS")
+    # Research only: optional Groq primary, with the existing LLM configuration as fallback.
+    groq_api_keys: Annotated[list[str], NoDecode] = Field(default_factory=list, alias="GROQ_API_KEY")
+    groq_model: str = Field("openai/gpt-oss-120b", alias="GROQ_MODEL_NAME")
+    # Additional Groq models, in order, before the existing LLM_* fallback. Opt-in.
+    groq_fallback_models: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, alias="GROQ_FALLBACK_MODELS",
+    )
+    groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    groq_timeout_seconds: float = Field(30.0, alias="GROQ_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+
+    @field_validator("groq_api_keys", "groq_fallback_models", mode="before")
+    @classmethod
+    def _split_groq_values(cls, v):
+        values = v.split(",") if isinstance(v, str) else v
+        return list(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+    # Research only: optional Workers AI fallback after Groq and before LLM_*.
+    cloudflare_api_token: str = Field("", alias="CLOUDFLARE_API_TOKEN", repr=False)
+    cloudflare_account_id: str = Field("", alias="CLOUDFLARE_ACCOUNT_ID", pattern=r"^[A-Za-z0-9]*$")
+    cloudflare_model: str = Field(
+        "@cf/openai/gpt-oss-120b", alias="CLOUDFLARE_MODEL_NAME", min_length=1,
+    )
+    cloudflare_timeout_seconds: float = Field(
+        30.0, alias="CLOUDFLARE_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False,
+    )
+    cloudflare_max_tokens: int = Field(4096, alias="CLOUDFLARE_MAX_TOKENS", ge=1, le=24000)
+
+    @field_validator("cloudflare_api_token", "cloudflare_account_id", "cloudflare_model", mode="before")
+    @classmethod
+    def _strip_cloudflare_values(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _validate_cloudflare_credentials(self):
+        if bool(self.cloudflare_api_token) != bool(self.cloudflare_account_id):
+            raise ValueError("CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be configured together")
+        return self
+
     # Debug: store the model's <thought> reasoning (extract per-source + aggregate) in the brief doc
     # so the admin UI can show it. Off by default — keeps prod docs lean. Gemma 4 always emits one.
     llm_capture_thoughts: bool = Field(False, alias="LLM_CAPTURE_THOUGHTS")
@@ -142,6 +180,20 @@ class Settings(BaseSettings):
     # Crash-loop guard: a company found mid-run after this many restarts is failed, not retried.
     research_max_attempts: int = Field(2, alias="RESEARCH_MAX_ATTEMPTS", ge=1)
     research_trace_ttl_days: int = Field(14, alias="RESEARCH_TRACE_TTL_DAYS", ge=1)
+    # Run-wide caps on concurrent external calls (cache hits and replay reads are not counted).
+    research_exa_concurrency: int = Field(2, alias="RESEARCH_EXA_CONCURRENCY", ge=1)
+    research_llm_concurrency: int = Field(4, alias="RESEARCH_LLM_CONCURRENCY", ge=1)
+    research_llm_deadline_seconds: float = Field(75.0, alias="RESEARCH_LLM_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
+    research_operation_timeout_seconds: float = Field(90.0, alias="RESEARCH_OPERATION_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+    research_groq_stage_seconds: float = Field(25.0, alias="RESEARCH_GROQ_STAGE_SECONDS", gt=0, allow_inf_nan=False)
+    research_google_timeout_seconds: float = Field(12.0, alias="RESEARCH_GOOGLE_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+    research_max_output_tokens: int = Field(2048, alias="RESEARCH_MAX_OUTPUT_TOKENS", ge=128, le=8192)
+    research_groq_tpm: int = Field(8000, alias="RESEARCH_GROQ_TPM", ge=1)
+    research_groq_rpm: int = Field(30, alias="RESEARCH_GROQ_RPM", ge=1)
+    research_chunk_chars: int = Field(4500, alias="RESEARCH_CHUNK_CHARS", ge=1000, le=12000)
+    research_max_chunks: int = Field(4, alias="RESEARCH_MAX_CHUNKS", ge=1, le=12)
+    # Targeted follow-up searches per company for fields still empty after the main pass (0 = off).
+    research_followup_max_queries: int = Field(6, alias="RESEARCH_FOLLOWUP_MAX_QUERIES", ge=0)
 
     # --- Question set collection ---
     # Bump to force re-collection of the question bank (mirrors PIPELINE_VERSION).

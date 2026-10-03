@@ -14,9 +14,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -48,6 +50,10 @@ def extract_thought(content: str) -> str:
 class LLMError(RuntimeError):
     """LLM call failed after retries. Caller decides whether to drop the item or fail the combo."""
 
+    def __init__(self, message: str, *, attempts: int = 0):
+        super().__init__(message)
+        self.attempts = attempts
+
 
 def _retry_plan(body: str, retry_after: str | None) -> tuple[float | None, str]:
     """From a 429 body (+ optional Retry-After header) work out how long to wait and which limit
@@ -74,7 +80,12 @@ def _retry_plan(body: str, retry_after: str | None) -> tuple[float | None, str]:
     if wait is None:
         m = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", body)
         if m:
-            wait = int(m.group(1) or 0) * 60 + float(m.group(2))
+            try:
+                wait = int(m.group(1) or 0) * 60 + float(m.group(2))
+            except ValueError:
+                pass
+    if wait is not None and (not math.isfinite(wait) or wait < 0):
+        wait = None
     return wait, kind
 
 
@@ -93,7 +104,7 @@ def parse_json(content: str) -> dict:
                 return json.loads(attempt)
             except json.JSONDecodeError:
                 pass
-    raise ValueError(f"no valid JSON found. First 500 chars: {content[:500]!r}")
+    raise ValueError("no valid JSON found")
 
 
 async def gather_capped(coros: list, limit: int) -> list:
@@ -123,14 +134,22 @@ class LLMResult:
     latency_ms: int
     key_index: int
     attempts: int
+    model: str = ""
+    provider: str = ""
 
 
 class LLMClient:
-    def __init__(self, *, base_url: str, api_keys: list[str], model: str, timeout_seconds: float):
+    def __init__(self, *, base_url: str, api_keys: list[str], model: str, timeout_seconds: float,
+                 provider: str | None = None):
         if not api_keys:
             raise LLMError("LLM_API_KEY is not set. Refusing to start.")
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._model = model
+        host = urlsplit(base_url).hostname or ""
+        self._provider = provider or (
+            "google" if host == "generativelanguage.googleapis.com" else
+            "groq" if host == "api.groq.com" else "openai-compatible"
+        )
         # Round-robin across keys (same model → same RPM each, so ~N×RPM total). `_next` spreads
         # load; `_cooldown_until[i]` is the monotonic time key i is rate-limited until (0 = free).
         self._keys = api_keys
@@ -162,6 +181,11 @@ class LLMClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    @property
+    def routing_identity(self) -> dict:
+        """Stable, nonsecret model identity for research cache and trace integration."""
+        return {"provider": self._provider, "model": self._model}
+
     async def __aenter__(self) -> "LLMClient":
         return self
 
@@ -182,7 +206,7 @@ class LLMClient:
         """One chat call returning (parsed JSON object, reasoning text). The JSON is salvaged via
         parse_json (no strict json_object mode, see payload note); the reasoning is the
         <thought>/<think> preamble ('' if none). On ANY failure (transport, 429, or any other
-        non-200) it logs the full error, cools the current key, and rotates to the next one;
+        non-200) it logs a safe error category, cools the current key, and rotates to the next one;
         it only sleeps once every key is cooling. Raises LLMError with the last error once the
         attempt budget is spent. `label` tags the live-log lines. Returns LLMResult; complete() is the
         (data, thought) shorthand."""
@@ -198,7 +222,7 @@ class LLMClient:
             # providers (400s on a thinking preamble, silently dropping sparse sources). We let the
             # model answer freely and salvage the object with parse_json (fences / preamble / commas).
         }
-        # ANY failure (transport, 429, or any other non-200) is treated the same: log it in full,
+        # ANY failure (transport, 429, or any other non-200) is treated the same: log its category,
         # cool the current key, and rotate to the next one. Rotation is the intended path, not a
         # real retry, so give each key its own attempt budget on top of the base — else a 5-key
         # fleet burns the budget just discovering they're all cooling.
@@ -209,18 +233,18 @@ class LLMClient:
         attempt = 0
         last_error = "no attempts made"
         while True:
-            attempt += 1
             key_i, wait = self._acquire_key()
             if wait > 0:   # every key is cooling — wait for the soonest to free up, or give up
-                if wait > _MAX_COOLDOWN_SECONDS or attempt >= max_attempts:
+                if wait > _MAX_COOLDOWN_SECONDS or attempt + 1 >= max_attempts:
                     raise LLMError(
                         f"all {len(self._keys)} LLM key(s) unavailable for {self._model} — soonest "
                         f"free in {wait:.0f}s"
                         f"{' (exceeds cap; likely a daily limit — retry later or add keys/upgrade tier)' if wait > _MAX_COOLDOWN_SECONDS else ' (out of retries)'}. "
-                        f"Last error: {last_error}"
+                        f"Last error: {last_error}", attempts=attempt,
                     )
                 await self._cooldown(wait, f"all {len(self._keys)} keys cooling", label)
 
+            attempt += 1
             # cool_for/last_error get set by every failure branch below, then a single shared
             # "cool this key + rotate (or raise if out of attempts)" tail runs.
             _t0 = time.monotonic()
@@ -232,24 +256,29 @@ class LLMClient:
                 # Name WHICH transport error (ReadTimeout / ConnectError / RemoteProtocolError …):
                 # a reasoning model running past LLM_TIMEOUT_SECONDS surfaces here as ReadTimeout,
                 # not a 429 — the log must say so or it reads like a rate limit.
-                last_error = f"transport error ({type(exc).__name__}: {exc or 'no detail'})"
+                last_error = f"transport error ({type(exc).__name__})"
                 cool_for = _TRANSPORT_BACKOFF_SECONDS
             else:
                 if resp.status_code == 200:
                     try:
                         _body = resp.json()
                         content = _body["choices"][0]["message"]["content"]
-                    except (KeyError, IndexError, ValueError):
-                        last_error = f"HTTP 200 but malformed body: {resp.text[:300]}"
+                        if not isinstance(content, str):
+                            raise ValueError("content is not text")
+                        _usage = _body.get("usage") or {}
+                        if not isinstance(_usage, dict):
+                            raise ValueError("usage is not an object")
+                    except (KeyError, IndexError, TypeError, ValueError):
+                        last_error = "HTTP 200 but malformed body"
                         cool_for = _TRANSPORT_BACKOFF_SECONDS
                     else:
                         try:
                             data = parse_json(content)
-                        except ValueError as exc:
+                        except ValueError:
                             # 200 but no salvageable JSON (e.g. a refusal / prose-only reply). Treat
                             # like a malformed body: cool, rotate, and ultimately raise LLMError — a
                             # bare ValueError must never escape complete() (callers only catch LLMError).
-                            last_error = f"HTTP 200 but no salvageable JSON: {exc}"
+                            last_error = "HTTP 200 but no salvageable JSON"
                             cool_for = _TRANSPORT_BACKOFF_SECONDS
                         else:
                             thought = extract_thought(content)
@@ -257,7 +286,6 @@ class LLMClient:
                             # label. Lazy import + broad except so the LLM path can NEVER be
                             # affected — no-op unless an agent-diag session is bound (production
                             # run_session binds nothing, so record_thought's contextvar is None).
-                            _usage = _body.get("usage") or {}
                             _llm_ms = int((time.monotonic() - _t0) * 1000)
                             try:
                                 from app.interview_agent import diagnostics_emit as _emit
@@ -268,16 +296,19 @@ class LLMClient:
                                                         _usage.get("completion_tokens"))
                             except Exception:  # noqa: BLE001 — diagnostics must never break the call
                                 pass
+                            _model = _body.get("model")
                             return LLMResult(
                                 data=data, thought=thought, content=content, usage=_usage,
                                 latency_ms=_llm_ms, key_index=key_i, attempts=attempt,
+                                model=_model if isinstance(_model, str) and _model else self._model,
+                                provider=self._provider,
                             )
                 elif resp.status_code == 429:
                     cool_for, kind = _retry_plan(resp.text or "", resp.headers.get("retry-after"))
                     cool_for = cool_for if cool_for is not None else _RATE_LIMIT_BACKOFF_SECONDS
-                    last_error = f"429 {kind}: {resp.text[:300]}"
+                    last_error = f"429 {kind}"
                 else:
-                    last_error = f"HTTP {resp.status_code}: {resp.text[:300]}"
+                    last_error = f"HTTP {resp.status_code}"
                     cool_for = _TRANSPORT_BACKOFF_SECONDS
 
             logger.warning("[llm] %s — key #%d failed: %s; payload=%dch; cooling %.0fs, rotating to next key",
@@ -285,7 +316,7 @@ class LLMClient:
             self._cooldown_until[key_i] = time.monotonic() + cool_for
             if attempt >= max_attempts:
                 raise LLMError(f"LLM failed after {attempt} attempts ({self._model}). "
-                               f"Last error: {last_error}")
+                               f"Last error: {last_error}", attempts=attempt)
 
     async def _cooldown(self, seconds: float, reason: str, label: str) -> None:
         """Sleep `seconds`, logging a countdown to the live console so a 429 isn't a silent stall."""
@@ -309,3 +340,10 @@ def build_llm_client(settings: Settings, *, model: str | None = None) -> LLMClie
         model=model or settings.llm_model,
         timeout_seconds=settings.llm_timeout_seconds,
     )
+
+
+def build_research_llm_client(settings: Settings) -> LLMClient:
+    """Research-only Groq-first routing; other build_llm_client callers retain their provider."""
+    from app.llm.research_client import ResearchLLMClient
+
+    return ResearchLLMClient(settings)

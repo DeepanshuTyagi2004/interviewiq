@@ -6,7 +6,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-PIPELINE_VERSION = "research-v1"
+PIPELINE_VERSION = "research-v5-overview"
 
 
 class RunStatus(StrEnum):
@@ -49,23 +49,28 @@ class Mode(StrEnum):
     REPLAY = "replay"
 
 
-# Phase 1 graph. Later phases insert profile / compensation / roles / interview_process / reconcile /
-# tier between these two. Mirrored in apps/web/lib/constants/research/index.ts: keep in sync.
-NODE_ORDER: tuple[str, ...] = ("resolve", "write_draft")
+# Overview suggestions only; detailed enrichment is human-authored in the admin API.
+# Mirrored in apps/web/lib/constants/research/index.ts: keep in sync.
+NODE_ORDER: tuple[str, ...] = ("resolve", "profile", "write_draft")
 
 Confidence = Literal["high", "medium", "low"]
 Provenance = Literal["evidence", "derived", "inferred_from_similar", "template", "unavailable", "admin_override"]
 
 
 def field(value: Any, *, confidence: Confidence, provenance: Provenance,
-          source_urls: list[str] | tuple[str, ...] = (), note: str | None = None) -> dict:
-    """One snapshot leaf (spec §4.2): the value, how far to trust it, and where it came from."""
+          source_urls: list[str] | tuple[str, ...] = (), note: str | None = None,
+          alternatives: list[dict] | tuple[dict, ...] | None = None, as_of: str | None = None) -> dict:
+    """One snapshot leaf (spec §4.2): the value, how far to trust it, and where it came from.
+    `alternatives` lists the values other sources reported ({value, source_urls, as_of}); `as_of` is
+    the newest supporting source's date (evidence-hardening spec §9)."""
     return {
         "value": value,
         "confidence": confidence,
         "provenance": provenance,
         "source_urls": list(source_urls),
         "note": note,
+        "alternatives": list(alternatives or []),
+        "as_of": as_of,
     }
 
 

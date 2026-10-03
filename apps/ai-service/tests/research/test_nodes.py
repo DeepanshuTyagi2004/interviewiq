@@ -20,7 +20,8 @@ def test_resolve_takes_identity_from_evidence_backed_llm_output(tmp_path):
         await tracer.close()
         ident = out["identity"]
         assert ident["name"] == {"value": "Meesho", "confidence": "high", "provenance": "evidence",
-                                 "source_urls": ["https://meesho.com"], "note": None}
+                                 "source_urls": ["https://meesho.com"], "note": None,
+                                 "alternatives": [], "as_of": None}
         assert ident["website"]["value"] == "https://meesho.com" and ident["website"]["provenance"] == "evidence"
         assert out["conflicts"] == []
     asyncio.run(go())
@@ -82,6 +83,10 @@ def test_resolve_rejects_output_without_a_name(tmp_path):
     asyncio.run(go())
 
 
+def v1_coverage(store):
+    return min(store.drafts, key=lambda d: d["version"])["coverage"]
+
+
 def test_write_draft_creates_then_skips_unchanged_then_versions_changes(tmp_path):
     async def go():
         store = InMemoryResearchStore()
@@ -93,7 +98,12 @@ def test_write_draft_creates_then_skips_unchanged_then_versions_changes(tmp_path
         third = await write_draft(changed, deps)
         await tracer.close()
         assert first["draft"]["status"] == "created" and first["draft"]["version"] == 1
-        assert again["draft"] == {"status": "unchanged", "draft_id": first["draft"]["draft_id"], "version": 1}
+        assert again["draft"] == {"status": "unchanged", "draft_id": first["draft"]["draft_id"], "version": 1,
+                                  "coverage": {"filled": 0, "total": 7}}
+        assert first["draft"]["coverage"] == {"filled": 0, "total": 7}
+        assert v1_coverage(store) == {"filled": 0, "total": 7, "missing": [
+            "profile.overview", "profile.sector", "profile.business_model", "profile.hq", "profile.headcount_band",
+            "profile.revenue_band", "profile.funding_stage"]}
         assert third["draft"]["status"] == "created" and third["draft"]["version"] == 2
         v1, v2 = sorted(store.drafts, key=lambda d: d["version"])
         assert v1["status"] == "superseded" and v2["status"] == "pending_review"

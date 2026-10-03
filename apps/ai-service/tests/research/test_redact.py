@@ -33,3 +33,23 @@ def test_secrets_from_settings_names_each_llm_key_and_skips_short_values(monkeyp
     monkeypatch.setenv("INTERNAL_API_KEY", "x")  # too short to redact safely: matching "x" would shred text
     names = secrets_from_settings(Settings(_env_file=None))
     assert names == {"EXA_API_KEY": "exa-long-key", "LLM_API_KEY#0": "key-one-long", "LLM_API_KEY#1": "key-two-long"}
+
+
+def test_groq_keys_redacted_in_nested_payloads_and_errors():
+    settings = Settings(_env_file=None, GROQ_API_KEY="dummy-groq-one,dummy-groq-two")
+    secrets = secrets_from_settings(settings)
+    payload = {"error": "failed dummy-groq-one", "output": [{"content": "dummy-groq-two"}]}
+    assert redact(payload, secrets) == {
+        "error": "failed «redacted:GROQ_API_KEY#0»",
+        "output": [{"content": "«redacted:GROQ_API_KEY#1»"}],
+    }
+
+
+def test_cloudflare_token_redacted_in_nested_payloads_and_errors():
+    settings = Settings(_env_file=None, CLOUDFLARE_API_TOKEN="dummy-cloudflare-token",
+                        CLOUDFLARE_ACCOUNT_ID="Account123")
+    payload = {"error": "failed dummy-cloudflare-token", "output": [{"content": "dummy-cloudflare-token"}]}
+    assert redact(payload, secrets_from_settings(settings)) == {
+        "error": "failed «redacted:CLOUDFLARE_API_TOKEN»",
+        "output": [{"content": "«redacted:CLOUDFLARE_API_TOKEN»"}],
+    }
