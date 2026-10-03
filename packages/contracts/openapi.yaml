@@ -432,6 +432,162 @@ paths:
       responses:
         "200": { description: JD and verified manual process when available., content: { application/json: { schema: { $ref: "#/components/schemas/JobDescriptionDetail" } } } }
         "404": { description: JD is unavailable. }
+  /api/v1/interviews/sessions/{sessionId}/reschedule:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: rescheduleInterviewSession
+      tags: [interview-sessions]
+      summary: Move a not-yet-started interview to another slot (409 session_slot_taken if you already have one then).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RescheduleInterviewSessionRequest" } } }
+      responses:
+        "200": { description: Rescheduled., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewSession" } } } }
+        "409": { description: Slot taken or session can no longer be moved. }
+  /api/v1/interviews/sessions/{sessionId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: cancelInterviewSession
+      tags: [interview-sessions]
+      summary: Cancel a not-yet-started interview.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Cancelled., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewSession" } } } }
+        "409": { description: Session can no longer be cancelled. }
+  /api/v1/loops:
+    get:
+      operationId: listLoops
+      tags: [loops]
+      summary: The candidate's loops with per-round state and progress.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Loops., content: { application/json: { schema: { $ref: "#/components/schemas/LoopList" } } } }
+    post:
+      operationId: confirmLoop
+      tags: [loops]
+      summary: Confirm a process for a JD (official, or one of your saved processes → a standalone loop).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ConfirmLoopRequest" } } }
+      responses:
+        "201": { description: Loop created., content: { application/json: { schema: { $ref: "#/components/schemas/Loop" } } } }
+        "409": { description: A live loop already exists for this JD, or the role has no process. }
+  /api/v1/loops/{loopId}:
+    parameters:
+      - { name: loopId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getLoop
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: The loop., content: { application/json: { schema: { $ref: "#/components/schemas/Loop" } } } }
+        "404": { description: Not found. }
+    patch:
+      operationId: setLoopStatus
+      tags: [loops]
+      summary: Pause, resume or abandon a loop (abandoning cancels its upcoming interviews).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SetLoopStatusRequest" } } }
+      responses:
+        "200": { description: Updated loop., content: { application/json: { schema: { $ref: "#/components/schemas/Loop" } } } }
+  /api/v1/processes:
+    get:
+      operationId: listProcesses
+      tags: [loops]
+      summary: The candidate's saved custom processes.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Processes., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewProcessList" } } } }
+    post:
+      operationId: createProcess
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SaveProcessRequest" } } }
+      responses:
+        "201": { description: Created., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewProcess" } } } }
+  /api/v1/processes/official/{jdId}:
+    get:
+      operationId: getOfficialProcess
+      tags: [loops]
+      summary: A JD's suggested process as a read-only graph.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Graph., content: { application/json: { schema: { $ref: "#/components/schemas/OfficialProcess" } } } }
+  /api/v1/processes/{processId}:
+    parameters:
+      - { name: processId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getProcess
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: The process., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewProcess" } } } }
+    put:
+      operationId: updateProcess
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SaveProcessRequest" } } }
+      responses:
+        "200": { description: Updated., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewProcess" } } } }
+    delete:
+      operationId: deleteProcess
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Deleted. }
+  /api/v1/processes/{processId}/duplicate:
+    parameters:
+      - { name: processId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: duplicateProcess
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201": { description: The copy., content: { application/json: { schema: { $ref: "#/components/schemas/InterviewProcess" } } } }
+  /api/v1/targets:
+    get:
+      operationId: listTargets
+      tags: [loops]
+      summary: JDs the candidate is watching.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Targets., content: { application/json: { schema: { $ref: "#/components/schemas/TargetList" } } } }
+  /api/v1/targets/status/{jdId}:
+    get:
+      operationId: getJdLoopStatus
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Status., content: { application/json: { schema: { $ref: "#/components/schemas/JdLoopStatus" } } } }
+  /api/v1/targets/{jdId}:
+    parameters:
+      - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: addTarget
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Added. }
+    delete:
+      operationId: removeTarget
+      tags: [loops]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Removed. }
   /api/v1/admin/companies:
     get:
       operationId: listAdminCompanies
@@ -1077,6 +1233,7 @@ components:
         - LIVE_IN_PROGRESS
         - COMPLETED
         - ABORTED_TECHNICAL
+        - CANCELLED
 
     CreateInterviewSessionRequest:
       type: object
@@ -1100,6 +1257,15 @@ components:
           type: string
           description: IANA timezone the candidate booked in (e.g. Asia/Kolkata).
           example: Asia/Kolkata
+        loopId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Book a round of this confirmed loop. Sent together with nodeId; the loop fixes the JD and the node fixes the round.
+        nodeId:
+          type: string
+          nullable: true
+          description: The loop graph node (round) being booked. The round must be unlocked.
 
     InterviewSession:
       type: object
@@ -1169,12 +1335,182 @@ components:
           type: string
           nullable: true
           description: Stable error code when status == PREP_FAILED.
+        loopId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The loop this session is a round of; null for ad-hoc bookings.
+        nodeId:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+
+    RescheduleInterviewSessionRequest:
+      type: object
+      required: [scheduledAt, timezone]
+      properties:
+        scheduledAt: { type: string, format: date-time }
+        timezone: { type: string }
+
+    ProcessRoundNode:
+      type: object
+      required: [id, kind, type, name, durationMinutes, difficulty, topics, position]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [round] }
+        type: { $ref: "#/components/schemas/RoundType" }
+        name: { type: string }
+        durationMinutes: { type: integer }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        topics: { type: array, items: { type: string } }
+        position: { $ref: "#/components/schemas/ProcessPosition" }
+    ProcessInfoNode:
+      type: object
+      description: "A non-interview step (online test, take-home). Display only, never connected, scheduled, scored or counted."
+      required: [id, kind, name, note, position]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [info] }
+        name: { type: string }
+        note: { type: string }
+        position: { $ref: "#/components/schemas/ProcessPosition" }
+    ProcessPosition:
+      type: object
+      required: [x, y]
+      properties: { x: { type: number }, y: { type: number } }
+    ProcessGraph:
+      type: object
+      description: >
+        An interview process as a graph. Round nodes are ordered by edges (a round unlocks once every round
+        feeding into it is completed). No cycles; round nodes form one connected graph.
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/ProcessRoundNode"
+              - $ref: "#/components/schemas/ProcessInfoNode"
+        edges:
+          type: array
+          items:
+            type: object
+            required: [source, target]
+            properties: { source: { type: string }, target: { type: string } }
+    JdBrief:
+      type: object
+      required: [jdId, title, company, companyName, role, level, specialization, techStack]
+      properties:
+        jdId: { type: string, format: uuid }
+        title: { type: string }
+        company: { type: string }
+        companyName: { type: string }
+        role: { type: string }
+        level: { type: string }
+        specialization: { type: string, nullable: true }
+        techStack: { type: array, items: { type: string } }
+    InterviewProcess:
+      type: object
+      required: [id, name, jd, graph, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        jd: { allOf: [{ $ref: "#/components/schemas/JdBrief" }], nullable: true }
+        graph: { $ref: "#/components/schemas/ProcessGraph" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    InterviewProcessList:
+      type: object
+      required: [processes]
+      properties:
+        processes: { type: array, items: { $ref: "#/components/schemas/InterviewProcess" } }
+    SaveProcessRequest:
+      type: object
+      description: Create (jdId + name, optional graph; defaults to a copy of the official process) or update (name and/or graph).
+      properties:
+        jdId: { type: string, format: uuid }
+        name: { type: string }
+        graph: { $ref: "#/components/schemas/ProcessGraph" }
+    OfficialProcess:
+      type: object
+      required: [graph]
+      properties:
+        graph: { $ref: "#/components/schemas/ProcessGraph" }
+    LoopNodeState:
+      type: string
+      enum: [locked, available, booked, completed]
+    Loop:
+      type: object
+      description: A confirmed process for a JD. `graph` is a snapshot taken at confirm time.
+      required: [id, jdId, jd, processId, kind, status, countsTowardReadiness, confirmedAt, graph, nodeStates, progress, sessions]
+      properties:
+        id: { type: string, format: uuid }
+        jdId: { type: string, format: uuid }
+        jd: { allOf: [{ $ref: "#/components/schemas/JdBrief" }], nullable: true }
+        processId: { type: string, format: uuid, nullable: true }
+        kind: { type: string, enum: [official, standalone] }
+        status: { type: string, enum: [active, paused, abandoned, completed] }
+        countsTowardReadiness: { type: boolean, description: "Only unedited, suggested processes count." }
+        confirmedAt: { type: string, format: date-time }
+        graph: { $ref: "#/components/schemas/ProcessGraph" }
+        nodeStates: { type: object, additionalProperties: { $ref: "#/components/schemas/LoopNodeState" } }
+        progress:
+          type: object
+          required: [total, completed, nextNodeIds]
+          properties:
+            total: { type: integer }
+            completed: { type: integer }
+            nextNodeIds: { type: array, items: { type: string } }
+        sessions:
+          type: array
+          items:
+            type: object
+            required: [id, nodeId, status, scheduledAt]
+            properties:
+              id: { type: string, format: uuid }
+              nodeId: { type: string, nullable: true }
+              status: { $ref: "#/components/schemas/SessionStatus" }
+              scheduledAt: { type: string, format: date-time }
+    LoopList:
+      type: object
+      required: [loops]
+      properties:
+        loops: { type: array, items: { $ref: "#/components/schemas/Loop" } }
+    ConfirmLoopRequest:
+      type: object
+      required: [jdId]
+      properties:
+        jdId: { type: string, format: uuid }
+        processId: { type: string, format: uuid, nullable: true, description: "Omit to confirm the official process." }
+    SetLoopStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, paused, abandoned] }
+    TargetList:
+      type: object
+      required: [targets]
+      properties:
+        targets:
+          type: array
+          items:
+            type: object
+            required: [jd, addedAt, hasLiveLoop]
+            properties:
+              jd: { $ref: "#/components/schemas/JdBrief" }
+              addedAt: { type: string, format: date-time }
+              hasLiveLoop: { type: boolean }
+    JdLoopStatus:
+      type: object
+      required: [targeted, loopId]
+      properties:
+        targeted: { type: boolean }
+        loopId: { type: string, format: uuid, nullable: true }
 
     InterviewSessionListResponse:
       type: object

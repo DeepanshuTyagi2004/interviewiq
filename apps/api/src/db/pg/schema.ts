@@ -7,15 +7,18 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { ROLES, ROUND_TYPES, SESSION_STATUSES, SYNC_STATUSES } from "../../domain/enums.js";
 import type { EnrichmentDocument, EnrichmentBrief } from "../../domain/enrichment.js";
+import type { ProcessGraph } from "../../domain/process.js";
 
 /**
  * Relational data in Postgres (Supabase in production).
@@ -281,14 +284,75 @@ export const interviewSessions = pgTable(
     livekitRoom: varchar("livekit_room", { length: 255 }),
     liveScoreFinal: doublePrecision("live_score_final"),
     durationS: integer("duration_s"),
+    /** The loop (confirmed per-JD process) and graph node this session is a round of; null for ad-hoc bookings. */
+    loopId: uuid("loop_id"),
+    nodeId: varchar("node_id", { length: 64 }),
   },
   (t) => [
     index("idx_session_candidate").on(t.candidateId),
     // Drives the prep poller: due SCHEDULED sessions by slot.
     index("idx_session_status_scheduled").on(t.status, t.scheduledAt),
+    index("idx_session_loop").on(t.loopId),
   ],
 );
 
+/** A user's saved custom interview process for one JD (a graph of runnable rounds). */
+export const interviewProcesses = pgTable(
+  "interview_processes",
+  {
+    id: id(),
+    userId: uuid("user_id").notNull(),
+    jdId: uuid("jd_id").notNull().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    graph: jsonb("graph").$type<ProcessGraph>().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("idx_process_user").on(t.userId)],
+);
+
+export const LOOP_KINDS = ["official", "standalone"] as const;
+export const LOOP_STATUSES = ["active", "paused", "abandoned", "completed"] as const;
+
+/**
+ * A confirmed process for a JD. `graph` is a snapshot taken at confirm time, so later edits to the
+ * saved process never change a running loop. Only `official` loops count toward readiness.
+ */
+export const loops = pgTable(
+  "loops",
+  {
+    id: id(),
+    userId: uuid("user_id").notNull(),
+    jdId: uuid("jd_id").notNull().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+    processId: uuid("process_id").references(() => interviewProcesses.id, { onDelete: "set null" }),
+    kind: varchar("kind", { length: 16, enum: LOOP_KINDS }).notNull(),
+    status: varchar("status", { length: 16, enum: LOOP_STATUSES }).notNull().default("active"),
+    graph: jsonb("graph").$type<ProcessGraph>().notNull(),
+    confirmedAt: instant("confirmed_at").notNull().$defaultFn(() => new Date()),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("idx_loop_user").on(t.userId),
+    // One live loop per user and JD; finished/abandoned loops stay as history.
+    uniqueIndex("uq_loop_live").on(t.userId, t.jdId).where(sql`status in ('active','paused')`),
+  ],
+);
+
+/** JDs a user is eyeing but has not confirmed a loop for. */
+export const targets = pgTable(
+  "targets",
+  {
+    userId: uuid("user_id").notNull(),
+    jdId: uuid("jd_id").notNull().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.jdId] })],
+);
+
+export type LoopRow = typeof loops.$inferSelect;
+export type InterviewProcessRow = typeof interviewProcesses.$inferSelect;
+export type TargetRow = typeof targets.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 export type AuthTokenRow = typeof authTokens.$inferSelect;

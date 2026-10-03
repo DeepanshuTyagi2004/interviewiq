@@ -12,6 +12,8 @@ const urls = z.array(text(2048).refine((value) => {
 }, "must be an absolute http(s) URL without credentials")).max(20);
 const round = z.object({
   id: uuid, name: text(255), type: z.enum(ROUND_TYPES),
+  /** `info` rounds (online tests, take-homes…) are display-only: never scheduled, scored or counted. */
+  kind: z.enum(["interview", "info"]).optional(),
   durationMinutes: z.number().int().min(1).max(240), difficulty: z.enum(["easy", "medium", "hard"]),
   topics: z.array(text(255)).max(30), questions: z.array(text(2000)).max(30),
   guidance: text(10000), sourceUrls: urls, verified: z.boolean(),
@@ -71,7 +73,7 @@ export function enrichmentBrief(company: string, role: EnrichmentRole, facts: En
     company_overview: facts,
     final_experience: {
       rounds: role.rounds.map((r, i) => ({
-        id: r.id, round_number: i + 1, name: r.name, type: r.type, duration_minutes: r.durationMinutes,
+        id: r.id, round_number: i + 1, name: r.name, type: r.type, kind: r.kind ?? "interview", duration_minutes: r.durationMinutes,
         difficulty: r.difficulty, topics: r.topics, problems: r.questions, format: r.guidance,
         provenance: "admin_verified", source_urls: r.sourceUrls,
       })),

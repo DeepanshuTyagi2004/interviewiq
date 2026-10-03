@@ -294,6 +294,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/sessions/{sessionId}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a not-yet-started interview to another slot (409 session_slot_taken if you already have one then). */
+        post: operations["rescheduleInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/sessions/{sessionId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a not-yet-started interview. */
+        post: operations["cancelInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The candidate's loops with per-round state and progress. */
+        get: operations["listLoops"];
+        put?: never;
+        /** Confirm a process for a JD (official, or one of your saved processes → a standalone loop). */
+        post: operations["confirmLoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loops/{loopId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loopId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getLoop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Pause, resume or abandon a loop (abandoning cancels its upcoming interviews). */
+        patch: operations["setLoopStatus"];
+        trace?: never;
+    };
+    "/api/v1/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The candidate's saved custom processes. */
+        get: operations["listProcesses"];
+        put?: never;
+        post: operations["createProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/official/{jdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A JD's suggested process as a read-only graph. */
+        get: operations["getOfficialProcess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/{processId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getProcess"];
+        put: operations["updateProcess"];
+        post?: never;
+        delete: operations["deleteProcess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/{processId}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["duplicateProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** JDs the candidate is watching. */
+        get: operations["listTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/targets/status/{jdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getJdLoopStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/targets/{jdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["addTarget"];
+        post?: never;
+        delete: operations["removeTarget"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/companies": {
         parameters: {
             query?: never;
@@ -811,7 +1007,7 @@ export interface components {
          *
          * @enum {string}
          */
-        SessionStatus: "SCHEDULED" | "PREP_QUEUED" | "PREP_READY" | "PREP_FAILED" | "LIVE_IN_PROGRESS" | "COMPLETED" | "ABORTED_TECHNICAL";
+        SessionStatus: "SCHEDULED" | "PREP_QUEUED" | "PREP_READY" | "PREP_FAILED" | "LIVE_IN_PROGRESS" | "COMPLETED" | "ABORTED_TECHNICAL" | "CANCELLED";
         CreateInterviewSessionRequest: {
             /** Format: uuid */
             jobDescriptionId: string;
@@ -828,6 +1024,13 @@ export interface components {
              * @example Asia/Kolkata
              */
             timezone: string;
+            /**
+             * Format: uuid
+             * @description Book a round of this confirmed loop. Sent together with nodeId; the loop fixes the JD and the node fixes the round.
+             */
+            loopId?: string | null;
+            /** @description The loop graph node (round) being booked. The round must be unlocked. */
+            nodeId?: string | null;
         };
         /** @description A booked interview session and its prep readiness. `planReady` (status == PREP_READY) is the only signal surfaced to the candidate — plan CONTENTS are the interviewer's material and are never returned here.
          *      */
@@ -858,10 +1061,156 @@ export interface components {
             inputHash?: string | null;
             /** @description Stable error code when status == PREP_FAILED. */
             prepError?: string | null;
+            /**
+             * Format: uuid
+             * @description The loop this session is a round of; null for ad-hoc bookings.
+             */
+            loopId?: string | null;
+            nodeId?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        RescheduleInterviewSessionRequest: {
+            /** Format: date-time */
+            scheduledAt: string;
+            timezone: string;
+        };
+        ProcessRoundNode: {
+            id: string;
+            /** @enum {string} */
+            kind: "round";
+            type: components["schemas"]["RoundType"];
+            name: string;
+            durationMinutes: number;
+            /** @enum {string} */
+            difficulty: "easy" | "medium" | "hard";
+            topics: string[];
+            position: components["schemas"]["ProcessPosition"];
+        };
+        /** @description A non-interview step (online test, take-home). Display only, never connected, scheduled, scored or counted. */
+        ProcessInfoNode: {
+            id: string;
+            /** @enum {string} */
+            kind: "info";
+            name: string;
+            note: string;
+            position: components["schemas"]["ProcessPosition"];
+        };
+        ProcessPosition: {
+            x: number;
+            y: number;
+        };
+        /** @description An interview process as a graph. Round nodes are ordered by edges (a round unlocks once every round feeding into it is completed). No cycles; round nodes form one connected graph.
+         *      */
+        ProcessGraph: {
+            nodes: (components["schemas"]["ProcessRoundNode"] | components["schemas"]["ProcessInfoNode"])[];
+            edges: {
+                source: string;
+                target: string;
+            }[];
+        };
+        JdBrief: {
+            /** Format: uuid */
+            jdId: string;
+            title: string;
+            company: string;
+            companyName: string;
+            role: string;
+            level: string;
+            specialization: string | null;
+            techStack: string[];
+        };
+        InterviewProcess: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            jd: components["schemas"]["JdBrief"] | null;
+            graph: components["schemas"]["ProcessGraph"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        InterviewProcessList: {
+            processes: components["schemas"]["InterviewProcess"][];
+        };
+        /** @description Create (jdId + name, optional graph; defaults to a copy of the official process) or update (name and/or graph). */
+        SaveProcessRequest: {
+            /** Format: uuid */
+            jdId?: string;
+            name?: string;
+            graph?: components["schemas"]["ProcessGraph"];
+        };
+        OfficialProcess: {
+            graph: components["schemas"]["ProcessGraph"];
+        };
+        /** @enum {string} */
+        LoopNodeState: "locked" | "available" | "booked" | "completed";
+        /** @description A confirmed process for a JD. `graph` is a snapshot taken at confirm time. */
+        Loop: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            jdId: string;
+            jd: components["schemas"]["JdBrief"] | null;
+            /** Format: uuid */
+            processId: string | null;
+            /** @enum {string} */
+            kind: "official" | "standalone";
+            /** @enum {string} */
+            status: "active" | "paused" | "abandoned" | "completed";
+            /** @description Only unedited, suggested processes count. */
+            countsTowardReadiness: boolean;
+            /** Format: date-time */
+            confirmedAt: string;
+            graph: components["schemas"]["ProcessGraph"];
+            nodeStates: {
+                [key: string]: components["schemas"]["LoopNodeState"];
+            };
+            progress: {
+                total: number;
+                completed: number;
+                nextNodeIds: string[];
+            };
+            sessions: {
+                /** Format: uuid */
+                id: string;
+                nodeId: string | null;
+                status: components["schemas"]["SessionStatus"];
+                /** Format: date-time */
+                scheduledAt: string;
+            }[];
+        };
+        LoopList: {
+            loops: components["schemas"]["Loop"][];
+        };
+        ConfirmLoopRequest: {
+            /** Format: uuid */
+            jdId: string;
+            /**
+             * Format: uuid
+             * @description Omit to confirm the official process.
+             */
+            processId?: string | null;
+        };
+        SetLoopStatusRequest: {
+            /** @enum {string} */
+            status: "active" | "paused" | "abandoned";
+        };
+        TargetList: {
+            targets: {
+                jd: components["schemas"]["JdBrief"];
+                /** Format: date-time */
+                addedAt: string;
+                hasLiveLoop: boolean;
+            }[];
+        };
+        JdLoopStatus: {
+            targeted: boolean;
+            /** Format: uuid */
+            loopId: string | null;
         };
         InterviewSessionListResponse: {
             sessions: components["schemas"]["InterviewSession"][];
@@ -2014,6 +2363,412 @@ export interface operations {
             };
             /** @description JD is unavailable. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rescheduleInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleInterviewSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Rescheduled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            /** @description Slot taken or session can no longer be moved. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            /** @description Session can no longer be cancelled. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLoops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loops. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoopList"];
+                };
+            };
+        };
+    };
+    confirmLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmLoopRequest"];
+            };
+        };
+        responses: {
+            /** @description Loop created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loop"];
+                };
+            };
+            /** @description A live loop already exists for this JD */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loop. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loop"];
+                };
+            };
+            /** @description Not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setLoopStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLoopStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated loop. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loop"];
+                };
+            };
+        };
+    };
+    listProcesses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Processes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewProcessList"];
+                };
+            };
+        };
+    };
+    createProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewProcess"];
+                };
+            };
+        };
+    };
+    getOfficialProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Graph. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialProcess"];
+                };
+            };
+        };
+    };
+    getProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The process. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewProcess"];
+                };
+            };
+        };
+    };
+    updateProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewProcess"];
+                };
+            };
+        };
+    };
+    deleteProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    duplicateProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                processId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewProcess"];
+                };
+            };
+        };
+    };
+    listTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetList"];
+                };
+            };
+        };
+    };
+    getJdLoopStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JdLoopStatus"];
+                };
+            };
+        };
+    };
+    addTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Added. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -55,7 +55,10 @@ const SUMMARIES = {
   ],
 };
 
-const SUMMARY_KEYS = ["company", "companyName", "dataAvailability", "dataConfidence", "id", "level", "role", "specialization", "title"];
+const SUMMARY_KEYS = [
+  "company", "companyName", "ctcMaxLpa", "ctcMinLpa", "dataAvailability", "dataConfidence", "id", "level", "role",
+  "specialization", "techStack", "title", "yoeMax", "yoeMin",
+];
 
 const ids = (body: { id: string }[]) => body.map((j) => j.id);
 
@@ -76,6 +79,11 @@ describe("GET /jds", () => {
       level: "sde2",
       title: "SDE 2",
       specialization: null,
+      techStack: [],
+      yoeMin: null,
+      yoeMax: null,
+      ctcMinLpa: null,
+      ctcMaxLpa: null,
       dataConfidence: null,
       dataAvailability: "none",
     });
@@ -87,6 +95,11 @@ describe("GET /jds", () => {
       level: "fresher",
       title: "SDE I — Backend",
       specialization: "backend",
+      techStack: ["Java", "Go", "Spring Boot"],
+      yoeMin: null,
+      yoeMax: null,
+      ctcMinLpa: null,
+      ctcMaxLpa: null,
       dataConfidence: "high",
       dataAvailability: "rich",
     });

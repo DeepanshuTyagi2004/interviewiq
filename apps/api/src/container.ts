@@ -31,6 +31,9 @@ import {
   CompanyRoleConfigRepository,
   GitHubConnectionRepository,
   InterviewSessionRepository,
+  LoopRepository,
+  ProcessRepository,
+  TargetRepository,
   JobDescriptionRepository,
   LeetCodeConnectionRepository,
   UserRepository,
@@ -40,6 +43,7 @@ import { CatalogueSeeder } from "./services/catalogueSeeder.js";
 import { CodingSignalsProvider } from "./services/codingSignals.js";
 import { InterviewPrepService } from "./services/interviewPrep.js";
 import { InterviewSessionService } from "./services/interviewSessions.js";
+import { LoopService } from "./services/loops.js";
 import { LiveSessionService } from "./services/liveSessions.js";
 import { AccountDeletionService } from "./services/accountDeletion.js";
 import { AccountExportService } from "./services/accountExport.js";
@@ -73,6 +77,9 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     githubConnections: new GitHubConnectionRepository(db),
     leetcodeConnections: new LeetCodeConnectionRepository(db),
     sessions: new InterviewSessionRepository(db),
+    processes: new ProcessRepository(db),
+    loops: new LoopRepository(db),
+    targets: new TargetRepository(db),
     candidateProfiles: new CandidateProfileRepository(mongo),
     fragments: new ProfileFragmentRepository(mongo),
     outcomes: new SessionOutcomeRepository(mongo),
@@ -139,7 +146,11 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     planPollIntervalMs: config.interviewPrep.planPollIntervalMs,
     planMaxWaitMs: config.interviewPrep.planMaxWaitMs,
   }, enrichment);
-  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, prep, enrichment);
+  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, prep, enrichment, repos.loops);
+  const loops = new LoopService(
+    repos.processes, repos.loops, repos.targets, repos.sessions, repos.jds, repos.companies, enrichment,
+    (company, role, level, specialization) => aiService.fetchBrief(company, role, level, specialization),
+  );
   const liveSessions = new LiveSessionService(repos.sessions, repos.outcomes, liveKit);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
@@ -172,6 +183,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     prep,
     enrichment,
     sessions,
+    loops,
     liveSessions,
     seeder,
     jobs,

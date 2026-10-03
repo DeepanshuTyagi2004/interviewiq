@@ -169,7 +169,7 @@ export class CompanyEnrichmentService {
           await tx.insert(manualJdBriefs).values({ jdId, companyId, roleId: role.id, brief })
             .onConflictDoUpdate({ target: manualJdBriefs.jdId, set: { brief } });
           const config = { company: company.slug, role: role.role, level: role.level, title: role.title,
-            jdDescription: role.description, techStack: role.techStack.join(", "), roundCount: role.rounds.length, enabled: true };
+            jdDescription: role.description, techStack: role.techStack.join(", "), roundCount: role.rounds.filter((r) => r.kind !== "info").length, enabled: true };
           await tx.insert(companyRoleConfigs).values(config).onConflictDoUpdate({
             target: [companyRoleConfigs.company, companyRoleConfigs.role, companyRoleConfigs.level], set: config,
           });

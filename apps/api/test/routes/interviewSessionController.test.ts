@@ -24,7 +24,7 @@ afterEach(() => env.c.background.drain());
 
 const SESSIONS = "/api/v1/interviews/sessions";
 
-/** The exact key set of the Java InterviewSessionResponse record. */
+/** The exact key set of InterviewSessionResponse (the Java record, plus loopId/nodeId). */
 const SESSION_KEYS = [
   "candidateId",
   "company",
@@ -34,6 +34,8 @@ const SESSION_KEYS = [
   "inputHash",
   "jobDescriptionId",
   "level",
+  "loopId",
+  "nodeId",
   "planReady",
   "planVersion",
   "prepError",
@@ -92,7 +94,7 @@ describe("POST /interviews/sessions", () => {
     const defaulted = await env.http.post(SESSIONS).set("Authorization", authz).send(createBody({ roundType: undefined }));
     expect(defaulted.status).toBe(201);
     expect(defaulted.body.roundType).toBe("dsa");
-    const explicit = await env.http.post(SESSIONS).set("Authorization", authz).send(createBody({ roundType: "system-design" }));
+    const explicit = await env.http.post(SESSIONS).set("Authorization", authz).send(createBody({ roundType: "system-design", scheduledAt: "2099-07-10T12:00:00.000Z" }));
     expect(explicit.status).toBe(201);
     expect(explicit.body.roundType).toBe("system-design");
   });

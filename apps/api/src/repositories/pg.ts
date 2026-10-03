@@ -1,22 +1,28 @@
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import type { Database } from "../db/pg/client.js";
 import {
   authTokens,
   companies,
   companyRoleConfigs,
   githubConnections,
+  interviewProcesses,
   interviewSessions,
   jobDescriptions,
   leetcodeConnections,
+  loops,
   refreshTokens,
+  targets,
   users,
   type AuthTokenPurpose,
   type CompanyRoleConfigRow,
   type CompanyRow,
   type GitHubConnectionRow,
+  type InterviewProcessRow,
   type InterviewSessionRow,
   type JobDescriptionRow,
   type LeetCodeConnectionRow,
+  type LoopRow,
+  type TargetRow,
   type UserRow,
 } from "../db/pg/schema.js";
 import type { Role, SessionStatus } from "../domain/enums.js";
@@ -51,6 +57,9 @@ export class UserRepository {
       await tx.delete(githubConnections).where(eq(githubConnections.userId, userId));
       await tx.delete(leetcodeConnections).where(eq(leetcodeConnections.userId, userId));
       await tx.delete(interviewSessions).where(eq(interviewSessions.candidateId, userId));
+      await tx.delete(loops).where(eq(loops.userId, userId));
+      await tx.delete(interviewProcesses).where(eq(interviewProcesses.userId, userId));
+      await tx.delete(targets).where(eq(targets.userId, userId));
       await tx.delete(users).where(eq(users.id, userId));
     });
   }
@@ -465,6 +474,58 @@ export class InterviewSessionRepository {
       .then((r) => r[0]!);
   }
 
+  /**
+   * Insert unless the candidate already has a non-cancelled interview within `slotMinutes` of
+   * `row.scheduledAt` (so two interviews can never share a slot). Serialised per candidate with an
+   * advisory lock, so two parallel bookings cannot both pass the check. Returns null on a clash.
+   */
+  insertIfSlotFree(row: Insert<typeof interviewSessions>, slotMinutes: number, ignoreId?: string): Promise<InterviewSessionRow | null> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${row.candidateId}))`);
+      if (await this.slotTaken(tx, row.candidateId, row.scheduledAt, slotMinutes, ignoreId)) return null;
+      const [inserted] = await tx.insert(interviewSessions).values(row).returning();
+      return inserted!;
+    });
+  }
+
+  /** Move a session to a new slot under the same per-candidate lock; null when the slot is taken. */
+  rescheduleIfSlotFree(id: string, candidateId: string, scheduledAt: Date, timezone: string, slotMinutes: number): Promise<InterviewSessionRow | null> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${candidateId}))`);
+      if (await this.slotTaken(tx, candidateId, scheduledAt, slotMinutes, id)) return null;
+      const [updated] = await tx
+        .update(interviewSessions)
+        .set({ scheduledAt, timezone, status: "SCHEDULED", prepError: null })
+        .where(eq(interviewSessions.id, id))
+        .returning();
+      return updated ?? null;
+    });
+  }
+
+  private async slotTaken(
+    tx: Pick<Database, "select">, candidateId: string, at: Date, slotMinutes: number, ignoreId?: string,
+  ): Promise<boolean> {
+    const ms = slotMinutes * 60_000;
+    const rows = await tx
+      .select({ id: interviewSessions.id })
+      .from(interviewSessions)
+      .where(and(
+        eq(interviewSessions.candidateId, candidateId),
+        ne(interviewSessions.status, "CANCELLED"),
+        ne(interviewSessions.status, "ABORTED_TECHNICAL"),
+        gt(interviewSessions.scheduledAt, new Date(at.getTime() - ms)),
+        lte(interviewSessions.scheduledAt, new Date(at.getTime() + ms - 1)),
+        ...(ignoreId ? [ne(interviewSessions.id, ignoreId)] : []),
+      ))
+      .limit(1);
+    return rows.length > 0;
+  }
+
+  findAllByLoopIds(loopIds: string[]): Promise<InterviewSessionRow[]> {
+    if (loopIds.length === 0) return Promise.resolve([]);
+    return this.db.select().from(interviewSessions).where(inArray(interviewSessions.loopId, loopIds));
+  }
+
   findById(id: string): Promise<InterviewSessionRow | null> {
     return this.db.select().from(interviewSessions).where(eq(interviewSessions.id, id)).then(one);
   }
@@ -520,3 +581,64 @@ export class InterviewSessionRepository {
   }
 }
 
+export class ProcessRepository {
+  constructor(private readonly db: Database) {}
+
+  insert(row: Insert<typeof interviewProcesses>): Promise<InterviewProcessRow> {
+    return this.db.insert(interviewProcesses).values(row).returning().then((r) => r[0]!);
+  }
+
+  findAllByUser(userId: string): Promise<InterviewProcessRow[]> {
+    return this.db.select().from(interviewProcesses).where(eq(interviewProcesses.userId, userId)).orderBy(desc(interviewProcesses.updatedAt));
+  }
+
+  findOwned(id: string, userId: string): Promise<InterviewProcessRow | null> {
+    return this.db.select().from(interviewProcesses).where(and(eq(interviewProcesses.id, id), eq(interviewProcesses.userId, userId))).then(one);
+  }
+
+  update(id: string, patch: Partial<Insert<typeof interviewProcesses>>): Promise<InterviewProcessRow | null> {
+    return this.db.update(interviewProcesses).set({ ...patch, updatedAt: new Date() }).where(eq(interviewProcesses.id, id)).returning().then(one);
+  }
+
+  delete(id: string): Promise<void> {
+    return this.db.delete(interviewProcesses).where(eq(interviewProcesses.id, id)).then(() => undefined);
+  }
+}
+
+export class LoopRepository {
+  constructor(private readonly db: Database) {}
+
+  /** Null when the user already has a live (active/paused) loop for this JD. */
+  async insertIfNoLiveLoop(row: Insert<typeof loops>): Promise<LoopRow | null> {
+    const inserted = await this.db.insert(loops).values(row).onConflictDoNothing().returning();
+    return inserted[0] ?? null;
+  }
+
+  findAllByUser(userId: string): Promise<LoopRow[]> {
+    return this.db.select().from(loops).where(eq(loops.userId, userId)).orderBy(desc(loops.confirmedAt));
+  }
+
+  findOwned(id: string, userId: string): Promise<LoopRow | null> {
+    return this.db.select().from(loops).where(and(eq(loops.id, id), eq(loops.userId, userId))).then(one);
+  }
+
+  update(id: string, patch: Partial<Insert<typeof loops>>): Promise<LoopRow | null> {
+    return this.db.update(loops).set({ ...patch, updatedAt: new Date() }).where(eq(loops.id, id)).returning().then(one);
+  }
+}
+
+export class TargetRepository {
+  constructor(private readonly db: Database) {}
+
+  findAllByUser(userId: string): Promise<TargetRow[]> {
+    return this.db.select().from(targets).where(eq(targets.userId, userId)).orderBy(desc(targets.createdAt));
+  }
+
+  add(userId: string, jdId: string): Promise<void> {
+    return this.db.insert(targets).values({ userId, jdId }).onConflictDoNothing().then(() => undefined);
+  }
+
+  remove(userId: string, jdId: string): Promise<void> {
+    return this.db.delete(targets).where(and(eq(targets.userId, userId), eq(targets.jdId, jdId))).then(() => undefined);
+  }
+}

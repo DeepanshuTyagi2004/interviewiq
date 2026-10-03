@@ -16,6 +16,7 @@ import { githubConnectionRouter, leetcodeConnectionRouter } from "./routes/conne
 import { intelligenceRouter, interviewAgentBenchRouter, interviewPrepBenchRouter, resumeBenchRouter } from "./routes/intelligence.js";
 import { internalRouter } from "./routes/internal.js";
 import { interviewsRouter } from "./routes/interviews.js";
+import { loopsRouter, processesRouter, targetsRouter } from "./routes/loops.js";
 import { candidateProfileRouter, usersRouter } from "./routes/users.js";
 import { UnknownUserError } from "./services/profileService.js";
 
@@ -88,6 +89,9 @@ export function createApp(c: Container): express.Express {
   v1.use("/jds", jdsRouter(c));
   v1.use("/experiences", experiencesRouter(c));
   v1.use("/interviews", interviewsRouter(c));
+  v1.use("/loops", loopsRouter(c));
+  v1.use("/processes", processesRouter(c));
+  v1.use("/targets", targetsRouter(c));
   v1.use("/intelligence/interview-prep", interviewPrepBenchRouter(c));
   v1.use("/intelligence/interview-agent", interviewAgentBenchRouter(c));
   v1.use("/intelligence/resume", resumeBenchRouter(c));

@@ -211,7 +211,7 @@ describe("parseCreateSessionRequest", () => {
   it("parses a booking body (lower-cases the UUID, ISO instant, optional round)", () => {
     const jdId = randomUUID();
     const r = parseCreateSessionRequest({ jobDescriptionId: jdId.toUpperCase(), scheduledAt: "2030-07-10T10:00:00Z", timezone: "Asia/Kolkata" });
-    expect(r).toEqual({ jobDescriptionId: jdId, roundType: null, scheduledAt: new Date("2030-07-10T10:00:00Z"), timezone: "Asia/Kolkata" });
+    expect(r).toEqual({ jobDescriptionId: jdId, roundType: null, scheduledAt: new Date("2030-07-10T10:00:00Z"), timezone: "Asia/Kolkata", loopId: null, nodeId: null });
     expect(parseCreateSessionRequest({ roundType: "System-Design" }).roundType).toBe("system-design");
   });
 

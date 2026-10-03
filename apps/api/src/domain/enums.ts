@@ -32,6 +32,7 @@ export const SESSION_STATUSES = [
   "LIVE_IN_PROGRESS",
   "COMPLETED",
   "ABORTED_TECHNICAL",
+  "CANCELLED",
 ] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 

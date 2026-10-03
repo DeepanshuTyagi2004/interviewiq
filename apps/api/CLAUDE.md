@@ -37,7 +37,7 @@ test/                 Vitest; support/harness.ts spins PGlite + in-memory Mongo 
 
 | Store | What | Why |
 | --- | --- | --- |
-| Postgres (Supabase) | `app_user`, `refresh_token`, `auth_token`, `companies`, `company_role_configs`, `job_descriptions`, `interview_sessions`, `github_connection`, `leetcode_connection` | relational, uniqueness + FK, atomic state transitions |
+| Postgres (Supabase) | `app_user`, `refresh_token`, `auth_token`, `companies`, `company_role_configs`, `job_descriptions`, `interview_sessions`, `github_connection`, `leetcode_connection`, `interview_processes` (saved custom process graphs), `loops` (confirmed per-JD process, graph snapshot), `targets` (watchlist) | relational, uniqueness + FK, atomic state transitions |
 | MongoDB (Atlas) | `candidate_profiles` (_id=userId), `profile_fragments` (unique userId+source), `session_outcomes` (_id=sessionId) | document-shaped, schema-flexible |
 
 Cross-store writes are ordered so a retry converges (e.g. the session outcome document is written

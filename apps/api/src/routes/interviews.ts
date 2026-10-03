@@ -1,6 +1,7 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
 import { InvalidArgumentError } from "../lib/errors.js";
+import { isObject } from "../lib/json.js";
 import { routerErrors, userId, uuidParam, router } from "../http/support.js";
 import { parseCreateSessionRequest } from "../services/interviewSessions.js";
 
@@ -20,6 +21,18 @@ export function interviewsRouter(c: Container): Router {
   /** The candidate's sessions (newest slot first). */
   r.get("/sessions", async (req, res) => {
     res.json(await c.sessions.listSessions(userId(req)));
+  });
+
+  /** Move a not-yet-started interview to another slot. */
+  r.post("/sessions/:sessionId/reschedule", async (req, res) => {
+    const b = parseCreateSessionRequest({ ...(isObject(req.body) ? req.body : {}), loopId: undefined, nodeId: undefined });
+    if (!b.scheduledAt || !b.timezone) throw new InvalidArgumentError("scheduledAt and timezone are required");
+    res.json(await c.sessions.reschedule(userId(req), uuidParam(req, "sessionId"), b.scheduledAt, b.timezone));
+  });
+
+  /** Cancel a not-yet-started interview. */
+  r.post("/sessions/:sessionId/cancel", async (req, res) => {
+    res.json(await c.sessions.cancel(userId(req), uuidParam(req, "sessionId")));
   });
 
   r.get("/sessions/:sessionId", async (req, res) => {

@@ -69,6 +69,11 @@ export function jdsRouter(c: Container): Router {
             level: j.level,
             title: j.title,
             specialization: j.specialization,
+            techStack: splitCsv(j.techStack),
+            yoeMin: j.yoeMin === null ? null : Number(j.yoeMin),
+            yoeMax: j.yoeMax === null ? null : Number(j.yoeMax),
+            ctcMinLpa: j.ctcMinLpa === null ? null : Number(j.ctcMinLpa),
+            ctcMaxLpa: j.ctcMaxLpa === null ? null : Number(j.ctcMaxLpa),
             dataConfidence: conf,
             dataAvailability: availability(conf),
           };
