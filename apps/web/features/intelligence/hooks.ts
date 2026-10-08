@@ -12,13 +12,18 @@ import {
   getScrapeStatus,
   listBriefs,
   listQuestions,
+  listProblemBank,
+  getQuestionBankStats,
+  triggerQuestionGeneration,
   listUsers,
   stopScrape,
   triggerCollect,
   triggerScrape,
   updateUserRole,
 } from "./api";
-import type { AdminUser, BriefDoc, BriefSummary, QuestionFilters, QuestionsResponse, ScrapeStatus } from "./types";
+import type { AdminUser, BriefDoc, BriefSummary, QuestionFilters, QuestionsResponse,
+  QuestionBankPage,
+  QuestionBankStats, ScrapeStatus } from "./types";
 
 /** Poll the live run state + verbose logs while the console is open. */
 export function useScrapeStatus(enabled = true) {
@@ -119,5 +124,32 @@ export function useQuestions(filters: QuestionFilters) {
   return useQuery<QuestionsResponse>({
     queryKey: [...INTELLIGENCE_QUERY_KEYS.questions, filters],
     queryFn: () => listQuestions(filters),
+  });
+}
+
+export function useProblemBank(filters: QuestionFilters, options: { enabled?: boolean } = {}) {
+  return useQuery<QuestionBankPage>({
+    queryKey: [...INTELLIGENCE_QUERY_KEYS.questions, "bank", filters],
+    queryFn: () => listProblemBank(filters),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useQuestionBankStats(options: { refetchIntervalMs?: number | false } = {}) {
+  return useQuery<QuestionBankStats>({
+    queryKey: INTELLIGENCE_QUERY_KEYS.questionStats,
+    queryFn: getQuestionBankStats,
+    refetchInterval: options.refetchIntervalMs ?? false,
+  });
+}
+
+export function useTriggerQuestionGeneration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (opts: { roundType?: string; limit?: number; force?: boolean }) => triggerQuestionGeneration(opts),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.scrapeStatus });
+      queryClient.invalidateQueries({ queryKey: INTELLIGENCE_QUERY_KEYS.questionStats });
+    },
   });
 }

@@ -14,6 +14,8 @@ export const INTELLIGENCE_ENDPOINTS = {
   briefsClear: "/api/v1/intelligence/briefs/clear",
   collectRun: "/api/v1/intelligence/questions/collect",
   questions: "/api/v1/intelligence/questions",
+  questionStats: "/api/v1/intelligence/questions/stats",
+  questionGenerate: "/api/v1/intelligence/questions/generate",
 } as const;
 
 /** Admin user-management endpoints (promote/demote). */
@@ -26,6 +28,7 @@ export const INTELLIGENCE_QUERY_KEYS = {
   scrapeStatus: ["intelligence", "scrape-status"] as const,
   users: ["intelligence", "users"] as const,
   questions: ["intelligence", "questions"] as const,
+  questionStats: ["intelligence", "question-stats"] as const,
 } as const;
 
 export const INTELLIGENCE_POLLING = {

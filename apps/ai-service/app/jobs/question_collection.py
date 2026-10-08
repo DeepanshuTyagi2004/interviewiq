@@ -12,9 +12,10 @@ from datetime import datetime, timezone
 
 from app.config import Settings
 from app.db import repositories as repo
-from app.llm.client import build_llm_client, gather_capped
+from app.llm.client import gather_capped
 from app.questions.collectors import dsa as dsa_collector
 from app.questions.collectors.behavioural import collect_behavioural
+from app.questions.collectors.briefs import collect_brief_problems
 from app.questions.collectors.lld import collect_lld
 from app.questions.collectors.system_design import collect_system_design
 from app.questions.enrich import enrich_one
@@ -30,6 +31,15 @@ def _stamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def build_llm_client(settings: Settings):
+    """Enrichment runs Groq first (GROQ_MODEL_NAME, then the fallbacks), like research and scoring; the
+    label output is small, so a modest budget keeps each call to a few seconds."""
+    from app.llm.research_client import ResearchLLMClient
+
+    return ResearchLLMClient(settings, deadline_seconds=settings.question_content_deadline_seconds,
+                             groq_stage_seconds=settings.question_content_groq_stage_seconds, max_output_tokens=1024)
+
+
 async def _store(rec: QuestionRecord, settings: Settings, stamp: str) -> None:
     rec.collection_version = settings.collection_version
     rec.last_synced = stamp
@@ -38,7 +48,7 @@ async def _store(rec: QuestionRecord, settings: Settings, stamp: str) -> None:
 
 async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
     stamp = _stamp()
-    counts = {"dsa": 0, "system-design": 0, "lld": 0, "behavioural": 0, "unchanged": 0,
+    counts = {"dsa": 0, "system-design": 0, "lld": 0, "behavioural": 0, "hiring-manager": 0, "online-assessment": 0, "unchanged": 0,
               "enriched": 0, "enrich_failed": 0, "skipped": 0, "cancelled": 0}
     stored = await repo.stored_states(settings.collection_version)
 
@@ -50,6 +60,7 @@ async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
         await dsa_collector.collect_kaggle(settings),
     ])
     direct += await collect_behavioural(settings)
+    direct += await collect_brief_problems(settings)
     for r in direct:
         r.source_hash = compute_source_hash(r)
         counts[r.round_type.value] += 1

@@ -197,13 +197,14 @@ def test_parse_neetcode_md_tree_excludes_github():
 
 
 def test_parse_neetcode_md_tree_no_statement_body():
-    """QuestionRecord has no body/statement/description field storing problem text"""
+    """Collectors never store source text: no body/statement/description field, and the generated
+    `content` (our own text, docs/question-bank.md) is empty until the content job writes it."""
     recs = parse_neetcode_md_tree(NEETCODE_FILES)
     assert len(recs) > 0
     rec = recs[0]
-    # Confirm no body/statement/description fields on the record
-    for field in ("body", "statement", "description", "content"):
+    for field in ("body", "statement", "description"):
         assert not hasattr(rec, field), f"QuestionRecord must not have field '{field}'"
+    assert rec.content is None and rec.content_status == "none"
     # Confirm title and url are present (not storing statement)
     assert rec.title
     assert rec.url

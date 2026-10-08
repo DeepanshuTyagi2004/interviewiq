@@ -12,6 +12,9 @@ import type {
   QuestionsResponse,
   ScrapeStatus,
   TriggerResponse,
+  QuestionBankPage,
+  QuestionBankStats,
+  QuestionGenerateResponse,
 } from "./types";
 
 /** POST — trigger a Perplexity brief-generation run (returns immediately). */
@@ -76,12 +79,39 @@ export function updateUserRole(id: string, role: Role): Promise<AdminUser> {
   });
 }
 
-/** GET — paginated question bank with optional filters. */
-export function listQuestions(f: QuestionFilters = {}): Promise<QuestionsResponse> {
+function questionQuery(f: QuestionFilters): string {
   const q = new URLSearchParams();
   if (f.roundType) q.set("roundType", f.roundType);
   if (f.company) q.set("company", f.company);
   if (f.difficulty) q.set("difficulty", f.difficulty);
+  if (f.contentStatus) q.set("contentStatus", f.contentStatus);
+  if (f.topic) q.set("topic", f.topic);
+  if (f.includeContent) q.set("includeContent", "true");
   q.set("limit", String(f.limit ?? 100));
-  return apiFetch<QuestionsResponse>(`${INTELLIGENCE_ENDPOINTS.questions}?${q.toString()}`);
+  return q.toString();
+}
+
+/** GET — paginated question bank with optional filters. */
+export function listQuestions(f: QuestionFilters = {}): Promise<QuestionsResponse> {
+  return apiFetch<QuestionsResponse>(`${INTELLIGENCE_ENDPOINTS.questions}?${questionQuery(f)}`);
+}
+
+/** GET — the problem bank with each problem's content (docs/question-bank.md). */
+export function listProblemBank(f: QuestionFilters = {}): Promise<QuestionBankPage> {
+  return apiFetch<QuestionBankPage>(`${INTELLIGENCE_ENDPOINTS.questions}?${questionQuery({ ...f, includeContent: true })}`);
+}
+
+/** GET — counts per round type and content status. */
+export function getQuestionBankStats(): Promise<QuestionBankStats> {
+  return apiFetch<QuestionBankStats>(INTELLIGENCE_ENDPOINTS.questionStats);
+}
+
+/** POST — start content generation over the index; progress via the shared scrape status. */
+export function triggerQuestionGeneration(opts: { roundType?: string; limit?: number; force?: boolean } = {}): Promise<QuestionGenerateResponse> {
+  const q = new URLSearchParams();
+  if (opts.roundType) q.set("roundType", opts.roundType);
+  if (opts.limit && opts.limit > 0) q.set("limit", String(opts.limit));
+  if (opts.force) q.set("force", "true");
+  const qs = q.toString();
+  return apiFetch<QuestionGenerateResponse>(`${INTELLIGENCE_ENDPOINTS.questionGenerate}${qs ? `?${qs}` : ""}`, { method: "POST" });
 }

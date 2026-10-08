@@ -1,3 +1,4 @@
+import type { components } from "@/lib/api-client/generated/schema";
 import type { Role } from "@/lib/hooks/useCurrentUser";
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
@@ -200,4 +201,15 @@ export type Question = {
   estimated_duration_mins?: number | null;
 };
 export type QuestionsResponse = { questions: Question[]; count: number; returned?: number };
-export type QuestionFilters = { roundType?: string; company?: string; difficulty?: string; limit?: number };
+export type QuestionFilters = { roundType?: string; company?: string; difficulty?: string; limit?: number; contentStatus?: string; topic?: string; includeContent?: boolean };
+
+/** Problem bank (docs/question-bank.md): generated from the contract. */
+export type QuestionRecord = components["schemas"]["QuestionRecord"];
+export type QuestionBankPage = components["schemas"]["QuestionBankPage"];
+export type QuestionBankStats = components["schemas"]["QuestionBankStats"];
+export type QuestionContentStatus = components["schemas"]["QuestionContentStatus"];
+export type QuestionGenerateResponse = components["schemas"]["QuestionGenerateResponse"];
+export type DsaContent = components["schemas"]["DsaContent"];
+export type SystemDesignContent = components["schemas"]["SystemDesignContent"];
+export type LldContent = components["schemas"]["LldContent"];
+export type BehaviouralContent = components["schemas"]["BehaviouralContent"];

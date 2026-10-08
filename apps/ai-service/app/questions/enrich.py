@@ -21,10 +21,10 @@ async def enrich_one(llm, record: QuestionRecord) -> QuestionRecord:
         data = await llm.complete_json(
             ENRICH_SYSTEM,
             build_enrich_prompt(record), label=f"enrich:{record.slug}")
+        patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "", [])}
+        merged = {**record.model_dump(), **patch, "enrichment_status": "enriched"}
+        return QuestionRecord.model_validate(merged)  # Validate new metadata before saving.
     except Exception as exc:  # noqa: BLE001 — one bad enrich must not abort the run
         logger.warning("[questions] enrich failed for %s (%s)", record.slug, exc)
         record.enrichment_status = "enrich_failed"
         return record
-    patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "", [])}
-    merged = record.model_copy(update={**patch, "enrichment_status": "enriched"})
-    return QuestionRecord.model_validate(merged.model_dump())  # re-run validators on patched lists

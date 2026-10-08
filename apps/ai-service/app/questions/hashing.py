@@ -26,6 +26,24 @@ _SOURCE_FIELDS = (
 )
 
 
+# Index facts the content prompt sees; a change here (or a prompt version bump) regenerates content.
+_CONTENT_FIELDS = ("slug", "round_type", "title", "difficulty", "topic_tags", "company_tags", "level_tags",
+                   "category", "patterns_tested", "components_tested", "entities_involved", "domain", "evaluation_mode", "is_machine_coding")
+
+
+def compute_content_hash(record: QuestionRecord, content_version: str) -> str:
+    """SHA-256 of the index facts the prompt uses plus the prompt version. 'sha256:<hex>'."""
+    payload: dict = {"content_version": content_version}
+    for f in _CONTENT_FIELDS:
+        v = getattr(record, f, None)
+        if hasattr(v, "value"):
+            v = v.value
+        if isinstance(v, list):
+            v = sorted(x.value if hasattr(x, "value") else str(x) for x in v)
+        payload[f] = v
+    return "sha256:" + hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
 def compute_source_hash(record: QuestionRecord) -> str:
     """SHA-256 of the record's source-only fields. Returns 'sha256:<hex>'."""
     payload: dict = {}
@@ -35,7 +53,7 @@ def compute_source_hash(record: QuestionRecord) -> str:
         if hasattr(v, "value"):
             v = v.value
         if isinstance(v, list):
-            v = sorted(str(x) for x in v)
+            v = sorted(x.value if hasattr(x, "value") else str(x) for x in v)
         payload[f] = v
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode()

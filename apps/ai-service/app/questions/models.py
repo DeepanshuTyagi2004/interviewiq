@@ -9,6 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.brief import Difficulty, RoundType
+from app.models.engineering_levels import Level
 
 
 def _str_list(v):
@@ -24,6 +25,15 @@ def _str_list(v):
 def _slug_list(v):
     """Like _str_list but lowercases (company/level tags are slugs)."""
     return [s.lower() for s in _str_list(v)]
+
+
+def _level_list(v):
+    # model_dump() without mode="json" retains enums; validation must be idempotent.
+    if isinstance(v, Level):
+        v = v.value
+    if isinstance(v, list):
+        v = [x.value if isinstance(x, Level) else x for x in v]
+    return _str_list(v)
 
 
 def _norm_difficulty(v):
@@ -43,11 +53,20 @@ class QuestionRecord(BaseModel):
     difficulty: Difficulty | None = None
     topic_tags: list[str] = Field(default_factory=list)
     company_tags: list[str] = Field(default_factory=list)
-    level_tags: list[str] = Field(default_factory=list)
+    level_tags: list[Level] = Field(default_factory=list)
     collection_version: str | None = None
     last_synced: str | None = None
     enrichment_status: str = "raw"  # raw | enriched | enrich_failed
     source_hash: str | None = None   # hash of source-derived fields; drives granular incremental skip
+    # --- rich content (docs/question-bank.md): generated from the index facts, never from source text ---
+    company_evidence: dict[str, str] = Field(default_factory=dict)  # slug -> reported | inferred
+    content: dict | None = None            # round-specific shape, see app/questions/content/models.py
+    content_status: str = "none"           # none | generated | verified | failed (content is stored only when it passed its checks)
+    content_version: str | None = None
+    content_hash: str | None = None        # hash of index facts + CONTENT_VERSION; stale -> regenerate
+    content_generated_at: str | None = None
+    content_model: str | None = None
+    content_error: str | None = None
 
     # --- DSA extras ---
     acceptance_rate: float | None = None
@@ -72,6 +91,18 @@ class QuestionRecord(BaseModel):
     estimated_duration_mins: int | None = None
 
     _diff = field_validator("difficulty", mode="before")(_norm_difficulty)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _clean_title(cls, v):
+        """Source markdown leaks into titles ("[211. Design Add…]()"): keep the visible text only."""
+        if isinstance(v, str):
+            import re
+            v = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", v)
+            v = re.sub(r"^[\s*_`#>]+|[\s*_`]+$", "", v)
+            v = re.sub(r"^\[(.+)\]$", r"\1", v)
+        return v
     _t = field_validator("topic_tags", "components_tested", "patterns_tested",
                          "entities_involved", "assess", "sources", mode="before")(_str_list)
-    _s = field_validator("company_tags", "level_tags", mode="before")(_slug_list)
+    _s = field_validator("company_tags", mode="before")(_slug_list)
+    _levels = field_validator("level_tags", mode="before")(_level_list)

@@ -54,6 +54,8 @@ def _setup(monkeypatch, *, dsa_records=None, sd_records=None, lld_records=None,
     async def fake_collect_sd(s): return sd_records
     async def fake_collect_lld(s): return lld_records
     async def fake_collect_behavioural(s): return behavioural_records
+    async def fake_collect_briefs(s): return []
+    monkeypatch.setattr(qc, "collect_brief_problems", fake_collect_briefs)
     monkeypatch.setattr(qc, "collect_system_design", fake_collect_sd)
     monkeypatch.setattr(qc, "collect_lld", fake_collect_lld)
     monkeypatch.setattr(qc, "collect_behavioural", fake_collect_behavioural)

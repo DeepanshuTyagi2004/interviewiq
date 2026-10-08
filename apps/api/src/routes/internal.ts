@@ -1,9 +1,7 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
-import { BadRequestError } from "../lib/errors.js";
 import { requireInternalKey } from "../http/security.js";
-import { requiredBody, router, uuidParam } from "../http/support.js";
-import { isObject } from "../lib/json.js";
+import { router } from "../http/support.js";
 
 /**
  * Service-to-service endpoints (AI service / live-interview worker → API). Not JWT-authed; guarded
@@ -29,19 +27,21 @@ export function internalRouter(c: Container): Router {
     );
   });
 
+  /**
+   * Named problems from the admin-published briefs, for the AI service's problem-bank collector
+   * (docs/question-bank.md): one entry per brief, only rounds that carry problems.
+   */
+  r.get("/brief-problems", async (_req, res) => {
+    const briefs = [...(await c.enrichment.briefsByJd()).values()]
+      .map((b) => ({ company: b.company, final_experience: { rounds: b.final_experience.rounds.filter((r) => r.problems.length).map((r) => ({ type: r.type, difficulty: r.difficulty, topics: r.topics, problems: r.problems })) } }))
+      .filter((b) => b.final_experience.rounds.length);
+    res.json({ briefs });
+  });
+
   /** Company research targets: every ACTIVE company, published or not (spec §8.1). */
   r.get("/research-targets", async (_req, res) => {
     const rows = await c.repos.companies.findActive();
     res.json(rows.map((co) => ({ id: co.id, name: co.name, slug: co.slug, website: co.website, aliases: co.aliases })));
-  });
-
-  /** Called once when an interview ends: persist the SessionOutcome and finalize the session. */
-  r.post("/sessions/:sessionId/outcome", async (req, res) => {
-    const sessionId = uuidParam(req, "sessionId");
-    const outcome = requiredBody(req);
-    if (!isObject(outcome)) throw new BadRequestError("the SessionOutcome must be a JSON object");
-    await c.liveSessions.recordOutcome(sessionId, outcome);
-    res.status(204).end();
   });
 
   return r;
