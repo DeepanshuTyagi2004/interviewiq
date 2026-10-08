@@ -19,14 +19,15 @@ src/
   http/               security.ts (SecurityConfig port), support.ts (param parsing, multer, router error mapping),
                       rateLimit.ts (in-memory fixed-window limiter for the auth endpoints)
   routes/             one router per former controller group; each maps its own errors to stable codes
-  services/           domain services (candidate profile, profile bands, interview sessions/prep/live, seeder)
-  integrations/       aiService client, github (OAuth + GraphQL collector), leetcode (collector + job), livekit
+  services/           domain services (candidate profile, profile bands, interview sessions, blueprint prep, live, seeder)
+  integrations/       aiService client, github (OAuth + GraphQL collector), leetcode (collector + job), platforms
+                      (handle-based Codeforces/AtCoder/CodeChef/TUF collectors + shared job), livekit
   auth/               jwt (jose HS256), refresh tokens (rotation), Google OAuth (PKCE), email/password
                       (passwordAuth), single-use email tokens (emailTokens), Mailer (ConsoleMailer for now)
   repositories/       pg.ts (Drizzle) and mongo.ts (native driver) — method names mirror the old Spring repos
   db/pg/              schema.ts (Hibernate-compatible table/column names), client.ts (pool, SSL, migrations)
   db/mongo/           client.ts — collections + indexes
-  jobs/               scheduler.ts (fixedDelay/fixedRate, no overlap) + jobs.ts (prep trigger, weekly refreshes)
+  jobs/               scheduler.ts (fixedDelay/fixedRate, no overlap) + jobs.ts (blueprint reconcile, weekly refreshes)
   lib/                errors, outbound http, json helpers, canonical JSON, crypto, password (scrypt), background tasks, logger
 drizzle/              SQL migrations + snapshots (0000_baseline is a no-op against the Hibernate DB)
 scripts/              migrate-documents-to-mongo.ts (one-off legacy jsonb → Mongo copy)
@@ -37,13 +38,14 @@ test/                 Vitest; support/harness.ts spins PGlite + in-memory Mongo 
 
 | Store | What | Why |
 | --- | --- | --- |
-| Postgres (Supabase) | `app_user`, `refresh_token`, `auth_token`, `companies`, `company_role_configs`, `job_descriptions`, `interview_sessions`, `github_connection`, `leetcode_connection`, `interview_processes` (saved custom process graphs), `loops` (confirmed per-JD process, graph snapshot), `targets` (watchlist) | relational, uniqueness + FK, atomic state transitions |
-| MongoDB (Atlas) | `candidate_profiles` (_id=userId), `profile_fragments` (unique userId+source), `session_outcomes` (_id=sessionId) | document-shaped, schema-flexible |
+| Postgres (Supabase) | `app_user`, `refresh_token`, `auth_token`, `companies`, `company_role_configs`, `job_descriptions`, `interview_sessions`, `github_connection`, `leetcode_connection`, `platform_connection` (Codeforces/CodeChef/AtCoder/TUF handles), `interview_processes` (saved custom process graphs), `loops` (confirmed per-JD process, graph snapshot), `targets` (watchlist) | relational, uniqueness + FK, atomic state transitions |
+| MongoDB (Atlas) | `candidate_profiles` (_id=userId), `profile_fragments` (unique userId+source), `blueprint_seen` (unique candidateId+slug: problems already given) | document-shaped, schema-flexible |
 
-Cross-store writes are ordered so a retry converges (e.g. the session outcome document is written
-before the Postgres status flip). Atomic transitions use compare-and-set updates
-(`InterviewSessionRepository.transitionStatus`, `RefreshTokenRepository.consumeActive`,
-`AuthTokenRepository.consumeActive`), so multiple API replicas are safe.
+Cross-store writes are ordered so a retry converges (e.g. a blueprint run is attached to a session
+only if none is attached yet, `InterviewSessionRepository.attachRun`). Atomic transitions use
+compare-and-set updates (`InterviewSessionRepository.transitionStatus`, `RefreshTokenRepository.consumeActive`,
+`AuthTokenRepository.consumeActive`), so multiple API replicas are safe. Migrations stay additive: the
+old plan columns (`plan_version`, `input_hash`, `prep_error`) remain in `interview_sessions`, unused.
 
 ## Auth
 
@@ -79,6 +81,12 @@ pnpm --filter @interviewiq/api typecheck
 pnpm --filter @interviewiq/api db:generate   # after editing src/db/pg/schema.ts
 pnpm --filter @interviewiq/api db:migrate    # apply migrations without starting the API
 pnpm --filter @interviewiq/api migrate:documents [--dry-run] [--overwrite]
+pnpm exec tsx --env-file=.env scripts/dev/seed-fit-personas.ts --apply   # 28 fabricated persona accounts (dev DBs)
+pnpm exec tsx --env-file=.env scripts/dev/audit-fit-personas.ts          # JD-fit audit over persona × JD
+pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts [--list]   # blueprint prep audit: 79 bench runs over
+                                                                         # personas × researched JDs × round types, report in .blueprint-audit/
+# then, from apps/ai-service: .venv/bin/python scripts/judge_blueprints.py --since <ISO>   # Gemini judges those runs
+#                                                                         as a senior interviewer; report in .blueprint-judge/
 ```
 
 ## Conventions

@@ -84,10 +84,11 @@ parallel, then company partnerships with exclusive openings, then automated earl
 | **Interviews** | `/interviews` | Book a round (day and time chips), see upcoming and past sessions | ✅ Built |
 | **Interview room** | `/interviews/[id]/live` | Pre-check, then a proctored voice interview with a code editor and whiteboard | ✅ Built (beta) |
 | **Debrief** | `/interviews/[id]/report` | Layout ready; needs the scoring contract | 🟡 Placeholder |
-| **Profile** | `/profile` | Identity, resume, connected sources, and a descriptive summary of your work | ✅ Built |
+| **Profile** | `/profile` | Identity, resume, descriptive source summary and a separate level-based profile score | ✅ Built (scoring beta) |
+| **Profile leaderboard** | `/leaderboard` | Opt-in, same-level weekly profile rankings with evidence eligibility and privacy controls | ✅ Built (beta) |
 | **Connections** | `/connections` | Connect GitHub (OAuth), LeetCode (username) and your resume (PDF) | ✅ Built |
 | **Share experience** | `/experiences` | Contribute your own interview experience to the research pipeline | ✅ Built |
-| **Intelligence** | `/intelligence` | **Admin** console: ingestion, catalogue, access, question bank, test benches, agent diagnostics | ✅ Built |
+| **Intelligence** | `/intelligence` | **Admin** console: research, catalogue, access and Diagnostics for scoring replay, source freshness and weekly receipts | ✅ Built |
 | **University admin** | `/admin/*` | TPO dashboard, student roster, placement drives | ⏳ Planned |
 
 Signed-in pages live in one **app shell**. A top bar holds ⌘K search, the theme toggle,
@@ -141,6 +142,51 @@ flowchart TD
 
 ## How it works
 
+### Level-based profile scoring (beta)
+
+The profile now has a **Profile score**, separate from the existing **Interview score** placeholder.
+It does not alter interview outcomes, mock-loop readiness or descriptive synthesis. Eight rubrics cover
+Intern, Fresher, SDE I, SDE II, SDE III, Staff, Principal and Distinguished. Choose your **current level**
+on onboarding or in the profile details. Scoring uses that same profile choice; the evidence-assessed
+level remains a separate low-confidence recommendation, never a verified seniority claim.
+
+All engineering-level pickers use the same wire enum: `intern`, `fresher`, `sde1`, `sde2`, `sde3`,
+`staff`, `principal`, `distinguished`. This applies to current profile level, target JDs, custom
+processes, company enrichment, shared interview experiences, leaderboards and AI user-choice inputs.
+Choosing a target JD does **not** overwrite the current profile level. New free-form level writes
+are rejected server-side. Known old aliases normalize on reads; unknown old values are shown as
+unset with `legacyLevel` metadata and require an explicit selection before copying/confirmation/new
+booking. Existing booked lookup identities are not rewritten. Trace/log levels and verbatim extracted
+seniority evidence are a different domain and remain unchanged.
+
+The current scoring policy is `profile-beta-v4`. Old v1/v2/v3 configs/snapshots remain replayable;
+  Intern and Distinguished have explicit separate beta rubrics and conservative ranking review gates.
+
+- Score, confidence and evidence coverage are separate 0–100 values. Missing evidence is unknown,
+  not zero. All weights and normalization rules are provisional, explainable and versioned.
+- Supported local inputs: saved resume/profile, GitHub and LeetCode fragments. No LLM chooses the
+  final number. Senior architecture/impact claims remain self-reported; current collectors cannot
+  qualify self-report-only senior assessments for ranking. Other platform collectors and a rich
+  verified achievement ingestion UI are **not** included in this beta.
+- `/leaderboard` compares eligible **opted-in** peers only at the same level, UTC Monday week,
+  algorithm version and configuration hash. Privacy `hidden` excludes a user; `anonymous` uses
+  a stable pseudonym. Ties share rank. Percentiles require at least five eligible profiles.
+- Mongo stores minimized frozen input/config/evidence and historical snapshots. Account export
+  includes `profileScoring` (settings, snapshots and relevant job receipts); account deletion purges them.
+- `PROFILE_SCORING_SCHEDULER_ENABLED=true` enables a separate weekly application job: startup
+  catch-up, hourly due checks, durable cross-replica lease and receipts. Missed historical weeks
+  are never fabricated. Set it false before API startup to disable batch scheduling. Lazy score
+  reads and explicit recalculation still work; unchanged inputs/week/config reuse one snapshot.
+- **Intelligence → Diagnostics** (`/intelligence?tab=diagnostics`) reads local storage, validates
+  methodology, replays a selected user's frozen snapshot, checks feature/formula/rank constraints,
+  and reports freshness and weekly job status. Admin-only recalculation is explicit, with confirmation
+  for all users. Live providers, interview blueprint prep and voice health are labelled **untested**, not passed.
+
+Numerical methodology, extensibility and limitations: [`apps/api/docs/profile-scoring-beta.md`](apps/api/docs/profile-scoring-beta.md).
+Change reviewed weights/normalizers in `apps/api/src/domain/profileScoring/config.ts`; every deployed
+formula/extractor change must bump the version and retain the prior evaluator for historical replay.
+There is no runtime admin weight editor in this beta.
+
 ### System architecture
 
 Three apps and one contract, in a pnpm + Turborepo monorepo. Each app deploys independently.
@@ -158,14 +204,14 @@ flowchart LR
     subgraph api["apps/api · Node / Express 5"]
         A1[REST /api/v1<br/>auth · catalogue · interviews · connections]
         A2[Collectors<br/>GitHub GraphQL · LeetCode]
-        A3[Schedulers<br/>prep trigger · weekly refresh]
+        A3[Schedulers<br/>blueprint reconcile · weekly refresh]
     end
 
     subgraph ai["apps/ai-service · Python / FastAPI"]
         B1[Research pipeline<br/>collect → extract → aggregate]
         B2[Resume parser]
-        B3[Interview prep<br/>plan generator]
-        B4[Voice agent worker<br/>LiveKit Agents]
+        B3[Interview blueprint<br/>problem selection · playbooks]
+        B4[Problem bank<br/>collection · content]
     end
 
     PG[(Postgres<br/>Supabase)]
@@ -192,7 +238,7 @@ flowchart LR
 | --- | --- | --- |
 | **`apps/web`** | Every screen: landing, auth, onboarding, app, admin | A pure client of the API. Server Components by default |
 | **`apps/api`** | Domain logic, persistence, auth, OAuth, collectors, session orchestration | Owns the data and every rule, e.g. gating is enforced server-side |
-| **`apps/ai-service`** | **All** LLM work: briefs, resume parsing, interview plans, the live voice agent | Python ecosystem, and we can swap LLM providers without touching the API |
+| **`apps/ai-service`** | **All** LLM work: briefs, resume parsing, the problem bank, interview blueprints | Python ecosystem, and we can swap LLM providers without touching the API |
 | **`packages/contracts`** | `openapi.yaml`, the source of truth between the apps | The web app **generates** its types from it and never hand-writes DTOs |
 
 ### Company research pipeline
@@ -233,6 +279,63 @@ flowchart LR
   manual brief storage; apply with the existing migration command before using the editor. It was
   generated and tested locally, not applied to your configured database during implementation.
 
+### LinkedIn PDF import
+
+Connections → LinkedIn → **Import** → follow the in-app steps to download your own profile with
+LinkedIn's **Save to PDF** (profile → **Resources**, or **More** on older layouts → **Save to PDF**;
+desktop browser only) → upload the file → consent → **Read PDF** → choose available sections →
+**Confirm selected sections**. Nothing is fetched from LinkedIn: no scraping, cookies, OAuth grant or
+third-party data provider, and no Firecrawl key is needed. The AI service reads the PDF once with
+the private evidence-gated extractor; the PDF itself is never stored. Files that aren't LinkedIn's
+export (for example a resume) are rejected with a pointer back to the steps. Restart the API and AI
+service after updating.
+
+This is a **one-time snapshot** of the uploaded PDF, not live sync or verified ownership/employment;
+absent fields remain unknown. Posts are not imported. Snapshots from the retired Firecrawl URL
+import stay readable until replaced. Only confirmed sections enter the source. Optional merge fills
+blanks/adds deduplicated rows while preserving human edits and the selected engineering level;
+conflicting dates and stale previews require review. Disconnect removes the source and drafts, not
+details already merged into Profile. Details: `apps/api/docs/linkedin-import.md`.
+
+V4 scoring uses supported LinkedIn claims as self-reported evidence (provisional 45% confidence),
+deduplicates résumé overlaps, preserves v1/v2/v3 replay and does not grant collector trust just because
+a scraping provider retrieved a page. No weekly scoring-job changes were made for this feature.
+See `apps/api/docs/linkedin-import.md` for endpoints, configuration, privacy and limitations.
+
+### Custom processes and simulated practice profiles
+
+- **Create without a company:** Interview processes → New process → enter a name and select an enum
+  level. Start blank, copy a suggested process, or copy one of your own saved processes.
+- **Customise each node:** name, comma-separated topics, difficulty and natural-language
+  instructions. Runnable nodes also have a type and duration. Instructions are interviewer
+  preferences, not a command that automatically rewrites the graph. The node library includes
+  109 runnable presets and 12 reference steps across 17 categories. Search names, technologies,
+  topics and keywords (for example RAG, SQL, Kubernetes or accessibility), or choose a category.
+  Runnable presets map to the five supported interview runtimes; reference steps remain non-runnable.
+  Every preset's topics, difficulty, duration and guidance can be adapted to your role and level.
+  A process still supports at most 12 interview rounds and 12 reference steps.
+- **Save and start:** saved processes can start standalone tracks without a JD. Booking snapshots
+  the selected node's topics, instructions, difficulty and duration; later process edits cannot
+  change a booked session. Custom tracks never count toward company readiness.
+- **Canvas interactions:** measured node/drag state is retained, rapid events use the latest graph,
+  and moving a node does not renumber its round. Inspector typing cannot accidentally delete nodes.
+- **Catalogue coverage:** `apps/api/scripts/seed-practice-profiles.ts` adds 48 explicitly simulated
+  profiles per active company: eight practice levels × backend, frontend, fullstack, data science,
+  AI/ML and DevOps. They are not real openings or verified company hiring loops. No salary, experience
+  requirement, fabricated evidence URL or company-native level equivalence is asserted.
+- **Safe boundaries:** real profiles are preserved. Simulations have `source=template`, low
+  confidence and empty evidence; the UI labels them **Practice template** and the server excludes
+  them from readiness. Human company enrichment does not import or archive these templates.
+- **Reproduce:** from `apps/api`, run
+  `pnpm exec tsx --env-file=.env scripts/seed-practice-profiles.ts` for a read-only inventory,
+  then add `--apply` to insert missing templates. Repeated runs do not duplicate profiles.
+- **Storage:** `apps/api/drizzle/0006_custom_practice.sql` permits nullable JD references and stores
+  process/track metadata and booking-time prep snapshots. The configured database migration journal
+  was verified to include it; 624 templates were then inserted across 13 companies and read back.
+- **Checks:** API 680 tests; web 640 tests; AI 1,075 tests passed (11 skipped, env-file disabled);
+  four Chrome canvas interaction tests passed. No live model run was performed. The versioned
+  ladder prompt `v4-custom-practice` needs human review before production use.
+
 ### Profile builder
 
 The interviewer is personal because it reads *your* work. Every source is **additive and
@@ -266,11 +369,11 @@ A booked round moves through these states. The API enforces every transition ato
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SCHEDULED: candidate books a slot
-    SCHEDULED --> PREP_QUEUED: scheduler picks it up
-    PREP_QUEUED --> PREP_READY: ai-service builds the interview plan
-    PREP_QUEUED --> PREP_FAILED: plan generation failed
-    PREP_FAILED --> PREP_QUEUED: candidate presses Retry
+    [*] --> PREP_QUEUED: candidate books a slot (prep starts at once)
+    PREP_QUEUED --> PREP_READY: ai-service builds the interview blueprint
+    PREP_QUEUED --> PREP_FAILED: blueprint run failed
+    PREP_FAILED --> PREP_QUEUED: candidate presses Retry (3 per hour)
+    PREP_READY --> PREP_READY: inputs changed, blueprint refreshed in place
     PREP_READY --> LIVE_IN_PROGRESS: candidate enters the room
     LIVE_IN_PROGRESS --> COMPLETED: round ends normally
     LIVE_IN_PROGRESS --> ABORTED_TECHNICAL: connection lost / technical failure
@@ -278,43 +381,21 @@ stateDiagram-v2
     ABORTED_TECHNICAL --> [*]
 ```
 
-The **interview plan** is built from three inputs: the company brief (rounds, topics, difficulty,
-style), your profile (projects, skills, LeetCode topics), and a question bank collected from
-public sources. That's why the interviewer can say *"Your order-tracking service uses a queue.
-Why not write straight to the database?"*
+The **interview blueprint** is the interviewer's playbook for one round. Problems are chosen
+deterministically from the problem bank (company tags, round topics, JD, level; never one you
+already got), each with an answer key built at prep time and cached; then a persona, a timed arc,
+per-question playbooks (what to do when you're stuck, wrong, ask for a hint or go off-topic) and
+the signals to collect. You only ever see progress steps and a briefing: interviewer, format,
+duration. Admins can trace every run in **Intelligence → Interview prep**. See
+`docs/superpowers/specs/2026-10-07-interview-blueprint-design.md`.
+
+> **Live interviews are paused** while the live interviewer is rebuilt on the blueprint
+> (`LIVE_INTERVIEWER_AVAILABLE=false`): ready rounds show their briefing but can't be joined yet.
 
 ### Live interview: what happens in the room
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor C as Candidate (browser)
-    participant W as Web · interview room
-    participant A as API
-    participant L as LiveKit
-    participant G as Voice agent (ai-service)
-    participant D as Deepgram (STT/TTS)
-
-    C->>W: Open room → pre-check (mic, camera, full screen)
-    W->>A: GET /interviews/sessions/:id/live
-    A->>L: Mint room token
-    A-->>W: livekitUrl + token + room
-    W->>L: Join room (WebRTC)
-    L->>G: Dispatch agent into the room
-    G->>A: Fetch the interview plan (internal key)
-    loop Every turn
-        C->>L: Speaks
-        L->>G: Audio
-        G->>D: Speech → text
-        G->>G: Plan-aware dialogue (LLM): probe, hint, follow up
-        G->>D: Text → speech
-        G->>L: Interviewer audio + transcript
-        L->>W: Plays audio, shows transcript
-    end
-    Note over W: Leaving full screen or switching tabs<br/>pauses the round (proctoring)
-    G->>A: Post the session outcome (internal key)
-    A->>A: Status → COMPLETED or ABORTED_TECHNICAL
-```
+The room UI (pre-checks, full screen, proctoring) and LiveKit room tokens are in place; the live
+interviewer that runs a blueprint is the next phase, so joining is closed for now.
 
 ### Authentication
 
@@ -390,7 +471,7 @@ interviewiq/
 │   │   └── lib/                api client (+ generated types), auth, analytics, utils
 │   ├── api/                    Node / Express 5 API                          :8080
 │   │   ├── src/routes/         one router per area (auth, catalogue, interviews, …)
-│   │   ├── src/services/       domain services (sessions, prep, profile assembly, …)
+│   │   ├── src/services/       domain services (sessions, blueprint prep, profile assembly, …)
 │   │   ├── src/integrations/   ai-service client · GitHub · LeetCode · LiveKit
 │   │   ├── src/auth/           JWT · refresh tokens · Google OAuth · password auth · mailer
 │   │   ├── src/db/             Drizzle schema (Postgres) · Mongo collections
@@ -398,8 +479,7 @@ interviewiq/
 │   │   └── test/               Vitest suites on PGlite + in-memory Mongo
 │   └── ai-service/             Python FastAPI · all LLM logic                 :8000
 │       ├── app/jobs/           brief generation, question collection, scheduler
-│       ├── app/interview_prep/ interview-plan generation
-│       ├── app/interview_agent/ LiveKit voice agent (worker, dialogue graph, pacing)
+│       ├── app/blueprint/      interview blueprint (selection, answer keys, playbooks, diagnostics)
 │       └── app/resume/         resume parsing
 ├── packages/contracts/         openapi.yaml: the web ↔ api ↔ ai-service contract
 ├── infra/                      docker-compose (local stack) + env template
@@ -476,13 +556,6 @@ To run them on their own: `pnpm db:migrate`.
 
 ```bash
 pnpm dev              # web :3000 + api :8080 + ai-service :8000, via Turborepo
-```
-
-To run live voice interviews, start the LiveKit agent worker in a second terminal:
-
-```bash
-cd apps/ai-service
-.venv/bin/python -m app.interview_agent.worker dev
 ```
 
 | Check | URL |
@@ -564,9 +637,9 @@ Every page is built for **375px phones, iPads (768 and 1024px) and desktop**, an
 
 | # | Module | Status | What's next |
 | --- | --- | --- | --- |
-| 1 | **Profile Builder** | ✅ Resume, GitHub and LeetCode collectors, descriptive profile | LLM-written profile summary (prompt under review); LinkedIn / Codeforces / HackerRank (V2) |
+| 1 | **Profile Builder** | ✅ Resume, GitHub, LeetCode, Codeforces, CodeChef, AtCoder and takeUforward collectors; reviewed LinkedIn public-URL snapshots; descriptive profile | LLM-written profile summary (prompt under review); live LinkedIn retrieval validation |
 | 2 | **Job & Loop Setup** | ✅ Catalogue, research briefs, roadmap | Per-JD **loop dashboard**; editable rounds (an edited loop is standalone) |
-| 3 | **Live Interview Session** | ✅ Booking, plan prep, LiveKit voice room, proctoring | Live signals during the round; hint requests; code-aware follow-ups |
+| 3 | **Live Interview Session** | 🟡 Booking, blueprint prep (problems, playbooks, answer keys), room UI, proctoring | Live interviewer that runs the blueprint (paused until then) |
 | 4 | **Post-Interview Report** | 🟡 Layout ready | **Scoring contract**: per-question breakdown, strong answers, learn-next, pass mark → unlock or cooldown |
 | 5 | **University Admin Panel** | ⏳ Planned | TPO dashboard, batch roster, bulk upload, placement drives |
 | 6 | **Platform Essentials** | ✅ Google and email/password auth | Mail provider, notifications, settings, billing (Razorpay) |

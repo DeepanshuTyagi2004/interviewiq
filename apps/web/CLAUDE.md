@@ -10,7 +10,7 @@ AI-powered mock interview platform for software engineers. A voice-driven AI int
 
 **Why the platform exists:** Real interview practice is scarce, expensive, and inconsistent. Existing tools (Pramp, Interviewing.io) are peer-based and English-fluent-defaulting; LeetCode is solo and doesn't simulate interviews. InterviewIQ gives every candidate unlimited, company-specific, voice-based mock interviews with a personalized AI interviewer.
 
-**The full candidate journey and the scoring rules** (per-JD loop dashboard, editable rounds where an edited loop is standalone, pass thresholds, retake cooldown, readiness levels, Interview-ready status and the readiness report, the interview score (there is no profile score), leaderboards) are in the root `CLAUDE.md`, under *Product vision* and *Scoring, round gating & readiness*. No badges: readiness is never shown as a badge or certificate, or worded to imply company endorsement. Read them before building any of those screens.
+**The full candidate journey and scoring rules** are in the root `CLAUDE.md`, under *Product vision* and *Scoring, round gating & readiness*. The 2026-10-04 approved Profile score beta is separate from Interview score, descriptive synthesis and readiness; see `apps/api/docs/profile-scoring-beta.md`. No badges: readiness is never shown as a badge or certificate, or worded to imply company endorsement. Read these rules before building those screens.
 
 ---
 
@@ -45,7 +45,7 @@ Services still deploy and scale independently; the monorepo only shares tooling 
 
 ## Current focus: Profile Builder (Module 01)
 
-The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary. The summary itself carries no scores or ranks, and there is no profile score: sources describe the candidate, they don't score them (see the root `CLAUDE.md`).
+The Profile Builder normalizes sources into a **descriptive** profile summary, which still carries no scores or ranks. A separate approved Profile score beta uses minimized evidence through its own contracts (see the root `CLAUDE.md` and `features/profile-scoring`).
 
 **Data flow:**
 1. User connects sources (OAuth for GitHub, paste/upload for resume + LeetCode)
@@ -88,10 +88,8 @@ The first major feature being built. Takes raw user data from multiple sources, 
 
 **V2 — Phase 2 (deferred):**
 
-4. **LinkedIn** — API locked down post-2023 (no posts, no activity). Options: OAuth-for-verification-only, Proxycurl paid service ($0.01-0.10/lookup), or manual paste-in. Avoid OSS scrapers (TOS + account ban risk).
-5. **HackerRank** — No public API. Certifications (Python, SQL) + star ratings per domain are the value. Monthly refresh.
-6. **Codeforces** — Clean public API. Rating + tier + contests + tag-wise solves. Niche audience (top-tier college CP enthusiasts).
-7. **X/Twitter** — Paid API only since 2023. Recommend storing handle for link-out, no extraction at MVP. Add only if a clear use case emerges.
+4. **LinkedIn** — Built as a user-uploaded LinkedIn **Save to PDF** import (2026-10-04): free, nothing fetched from LinkedIn, profile sections only (no posts). Why not the alternatives: the official API exposes no career history or posts; Proxycurl shut down in 2025 after LinkedIn sued it; Firecrawl gates profile pages behind a person-data "enrichment" opt-in that returns a data-broker record, not the page. Don't reintroduce scraping or third-party LinkedIn data providers without the human. See `apps/api/docs/linkedin-import.md`.
+5. **Coding platforms** — Codeforces, CodeChef, AtCoder and takeUforward (TUF), connected by handle on the Connections page (`/api/v1/connections/platforms`). X/Twitter was dropped as a source (2026-10-06); don't re-add it without the human.
 
 ---
 
@@ -289,7 +287,7 @@ These are pending and should be raised with the human, not chosen autonomously:
 
 ## Working principles
 
-**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". The interview score is shown alongside the summary, comes from a separate contract, and must be explainable. There is no profile score.
+**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". Profile score beta and Interview score have separate explainable contracts; in the beta, every part is expected at the user's level in proportion to its weight and the score is a plain weighted sum, so a missing part counts as 0 (including when its AI assessment failed or has not run; an older assessment is never reused as a fallback); *core* parts are the ones nothing else stands in for (see `apps/api/docs/profile-scoring-v5.md`). Never present the beta as a validated hiring assessment.
 
 **Evidence on every claim.** If the synthesis says someone uses Python, the evidence string names the sources (GitHub bytes, LeetCode preference, resume claim). Users should always be able to ask "why does my profile say this?" and get a traceable answer.
 

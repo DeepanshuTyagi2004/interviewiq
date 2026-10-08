@@ -34,7 +34,7 @@ The target end-to-end flow. Much of it is not built yet; `docs/PROJECT_OVERVIEW.
 7. **Post-interview analysis:** what a strong answer would have been, which topics to learn, and an **overall score** for the round.
 8. **Round gating:** score ≥ the round's pass threshold → the next round unlocks. Below it → **retake after a 1–2 week cooldown**.
 9. **Readiness, not badges.** Each target JD has a **readiness level** (e.g. Getting started → Progressing → Nearly ready → **Interview-ready**) that rises as rounds of the unedited loop are cleared. Clearing every round makes the user **Interview-ready** for that JD and unlocks a shareable **readiness report** (rounds, scores, strengths, practice history).
-10. **One score on the profile: the interview score** (from interviews taken). **Global leaderboards** on it, plus other competitive features. There is **no profile score**: connected sources shape the descriptive summary and the interviewer's context, never a number.
+10. **Separate profile and interview scores.** The approved profile-scoring beta evaluates local evidence under the shared eight-level enum, with coverage; source data is taken as correct (no confidence weighting; the user fixes what is wrong). The user selects one current profile level; scoring uses that choice, while the target JD remains independent. Interview aggregation remains separate and unfinished. Profile rankings are opt-in and same-level, never global cross-level comparisons. See `apps/api/docs/profile-scoring-beta.md`.
 
 ---
 
@@ -44,14 +44,14 @@ The target end-to-end flow. Much of it is not built yet; `docs/PROJECT_OVERVIEW.
 interviewiq/
   apps/web/          Next.js 16 frontend (student app + TPO admin + marketing)
   apps/api/          Node.js / Express 5 / TypeScript backend (was Spring Boot — same HTTP contract)
-  apps/ai-service/   Python FastAPI — ALL LLM logic (briefs, résumé parse, interview prep, live agent)
+  apps/ai-service/   Python FastAPI — ALL LLM logic (briefs, résumé parse, problem bank, interview blueprints)
   packages/contracts/openapi.yaml   source of truth for web ↔ api ↔ ai-service
   infra/             docker-compose (local stack) + env template
 ```
 
 Tooling: **pnpm workspaces + Turborepo** for the JS apps; the Python service keeps `requirements.txt` + its own venv (a thin `package.json` lets `turbo` run its dev/test). Each app still deploys independently. Git history of the three former repos is preserved under their `apps/*` paths.
 
-**Data layer (API):** Postgres (**Supabase** in prod) for the relational core — users, refresh tokens, companies, JDs, role configs, interview sessions, GitHub/LeetCode connections — via Drizzle ORM, same table/column names Hibernate created. MongoDB (**Atlas** in prod) for documents — candidate profiles, profile fragments, live-session outcomes. **AI service:** MongoDB (Atlas), its own database. Local dev runs both databases in Docker (`pnpm db:up`).
+**Data layer (API):** Postgres (**Supabase** in prod) for the relational core — users, refresh tokens, companies, JDs, role configs, interview sessions, GitHub/LeetCode connections — via Drizzle ORM, same table/column names Hibernate created. MongoDB (**Atlas** in prod) for documents — candidate profiles, profile fragments, the problems each candidate was already given (`blueprint_seen`). **AI service:** MongoDB (Atlas), its own database. Local dev runs both databases in Docker (`pnpm db:up`).
 
 ---
 
@@ -75,7 +75,7 @@ Tooling: **pnpm workspaces + Turborepo** for the JS apps; the Python service kee
 
 ## Current focus: Profile Builder (Module 01)
 
-The first major feature being built. Takes raw user data from multiple sources, normalizes it, and synthesizes a **descriptive** profile summary. The summary itself carries no scores or ranks, and there is no profile score: sources describe the candidate, they don't score them (see *Scoring, round gating & readiness*).
+The Profile Builder normalizes sources into a **descriptive** profile summary. That summary still carries no scores or ranks. The separately approved profile-scoring beta consumes minimized local evidence through its own contract, never through synthesis (see *Scoring, round gating & readiness*).
 
 **Data flow:**
 1. User connects sources (OAuth for GitHub, paste/upload for resume + LeetCode)
@@ -102,6 +102,10 @@ The first major feature being built. Takes raw user data from multiple sources, 
 5. University Admin Panel (TPO dashboard, roster, drives)
 6. Platform Essentials (auth, billing, settings, notifications)
 
+**Problem bank (built 2026-10-07):** the AI service's question bank is the index of what has been asked (community datasets + our briefs; titles, URLs, tags) plus content per problem. DSA content is source-grounded: a reworded statement, the source's two validated examples, hints, follow-ups and tags, status `verified`; no solutions are stored in the bank. Design, LLD, behavioural and HR content is ours, status `generated`. **Nothing unverified is ever stored** (the repository refuses it). Company tags carry `reported`/`inferred` evidence. See `apps/ai-service/docs/question-bank.md`.
+
+**Interview blueprint (built 2026-10-07; replaced the old InterviewPlan and the live voice agent, both deleted):** booking a round starts prep at once. The AI service builds a blueprint: problems chosen deterministically from the bank by company, JD and round (never one the candidate already got), answer keys built at prep time and cached per problem (DSA solutions sandbox-checked against the source examples), persona and timed arc, per-question playbooks with condition → action branches from a fixed vocabulary, versioned policies, and evaluation signals. The candidate sees only progress steps and a briefing (interviewer, format, duration), never topics, problems or difficulty. A reconcile job re-prepares ready sessions whose inputs change, until 30 minutes before the slot; a prep that fails for infrastructure reasons is re-run automatically (twice per hour) before the candidate sees "we couldn't prepare". `apps/api/scripts/dev/bench-blueprints.ts` runs the prep audit (personas × researched JDs × round types); run it after changing selection, prompts or the bank, then `apps/ai-service/scripts/judge_blueprints.py` to have Gemini judge the results as a senior interviewer at that company would (realism, level fit, one company per interview, grounding, branch logic, hints, keys, flow). Prep LLM calls go to Gemini first (`GEMINI_API_KEY`, paid) and fall back to the free-tier Groq chain. A coding or design round whose description includes a behavioural part (Amazon's "Coding + Leadership Principles") also asks two principle questions, first. Live interviews stay closed (`LIVE_INTERVIEWER_AVAILABLE=false`) until the live interviewer is rebuilt on the blueprint. Admins diagnose every run in Intelligence → Interview prep. Spec: `docs/superpowers/specs/2026-10-07-interview-blueprint-design.md`.
+
 **Full vision (16 modules — Phase 2+):** add Job Discovery & Gap Analysis, Adaptive Q&A Intelligence, Voice Conversation Engine refinements, Live Coding Environment, Integrity & Anti-Cheating, Community/Leaderboards (global interview-score boards), Hiring Partner Integration (exclusive openings, automated early-stage hiring), Analytics & Insights, Notifications Engine, Platform & Infrastructure (operational module).
 
 ---
@@ -110,7 +114,7 @@ The first major feature being built. Takes raw user data from multiple sources, 
 
 **V1 — Primary (MVP):**
 
-1. **GitHub** — GraphQL API (backend collector, `apps/api/src/integrations/github`). Extract: languages by byte count, account age, top 5–10 active repos, profile README, yearly contribution graph, external PR/issue contributions. Skip: fork counts, total commits (bot-inflated), tutorial repos (detect via README patterns). Weekly refresh.
+1. **GitHub** — GraphQL API (backend collector, `apps/api/src/integrations/github`). Extract: languages by byte count, account age, top 5–10 active repos, profile README, yearly contribution graph, external PR/issue contributions, merged PRs to other people's public repositories (open-source scoring). Skip: fork counts, total commits (bot-inflated), tutorial repos (detect via README patterns), anything private. Weekly refresh.
 
 2. **LeetCode** — No official API. Sourcing TBD (scrape vs paste-in). Extract: total solved + difficulty split, topic-wise solve count, contest rating + percentile, acceptance rate, recent submission activity, streak data. Skip: star counts, premium status, single-problem solve times. Bi-weekly refresh.
 
@@ -118,10 +122,8 @@ The first major feature being built. Takes raw user data from multiple sources, 
 
 **V2 — Phase 2 (deferred):**
 
-4. **LinkedIn** — API locked down post-2023 (no posts, no activity). Options: OAuth-for-verification-only, Proxycurl paid service ($0.01-0.10/lookup), or manual paste-in. Avoid OSS scrapers (TOS + account ban risk).
-5. **HackerRank** — No public API. Certifications (Python, SQL) + star ratings per domain are the value. Monthly refresh.
-6. **Codeforces** — Clean public API. Rating + tier + contests + tag-wise solves. Niche audience (top-tier college CP enthusiasts).
-7. **X/Twitter** — Paid API only since 2023. Recommend storing handle for link-out, no extraction at MVP. Add only if a clear use case emerges.
+4. **LinkedIn** — Built as a user-uploaded LinkedIn **Save to PDF** import (2026-10-04): free, nothing fetched from LinkedIn, profile sections only (no posts). Why not the alternatives: the official API exposes no career history or posts; Proxycurl shut down in 2025 after LinkedIn sued it; Firecrawl gates profile pages behind a person-data "enrichment" opt-in that returns a data-broker record, not the page. Don't reintroduce scraping or third-party LinkedIn data providers without the human. See `apps/api/docs/linkedin-import.md`.
+5. **Coding platforms (built 2026-10-05):** Codeforces (official API), AtCoder (history JSON + AtCoder Problems), CodeChef (public profile page) and takeUforward/TUF (profile page + public profile API; linked LeetCode/Codeforces/etc. handles auto-connect). One handle-based connection (`platform_connection`, `/api/v1/connections/platforms`), weekly refresh, hash-skip. Analyzer specs: `apps/api/docs/sources/platform-analyzers.md`. HackerEarth has no public source and is not collected. X/Twitter was dropped as a source (2026-10-06); don't re-add it without the human.
 
 ---
 
@@ -176,7 +178,9 @@ The Python synthesis service produces this JSON. The frontend consumes it direct
 Scores are part of the product (see *Product vision*), with these guardrails:
 
 - **Separate contracts.** The interview score, per-round results, readiness levels, readiness reports and leaderboards live outside the descriptive `ProfileSummary`. The profile page shows both: the descriptive summary and the interview score.
-- **No profile score.** Dropped 2026-10-02 (product decision). Connected sources never produce a score, rank or leaderboard; they only feed the descriptive summary and the interviewer's context. Don't add one back without the human.
+- **Approved profile-scoring beta.** The human reversed the no-profile-score decision and authorized configurable provisional rules. Current v2 scoring uses the shared eight levels; old six-rubric v1 snapshots remain replayable. Scoring has separate contracts, reproducible snapshots, coverage and opt-in same-level rankings. v5 takes source data as correct: no confidence weighting; the score is a plain weighted sum in which every part is expected at the level in proportion to its weight, so a missing, failed or not-found part or sub-feature counts as 0 (interchangeable signals from different platforms are alternatives); and there is no minimum coverage for the opt-in leaderboard (`apps/api/docs/profile-scoring-v5.md`). It never changes interview results or readiness. Methodology is in `apps/api/docs/profile-scoring-beta.md`; advanced source/achievement verification remains deferred.
+- **JD fit (approved 2026-10-06).** Each role card shows how closely the user's resume, GitHub and coding profiles match that JD ("72% match"): skills, domain, role, experience and round topics, weighted by the JD's level. It's a separate contract, fit only (the profile score is never blended in), rules only (keyword dictionary, no LLM; LLM tagging may come later behind a flag), computed on request and never stored. LinkedIn isn't read. A missing user source counts 0; a part the JD gives nothing for is dropped. Broad DSA rounds ("Data structures", a DSA round with no topic) score on total problems solved; a generic company sector falls back to domains named in the JD's text; a missing or track-name specialization is a generalist role; a job at a catalogue company counts toward that company's (specific) sector; skills can be shown by implying skills or by the role's work (backend → HTTP/APIs). `apps/api/scripts/dev/` seeds 28 fabricated persona accounts and audits the full persona × JD matrix; run the audit after changing the dictionary or targets. Practice templates carry their level's typical experience range, labelled "typical for level", and never pay. A JD 2+ levels above the user's level is capped at 40 and labelled a stretch role; a JD below the user's level is multiplied by 0.85 (one level) or 0.7 (two or more), and experience above a JD's range decays to a 0.5 floor. It never affects interview results, gating, readiness or leaderboards, and is never worded as eligibility (`apps/api/docs/jd-fit.md`).
+- **One engineering-level enum everywhere.** Values: `intern`, `fresher`, `sde1`, `sde2`, `sde3`, `staff`, `principal`, `distinguished`. Onboarding/profile, company JDs, process creation/editing, experiences and scoring share this enum. Current profile level is one persisted choice, never inferred from or replaced by a target JD. No free-form level writes. Known legacy aliases normalize on reads; unknown old labels remain unset with repair metadata. Do not rewrite booked identities or frozen snapshots. Log levels and verbatim research seniority evidence are not engineering user-choice enums.
 - **Explainable.** Every score must be traceable to its inputs (which answers, which rubric criteria), the same way every profile claim carries evidence. A user should always be able to ask "why is my score this?" and get an answer.
 - **Official loops only.** Only interviews from an unedited, suggested loop count toward loop progress, the readiness level and Interview-ready status. Edited loops are standalone.
 - **Gating is server-enforced.** The API enforces pass thresholds, the retake cooldown and round unlocks; the UI only reflects them. Interview-ready status and readiness reports feed the hiring pitch to companies, so they must be trustworthy.
@@ -282,7 +286,7 @@ These are pending and should be raised with the human, not chosen autonomously:
 
 ## Working principles
 
-**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". The interview score is shown alongside the summary, comes from a separate contract, and must be explainable. There is no profile score.
+**Describe in the summary, score separately.** The profile summary describes what the data shows. It doesn't grade, rank, or compare candidates: "412 problems solved (78 Easy, 268 Medium, 66 Hard)", not "above-average solver". Interview results and the approved beta Profile score have separate explainable contracts. Never merge those scores or portray the beta as a validated hiring assessment.
 
 **Evidence on every claim.** If the synthesis says someone uses Python, the evidence string names the sources (GitHub bytes, LeetCode preference, resume claim). Users should always be able to ask "why does my profile say this?" and get a traceable answer.
 

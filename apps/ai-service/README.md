@@ -6,9 +6,9 @@ lives here.
 
 Currently implements the **interview-intelligence pipeline**: scrape interview
 experiences → extract structured signals with a local LLM → synthesize per
-company+role+level briefs → serve them to the backend. The voice interview agent and
-profile synthesis are stubbed (`app/interview_agent/`, `app/profile_synthesis/`) so
-the structure already reflects the service's full intended scope.
+company+role+level briefs → serve them to the backend. It also holds the problem bank
+(`app/questions/`) and builds interview blueprints (`app/blueprint/`). Profile synthesis is stubbed
+(`app/profile_synthesis/`); the live interviewer that will run blueprints is the next phase.
 
 ## Layout
 
@@ -23,7 +23,8 @@ app/
   prompts/             extraction + synthesis prompt templates (versioned)
   jobs/                extraction, synthesis, pipeline orchestration, scheduler
   api/                 FastAPI routes + admin (run/status, submit experience) + key dep
-  interview_agent/     STUB — future live voice interview agent
+  questions/           problem bank: collectors, index, per-problem content
+  blueprint/           interview blueprints: selection, answer keys, persona, playbooks, policies, runs + trace
   profile_synthesis/   STUB — future candidate profile synthesis
 tests/                 self-checks (run: python -m tests.test_json_parse)
 ```
@@ -68,39 +69,27 @@ uvicorn app.main:app --reload --port 8000
 - `GET /health` — public; reports MongoDB + LLM connectivity.
 - `GET /briefs/{company}/{role}/{level}` — internal key; the pre-generated brief, or 404.
 - `GET /experiences/{company}/{role}/{level}` — internal key; paginated raw experiences + signals.
-- `POST /interview-plans` — internal key; build (or return the cached) `InterviewPlan` for a
-  session (Interview Prep, Pipeline 1). Cache-gated on a fused input hash, so an identical
-  re-request returns the stored plan with **no LLM calls**. Body + response shapes are the
-  `GenerateInterviewPlanRequest` / `InterviewPlan` schemas in `interviewiq-infra`'s
-  `contracts/openapi.yaml`.
+- `POST /blueprints/runs` — internal key; start a session's blueprint run (one running run per
+  session; a second start returns the live one). `GET /blueprints/runs/{id}` (compact status),
+  `POST /blueprints/runs/{id}/cancel`, `GET /blueprints/sessions/{session_id}[?version=N]`.
+- `/admin/blueprints/*` — internal key; diagnostics for the admin "Interview prep" tab: run list and
+  full trace, bench runs, re-runs, versions, diffs, cached answer keys.
+- `POST /linkedin/parse` — internal key; raw body of the candidate's LinkedIn "Save to PDF" file
+  (`Content-Type: application/pdf`, up to 5 MB). Rejects PDFs that aren't LinkedIn's export
+  (`422 linkedin_pdf_unrecognized`) or have no text layer (`422 linkedin_pdf_unreadable`), redacts
+  emails and page footers, then applies the exact-quote evidence gate to one LLM extraction. The
+  file and its text are never stored or logged. Nothing is fetched from LinkedIn.
 
 Internal endpoints require the `X-Internal-Api-Key` header.
 
-**Interview prep** lives in `app/interview_prep/` (context → generate → pipeline), with
-`app/llm/structured.py` (an Instructor-style validate-and-repair wrapper over `LLMClient`, no new
-dependency) and `app/obs/` (an **optional** Langfuse span helper — a no-op unless `LANGFUSE_ENABLED`
-and keys are set; `langfuse` is intentionally NOT in `requirements.txt`). The three prompt modules
-in `app/interview_prep/prompts/` are **scaffolds** — the real interviewer-voice text is product IP,
-drafted by a human. Bump each `*_PROMPT_VERSION` (recorded on the stored plan) when they change.
-
-**Published company enrichment in prep.** The backend may supply optional `companyBrief` on
-`GenerateInterviewPlanRequest`. It is validated and preferred over the legacy Mongo brief; absent/null
-retains the existing lookup. Supplied company, role, level and non-null specialization must match the
-session. Internal-key authentication still applies. This brief never supplies or changes the candidate
-profile. Its overview and only matching-round topics, questions and guidance (`format`) enter grounding.
-Backend round values (`dsa`, `system-design`, `lld`, `behavioural`, `hiring-manager`) match Python exactly.
-The matching round's `duration_minutes` becomes `round.durationMinutes`; generated arc timings are
-proportionally fitted to that duration. If several rounds share a type, their signals are unioned and
-the first configured duration is used for the single session (never a sum across interviews).
-
-The versioned prep cache key includes publication revision and validated brief content as well as the
-existing inputs, so edits invalidate a cached plan even with an unchanged timestamp. Persona prompt
-`v5-published-brief-draft` explicitly consumes guidance and duration and requires human review before
-production use. Checks can isolate local dotenv settings without changing any files:
-
-```sh
-.venv/bin/python -c 'from app.config import Settings; Settings.model_config["env_file"] = None; import pytest; raise SystemExit(pytest.main(["-q"]))'
-```
+**Interview blueprints** live in `app/blueprint/` (spec:
+`docs/superpowers/specs/2026-10-07-interview-blueprint-design.md`). A run goes context → selection
+(deterministic, `selection.py`) → answer keys (cached per problem, DSA solutions sandbox-checked) →
+persona → personalization → playbooks (one LLM call per slot) → policies (template) → assemble +
+validate, recording every stage and LLM call in `blueprint_runs`. Prompts (`prompts.py`), the
+policies template (`policies.py`), the topic dictionary (`topics.py`) and the selection weights are
+product-IP drafts for human review. `app/obs/` is an **optional** Langfuse span helper (a no-op unless
+`LANGFUSE_ENABLED` and keys are set).
 
 ## Swapping the LLM
 
@@ -166,6 +155,16 @@ collection and live interview flows are independent. Only the overview runner is
 - `record`: live, and every response is saved to `RESEARCH_FIXTURES_DIR` (gitignored; the files are real web text).
 - `replay`: serves the saved responses, so a run is free, deterministic and offline.
 
+**Gemini first (paid key).** Set `GEMINI_API_KEY` (comma-separated keys rotate) and every routed call (research,
+question-bank content, profile scoring and interview blueprints) goes to Gemini first over the native
+`generateContent` API (`app/llm/gemini_client.py`): `GEMINI_MODEL_NAME` (default `gemini-3.8-flash`), JSON mode,
+thought parts skipped, `GEMINI_THINKING_LEVEL` (default `low`), and its own output budget
+(`GEMINI_MAX_OUTPUT_TOKENS`, 8192; the smaller per-caller caps exist for Groq's per-minute ledger). The key travels
+in the `x-goog-api-key` header, never the URL or logs; a 429 cools a key, a 401/403 quarantines it, and a truncated
+or non-JSON reply gets one repair on the same key. Gemini gets at most 60% of the caller's deadline, then the chain
+below answers. With Gemini set, the research cache identity leads with Gemini (`fallback_route` holds the chain), so
+Gemini and Groq answers never share cache entries; without it every identity is unchanged.
+
 **Research LLM routing.** Set optional `GROQ_API_KEY` to a comma-separated list of Groq keys
 (whitespace and duplicates are removed) to use Groq as the research runner/CLI's primary provider.
 Each eligible key is attempted for `GROQ_MODEL_NAME`, then for each optional model in
@@ -173,7 +172,8 @@ Each eligible key is attempted for `GROQ_MODEL_NAME`, then for each optional mod
 configuration. `GROQ_FALLBACK_MODELS` is comma-separated, trimmed and deduplicated in order;
 unset or blank defaults to an empty list and preserves the primary model. Empty or unset
 `GROQ_API_KEY` skips Groq; leaving Cloudflare unconfigured too preserves the existing provider behavior. This routing
-is research-only; résumé parsing, prep, live interviews and other LLM callers keep their existing configuration.
+also serves question-bank content, profile scoring and interview blueprints (each with its own deadline and output
+cap); résumé parsing and other `build_llm_client` callers keep their existing configuration.
 
 The default `GROQ_MODEL_NAME=openai/gpt-oss-120b` is selected from
 [Groq's official production models](https://console.groq.com/docs/models).
