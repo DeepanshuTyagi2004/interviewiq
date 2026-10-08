@@ -21,8 +21,6 @@ def _settings(**kw) -> Settings:
         _env_file=None, EXA_API_KEY="test-exa", MONGODB_URL="mongodb://localhost/test",
         INTERNAL_API_KEY="test-internal", LLM_API_KEY="test-google", LLM_MODEL_NAME="test-model",
         LLM_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai",
-        LIVEKIT_URL="wss://test.livekit.cloud", LIVEKIT_API_KEY="test-livekit",
-        LIVEKIT_API_SECRET="test-secret", DEEPGRAM_API_KEY="test-deepgram",
         GROQ_API_KEY=[], GROQ_MODEL_NAME="openai/gpt-oss-120b", GROQ_FALLBACK_MODELS=[],
         GROQ_BASE_URL="https://api.groq.com/openai/v1",
         CLOUDFLARE_API_TOKEN="", CLOUDFLARE_ACCOUNT_ID="",

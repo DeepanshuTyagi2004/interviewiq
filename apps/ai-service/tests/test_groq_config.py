@@ -7,9 +7,7 @@ from app.config import Settings
 def _settings(**kwargs):
     return Settings(
         _env_file=None, EXA_API_KEY="test-exa", MONGODB_URL="mongodb://localhost/test",
-        INTERNAL_API_KEY="test-internal", LLM_API_KEY="test-google", LLM_MODEL_NAME="test-model",
-        LIVEKIT_URL="wss://test.livekit.cloud", LIVEKIT_API_KEY="test-livekit",
-        LIVEKIT_API_SECRET="test-secret", DEEPGRAM_API_KEY="test-deepgram", **kwargs,
+        INTERNAL_API_KEY="test-internal", LLM_API_KEY="test-google", LLM_MODEL_NAME="test-model", **kwargs,
     )
 
 

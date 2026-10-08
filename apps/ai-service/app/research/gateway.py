@@ -59,7 +59,17 @@ def _endpoint_identity(url: str) -> str:
 
 
 def _routing_identity(settings: Settings) -> dict:
-    # Construct from configuration so replay (which has no live client) hashes identically.
+    """Construct from configuration so replay (which has no live client) hashes identically. A configured
+    Gemini key answers first, so it leads the identity; without it every identity is unchanged."""
+    base = _chain_identity(settings)
+    if getattr(settings, "gemini_api_keys", None):
+        gemini = {"provider": "gemini", "model": settings.gemini_model,
+                  "base_url": _endpoint_identity(settings.gemini_base_url)}
+        return {"primary": gemini, "fallback_route": base}
+    return base
+
+
+def _chain_identity(settings: Settings) -> dict:
     fallback = {
         "provider": "google" if urlsplit(settings.llm_base_url).hostname == "generativelanguage.googleapis.com"
         else "openai-compatible",

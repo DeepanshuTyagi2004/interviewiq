@@ -140,7 +140,7 @@ class LLMResult:
 
 class LLMClient:
     def __init__(self, *, base_url: str, api_keys: list[str], model: str, timeout_seconds: float,
-                 provider: str | None = None):
+                  provider: str | None = None):
         if not api_keys:
             raise LLMError("LLM_API_KEY is not set. Refusing to start.")
         self._url = base_url.rstrip("/") + "/chat/completions"
@@ -282,20 +282,7 @@ class LLMClient:
                             cool_for = _TRANSPORT_BACKOFF_SECONDS
                         else:
                             thought = extract_thought(content)
-                            # Additive diagnostics tap: record the raw <thought> against this op's
-                            # label. Lazy import + broad except so the LLM path can NEVER be
-                            # affected — no-op unless an agent-diag session is bound (production
-                            # run_session binds nothing, so record_thought's contextvar is None).
                             _llm_ms = int((time.monotonic() - _t0) * 1000)
-                            try:
-                                from app.interview_agent import diagnostics_emit as _emit
-                                _emit.record_thought(label, thought)
-                                _emit.record_llm_io(label, system, user, content)
-                                _emit.record_llm_timing(label, _llm_ms,
-                                                        _usage.get("prompt_tokens"),
-                                                        _usage.get("completion_tokens"))
-                            except Exception:  # noqa: BLE001 — diagnostics must never break the call
-                                pass
                             _model = _body.get("model")
                             return LLMResult(
                                 data=data, thought=thought, content=content, usage=_usage,
@@ -347,3 +334,13 @@ def build_research_llm_client(settings: Settings) -> LLMClient:
     from app.llm.research_client import ResearchLLMClient
 
     return ResearchLLMClient(settings)
+
+
+def build_profile_scoring_llm_client(settings: Settings, *, max_output_tokens: int | None = None) -> LLMClient:
+    """Profile scoring: Groq first (GROQ_MODEL_NAME, then GROQ_FALLBACK_MODELS), then Cloudflare,
+    then Google, with profile-scoring limits so one assessment answers in seconds, not minutes."""
+    from app.llm.research_client import ResearchLLMClient
+
+    return ResearchLLMClient(settings, deadline_seconds=settings.profile_scoring_llm_deadline_seconds,
+                             groq_stage_seconds=settings.profile_scoring_groq_stage_seconds,
+                             max_output_tokens=max_output_tokens or settings.profile_scoring_max_output_tokens)

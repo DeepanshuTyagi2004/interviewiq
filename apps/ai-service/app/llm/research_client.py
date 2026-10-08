@@ -1,4 +1,4 @@
-"""Deadline-bounded research routing: Groq models -> Cloudflare -> Google.
+"""Deadline-bounded routing: Gemini (when GEMINI_API_KEY is set) -> Groq models -> Cloudflare -> Google.
 
 Quota reservations and circuits persist across calls on the shared research client.
 Provider order and the legacy LLMClient's other workflows are unchanged.
@@ -14,6 +14,7 @@ import httpx
 from app.config import Settings
 from app.llm.cloudflare_client import CloudflareLLMClient
 from app.llm.client import LLMClient, LLMError, LLMResult, extract_thought
+from app.llm.gemini_client import GeminiClient
 from app.llm.research_google import ResearchGoogleClient, decode_response, event, finish_reason
 from app.llm.research_quota import QuotaLedger, Reservation, retry_seconds
 
@@ -26,13 +27,21 @@ class _Call:
 
 
 class ResearchLLMClient(LLMClient):
-    def __init__(self, settings: Settings):
+    """Groq-first routing. Research uses the research limits; other callers (profile scoring) can pass
+    their own deadline, Groq stage budget and output cap without changing research behaviour."""
+
+    def __init__(self, settings: Settings, *, deadline_seconds: float | None = None,
+                 groq_stage_seconds: float | None = None, max_output_tokens: int | None = None):
         keys = list(dict.fromkeys(k.strip() for k in settings.groq_api_keys if k.strip()))
         models = list(dict.fromkeys(model.strip() for model in
                                    [settings.groq_model, *settings.groq_fallback_models] if model.strip()))
         cloudflare_enabled = bool(settings.cloudflare_api_token.strip() and settings.cloudflare_account_id.strip())
-        if not keys and not settings.llm_api_keys and not cloudflare_enabled:
-            raise LLMError("No research LLM keys configured (GROQ_API_KEY, Cloudflare or LLM_API_KEY).")
+        gemini_keys = [k for k in (getattr(settings, "gemini_api_keys", None) or []) if k.strip()]
+        if not keys and not settings.llm_api_keys and not cloudflare_enabled and not gemini_keys:
+            raise LLMError("No research LLM keys configured (GEMINI_API_KEY, GROQ_API_KEY, Cloudflare or LLM_API_KEY).")
+        # A paid Gemini key answers first; the free-tier chain below is its fallback.
+        self._gemini = GeminiClient(settings, max_output_tokens=max_output_tokens or settings.research_max_output_tokens) \
+            if gemini_keys else None
         self._groq_clients = [LLMClient(
             base_url=settings.groq_base_url, api_keys=keys, model=model,
             timeout_seconds=settings.groq_timeout_seconds, provider="groq",
@@ -41,9 +50,11 @@ class ResearchLLMClient(LLMClient):
         self._cloudflare = CloudflareLLMClient(settings) if cloudflare_enabled else None
         self._fallback = ResearchGoogleClient(settings) if settings.llm_api_keys else None
         self._quarantined: set[int] = set()
-        self._deadline = settings.research_llm_deadline_seconds
-        self._groq_stage_seconds = min(25.0, settings.research_groq_stage_seconds)
-        self._max_tokens = settings.research_max_output_tokens
+        self._deadline = deadline_seconds or settings.research_llm_deadline_seconds
+        self._groq_stage_seconds = groq_stage_seconds or min(25.0, settings.research_groq_stage_seconds)
+        self._max_tokens = max_output_tokens or settings.research_max_output_tokens
+        self._bytes_per_token = getattr(settings, "groq_bytes_per_token", 3.0) or 3.0
+        self._reasoning_effort = getattr(settings, "groq_reasoning_effort", "") or ""
         self._quotas = {
             model: [QuotaLedger(settings.research_groq_tpm, settings.research_groq_rpm) for _ in keys]
             for model in models
@@ -51,8 +62,11 @@ class ResearchLLMClient(LLMClient):
 
     @property
     def routing_identity(self) -> dict:
+        policy = "groq-cloudflare-google-v1" if self._cloudflare else "groq-first-v1"
         return {
-            "policy": "groq-cloudflare-google-v1" if self._cloudflare else "groq-first-v1",
+            # Without Gemini the identity is unchanged, so existing research caches and fixtures still match.
+            "policy": f"gemini-{policy}" if self._gemini else policy,
+            **({"gemini": self._gemini.routing_identity} if self._gemini else {}),
             "primary": {**self._primary.routing_identity,
                         "models": [client._model for client in self._groq_clients]} if self._primary else None,
             "fallback": self._fallback.routing_identity if self._fallback else None,
@@ -61,7 +75,7 @@ class ResearchLLMClient(LLMClient):
 
     async def aclose(self) -> None:
         try:
-            await asyncio.gather(*(client.aclose() for client in self._groq_clients))
+            await asyncio.gather(*(client.aclose() for client in [*self._groq_clients, *([self._gemini] if self._gemini else [])]))
         finally:
             try:
                 if self._cloudflare is not None:
@@ -109,7 +123,12 @@ class ResearchLLMClient(LLMClient):
                 prompt = f"{system}\n\n{user}\n\nReturn a valid JSON object."
                 if repairing:
                     prompt += " Return only one concise, complete JSON object; no prose or markdown."
-                estimate = (len(prompt.encode("utf-8")) + 2) // 3 + 32 + self._max_tokens
+                estimate = int(len(prompt.encode("utf-8")) / self._bytes_per_token) + 1 + 32 + self._max_tokens
+                if all(estimate > ledger.tpm for ledger in self._quotas[primary._model]):
+                    # Larger than a key's whole per-minute budget: no amount of waiting reserves it.
+                    call.reason = "prompt_too_large"
+                    event("groq", primary._model, "skipped", None, call.attempts, call.reason)
+                    break
                 key, reservation, wait = self._acquire_primary_key(
                     attempted, primary, estimate, call, repair_key=repair_key)
                 if key is None:
@@ -132,7 +151,9 @@ class ResearchLLMClient(LLMClient):
                         primary._url, headers={"Authorization": f"Bearer {primary._keys[key]}"},
                         json={"model": primary._model, "messages": [{"role": "user", "content": prompt}],
                               "temperature": .2, "response_format": {"type": "json_object"},
-                              "max_completion_tokens": self._max_tokens},
+                              "max_completion_tokens": self._max_tokens,
+                              **({"reasoning_effort": self._reasoning_effort}
+                                 if self._reasoning_effort and primary._model.startswith("openai/gpt-oss") else {})},
                     )
                 except asyncio.CancelledError:
                     quota.reconcile(reservation)
@@ -194,6 +215,19 @@ class ResearchLLMClient(LLMClient):
         call = _Call()
         try:
             async with asyncio.timeout(self._deadline):
+                if self._gemini is not None:
+                    # At most 60% of the caller's deadline, so the fallback chain still has time to answer.
+                    try:
+                        async with asyncio.timeout(self._deadline * 0.6):
+                            result = await self._gemini.complete_full(system, user, label=label)
+                    except TimeoutError:
+                        call.failures.append("gemini:stage_deadline")
+                        event("gemini", self._gemini._model, "skipped", None, call.attempts, "stage_deadline")
+                    except LLMError as exc:
+                        call.attempts += exc.attempts
+                        call.failures.append(f"gemini:{getattr(exc, 'reason', 'unavailable')}")
+                    else:
+                        return replace(result, latency_ms=int((time.monotonic() - started) * 1000))
                 try:
                     async with asyncio.timeout(self._groq_stage_seconds):
                         result = await self._groq(system, user, label, call)
@@ -203,7 +237,8 @@ class ResearchLLMClient(LLMClient):
                           call.attempts, call.reason)
                     result = None
                 if result is not None:
-                    return replace(result, latency_ms=int((time.monotonic() - started) * 1000))
+                    return replace(result, attempts=call.attempts,
+                                   latency_ms=int((time.monotonic() - started) * 1000))
                 if self._groq_clients:
                     call.failures.append(f"groq:{call.reason}")
                 for provider in (self._cloudflare, self._fallback):
