@@ -1,4 +1,5 @@
+import { AccountSettings } from "../_components/AccountSettings";
+
 export default function SettingsAccountPage() {
-  // TODO: account settings
-  return <section className="flex-1 p-8">Settings · Account</section>;
+  return <AccountSettings />;
 }

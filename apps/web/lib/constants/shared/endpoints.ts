@@ -13,4 +13,7 @@ export const AUTH_ENDPOINTS = {
 /** Current-user / platform user paths. */
 export const USER_ENDPOINTS = {
   me: "/api/v1/users/me",
+  preferences: "/api/v1/users/me/preferences",
+  sessionsRevoke: "/api/v1/users/me/sessions/revoke",
+  export: "/api/v1/users/me/export",
 } as const;
