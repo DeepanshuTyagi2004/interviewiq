@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: InterviewIQ Contract
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Source-of-truth contract for the InterviewIQ service boundaries.
 
@@ -14,12 +14,13 @@ info:
     * **internal** (`interviewiq-api` ↔ `interviewiq-ai-service`, served at :8000) —
       the service-to-service surface guarded by the `X-Internal-Api-Key` shared secret.
 
-    Interview Prep (Pipeline 1) is the surface added in 0.2.0: a candidate books an
-    interview session for a JD + round + slot; a scheduled job on the backend, a
-    configurable lead time before the slot, asks the ai-service to build an
-    `InterviewPlan` from the brief + profile + JD + question bank. This is prep ONLY —
-    no live voice loop, no post-interview scoring/debrief. The interview rubric lives
-    ONLY on `InterviewPlan`; it is never grafted onto the descriptive Profile Builder
+    Interview blueprint prep (docs/superpowers/specs/2026-10-07-interview-blueprint-design.md):
+    a candidate books an interview session for a JD + round + slot, and the backend
+    immediately asks the ai-service to prepare a `Blueprint` (problems chosen from the bank,
+    persona, timed arc, per-question playbooks with condition → action branches, answer keys,
+    policies, evaluation signals). The candidate only ever sees prep progress and a
+    `SessionBriefing`; blueprints are admin diagnostics material and never sent to a candidate.
+    The blueprint carries no scores and is never grafted onto the descriptive Profile Builder
     `ProfileSummary` contract.
 
     Email/password auth (register, login, email verification, password reset) and the
@@ -42,20 +43,466 @@ tags:
   - name: users
     description: The signed-in user.
   - name: interview-sessions
-    description: Candidate-facing interview booking + prep status (api ↔ web).
-  - name: internal-interview-prep
-    description: Service-to-service interview-plan generation (api ↔ ai-service).
+    description: Candidate-facing interview booking + blueprint prep status (api ↔ web).
+  - name: internal-blueprints
+    description: Service-to-service blueprint runs (api ↔ ai-service).
+  - name: admin-blueprints
+    description: Interview blueprint diagnostics (ADMIN only; snake_case passthrough of the ai-service).
   - name: admin-companies
     description: Curated company catalogue the research job works through (ADMIN only).
   - name: admin-research
     description: Company research runs, controls and their full trace (ADMIN only; snake_case passthrough).
   - name: internal-research
     description: Service-to-service research targets (ai-service → api).
+  - name: profile-scoring
+    description: Provisional deterministic profile assessment, separate from interviews and descriptive synthesis.
 
 paths:
-  # ------------------------------------------------------------------ #
-  # Auth (interviewiq-web ↔ interviewiq-api)                            #
-  # ------------------------------------------------------------------ #
+  /api/v1/users/me/linkedin:
+    get:
+      operationId: getLinkedInImportStatus
+      tags: [users]
+      summary: Read the owner's confirmed LinkedIn snapshot status.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Imported snapshot or disconnected status; not live sync or verified employment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInImportStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      operationId: disconnectLinkedInImport
+      tags: [users]
+      summary: Remove LinkedIn source evidence and drafts.
+      description: Details explicitly merged into the editable profile remain editable there. Fences in-flight PDF extractions from silently reconnecting the source.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Source and drafts removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { description: Another import action is in progress. }
+  /api/v1/admin/validation-controls:
+    get:
+      operationId: getAdminValidationControls
+      tags: [admin]
+      summary: Read persisted LinkedIn import validation controls.
+      description: ADMIN only. Defaults are safe and enabled. Settings affect new validation operations and do not recalculate existing scores.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current validation controls and audit metadata.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationControlsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+    patch:
+      operationId: patchAdminValidationControls
+      tags: [admin]
+      summary: Update one or more LinkedIn import validation controls.
+      description: ADMIN only. Each supplied value is a boolean. Disabling LinkedIn import stops new PDF uploads before any extraction runs.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                linkedinImportEnabled: { type: boolean }
+                requireSectionReview: { type: boolean }
+      responses:
+        "200":
+          description: Persisted controls.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationControlsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "415": { description: JSON is required. }
+  /api/v1/intelligence/profile-scoring/live:
+    post:
+      operationId: inspectLiveProfileCalculation
+      tags: [intelligence]
+      summary: Run one user's profile scoring live and stream every step (NDJSON).
+      description: >
+        ADMIN only. Runs what the weekly batch runs for one user, streaming one ProfileLiveTraceEvent per line:
+        reading stored sources, the AI-service item assessments (new or edited items; every item with
+        forceReassess) and company-context lookups, the snapshot write, and the deterministic engine with every
+        intermediate step. The last line is a `result` event (data = ProfileLiveTraceResponse) or an `error` event
+        (data = { name, message, stack }). Source collectors are never called. Full detail is kept for admin
+        debugging (names, contacts, employers, the stored profile and raw source data); credential-looking strings
+        are scrubbed and the password hash is never included.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId]
+              properties:
+                userId: { type: string, format: uuid }
+                forceReassess: { type: boolean, description: Re-send every resume item to the LLM even when unchanged. }
+      responses:
+        "200":
+          description: NDJSON stream of trace events; a stage failure arrives as an `error` event, not an HTTP error.
+          content:
+            application/x-ndjson:
+              schema: { $ref: "#/components/schemas/ProfileLiveTraceEvent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { description: User not found. }
+  /api/v1/users/me/linkedin/imports:
+    post:
+      operationId: importLinkedInPdf
+      tags: [users]
+      summary: Import the owner's LinkedIn "Save to PDF" file for review.
+      description: Consent declares ownership but does not verify it. The PDF is read once by the AI service and never stored; nothing is fetched from LinkedIn. Only files shaped like LinkedIn's Save to PDF export are accepted. Every claim must quote the PDF text. Does not publish evidence or change the profile before confirmation.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, consent]
+              properties:
+                file: { type: string, format: binary, description: The PDF from LinkedIn's Save to PDF (up to 5 MB). }
+                consent: { type: string, enum: ["true"] }
+      responses:
+        "201":
+          description: Private derived draft; review and confirm available sections.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInImportDraft" }
+        "400": { description: "File missing (linkedin_pdf_missing), consent absent (linkedin_consent_required) or malformed multipart (linkedin_import_invalid)." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: User not found. }
+        "409": { description: The import was cancelled by disconnecting LinkedIn, or another import action is busy. }
+        "413": { description: The PDF is larger than 5 MB (linkedin_pdf_too_large). }
+        "415": { description: Not multipart/form-data, or the file is not a PDF. }
+        "422": { description: "Not LinkedIn's Save to PDF file (linkedin_pdf_unrecognized), no readable text (linkedin_pdf_unreadable) or no evidenced career claims (linkedin_pdf_no_claims)." }
+        "429": { description: Owner already has three unexpired drafts. }
+        "503": { description: "LinkedIn import disabled (linkedin_import_disabled), extractor unavailable (linkedin_extractor_unavailable) or storage unavailable." }
+  /api/v1/users/me/linkedin/imports/{id}/confirm:
+    post:
+      operationId: confirmLinkedInProfileSections
+      tags: [users]
+      summary: Publish only reviewed sections, optionally merging into profile details.
+      description: Source-only by default. Optional merge fills blanks and appends deduplicated rows without changing existing human choices or engineering level. Uses draft profile revision to reject stale merges. Identical successful confirmations reuse their receipt.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sections]
+              properties:
+                sections: { type: array, minItems: 1, maxItems: 13, items: { $ref: "#/components/schemas/LinkedInSectionKey" } }
+                mergeProfile: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Confirmed source receipt and optional merged profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInImportConfirmation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Draft does not exist or belongs to another owner. }
+        "409": { description: Profile changed, conflicting prior confirmation, or import action is busy. }
+        "410": { description: Draft expired. Retrieve a new preview. }
+        "415": { description: Only JSON confirmation is supported. }
+        "503": { description: Storage could not save the confirmation. }
+  /api/v1/users/me/candidate-profile:
+    get:
+      operationId: getCandidateProfile
+      tags: [users]
+      summary: Read saved profile details and the current engineering level.
+      description: Known legacy labels normalize on read; unknown labels return null with legacyLevel metadata. Does not infer the current level from a target JD or rewrite saved identities.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Saved candidate profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateProfileResponse" }
+        "204": { description: No saved profile yet. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      operationId: saveCandidateProfile
+      tags: [users]
+      summary: Save profile details and optional current engineering level.
+      description: Omitted level preserves the previous choice. A supplied non-null level must be canonical. Drafts may have null; completing onboarding requires a supplied or previously saved recognized level.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateProfileRequest" }
+      responses:
+        "200":
+          description: Saved profile; current level is separate from target JD level.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateProfileResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/users/me/profile-score:
+    get:
+      operationId: getProfileScore
+      tags: [profile-scoring]
+      summary: Read the current beta profile assessment and frozen history.
+      description: >
+        Lazily caches a frozen assessment when local inputs, settings, privacy, methodology or UTC Monday
+        week change. No provider requests. Repeated unchanged reads do not create history. Current ranks
+        are live decorations; historical ranks are finalized once by the weekly generation.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current assessment, history and private scoring settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileScoreResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: recalculateProfileScore
+      tags: [profile-scoring]
+      summary: Recalculate the signed-in user's profile score from local evidence.
+      description: Idempotent for the same week, configuration and local input fingerprint. No interview result changes.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200":
+          description: Refreshed assessment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileScoreResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/users/me/profile-score/assess:
+    post:
+      operationId: assessProfileItems
+      tags: [profile-scoring]
+      summary: Refresh semantic sub-feature assessments for changed projects, internships and roles (v5).
+      description: >
+        Calls the AI service once per new or edited item, judged relative to the user's rubric level, which is
+        derived server-side (the body must be empty). Unchanged items are reused. Results are bounded INFERRED
+        sub-features with verbatim quoted evidence; the deterministic engine combines them on the next read.
+        Never returns or stores an overall score. Rate-limited per user; the weekly batch runs it automatically.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200":
+          description: Refresh counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assessed, reused, skipped, failed, budgetExhausted]
+                properties:
+                  assessed: { type: integer, minimum: 0 }
+                  reused: { type: integer, minimum: 0 }
+                  skipped: { type: integer, minimum: 0 }
+                  failed: { type: integer, minimum: 0 }
+                  budgetExhausted: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { description: Too many refreshes; retry later. }
+        "503": { description: Semantic assessment is not enabled (v5 policy and AI service required). }
+  /api/v1/connections/platforms:
+    get:
+      operationId: listPlatformConnections
+      tags: [connections]
+      summary: The user's coding-platform connections (Codeforces, CodeChef, AtCoder, takeUforward).
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Supported platforms and current connections.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [supported, connections]
+                properties:
+                  supported: { type: array, items: { $ref: "#/components/schemas/CodingPlatform" } }
+                  connections: { type: array, items: { $ref: "#/components/schemas/PlatformConnection" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/connections/platforms/{platform}:
+    parameters:
+      - { name: platform, in: path, required: true, schema: { $ref: "#/components/schemas/CodingPlatform" } }
+    post:
+      operationId: connectPlatform
+      tags: [connections]
+      summary: Connect a coding platform by public handle (or pasted profile URL).
+      description: >
+        Validates the handle against the platform's public data, then collects in the background (202, SYNCING;
+        poll the profile). Re-connecting re-points the connection. A takeUforward import also connects the
+        LeetCode/Codeforces/CodeChef/AtCoder profiles linked on TUF, only where the user has none.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handle]
+              properties:
+                handle: { type: string, maxLength: 200 }
+      responses:
+        "202":
+          description: Connection accepted; collection runs in the background.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlatformConnection" }
+        "400": { description: "platform_handle_invalid or platform_bad_request", content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: platform_user_not_found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "503": { description: platform_unreachable, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: disconnectPlatform
+      tags: [connections]
+      summary: Disconnect a coding platform and delete its fragment. Idempotent.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Disconnected. }
+        "400": { description: platform_bad_request (unknown platform), content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/users/me/profile-score/settings:
+    patch:
+      operationId: updateProfileScoringSettings
+      tags: [profile-scoring]
+      summary: Update the profile's engineering level or opt into the profile leaderboard.
+      description: Legacy declaredLevel writes update CandidateProfile.level, not a separate scoring-only choice. Evidence assessment remains separate. Opt-in defaults false and privacy settings still apply.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                declaredLevel: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+                leaderboardOptIn: { type: boolean }
+      responses:
+        "200":
+          description: Updated settings and assessment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileScoreResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/profile-leaderboard:
+    get:
+      operationId: getProfileLeaderboard
+      tags: [profile-scoring]
+      summary: Same-level, current-week profile ranking with privacy-safe identities.
+      description: >
+        Includes only opted-in eligible users with unchanged current inputs and matching level, version and
+        configuration hash. Ties share competition rank. Percentiles are null below the minimum cohort.
+        No user IDs, emails, evidence or connected account handles are returned.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: level
+          in: query
+          schema: { type: string, enum: [intern, fresher, sde1, sde2, sde3, staff, principal, distinguished], default: sde1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Eligible same-level cohort, possibly empty.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileLeaderboardResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/intelligence/questions:
+    get:
+      tags: [intelligence]
+      operationId: listQuestionBank
+      summary: Read the problem bank (ADMIN). Thin index rows by default; includeContent=true adds each problem's content.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: roundType, in: query, schema: { type: string, enum: [dsa, online-assessment, system-design, lld, behavioural, hiring-manager] } }
+        - { name: company, in: query, schema: { type: string } }
+        - { name: difficulty, in: query, schema: { type: string, enum: [easy, medium, hard] } }
+        - { name: contentStatus, in: query, schema: { $ref: "#/components/schemas/QuestionContentStatus" } }
+        - { name: topic, in: query, schema: { type: string }, description: Case-insensitive substring of a topic tag. }
+        - { name: includeContent, in: query, schema: { type: boolean } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200": { description: Matching problems., content: { application/json: { schema: { $ref: "#/components/schemas/QuestionBankPage" } } } }
+  /api/v1/intelligence/questions/stats:
+    get:
+      tags: [intelligence]
+      operationId: getQuestionBankStats
+      summary: Counts per round type and content status (ADMIN).
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Counts., content: { application/json: { schema: { $ref: "#/components/schemas/QuestionBankStats" } } } }
+  /api/v1/intelligence/questions/generate:
+    post:
+      tags: [intelligence]
+      operationId: generateQuestionContent
+      summary: Start content generation over the problem-bank index in the background (ADMIN). Progress via /intelligence/scrape/status.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: roundType, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1 }, description: Generate at most this many records (runs are resumable). }
+        - { name: force, in: query, schema: { type: boolean }, description: Regenerate records whose content is current. }
+      responses:
+        "200": { description: Run accepted (or the run already in progress)., content: { application/json: { schema: { $ref: "#/components/schemas/QuestionGenerateResponse" } } } }
+  /api/v1/intelligence/diagnostics:
+    get:
+      operationId: getProfileScoringDiagnostics
+      tags: [profile-scoring]
+      summary: ADMIN read-only local storage, methodology, replay and job diagnostics.
+      description: >
+        Without userId checks system scoring state; with userId also checks that user's frozen snapshot,
+        source freshness, numerical bounds, weighted formula and historical rank constraints.
+        Live collectors, interview preparation and voice remain explicitly untested. Never recalculates on read.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Bounded checks and the current methodology.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileDiagnosticsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: ADMIN role required.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/auth/register:
     post:
       operationId: register
@@ -247,6 +694,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+        "204":
+          description: No session (the request carried no refresh cookie); empty body. The visitor is signed out.
         "401":
           description: No valid refresh token (empty body; the cookie is cleared).
 
@@ -278,6 +727,127 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: The token's user no longer exists (empty body).
+    patch:
+      operationId: updateCurrentUser
+      tags: [users]
+      summary: Change the display name.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: The updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "400":
+          description: "`invalid_name`."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteAccount
+      tags: [users]
+      summary: Delete the account and everything it holds, immediately.
+      description: >
+        The user types their email to confirm; password accounts also send the password. Refused
+        while an interview is live (`interview_in_progress`), when the AI service cannot purge the
+        account's interview data (`deletion_unavailable`), or when the confirmation does not match
+        (`confirmation_mismatch`). Shares the login rate limit.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "204":
+          description: Deleted; the refresh cookie is cleared.
+        "400":
+          description: "`invalid_request`, `confirmation_mismatch`."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: "`interview_in_progress`."
+        "503":
+          description: "`deletion_unavailable`."
+
+  /api/v1/users/me/sessions/revoke:
+    post:
+      operationId: revokeAllSessions
+      tags: [users]
+      summary: Sign out of every device, this one included (all refresh tokens revoked).
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Revoked; the refresh cookie is cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/me/export:
+    get:
+      operationId: exportAccount
+      tags: [users]
+      summary: Everything the API holds about the account, as a JSON attachment.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "The export (`Content-Disposition: attachment`)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/me/preferences:
+    get:
+      operationId: getPreferences
+      tags: [users]
+      summary: Account-level settings, every value resolved (defaults overlaid with what the user changed).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The preferences.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updatePreferences
+      tags: [users]
+      summary: Change any subset of settings; unknown keys are rejected (`invalid_preferences`).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesPatch"
+      responses:
+        "200":
+          description: The full preferences after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "400":
+          description: "`invalid_preferences`."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ------------------------------------------------------------------ #
   # Candidate-facing (interviewiq-web ↔ interviewiq-api, JWT)           #
@@ -349,23 +919,21 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/interviews/sessions/{sessionId}/regenerate:
+  /api/v1/interviews/sessions/{sessionId}/prep/retry:
     parameters:
       - $ref: "#/components/parameters/SessionId"
     post:
-      operationId: regenerateInterviewSessionPrep
+      operationId: retryInterviewSessionPrep
       tags: [interview-sessions]
-      summary: Re-queue prep generation for a session (retry after PREP_FAILED, or refresh).
+      summary: Retry blueprint prep after PREP_FAILED.
       description: >
-        Idempotent by design — the ai-service caches on the fused input hash, so a
-        regenerate with unchanged inputs returns the existing plan with no LLM calls.
-        Moves the session back to `PREP_QUEUED`; the backend then (re)generates. Only
-        the owning candidate may call this.
+        Moves a PREP_FAILED session back to PREP_QUEUED and starts a new blueprint run. Limited
+        to 3 retries per rolling hour per session (server-enforced). Only the owning candidate may call this.
       security:
         - bearerAuth: []
       responses:
         "202":
-          description: Regeneration accepted; session moved to PREP_QUEUED.
+          description: Retry accepted; the session is PREP_QUEUED.
           content:
             application/json:
               schema:
@@ -374,6 +942,12 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: "`prep_not_failed`: the session is not in PREP_FAILED."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "429":
+          description: "`prep_retry_limited`: too many retries this hour; the message says when to try again."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /api/v1/interviews/sessions/{sessionId}/live:
     parameters:
@@ -386,7 +960,9 @@ paths:
         Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join
         token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for
         the same room without altering session state. Only the owning candidate may
-        call this.
+        call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable
+        (`InterviewSession.liveAvailable` is false), and 409 `session_not_ready` unless PREP_READY.
+        Going live marks the blueprint's problems as seen, so later blueprints never repeat them.
       security:
         - bearerAuth: []
       responses:
@@ -400,6 +976,9 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: "`live_unavailable` or `session_not_ready`."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
     get:
       operationId: getLiveInterviewSession
       tags: [interview-sessions]
@@ -422,6 +1001,17 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/jds:
+    get:
+      tags: [catalogue]
+      operationId: listJobDescriptions
+      summary: Published role summaries, including explicitly marked simulated practice templates.
+      parameters:
+        - { name: company, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { type: string } }
+        - { name: specialization, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Published roles., content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/JobDescriptionSummary" } } } } }
   /api/v1/jds/{jdId}:
     get:
       tags: [catalogue]
@@ -431,6 +1021,34 @@ paths:
         - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200": { description: JD and verified manual process when available., content: { application/json: { schema: { $ref: "#/components/schemas/JobDescriptionDetail" } } } }
+        "404": { description: JD is unavailable. }
+  /api/v1/jd-fit:
+    get:
+      tags: [catalogue]
+      operationId: listJdFit
+      summary: The signed-in user's fit score for each role card (same JDs and filters as GET /api/v1/jds).
+      description: >
+        JD fit (jd-fit-v1) is how closely the user's resume, GitHub and coding profiles match one JD's listing:
+        skills, domain, role, experience and round topics. Rules only, computed on request, never stored. It is a
+        separate contract from the profile score and never affects interview results, gating, readiness or leaderboards.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: company, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { $ref: "#/components/schemas/EngineeringLevel" } }
+        - { name: specialization, in: query, schema: { type: string } }
+      responses:
+        "200": { description: One score per listed JD., content: { application/json: { schema: { $ref: "#/components/schemas/JdFitList" } } } }
+        "400": { description: Invalid level. }
+  /api/v1/jd-fit/{jdId}:
+    get:
+      tags: [catalogue]
+      operationId: getJdFit
+      summary: Why the signed-in user's fit score for one JD is what it is, part by part.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: jdId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Score breakdown., content: { application/json: { schema: { $ref: "#/components/schemas/JdFitBreakdown" } } } }
         "404": { description: JD is unavailable. }
   /api/v1/interviews/sessions/{sessionId}/reschedule:
     parameters:
@@ -843,6 +1461,41 @@ paths:
       responses:
         "200": { description: The span., content: { application/json: { schema: { $ref: "#/components/schemas/ResearchSpanDetailResponse" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/internal/brief-problems:
+    get:
+      tags: [internal-research]
+      operationId: listBriefProblems
+      summary: Named problems from the admin-published briefs, for the AI service's problem-bank collector (internal key).
+      responses:
+        "200":
+          description: One entry per brief with at least one round that carries problems.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [briefs]
+                properties:
+                  briefs:
+                    type: array
+                    items:
+                      type: object
+                      required: [company, final_experience]
+                      properties:
+                        company: { type: string }
+                        final_experience:
+                          type: object
+                          required: [rounds]
+                          properties:
+                            rounds:
+                              type: array
+                              items:
+                                type: object
+                                required: [type, difficulty, topics, problems]
+                                properties:
+                                  type: { type: string }
+                                  difficulty: { type: string, enum: [easy, medium, hard] }
+                                  topics: { type: array, items: { type: string } }
+                                  problems: { type: array, items: { type: string } }
   /api/v1/internal/research-targets:
     get:
       operationId: listResearchTargets
@@ -855,134 +1508,222 @@ paths:
           content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ResearchTarget" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/intelligence/blueprints/candidates:
+    get:
+      operationId: listBlueprintBenchCandidates
+      tags: [admin-blueprints]
+      summary: Onboarded candidates for the bench picker.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Candidates sorted by name.
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/BlueprintBenchCandidate" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+  /api/v1/intelligence/blueprints/runs:
+    get:
+      operationId: listBlueprintRuns
+      tags: [admin-blueprints]
+      summary: Blueprint runs, newest first.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/BlueprintRunStatus" } }
+        - { name: company, in: query, schema: { type: string } }
+        - { name: round_type, in: query, schema: { $ref: "#/components/schemas/RoundType" } }
+        - { name: trigger, in: query, schema: { $ref: "#/components/schemas/BlueprintTrigger" } }
+        - { name: candidate_id, in: query, schema: { type: string } }
+        - { name: session_id, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: cursor, in: query, description: The previous page's next_cursor., schema: { type: string } }
+      responses:
+        "200":
+          description: A page of runs.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+  /api/v1/intelligence/blueprints/runs/{runId}:
+    get:
+      operationId: getBlueprintRun
+      tags: [admin-blueprints]
+      summary: One run with its full trace, request and blueprint.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The run.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunDetail" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { description: "`run_not_found`" }
+  /api/v1/intelligence/blueprints/runs/{runId}/rerun:
+    post:
+      operationId: rerunBlueprint
+      tags: [admin-blueprints]
+      summary: Re-run a run's inputs as a bench run (never touches the session).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassAnswerKeyCache: { type: boolean }
+                ignoreExclusions: { type: boolean }
+      responses:
+        "200":
+          description: The new run.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunStarted" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { description: "`run_not_found`" }
+  /api/v1/intelligence/blueprints/bench:
+    post:
+      operationId: startBlueprintBench
+      tags: [admin-blueprints]
+      summary: Prepare a blueprint for a candidate + JD (or practice loop round) without booking.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintBenchRequest" } } }
+      responses:
+        "200":
+          description: The bench run.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunStarted" } } }
+        "400": { description: "`blueprint_bad_request`" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+  /api/v1/intelligence/blueprints/sessions/{sessionId}/versions:
+    get:
+      operationId: listBlueprintVersions
+      tags: [admin-blueprints]
+      summary: A session's blueprint versions, newest first.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Versions.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintVersionList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+  /api/v1/intelligence/blueprints/sessions/{sessionId}/diff:
+    get:
+      operationId: diffBlueprintVersions
+      tags: [admin-blueprints]
+      summary: Structured diff between two versions of a session's blueprint.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - { name: from, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: to, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The diff.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintDiff" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { description: "`run_not_found`: unknown version." }
+  /api/v1/intelligence/blueprints/answer-keys/{roundType}/{slug}:
+    get:
+      operationId: getBlueprintAnswerKeys
+      tags: [admin-blueprints]
+      summary: Cached answer keys for one problem (every key version and content hash).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: roundType, in: path, required: true, schema: { $ref: "#/components/schemas/RoundType" } }
+        - { name: slug, in: path, required: true, description: The bank slug (may contain "/")., schema: { type: string } }
+      responses:
+        "200":
+          description: Keys.
+          content: { application/json: { schema: { $ref: "#/components/schemas/AnswerKeyList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+
   # ------------------------------------------------------------------ #
   # Internal (interviewiq-api ↔ interviewiq-ai-service, X-Internal-Api-Key) #
   # ------------------------------------------------------------------ #
-  /interview-plans:
+  /blueprints/runs:
     servers:
       - url: http://localhost:8000
         description: interviewiq-ai-service (internal, X-Internal-Api-Key)
     post:
-      operationId: generateInterviewPlan
-      tags: [internal-interview-prep]
-      summary: Build (or return the cached) InterviewPlan for a session.
+      operationId: startBlueprintRun
+      tags: [internal-blueprints]
+      summary: Start a session's blueprint run (one running run per session).
       description: >
-        The backend assembles the session context + JD + candidate profile and posts
-        it here. Stage 1 (no LLM) gathers the brief and the question bank and computes
-        a deterministic input hash. If a stored plan for this session already has the
-        same input hash, it is returned unchanged (no LLM calls). Otherwise three
-        schema-validated LLM calls (persona, ladders, probes) run concurrently, the
-        plan is assembled, persisted (one per session), and returned.
+        Returns at once; the run executes in the background (context → selection → answer keys →
+        persona → personalization → playbooks → policies → validate). A second start while one is
+        running returns the live run with `existing: true`.
       security:
         - internalApiKey: []
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenerateInterviewPlanRequest"
+        content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunRequest" } } }
       responses:
         "200":
-          description: The generated or cached plan.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InterviewPlan"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          description: No brief/questions available for this (company, role, level).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        "502":
-          description: Plan generation failed (LLM never produced a valid plan).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-
-  /interview-plans/start:
-    servers:
-      - url: http://localhost:8000
-        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
-    post:
-      operationId: startInterviewPlan
-      tags: [internal-interview-prep]
-      summary: Start plan generation in the background (fire-and-poll variant).
-      description: >
-        Same request body and cache/persist semantics as POST /interview-plans, but returns a
-        run_id immediately and runs the pipeline in the background. The caller polls
-        GET /interview-plans/runs/{runId} until the run is terminal. Used by the prep trigger so a
-        slow, concurrent Stage-2 LLM run can't trip the HTTP client read timeout (which would
-        wrongly mark the session PREP_FAILED). Single-process: start and poll must hit the same worker.
-      security:
-        - internalApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenerateInterviewPlanRequest"
-      responses:
-        "200":
-          description: The run was started.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [run_id, status]
-                properties:
-                  run_id: { type: string }
-                  status: { type: string, enum: [running] }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /interview-plans/runs/{runId}:
+          description: Started (or the live run).
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunStarted" } } }
+        "400": { description: Session runs need a session_id. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /blueprints/runs/{runId}:
     servers:
       - url: http://localhost:8000
         description: interviewiq-ai-service (internal, X-Internal-Api-Key)
     get:
-      operationId: getInterviewPlanRun
-      tags: [internal-interview-prep]
-      summary: Poll a run started by /interview-plans/start.
-      description: >
-        Returns the run's terminal state. While running, plan and error are null. On completed,
-        plan carries the InterviewPlan. On failed, error carries {code, message} — code mirrors the
-        synchronous route's failure modes (no_data ≈ 422, llm_error ≈ 502).
+      operationId: getBlueprintRunStatus
+      tags: [internal-blueprints]
+      summary: Compact run status for the reconcile job and the live stepper.
       security:
         - internalApiKey: []
       parameters:
-        - name: runId
-          in: path
-          required: true
-          schema: { type: string }
+        - { name: runId, in: path, required: true, schema: { type: string } }
       responses:
         "200":
-          description: The run snapshot.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [run_id, status]
-                properties:
-                  run_id: { type: string }
-                  status: { type: string, enum: [running, completed, failed] }
-                  plan:
-                    allOf:
-                      - $ref: "#/components/schemas/InterviewPlan"
-                    nullable: true
-                  error:
-                    type: object
-                    nullable: true
-                    properties:
-                      code: { type: string }
-                      message: { type: string }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+          description: Status.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlueprintRunStatusView" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /blueprints/runs/{runId}/cancel:
+    servers:
+      - url: http://localhost:8000
+        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
+    post:
+      operationId: cancelBlueprintRun
+      tags: [internal-blueprints]
+      summary: Cancel a run.
+      security:
+        - internalApiKey: []
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Whether a running run was cancelled.
+          content: { application/json: { schema: { type: object, required: [cancelled], properties: { cancelled: { type: boolean } } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /blueprints/sessions/{sessionId}:
+    servers:
+      - url: http://localhost:8000
+        description: interviewiq-ai-service (internal, X-Internal-Api-Key)
+    get:
+      operationId: getSessionBlueprint
+      tags: [internal-blueprints]
+      summary: A session's current blueprint (or `version`). Never sent to a browser.
+      security:
+        - internalApiKey: []
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string } }
+        - { name: version, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The blueprint.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Blueprint" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
 components:
   securitySchemes:
@@ -1070,6 +1811,512 @@ components:
             $ref: "#/components/schemas/ApiError"
 
   schemas:
+    ValidationControlSettings:
+      type: object
+      required: [linkedinImportEnabled, requireSectionReview]
+      properties:
+        linkedinImportEnabled: { type: boolean }
+        requireSectionReview: { type: boolean }
+    ValidationControlsResponse:
+      type: object
+      required: [settings, updatedAt, updatedBy]
+      properties:
+        settings: { $ref: "#/components/schemas/ValidationControlSettings" }
+        updatedAt: { type: string, format: date-time, nullable: true }
+        updatedBy: { type: string, format: uuid, nullable: true, description: Admin user ID that last changed the settings. }
+    ProfileTraceStage:
+      type: object
+      required: [id, status, startedAt, finishedAt, durationMs, detail]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [completed, failed, skipped] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        durationMs: { type: integer, minimum: 0 }
+        detail: { type: string }
+    ProfileTraceSource:
+      type: object
+      required: [source, status, fetchedAt, ageDays, contentHash, extractedFieldCounts, safeSummary]
+      properties:
+        source: { type: string, description: "RESUME, GITHUB, LEETCODE, LINKEDIN or a coding platform (CODEFORCES, TUF, ...)." }
+        status: { type: string, enum: [available, missing, unsupported, partial, excluded] }
+        fetchedAt: { type: string, format: date-time, nullable: true }
+        ageDays: { type: number, nullable: true }
+        contentHash: { type: string, nullable: true }
+        extractedFieldCounts: { type: object, additionalProperties: { type: integer } }
+        safeSummary: { type: object, additionalProperties: true }
+    ProfileTraceProviderCheck:
+      type: object
+      required: [provider, mode, configured, used, status, retrievedAt, reason]
+      properties:
+        provider: { type: string }
+        mode: { type: string }
+        configured: { type: boolean }
+        used: { type: boolean }
+        status: { type: string, enum: [used, not_used, failed] }
+        retrievedAt: { type: string, format: date-time, nullable: true }
+        reason: { type: string }
+    ProfileTraceComponent:
+      allOf:
+        - { $ref: "#/components/schemas/ProfileScoreComponent" }
+        - type: object
+          required: [availableWeight, formulaInput, subFeatures]
+          properties:
+            availableWeight: { type: number }
+            subFeatures:
+              type: array
+              description: Sub-features (or items) that formed this component, with relative weight and share of the component score. status missing = no source produced it, so it was counted as 0.
+              items:
+                type: object
+                required: [key, value, weight, share]
+                properties:
+                  key: { type: string }
+                  value: { type: number }
+                  weight: { type: number }
+                  share: { type: number }
+                  status: { type: string, enum: [found, missing] }
+            formulaInput:
+              type: object
+              nullable: true
+              required: [score, weight]
+              properties:
+                score: { type: number }
+                weight: { type: number }
+    ProfileLiveTraceResponse:
+      type: object
+      required: [traceId, userId, startedAt, finishedAt, stages, sources, providerChecks, score, confidence, coverage, classification, algorithm, components, evidence, eligibility, warnings, formula, snapshot, llmCalls, stackTrace, copyText]
+      properties:
+        traceId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        stages: { type: array, items: { $ref: "#/components/schemas/ProfileTraceStage" } }
+        sources: { type: array, items: { $ref: "#/components/schemas/ProfileTraceSource" } }
+        providerChecks: { type: array, items: { $ref: "#/components/schemas/ProfileTraceProviderCheck" } }
+        score: { type: number, nullable: true }
+        confidence: { type: number }
+        coverage: { type: number }
+        classification: { $ref: "#/components/schemas/ProfileScoreClassification" }
+        algorithm:
+          type: object
+          required: [version, configHash, inputHash]
+          properties:
+            version: { type: string }
+            configHash: { type: string }
+            inputHash: { type: string }
+        components: { type: array, items: { $ref: "#/components/schemas/ProfileTraceComponent" } }
+        evidence: { type: array, items: { $ref: "#/components/schemas/ProfileScoreEvidence" } }
+        eligibility:
+          type: object
+          required: [eligible, reasons]
+          properties:
+            eligible: { type: boolean }
+            reasons: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+        formula:
+          type: object
+          required: [expression, availableWeight, inputs]
+          properties:
+            expression: { type: string }
+            availableWeight: { type: number }
+            inputs: { type: array, items: { $ref: "#/components/schemas/ProfileTraceComponent" } }
+        snapshot: { $ref: "#/components/schemas/ProfileScoreSnapshot" }
+        llmCalls: { type: array, items: { $ref: "#/components/schemas/ProfileTraceLlmCall" } }
+        stackTrace: { type: string }
+        copyText: { type: string }
+    ProfileTraceLlmCall:
+      type: object
+      required: [callId, call, status, itemType, itemTitle, durationMs, detail, error]
+      properties:
+        callId: { type: string }
+        call: { type: string, enum: [item-assessment, company-context] }
+        status: { type: string, enum: [completed, failed, reused, skipped] }
+        itemType: { type: string, enum: [project, experience, internship], nullable: true }
+        itemTitle: { type: string, nullable: true }
+        durationMs: { type: number, nullable: true }
+        detail: { type: string }
+        error:
+          type: object
+          nullable: true
+          required: [name, message, stack]
+          properties:
+            name: { type: string }
+            message: { type: string }
+            stack: { type: string, nullable: true }
+    ProfileLiveTraceEvent:
+      type: object
+      description: One NDJSON line of the live trace. `data` is the step's structured detail; for `result` it is a ProfileLiveTraceResponse.
+      required: [seq, ts, elapsedMs, kind, stage, level, message]
+      properties:
+        seq: { type: integer }
+        ts: { type: string, format: date-time }
+        elapsedMs: { type: number }
+        kind: { type: string, enum: [stage, log, llm, engine, result, error] }
+        stage: { type: string }
+        level: { type: string, enum: [debug, info, warn, error] }
+        message: { type: string }
+        data: {}
+    LinkedInSectionKey:
+      type: string
+      enum: [headline, about, experience, education, projects, skills, achievements, certifications, publications, patents, courses, languages, volunteering]
+    LinkedInImportSection:
+      type: object
+      required: [key, label, entries, sourceFile]
+      properties:
+        key: { $ref: "#/components/schemas/LinkedInSectionKey" }
+        label: { type: string }
+        entries: { type: array, items: { type: string } }
+        sourceFile: { type: string, nullable: true, description: Uploaded PDF filename (display only). Null for legacy URL snapshots. }
+    LinkedInImportStatus:
+      type: object
+      description: Confirmed snapshot receipt, never proof of account ownership or employment. New imports are PDFs; legacy URL snapshots stay readable until replaced.
+      required: [connected, importedAt, method, sections, warnings, sourceUrl, provider, retrievedAt]
+      properties:
+        connected: { type: boolean }
+        importedAt: { type: string, format: date-time, nullable: true }
+        method: { type: string, nullable: true, enum: [pdf, url, null] }
+        sections: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+        sourceUrl: { type: string, format: uri, nullable: true, description: Profile URL found in the PDF, or the scraped URL of a legacy snapshot. }
+        provider: { type: string, nullable: true, enum: [exa, firecrawl, null], description: Null for PDF imports; Firecrawl/Exa only on legacy URL snapshots. }
+        retrievedAt: { type: string, format: date-time, nullable: true }
+    LinkedInImportDraft:
+      type: object
+      description: Owner-bound derived preview expires after 24 hours. The uploaded PDF is not stored. Profile level is null and never inferred from imported career text.
+      required: [id, createdAt, expiresAt, method, profileRevision, profile, sections, warnings, sourceUrl, provider, retrievedAt]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        method: { type: string, enum: [pdf, url] }
+        profileRevision: { type: string, nullable: true }
+        profile: { $ref: "#/components/schemas/CandidateProfileResponse" }
+        sections: { type: array, items: { $ref: "#/components/schemas/LinkedInImportSection" } }
+        warnings: { type: array, items: { type: string } }
+        sourceUrl: { type: string, format: uri, nullable: true }
+        provider: { type: string, nullable: true, enum: [exa, firecrawl, null] }
+        retrievedAt: { type: string, format: date-time, nullable: true }
+    LinkedInImportConfirmation:
+      type: object
+      required: [profile, import]
+      properties:
+        profile: { allOf: [{ $ref: "#/components/schemas/CandidateProfileResponse" }], nullable: true }
+        import: { $ref: "#/components/schemas/LinkedInImportStatus" }
+    CandidateProfileEducation:
+      type: object
+      required: [institution, degree, field, startYear, endYear, grade]
+      properties:
+        institution: { type: string, nullable: true }
+        degree: { type: string, nullable: true }
+        field: { type: string, nullable: true }
+        startYear: { type: string, nullable: true }
+        endYear: { type: string, nullable: true }
+        grade: { type: string, nullable: true }
+    CandidateProfileExperience:
+      type: object
+      required: [company, title, startDate, endDate, location, bullets]
+      properties:
+        company: { type: string, nullable: true }
+        title: { type: string, nullable: true }
+        startDate: { type: string, nullable: true }
+        endDate: { type: string, nullable: true }
+        location: { type: string, nullable: true }
+        bullets: { type: array, nullable: true, items: { type: string } }
+        link: { type: string, format: uri, nullable: true, description: Explicitly supplied live/company URL. }
+    CandidateProfileProject:
+      type: object
+      required: [name, description, tech, bullets, link]
+      properties:
+        name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        tech: { type: array, nullable: true, items: { type: string } }
+        bullets: { type: array, nullable: true, items: { type: string } }
+        link: { type: string, nullable: true }
+    CandidateProfileLinks:
+      type: object
+      required: [github, leetcode, linkedin]
+      properties:
+        github: { type: string, nullable: true }
+        leetcode: { type: string, nullable: true }
+        linkedin: { type: string, nullable: true }
+        portfolioWebsite: { type: string, format: uri, nullable: true }
+    CandidateProfileDetails:
+      type: object
+      required: [fullName, email, phone, location, headline, targetRole, targetJdId, education, experience, projects, skills, achievements, detectedLinks, resumeFilename]
+      properties:
+        fullName: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        location: { type: string, nullable: true }
+        headline: { type: string, nullable: true }
+        portfolioWebsite: { type: string, format: uri, nullable: true, description: Personal or portfolio website explicitly supplied by the candidate or extracted from the resume. }
+        targetRole: { type: string, nullable: true }
+        targetJdId: { type: string, format: uuid, nullable: true }
+        education: { type: array, items: { $ref: "#/components/schemas/CandidateProfileEducation" } }
+        experience: { type: array, items: { $ref: "#/components/schemas/CandidateProfileExperience" } }
+        projects: { type: array, items: { $ref: "#/components/schemas/CandidateProfileProject" } }
+        skills: { type: array, items: { type: string } }
+        achievements: { type: array, items: { type: string } }
+        detectedLinks: { $ref: "#/components/schemas/CandidateProfileLinks" }
+        resumeFilename: { type: string, nullable: true }
+    CandidateProfileResponse:
+      allOf:
+        - { $ref: "#/components/schemas/CandidateProfileDetails" }
+        - type: object
+          required: [level, resumeParsedAt, onboardingComplete]
+          properties:
+            level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+            legacyLevel: { type: string, nullable: true }
+            resumeParsedAt: { type: string, format: date-time, nullable: true }
+            onboardingComplete: { type: boolean }
+    CandidateProfileRequest:
+      allOf:
+        - { $ref: "#/components/schemas/CandidateProfileDetails" }
+        - type: object
+          required: [complete]
+          properties:
+            level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+            complete: { type: boolean }
+    ResumeParseRunResponse:
+      type: object
+      required: [status, profile, error]
+      properties:
+        status: { type: string, enum: [running, completed, failed] }
+        profile: { allOf: [{ $ref: "#/components/schemas/CandidateProfileResponse" }], nullable: true }
+        error: { type: string, nullable: true }
+    EngineeringLevel:
+      type: string
+      enum: [intern, fresher, sde1, sde2, sde3, staff, principal, distinguished]
+      description: Canonical user-choice enum across profiles, company JDs, processes, experiences and scoring. Target job level and current profile level are distinct choices using the same enum.
+    NullableEngineeringLevel:
+      type: string
+      nullable: true
+      enum: [intern, fresher, sde1, sde2, sde3, staff, principal, distinguished, null]
+      description: Null only for unfinished profiles or unknown legacy records; never guess an engineering level.
+    ProfileScoringSettings:
+      type: object
+      required: [declaredLevel, leaderboardOptIn]
+      properties:
+        declaredLevel: { $ref: "#/components/schemas/NullableEngineeringLevel", description: Effective CandidateProfile.level; compatibility fallback only for old field-absent profiles. }
+        leaderboardOptIn: { type: boolean, default: false }
+    ProfileScoreEvidence:
+      type: object
+      required: [id, source, path, claim, value, confidence, observedAt, verification, recencyFactor]
+      properties:
+        id: { type: string }
+        source: { type: string }
+        path: { type: string }
+        claim: { type: string }
+        value:
+          oneOf:
+            - { type: string }
+            - { type: number }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        observedAt: { type: string, format: date-time, nullable: true }
+        verification: { type: string, enum: [collector, self_reported] }
+        recencyFactor: { type: number, minimum: 0, maximum: 1 }
+        feature: { type: string, description: "V5 sub-feature key this evidence supports (e.g. codeforces_contest, technical_depth)." }
+        rawValue: { description: "V5 raw observation before normalization (platform-native units or extracted structure)." }
+        normalizedValue: { type: number, nullable: true, description: "V5 0-100 value after platform- or policy-specific normalization." }
+        scoreContribution: { type: number, nullable: true }
+        evidenceType: { type: string, enum: [DIRECT, DERIVED, INFERRED, SELF_REPORTED, UNAVAILABLE] }
+        algorithmVersion: { type: string }
+        sourceUrl: { type: string, nullable: true }
+        sourceTimestamp: { type: string, nullable: true }
+        sourceMetadata: { type: object, additionalProperties: true }
+        paths: { type: array, items: { type: string }, description: V3 attribution paths; repeated claims do not accumulate scoring or confidence credit. }
+        provenance:
+          type: array
+          items:
+            type: object
+            required: [section, path, file, quote]
+            properties:
+              section: { type: string }
+              path: { type: string }
+              file: { type: string, nullable: true }
+              quote: { type: string }
+    ProfileScoreComponent:
+      type: object
+      required: [id, label, weight, score, contribution, evidenceIds, status]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        weight: { type: number, minimum: 0, maximum: 100 }
+        score: { type: number, nullable: true, minimum: 0, maximum: 100 }
+        contribution: { type: number, nullable: true, minimum: 0, maximum: 100 }
+        evidenceIds: { type: array, items: { type: string } }
+        status:
+          type: string
+          enum: [available, missing, pending]
+          description: missing = no current evidence (a core part then counts as 0, including when its AI assessment failed or has not run). pending appears only on older v5 snapshots, which left an unassessed part out.
+        role:
+          type: string
+          enum: [core, bonus]
+          description: >
+            core = expected at the level and nothing else stands in for it (a gap is warned about); bonus = extra credit
+            (a gap is a quiet 0 of its weight). Every part counts in proportion to its weight; missing = 0.
+        counted: { type: boolean, description: "v5: whether the part is in the score (missing core counts as 0; a bonus counts when present; pending is left out)." }
+    ProfileScoreSource:
+      type: object
+      required: [source, status, fetchedAt, ageDays, contentHash]
+      properties:
+        source: { type: string }
+        status: { type: string, enum: [available, missing, unsupported, partial] }
+        fetchedAt: { type: string, format: date-time, nullable: true }
+        ageDays: { type: number, nullable: true }
+        contentHash: { type: string, nullable: true }
+        importMethod: { type: string, nullable: true, enum: [archive, pdf, text, url, null], description: Historic methods remain replayable; new imports are uploaded LinkedIn PDFs. }
+        importedAt: { type: string, format: date-time, nullable: true }
+        provider: { type: string, nullable: true, enum: [exa, firecrawl, null] }
+        retrievedAt: { type: string, format: date-time, nullable: true, description: Retrieval time, not evidence of the profile's update time or verified career claims. }
+    ProfileScoreClassification:
+      type: object
+      required: [declaredLevel, assessedLevel, confidence, reasons, warnings]
+      properties:
+        declaredLevel: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        assessedLevel: { $ref: "#/components/schemas/EngineeringLevel" }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        reasons: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+    ProfileScoreEvaluation:
+      type: object
+      description: >
+        Provisional deterministic assessment. Score and coverage are 0–100; unknown evidence is null, not zero.
+        From v5, source data is taken as correct (no confidence weighting): confidence is 100 when scored, else 0,
+        and leaderboard eligibility depends only on the level's minimum coverage.
+      required: [algorithmVersion, configHash, inputHash, asOf, status, score, confidence, coverage, level, classification, components, evidence, warnings, eligibility, sources]
+      properties:
+        algorithmVersion: { type: string }
+        configHash: { type: string }
+        inputHash: { type: string }
+        asOf: { type: string, format: date-time }
+        status: { type: string, enum: [scored, insufficient_evidence] }
+        score: { type: number, nullable: true, minimum: 0, maximum: 100 }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        coverage: { type: number, minimum: 0, maximum: 100 }
+        level: { $ref: "#/components/schemas/EngineeringLevel" }
+        classification: { $ref: "#/components/schemas/ProfileScoreClassification" }
+        components: { type: array, items: { $ref: "#/components/schemas/ProfileScoreComponent" } }
+        evidence: { type: array, items: { $ref: "#/components/schemas/ProfileScoreEvidence" } }
+        warnings: { type: array, items: { type: string } }
+        eligibility:
+          type: object
+          required: [eligible, reasons]
+          properties:
+            eligible: { type: boolean }
+            reasons: { type: array, items: { type: string } }
+        sources: { type: array, items: { $ref: "#/components/schemas/ProfileScoreSource" } }
+    ProfileScoreSnapshot:
+      allOf:
+        - { $ref: "#/components/schemas/ProfileScoreEvaluation" }
+        - type: object
+          required: [id, calculatedAt, week, rank, percentile, cohortSize]
+          properties:
+            id: { type: string }
+            calculatedAt: { type: string, format: date-time }
+            week: { type: string, format: date, description: UTC Monday cohort week. }
+            rank: { type: integer, nullable: true, minimum: 1 }
+            percentile: { type: number, nullable: true, minimum: 0, maximum: 100 }
+            cohortSize: { type: integer, minimum: 0 }
+    ProfileScoreResponse:
+      type: object
+      required: [current, history, settings]
+      properties:
+        current:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/ProfileScoreSnapshot" }]
+        history: { type: array, items: { $ref: "#/components/schemas/ProfileScoreSnapshot" } }
+        settings: { $ref: "#/components/schemas/ProfileScoringSettings" }
+    ProfileLeaderboardResponse:
+      type: object
+      required: [level, algorithmVersion, week, total, entries]
+      properties:
+        level: { $ref: "#/components/schemas/EngineeringLevel" }
+        algorithmVersion: { type: string }
+        week: { type: string, format: date }
+        total: { type: integer, minimum: 0 }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [rank, displayName, score, confidence, percentile]
+            properties:
+              rank: { type: integer, minimum: 1 }
+              displayName: { type: string }
+              score: { type: number, minimum: 0, maximum: 100 }
+              confidence: { type: number, minimum: 0, maximum: 100 }
+              percentile: { type: number, nullable: true, minimum: 0, maximum: 100 }
+    ProfileScoringConfig:
+      type: object
+      required: [version, beta, weights, normalizers, thresholds]
+      properties:
+        version: { type: string }
+        beta: { type: boolean }
+        weights:
+          type: object
+          description: Current v2 configurations require all eight rubrics. intern/distinguished are optional only to describe immutable six-rubric v1 replay data.
+          required: [fresher, sde1, sde2, sde3, staff, principal]
+          properties:
+            intern: { type: object, additionalProperties: { type: number } }
+            fresher: { type: object, additionalProperties: { type: number } }
+            sde1: { type: object, additionalProperties: { type: number } }
+            sde2: { type: object, additionalProperties: { type: number } }
+            sde3: { type: object, additionalProperties: { type: number } }
+            staff: { type: object, additionalProperties: { type: number } }
+            principal: { type: object, additionalProperties: { type: number } }
+            distinguished: { type: object, additionalProperties: { type: number } }
+        normalizers: { type: object, additionalProperties: { type: number } }
+        thresholds:
+          type: object
+          required: [minimumCoverage, minimumConfidence, minimumCohort]
+          properties:
+            minimumCoverage: { type: number, minimum: 0, maximum: 100 }
+            minimumConfidence: { type: number, minimum: 0, maximum: 100 }
+            minimumCohort: { type: integer, minimum: 2 }
+    ProfileScoringJobStatus:
+      type: object
+      required: [enabled, status, lastStartedAt, lastCompletedAt, lastError, nextDueAt, processed, failed]
+      properties:
+        enabled: { type: boolean }
+        status: { type: string, enum: [idle, running, completed, failed] }
+        lastStartedAt: { type: string, format: date-time, nullable: true }
+        lastCompletedAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string, nullable: true }
+        nextDueAt: { type: string, format: date-time, nullable: true }
+        processed: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+    ProfileDiagnosticCheck:
+      type: object
+      required: [id, label, status, detail]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        status: { type: string, enum: [pass, fail, warning, untested] }
+        detail: { type: string }
+    ProfileDiagnosticsResponse:
+      type: object
+      required: [checkedAt, checks, score, jobs, methodology]
+      properties:
+        checkedAt: { type: string, format: date-time }
+        checks: { type: array, items: { $ref: "#/components/schemas/ProfileDiagnosticCheck" } }
+        score:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/ProfileScoreResponse" }]
+        jobs: { $ref: "#/components/schemas/ProfileScoringJobStatus" }
+        methodology: { $ref: "#/components/schemas/ProfileScoringConfig" }
+    CodingPlatform:
+      type: string
+      enum: [CODEFORCES, CODECHEF, ATCODER, TUF]
+    PlatformConnection:
+      type: object
+      required: [platform, handle, status, connectedAt]
+      properties:
+        platform: { $ref: "#/components/schemas/CodingPlatform" }
+        handle: { type: string }
+        status: { type: string, enum: [SYNCING, SYNCED, FAILED, DEGRADED] }
+        connectedAt: { type: string, format: date-time }
+        lastRefreshedAt: { type: string, format: date-time }
+        discoveredFrom: { type: string, description: "Set when the connection was made automatically from another profile's linked accounts (e.g. TUF)." }
     ApiError:
       type: object
       description: The stable { code, message } error envelope used across the api.
@@ -1200,6 +2447,120 @@ components:
           type: boolean
           description: The account can sign in with email + password (false = Google-only).
 
+    UpdateUserRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    DeleteAccountRequest:
+      type: object
+      required: [confirmEmail]
+      properties:
+        confirmEmail:
+          type: string
+          description: Must equal the account's email (case-insensitive).
+        password:
+          type: string
+          description: Required for accounts that have a password.
+
+    AccountExport:
+      type: object
+      description: Everything the API holds about the account. Shape follows the stores; only `exportedAt` is fixed.
+      required: [exportedAt]
+      properties:
+        exportedAt:
+          type: string
+          format: date-time
+      additionalProperties: true
+
+    NotificationChannel:
+      type: object
+      required: [interviewReminders, debriefReady, retakeAvailable, targetOpenings, weeklyDigest, productUpdates]
+      properties:
+        interviewReminders: { type: boolean }
+        debriefReady: { type: boolean }
+        retakeAvailable: { type: boolean }
+        targetOpenings: { type: boolean }
+        weeklyDigest: { type: boolean }
+        productUpdates: { type: boolean }
+
+    Preferences:
+      type: object
+      description: >
+        Account-level settings (Settings → Account / Notifications / Privacy & data). Device-only
+        settings (theme, reduced motion) never reach the server.
+      required: [locale, interview, notifications, privacy, updatedAt]
+      properties:
+        locale:
+          type: object
+          required: [appLanguage, timezone, dateFormat, timeFormat, weekStart]
+          properties:
+            appLanguage: { type: string, enum: [en, hi, ta, te, bn, mr] }
+            timezone:
+              type: string
+              nullable: true
+              description: IANA zone; null follows the browser.
+            dateFormat: { type: string, enum: [DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD] }
+            timeFormat: { type: string, enum: [12h, 24h] }
+            weekStart: { type: string, enum: [monday, sunday] }
+        interview:
+          type: object
+          required: [language, voice, pace, captions, showTimer, deviceCheck, reminderLead]
+          properties:
+            language: { type: string, enum: [en, hinglish, hi] }
+            voice: { type: string, enum: [warm, neutral, crisp] }
+            pace: { type: string, enum: [slower, normal, faster] }
+            captions: { type: boolean }
+            showTimer: { type: boolean }
+            deviceCheck: { type: boolean }
+            reminderLead: { type: string, enum: [15m, 1h, 1d] }
+        notifications:
+          type: object
+          required: [emailPaused, email, inApp]
+          properties:
+            emailPaused: { type: boolean }
+            email:
+              $ref: "#/components/schemas/NotificationChannel"
+            inApp:
+              $ref: "#/components/schemas/NotificationChannel"
+        privacy:
+          type: object
+          required: [leaderboardVisibility, shareWithCollege, partnerDiscovery, improveWithMyData]
+          properties:
+            leaderboardVisibility:
+              type: string
+              enum: [name, anonymous, hidden]
+              description: How an opted-in profile appears on the leaderboard.
+            shareWithCollege: { type: boolean }
+            partnerDiscovery: { type: boolean }
+            improveWithMyData: { type: boolean }
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the user last changed a setting; null = never.
+
+    PreferencesPatch:
+      type: object
+      description: Any subset of `Preferences` leaves (same shape, every field optional). Unknown keys are rejected.
+      properties:
+        locale:
+          type: object
+          additionalProperties: true
+        interview:
+          type: object
+          additionalProperties: true
+        notifications:
+          type: object
+          additionalProperties: true
+        privacy:
+          type: object
+          additionalProperties: true
+
     RoundType:
       type: string
       description: >
@@ -1237,11 +2598,13 @@ components:
 
     CreateInterviewSessionRequest:
       type: object
-      required: [jobDescriptionId, scheduledAt, timezone]
+      required: [scheduledAt, timezone]
       properties:
         jobDescriptionId:
           type: string
           format: uuid
+          nullable: true
+          description: Required for ad-hoc bookings; omitted for a loop round, including JD-independent custom practice.
         roundType:
           allOf:
             - $ref: "#/components/schemas/RoundType"
@@ -1270,9 +2633,9 @@ components:
     InterviewSession:
       type: object
       description: >
-        A booked interview session and its prep readiness. `planReady` (status ==
-        PREP_READY) is the only signal surfaced to the candidate — plan CONTENTS are
-        the interviewer's material and are never returned here.
+        A booked interview session and its blueprint prep. Only `prep` (progress) and `briefing`
+        (interviewer, format, duration) reach the candidate: blueprint CONTENTS — problems, topics,
+        difficulty, answer keys — are the interviewer's material and are never returned here.
       required:
         - id
         - candidateId
@@ -1285,7 +2648,9 @@ components:
         - scheduledAt
         - timezone
         - status
-        - planReady
+        - prep
+        - briefing
+        - liveAvailable
         - createdAt
         - updatedAt
       properties:
@@ -1298,6 +2663,7 @@ components:
         jobDescriptionId:
           type: string
           format: uuid
+          nullable: true
         company:
           type: string
           description: Company slug.
@@ -1308,7 +2674,8 @@ components:
         role:
           type: string
         level:
-          type: string
+          $ref: "#/components/schemas/NullableEngineeringLevel"
+        legacyLevel: { type: string, nullable: true, description: Unknown historic label retained for display/repair; not a selectable level. }
         specialization:
           type: string
         roundType:
@@ -1320,21 +2687,15 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/SessionStatus"
-        planReady:
+        prep:
+          $ref: "#/components/schemas/SessionPrep"
+        briefing:
+          allOf: [{ $ref: "#/components/schemas/SessionBriefing" }]
+          nullable: true
+          description: Set once the blueprint is ready (and while it refreshes).
+        liveAvailable:
           type: boolean
-          description: True when status == PREP_READY (an InterviewPlan exists).
-        planVersion:
-          type: string
-          nullable: true
-          description: The plan_version recorded once prep succeeds.
-        inputHash:
-          type: string
-          nullable: true
-          description: The ai-service fused input hash of the generated plan.
-        prepError:
-          type: string
-          nullable: true
-          description: Stable error code when status == PREP_FAILED.
+          description: False until the live interviewer is available; a ready session can't be joined yet.
         loopId:
           type: string
           format: uuid
@@ -1368,6 +2729,7 @@ components:
         durationMinutes: { type: integer }
         difficulty: { type: string, enum: [easy, medium, hard] }
         topics: { type: array, items: { type: string } }
+        instructions: { type: string, maxLength: 4000 }
         position: { $ref: "#/components/schemas/ProcessPosition" }
     ProcessInfoNode:
       type: object
@@ -1378,6 +2740,9 @@ components:
         kind: { type: string, enum: [info] }
         name: { type: string }
         note: { type: string }
+        topics: { type: array, items: { type: string, maxLength: 80 }, maxItems: 20 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        instructions: { type: string, maxLength: 4000 }
         position: { $ref: "#/components/schemas/ProcessPosition" }
     ProcessPosition:
       type: object
@@ -1404,22 +2769,26 @@ components:
             properties: { source: { type: string }, target: { type: string } }
     JdBrief:
       type: object
-      required: [jdId, title, company, companyName, role, level, specialization, techStack]
+      required: [jdId, title, company, companyName, role, level, specialization, techStack, practiceTemplate]
       properties:
         jdId: { type: string, format: uuid }
+        practiceTemplate: { type: boolean }
         title: { type: string }
         company: { type: string }
         companyName: { type: string }
         role: { type: string }
-        level: { type: string }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        legacyLevel: { type: string, nullable: true }
         specialization: { type: string, nullable: true }
         techStack: { type: array, items: { type: string } }
     InterviewProcess:
       type: object
-      required: [id, name, jd, graph, createdAt, updatedAt]
+      required: [id, name, level, jd, graph, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        legacyLevel: { type: string, nullable: true }
         jd: { allOf: [{ $ref: "#/components/schemas/JdBrief" }], nullable: true }
         graph: { $ref: "#/components/schemas/ProcessGraph" }
         createdAt: { type: string, format: date-time }
@@ -1431,10 +2800,11 @@ components:
         processes: { type: array, items: { $ref: "#/components/schemas/InterviewProcess" } }
     SaveProcessRequest:
       type: object
-      description: Create (jdId + name, optional graph; defaults to a copy of the official process) or update (name and/or graph).
+      description: Create with name and canonical engineering level; optional jdId copies its suggested graph. Without jdId a coding round is supplied if graph is omitted. Update accepts name, level and/or graph. Unknown historic levels must be explicitly repaired before copying or confirming. Every saved process is custom.
       properties:
-        jdId: { type: string, format: uuid }
-        name: { type: string }
+        jdId: { type: string, format: uuid, nullable: true }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        level: { $ref: "#/components/schemas/EngineeringLevel" }
         graph: { $ref: "#/components/schemas/ProcessGraph" }
     OfficialProcess:
       type: object
@@ -1446,11 +2816,14 @@ components:
       enum: [locked, available, booked, completed]
     Loop:
       type: object
-      description: A confirmed process for a JD. `graph` is a snapshot taken at confirm time.
-      required: [id, jdId, jd, processId, kind, status, countsTowardReadiness, confirmedAt, graph, nodeStates, progress, sessions]
+      description: A confirmed process with optional JD. Graph, name and level are snapshots taken at confirm time. Custom and simulated template loops never count toward readiness.
+      required: [id, name, level, jdId, jd, processId, kind, status, countsTowardReadiness, confirmedAt, graph, nodeStates, progress, sessions]
       properties:
         id: { type: string, format: uuid }
-        jdId: { type: string, format: uuid }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        legacyLevel: { type: string, nullable: true }
+        jdId: { type: string, format: uuid, nullable: true }
         jd: { allOf: [{ $ref: "#/components/schemas/JdBrief" }], nullable: true }
         processId: { type: string, format: uuid, nullable: true }
         kind: { type: string, enum: [official, standalone] }
@@ -1483,9 +2856,9 @@ components:
         loops: { type: array, items: { $ref: "#/components/schemas/Loop" } }
     ConfirmLoopRequest:
       type: object
-      required: [jdId]
+      description: Provide jdId to confirm a suggested process, or processId to confirm a custom saved process. Explicit null jdId detaches a copied process from its source JD. Practice template JDs always produce standalone loops.
       properties:
-        jdId: { type: string, format: uuid }
+        jdId: { type: string, format: uuid, nullable: true }
         processId: { type: string, format: uuid, nullable: true, description: "Omit to confirm the official process." }
     SetLoopStatusRequest:
       type: object
@@ -1541,366 +2914,458 @@ components:
         status:
           $ref: "#/components/schemas/SessionStatus"
 
-    # ------- Internal request (api → ai-service) ------- #
-    GenerateInterviewPlanRequest:
+    SessionPrep:
       type: object
-      description: Everything the ai-service needs to build a plan. Assembled by the backend.
-      required: [session, jobDescription, candidateProfile]
+      description: Blueprint prep progress. `steps` only while a run is active and readable.
+      required: [step, steps, refreshing, preparedAt, errorCode]
+      properties:
+        step: { type: string, nullable: true, description: The run's current stage id. }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/PrepStep" }
+        refreshing: { type: boolean, description: A refresh run is active; the current blueprint stays live. }
+        preparedAt: { type: string, format: date-time, nullable: true }
+        errorCode:
+          type: string
+          nullable: true
+          description: "Set when status == PREP_FAILED: round_not_found | not_enough_problems | answer_key_failed | playbook_failed | llm_unavailable | validation_failed | timeout | cancelled | interrupted | internal_error."
+
+    PrepStep:
+      type: object
+      required: [id, state, elapsedMs]
+      properties:
+        id: { $ref: "#/components/schemas/BlueprintStageId" }
+        state: { type: string, enum: [done, active, pending, failed] }
+        elapsedMs: { type: integer, nullable: true }
+
+    SessionBriefing:
+      type: object
+      description: The only candidate-visible part of a blueprint. Never topics, problems or difficulty.
+      required: [interviewerName, interviewerStyle, format, durationMins]
+      properties:
+        interviewerName: { type: string }
+        interviewerStyle: { type: string }
+        format: { type: string, description: 'e.g. "45-minute coding interview with a shared editor"' }
+        durationMins: { type: integer }
+
+    # ------- Blueprint (snake_case, ai-service owned; admin diagnostics + internal) ------- #
+    BlueprintStageId:
+      type: string
+      enum: [context, selection, answer_keys, persona, personalization, playbooks, policies, validate]
+
+    BlueprintTrigger:
+      type: string
+      enum: [booking, reconcile, refresh, retry, bench]
+
+    BlueprintRunStatus:
+      type: string
+      enum: [running, completed, failed, cancelled]
+
+    BlueprintRunRequest:
+      type: object
+      description: Everything a run needs, assembled by interviewiq-api. The candidate profile is a minimal projection (no contact details).
+      required: [session, job_description, round, candidate_profile, exclusions, trigger, options, input_hash, input_parts]
       properties:
         session:
-          $ref: "#/components/schemas/PlanSessionContext"
-        jobDescription:
-          $ref: "#/components/schemas/PlanJobDescription"
-        candidateProfile:
-          $ref: "#/components/schemas/PlanCandidateProfile"
-        companyBrief:
-          type: [object, 'null']
-          additionalProperties: true
-          description: Optional backend-owned verified publication. When present, prep uses this instead of the AI research brief. Contains generated_at, published_revision and final_experience with ordered rounds (type, topics, problems, format, duration_minutes).
-
-    PlanSessionContext:
-      type: object
-      required: [sessionId, candidateId, company, role, level, specialization, roundType]
-      properties:
-        sessionId:
-          type: string
-          format: uuid
-        candidateId:
-          type: string
-          format: uuid
-        company:
-          type: string
-        role:
-          type: string
-        level:
-          type: string
-        specialization:
-          type: string
-        roundType:
-          $ref: "#/components/schemas/RoundType"
-
-    PlanJobDescription:
-      type: object
-      required: [id, title]
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        techStack:
-          type: string
-          nullable: true
-          description: Comma-separated tech stack (as stored on the JD).
-
-    PlanCandidateProfile:
-      type: object
-      description: >
-        The candidate's descriptive profile, as the backend assembles it from
-        CandidateProfile. Evidence-carrying, never scored. The ai-service hashes this
-        to detect changes.
-      properties:
-        fullName:
-          type: string
-          nullable: true
-        headline:
-          type: string
-          nullable: true
-        targetRole:
-          type: string
-          nullable: true
-        education:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanEducation"
-        experience:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanExperience"
-        projects:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanProject"
-        skills:
-          type: array
-          items:
-            type: string
-        achievements:
-          type: array
-          items:
-            type: string
-        links:
-          $ref: "#/components/schemas/PlanLinks"
-        codingProfile:
-          allOf:
-            - $ref: "#/components/schemas/PlanCodingProfile"
-          nullable: true
-          description: >
-            Curated GitHub + LeetCode signals from the Profile Builder, or null if not connected.
-
-    PlanCodingProfile:
-      type: object
-      description: >
-        Compact, stable coding-platform signals the backend curates from the ProfileFragments —
-        GitHub (languages, topRepos, contributionsLastYear) and LeetCode (solved, byTopic, contest).
-        Free-form objects so the fragment shape can evolve without a contract change.
-      properties:
-        github:
           type: object
-          additionalProperties: true
-          nullable: true
-        leetcode:
+          required: [session_id, candidate_id, company, role, level, round_type]
+          properties:
+            session_id: { type: string, nullable: true, description: Null for bench runs. }
+            candidate_id: { type: string }
+            candidate_label: { type: string, nullable: true }
+            company: { type: string }
+            role: { type: string }
+            level: { type: string, description: The booked JD level label (may be a legacy alias). }
+            specialization: { type: string, nullable: true }
+            round_type: { $ref: "#/components/schemas/RoundType" }
+            scheduled_at: { type: string, nullable: true }
+            loop_id: { type: string, nullable: true }
+            node_id: { type: string, nullable: true }
+        job_description:
           type: object
-          additionalProperties: true
+          required: [title]
+          properties:
+            id: { type: string, nullable: true }
+            title: { type: string }
+            description: { type: string, nullable: true }
+            tech_stack: { type: string, nullable: true }
+        round:
+          allOf: [{ $ref: "#/components/schemas/BlueprintRound" }]
           nullable: true
+          description: Null when the brief/snapshot has no such round (the run fails with round_not_found).
+        company_brief:
+          type: object
+          nullable: true
+          properties:
+            dominant_topics: { type: array, items: { type: string } }
+            difficulty_calibration: { type: string, nullable: true }
+            interviewer_style_notes: { type: string, nullable: true }
+            company_specific_patterns: { type: string, nullable: true }
+            red_flags: { type: array, items: { type: string } }
+        candidate_profile: { type: object, additionalProperties: true }
+        exclusions: { type: array, items: { type: string }, description: Bank slugs this candidate must not get again. }
+        trigger: { $ref: "#/components/schemas/BlueprintTrigger" }
+        options:
+          type: object
+          properties:
+            bypass_blueprint_cache: { type: boolean }
+            bypass_answer_key_cache: { type: boolean }
+            ignore_exclusions: { type: boolean }
+        input_hash: { type: string }
+        input_parts: { type: object, additionalProperties: { type: string } }
 
-    PlanProject:
+    BlueprintRound:
       type: object
+      required: [type, topics, problems, source]
       properties:
+        type: { $ref: "#/components/schemas/RoundType" }
         name: { type: string, nullable: true }
-        description: { type: string, nullable: true }
-        tech:
+        duration_mins: { type: integer, nullable: true }
+        format: { type: string, nullable: true }
+        topics: { type: array, items: { type: string } }
+        problems: { type: array, items: { type: string } }
+        difficulty: { type: string, enum: [easy, medium, hard], nullable: true }
+        source: { type: string, enum: [brief, practice] }
+
+    BlueprintRunStarted:
+      type: object
+      required: [run_id, status]
+      properties:
+        run_id: { type: string }
+        status: { type: string, enum: [running] }
+        existing: { type: boolean }
+
+    BlueprintRunStatusView:
+      type: object
+      required: [run_id, status, steps]
+      properties:
+        run_id: { type: string }
+        session_id: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/BlueprintRunStatus" }
+        stage: { allOf: [{ $ref: "#/components/schemas/BlueprintStageId" }], nullable: true }
+        steps:
           type: array
-          items: { type: string }
-        bullets:
+          items:
+            type: object
+            required: [id, state]
+            properties:
+              id: { $ref: "#/components/schemas/BlueprintStageId" }
+              state: { type: string, enum: [done, active, pending, failed] }
+              elapsed_ms: { type: integer, nullable: true }
+        error: { allOf: [{ $ref: "#/components/schemas/BlueprintRunError" }], nullable: true }
+        blueprint_version: { type: integer, nullable: true }
+        cached: { type: boolean }
+        input_hash: { type: string, nullable: true }
+        briefing: { allOf: [{ $ref: "#/components/schemas/BlueprintBriefing" }], nullable: true }
+
+    BlueprintRunError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        stage: { type: string, nullable: true }
+
+    BlueprintRunSummary:
+      type: object
+      required: [run_id, status, trigger, company, role, level, round_type, created_at]
+      properties:
+        run_id: { type: string }
+        session_id: { type: string, nullable: true }
+        candidate_id: { type: string }
+        candidate_label: { type: string, nullable: true }
+        trigger: { $ref: "#/components/schemas/BlueprintTrigger" }
+        status: { $ref: "#/components/schemas/BlueprintRunStatus" }
+        stage: { type: string, nullable: true }
+        steps:
           type: array
-          items: { type: string }
-        link: { type: string, nullable: true }
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              state: { type: string }
+              elapsed_ms: { type: integer, nullable: true }
+        company: { type: string }
+        role: { type: string }
+        level: { type: string }
+        round_type: { $ref: "#/components/schemas/RoundType" }
+        error: { allOf: [{ $ref: "#/components/schemas/BlueprintRunError" }], nullable: true }
+        blueprint_version: { type: integer, nullable: true }
+        cached: { type: boolean }
+        duration_ms: { type: integer, nullable: true }
+        rerun_of: { type: string, nullable: true }
+        created_at: { type: string }
+        ended_at: { type: string, nullable: true }
 
-    PlanEducation:
+    BlueprintRunList:
       type: object
+      required: [runs, next_cursor]
       properties:
-        institution: { type: string, nullable: true }
-        degree: { type: string, nullable: true }
-        field: { type: string, nullable: true }
-        startYear: { type: string, nullable: true }
-        endYear: { type: string, nullable: true }
-        grade: { type: string, nullable: true }
+        runs: { type: array, items: { $ref: "#/components/schemas/BlueprintRunSummary" } }
+        next_cursor: { type: string, nullable: true }
 
-    PlanExperience:
+    BlueprintLlmCall:
       type: object
+      description: One LLM call (or sandbox check) recorded on a stage.
       properties:
-        company: { type: string, nullable: true }
-        title: { type: string, nullable: true }
-        startDate: { type: string, nullable: true }
-        endDate: { type: string, nullable: true }
-        location: { type: string, nullable: true }
-        bullets:
+        label: { type: string }
+        attempt: { type: integer }
+        system: { type: string }
+        user: { type: string }
+        raw: { type: string }
+        provider: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        latency_ms: { type: integer, nullable: true }
+        attempts: { type: integer, nullable: true }
+        tokens:
+          type: object
+          properties:
+            prompt: { type: integer, nullable: true }
+            completion: { type: integer, nullable: true }
+        valid: { type: boolean }
+        validation_errors: { type: array, items: { type: string } }
+        sandbox: { type: boolean }
+        error: { type: string }
+
+    BlueprintStage:
+      type: object
+      required: [id, label, status]
+      properties:
+        id: { $ref: "#/components/schemas/BlueprintStageId" }
+        label: { type: string }
+        status: { type: string, enum: [pending, running, done, skipped, failed] }
+        started_at: { type: string, nullable: true }
+        ended_at: { type: string, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+        summary: { type: object, additionalProperties: true }
+        detail: { type: object, additionalProperties: true, description: Stage-specific detail (selection slots, answer keys, checks…). }
+        llm_calls: { type: array, items: { $ref: "#/components/schemas/BlueprintLlmCall" } }
+        error: { allOf: [{ $ref: "#/components/schemas/BlueprintRunError" }], nullable: true }
+
+    BlueprintRunDetail:
+      allOf:
+        - $ref: "#/components/schemas/BlueprintRunSummary"
+        - type: object
+          required: [stages]
+          properties:
+            stages: { type: array, items: { $ref: "#/components/schemas/BlueprintStage" } }
+            request: { $ref: "#/components/schemas/BlueprintRunRequest" }
+            input_hash: { type: string }
+            input_parts: { type: object, additionalProperties: { type: string } }
+            blueprint: { allOf: [{ $ref: "#/components/schemas/Blueprint" }], nullable: true }
+            briefing: { allOf: [{ $ref: "#/components/schemas/BlueprintBriefing" }], nullable: true }
+
+    BlueprintBriefing:
+      type: object
+      required: [interviewer_name, interviewer_style, format, duration_mins]
+      properties:
+        interviewer_name: { type: string }
+        interviewer_style: { type: string }
+        format: { type: string }
+        duration_mins: { type: integer }
+
+    BlueprintBranch:
+      type: object
+      required: [condition, action, say]
+      properties:
+        condition: { type: string, description: One of the fixed condition vocabulary (spec §8.1). }
+        action: { type: string, description: One of the fixed action vocabulary (spec §8.2). }
+        say: { type: string }
+        notes: { type: string }
+
+    BlueprintSlot:
+      type: object
+      required: [slot_id, kind, order, timebox_mins, problem, answer_key, ask, hint_ladder, branches, expectations, evaluation_signals]
+      properties:
+        slot_id: { type: string }
+        kind: { type: string, enum: [core, reserve] }
+        order: { type: integer }
+        purpose: { type: string }
+        timebox_mins: { type: integer }
+        problem:
+          type: object
+          required: [round_type, slug, title, content]
+          properties:
+            round_type: { type: string }
+            slug: { type: string }
+            title: { type: string }
+            difficulty: { type: string, nullable: true }
+            content_hash: { type: string, nullable: true }
+            content: { type: object, additionalProperties: true }
+        answer_key:
+          type: object
+          properties:
+            key: { type: object, additionalProperties: true }
+            key_version: { type: string }
+            cache_hit: { type: boolean }
+        ask:
+          type: object
+          required: [opening]
+          properties:
+            opening: { type: string }
+            clarifications:
+              type: array
+              items: { type: object, properties: { question: { type: string }, answer: { type: string } } }
+        hint_ladder:
           type: array
-          items: { type: string }
+          items: { type: object, properties: { step: { type: integer }, hint: { type: string } } }
+        branches: { type: array, items: { $ref: "#/components/schemas/BlueprintBranch" } }
+        probes: { type: array, items: { type: string } }
+        follow_ups: { type: array, items: { type: string } }
+        expectations:
+          type: object
+          properties:
+            must_show: { type: array, items: { type: string } }
+            strong_signals: { type: array, items: { type: string } }
+            weak_signals: { type: array, items: { type: string } }
+        evaluation_signals:
+          type: array
+          items: { type: object, properties: { signal: { type: string }, observe: { type: string } } }
 
-    PlanLinks:
+    Blueprint:
       type: object
+      description: The interviewer's playbook for one session (spec §8). Admin/internal only; immutable per version.
+      required: [blueprint_id, candidate_id, version, status, input_hash, run_id, created_at, round, persona, arc, personalization, slots, policies, evaluation, briefing, provenance]
       properties:
-        github: { type: string, nullable: true }
-        leetcode: { type: string, nullable: true }
-        linkedin: { type: string, nullable: true }
-
-    # ------- The plan itself (ai-service → api) ------- #
-    InterviewPlan:
-      type: object
-      description: >
-        The interviewer's prep material for one session. Descriptive and
-        evidence-carrying throughout. The rubric on each question ladder lives ONLY
-        here — never on any Profile Builder / ProfileSummary contract.
-      required:
-        - sessionId
-        - candidateId
-        - company
-        - role
-        - level
-        - specialization
-        - roundType
-        - provenance
-        - persona
-        - roundArc
-        - questionLadders
-        - candidateProbes
-        - redFlagWatchlist
-      properties:
-        sessionId:
-          type: string
-          format: uuid
-        candidateId:
-          type: string
-          format: uuid
-        company:
-          type: string
-        role:
-          type: string
-        level:
-          type: string
-        specialization:
-          type: string
-        roundType:
-          $ref: "#/components/schemas/RoundType"
-        provenance:
-          $ref: "#/components/schemas/PlanProvenance"
+        blueprint_id: { type: string }
+        session_id: { type: string, nullable: true }
+        candidate_id: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [current, superseded, bench] }
+        input_hash: { type: string }
+        input_parts: { type: object, additionalProperties: { type: string } }
+        run_id: { type: string }
+        created_at: { type: string }
+        round: { type: object, additionalProperties: true }
         persona:
-          $ref: "#/components/schemas/InterviewerPersona"
-        roundArc:
+          type: object
+          properties:
+            name: { type: string }
+            seniority: { type: string }
+            style: { type: string }
+            disposition: { type: string }
+            opening: { type: string }
+            closing: { type: string }
+            grounded_in: { type: array, items: { type: string } }
+        arc:
           type: array
-          description: Ordered, timed beats of the round.
           items:
-            $ref: "#/components/schemas/RoundBeat"
-        questionLadders:
-          type: array
-          items:
-            $ref: "#/components/schemas/QuestionLadder"
-        candidateProbes:
-          type: array
-          items:
-            $ref: "#/components/schemas/CandidateProbe"
-        redFlagWatchlist:
-          type: array
-          description: Behaviours/signals to watch for, carried from the brief.
-          items:
-            type: string
+            type: object
+            properties:
+              phase: { type: string, enum: [greeting, small_talk, framing, candidate_intro, core, candidate_questions, wrap_up] }
+              timebox_mins: { type: integer }
+              scored: { type: boolean }
+              guidance: { type: string }
+        personalization:
+          type: object
+          properties:
+            rapport_hooks: { type: array, items: { type: object, properties: { line: { type: string }, source: { type: string } } } }
+            resume_probes: { type: array, items: { type: object, properties: { prompt: { type: string }, grounded_in: { type: string }, what_it_tests: { type: string } } } }
+            level_expectations: { type: string }
+            round_questions:
+              description: "Hiring-manager rounds: questions the round's own topics or notes call for that no bank slot covers (CS fundamentals through the candidate's projects, HR checks such as relocation). Asked in the deep-dive time."
+              type: array
+              items: { type: object, properties: { prompt: { type: string }, covers: { type: string }, what_it_tests: { type: string }, expected: { type: string } } }
+        slots: { type: array, items: { $ref: "#/components/schemas/BlueprintSlot" } }
+        policies:
+          type: object
+          properties:
+            version: { type: string }
+            requests: { type: array, items: { type: object, properties: { kind: { type: string }, decision: { type: string, enum: [comply, decline, partial] }, how: { type: string } } } }
+            off_topic: { type: string }
+            time_management: { type: string }
+            integrity: { type: string }
+            fallback: { type: string }
+        evaluation:
+          type: object
+          properties:
+            global_signals: { type: array, items: { type: object, properties: { signal: { type: string }, observe: { type: string } } } }
+            note: { type: string }
+        briefing: { $ref: "#/components/schemas/BlueprintBriefing" }
+        provenance: { type: object, additionalProperties: true }
 
-    PlanProvenance:
+    BlueprintVersionList:
       type: object
-      description: Versioning + traceability for one plan.
-      required: [planVersion, inputHash, model, generatedAt]
+      required: [versions]
       properties:
-        planVersion:
-          type: string
-          description: Overall plan-shape version.
-        personaPromptVersion:
-          type: string
-          nullable: true
-        ladderPromptVersion:
-          type: string
-          nullable: true
-        probesPromptVersion:
-          type: string
-          nullable: true
-        briefGeneratedAt:
-          type: string
-          nullable: true
-          description: Timestamp of the brief the plan was built from.
-        profileHash:
-          type: string
-          nullable: true
-        inputHash:
-          type: string
-          description: sha256 of the fused inputs — the cache key.
-        model:
-          type: string
-          description: LLM model used (read from settings; never hardcoded).
-        generatedAt:
-          type: string
-          format: date-time
-
-    InterviewerPersona:
-      type: object
-      required: [name, seniority, disposition]
-      properties:
-        name:
-          type: string
-        seniority:
-          type: string
-          description: e.g. "Senior Software Engineer".
-        disposition:
-          type: string
-          description: e.g. "warm but rigorous".
-        styleNotes:
-          type: string
-          nullable: true
-        opening:
-          type: string
-          nullable: true
-          description: Opening script for the interviewer.
-        closing:
-          type: string
-          nullable: true
-          description: Closing script for the interviewer.
-        groundedIn:
+        versions:
           type: array
-          description: Evidence the persona is grounded in (brief/JD signals).
           items:
-            type: string
+            type: object
+            properties:
+              version: { type: integer }
+              status: { type: string }
+              created_at: { type: string }
+              run_id: { type: string }
+              input_hash: { type: string }
+              input_parts: { type: object, additionalProperties: { type: string } }
 
-    RoundBeat:
+    BlueprintDiff:
       type: object
-      required: [phase, title, timeboxMins]
+      required: [from_version, to_version, inputs_changed, problems_changed, persona_changed, changes, truncated]
       properties:
-        phase:
-          type: string
-          enum: [intro, warm-up, core, curveball, candidate-qs, wrap]
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        timeboxMins:
-          type: integer
-
-    QuestionLadder:
-      type: object
-      required: [basePrompt, followUps, hints, rubric]
-      properties:
-        questionSlug:
-          type: string
-          nullable: true
-          description: Optional link to a QuestionRecord slug in the question bank.
-        basePrompt:
-          type: string
-        difficulty:
-          allOf:
-            - $ref: "#/components/schemas/Difficulty"
-          nullable: true
-        followUps:
+        from_version: { type: integer }
+        to_version: { type: integer }
+        inputs_changed: { type: array, items: { type: string } }
+        problems_changed:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              from: { type: string, nullable: true }
+              to: { type: string, nullable: true }
+        persona_changed: { type: boolean }
+        changes:
           type: array
-          description: Escalating follow-ups, ordered easiest-to-hardest.
           items:
-            type: string
-        hints:
-          type: array
-          description: Increasingly explicit hints, ordered subtle-to-explicit.
-          items:
-            type: string
-        rubric:
-          type: array
-          description: Weighted evaluation criteria (interviewer-only).
-          items:
-            $ref: "#/components/schemas/RubricCriterion"
-        timeboxMins:
-          type: integer
-          nullable: true
+            type: object
+            properties:
+              path: { type: string }
+              from: {}
+              to: {}
+        truncated: { type: boolean }
 
-    RubricCriterion:
+    AnswerKeyList:
       type: object
-      required: [criterion, weight]
+      required: [keys]
       properties:
-        criterion:
-          type: string
-        weight:
-          type: number
-          description: Relative weight (0..1 or arbitrary scale; interviewer-only).
-        strongDescriptor:
-          type: string
-          nullable: true
-          description: What a strong answer looks like.
-        weakDescriptor:
-          type: string
-          nullable: true
-          description: What a weak answer looks like.
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              key_id: { type: string }
+              round_type: { type: string }
+              slug: { type: string }
+              content_hash: { type: string, nullable: true }
+              key_version: { type: string }
+              key: { type: object, additionalProperties: true }
+              created_at: { type: string }
 
-    CandidateProbe:
+    BlueprintBenchCandidate:
       type: object
-      required: [prompt, whatItTests]
+      required: [id, name, email]
       properties:
-        prompt:
-          type: string
-        groundedIn:
-          type: string
-          nullable: true
-          description: The profile/JD signal this probe is grounded in.
-        whatItTests:
-          type: string
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, nullable: true }
+
+    BlueprintBenchRequest:
+      type: object
+      required: [candidateId]
+      properties:
+        candidateId: { type: string, format: uuid }
+        jobDescriptionId: { type: string, format: uuid, nullable: true }
+        loopId: { type: string, format: uuid, nullable: true }
+        nodeId: { type: string, nullable: true }
+        roundType: { $ref: "#/components/schemas/RoundType" }
+        options:
+          type: object
+          properties:
+            bypassBlueprintCache: { type: boolean }
+            bypassAnswerKeyCache: { type: boolean }
+            ignoreExclusions: { type: boolean }
+
     CompanyResearchState:
       type: object
       required: [lastRunId, lastResearchedAt, lastStatus, latestDraftId, latestDraftStatus]
@@ -1914,15 +3379,266 @@ components:
           allOf: [{ $ref: "#/components/schemas/DraftCoverageSummary" }]
           nullable: true
           description: How many tracked research fields the latest draft fills; below total means partial research.
-    JobDescriptionDetail:
+    JobDescriptionSummary:
       type: object
-      required: [id, company, companyName, role, level, title, specialization, description, techStack, sourceUrl, yoeMin, yoeMax, ctcMinLpa, ctcMaxLpa, dataConfidence, dataAvailability, interviewProcess, sources]
+      required: [id, company, companyName, role, level, title, specialization, techStack, yoeMin, yoeMax, ctcMinLpa, ctcMaxLpa, dataConfidence, dataAvailability, practiceTemplate]
       properties:
         id: { type: string, format: uuid }
+        practiceTemplate: { type: boolean }
         company: { type: string }
         companyName: { type: string }
         role: { type: string }
-        level: { type: string }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        legacyLevel: { type: string, nullable: true }
+        title: { type: string }
+        specialization: { type: [string, 'null'] }
+        techStack: { type: array, items: { type: string } }
+        yoeMin: { type: [number, 'null'] }
+        yoeMax: { type: [number, 'null'] }
+        ctcMinLpa: { type: [number, 'null'] }
+        ctcMaxLpa: { type: [number, 'null'] }
+        dataConfidence: { type: [string, 'null'] }
+        dataAvailability: { type: string, enum: [rich, available, limited, none] }
+    QuestionContentStatus:
+      type: string
+      enum: [none, generated, verified, failed]
+      description: "none = index only; generated = non-DSA content stored (no executable checks exist for these rounds); verified = DSA content built on a validated source's examples; failed = the last attempt did not pass its checks, so no content is stored. Content is never stored in any other state."
+    QuestionRubricItem:
+      type: object
+      required: [criterion, weight, strong, weak]
+      properties:
+        criterion: { type: string }
+        weight: { type: number }
+        strong: { type: string }
+        weak: { type: string }
+    QuestionExample:
+      type: object
+      required: [args, expected, explanation]
+      properties:
+        args: { type: object, additionalProperties: true, description: Named arguments for the reference solution's entry point. }
+        expected: { description: The value the entry point returns for those arguments. }
+        explanation: { type: string }
+    QuestionJudgeTest:
+      type: object
+      required: [args, expected]
+      properties:
+        args: { type: object, additionalProperties: true }
+        expected: {}
+    DsaContent:
+      type: object
+      required: [statement, input_format, output_format, constraints, examples, hints, follow_ups, what_it_tests, estimated_minutes]
+      properties:
+        statement: { type: string }
+        input_format: { type: string }
+        output_format: { type: string }
+        constraints: { type: array, items: { type: string } }
+        examples: { type: array, minItems: 2, items: { $ref: "#/components/schemas/QuestionExample" } }
+        judge_tests: { type: array, items: { $ref: "#/components/schemas/QuestionJudgeTest" } }
+        hints: { type: array, minItems: 3, items: { type: string }, description: Escalating, gentle to explicit. }
+        follow_ups: { type: array, items: { type: string } }
+        approaches:
+          type: array
+          items:
+            type: object
+            required: [name, idea, time_complexity, space_complexity]
+            properties: { name: { type: string }, idea: { type: string }, time_complexity: { type: string }, space_complexity: { type: string } }
+        reference_solution:
+          type: [object, 'null']
+          description: "Null for source-grounded problems; answers are built at round-preparation time and cached."
+          required: [language, entry_point, code]
+          properties: { language: { type: string, enum: [python] }, entry_point: { type: string }, code: { type: string } }
+        answer_order_irrelevant: { type: boolean }
+        edge_cases: { type: array, items: { type: string } }
+        common_mistakes: { type: array, items: { type: string } }
+        rubric: { type: array, items: { $ref: "#/components/schemas/QuestionRubricItem" } }
+        patterns: { type: array, items: { type: string } }
+        what_it_tests: { type: string }
+        estimated_minutes: { type: integer }
+    SystemDesignContent:
+      type: object
+      required: [prompt, clarifying_questions, functional_requirements, non_functional_requirements, scale_assumptions, expected_design, deep_dives, trade_offs, follow_ups, rubric, strong_answer_summary, what_it_tests, estimated_minutes]
+      properties:
+        prompt: { type: string }
+        clarifying_questions: { type: array, items: { type: string } }
+        functional_requirements: { type: array, items: { type: string } }
+        non_functional_requirements: { type: array, items: { type: string } }
+        scale_assumptions: { type: array, items: { type: string } }
+        expected_design:
+          type: object
+          required: [components, data_model, data_flow]
+          properties:
+            components: { type: array, items: { type: object, required: [name, purpose], properties: { name: { type: string }, purpose: { type: string } } } }
+            data_model: { type: string }
+            api_sketch: { type: array, items: { type: string } }
+            data_flow: { type: string }
+        deep_dives: { type: array, items: { type: string } }
+        trade_offs: { type: array, items: { type: object, required: [decision, options, recommendation], properties: { decision: { type: string }, options: { type: array, items: { type: string } }, recommendation: { type: string } } } }
+        follow_ups: { type: array, items: { type: string } }
+        rubric: { type: array, items: { $ref: "#/components/schemas/QuestionRubricItem" } }
+        red_flags: { type: array, items: { type: string } }
+        strong_answer_summary: { type: string }
+        what_it_tests: { type: string }
+        estimated_minutes: { type: integer }
+    LldContent:
+      type: object
+      required: [prompt, requirements, entities, expected_design, evaluation_mode, follow_ups, rubric, strong_answer_summary, what_it_tests, estimated_minutes]
+      properties:
+        prompt: { type: string }
+        requirements: { type: array, items: { type: string } }
+        entities: { type: array, items: { type: string } }
+        expected_design:
+          type: object
+          required: [classes]
+          properties:
+            classes: { type: array, items: { type: object, required: [name, responsibilities], properties: { name: { type: string }, responsibilities: { type: string }, key_methods: { type: array, items: { type: string } } } } }
+            relationships: { type: array, items: { type: string } }
+            patterns: { type: array, items: { type: string } }
+        sample_api: { type: array, items: { type: string } }
+        evaluation_mode: { type: string, enum: [discussion, working-code] }
+        follow_ups: { type: array, items: { type: string } }
+        rubric: { type: array, items: { $ref: "#/components/schemas/QuestionRubricItem" } }
+        red_flags: { type: array, items: { type: string } }
+        strong_answer_summary: { type: string }
+        what_it_tests: { type: string }
+        estimated_minutes: { type: integer }
+    BehaviouralContent:
+      type: object
+      required: [question, competency, what_it_tests, star_guide, strong_answer_summary, weak_answer_summary, follow_up_probes, estimated_minutes]
+      properties:
+        question: { type: string }
+        competency: { type: string }
+        what_it_tests: { type: string }
+        star_guide:
+          type: object
+          required: [situation, task, action, result]
+          properties: { situation: { type: string }, task: { type: string }, action: { type: string }, result: { type: string } }
+        strong_answer_summary: { type: string }
+        weak_answer_summary: { type: string }
+        follow_up_probes: { type: array, items: { type: string } }
+        red_flags: { type: array, items: { type: string } }
+        principle: { type: [string, 'null'] }
+        deep_dive_guidance: { type: [string, 'null'], description: Hiring-manager rounds only. }
+        estimated_minutes: { type: integer }
+    QuestionRecord:
+      type: object
+      required: [slug, round_type, title, url, sources, difficulty, topic_tags, company_tags, level_tags, enrichment_status, content_status]
+      description: One problem-bank entry. The index fields come from the datasets and research briefs; `content` is our own text, generated from the index facts.
+      properties:
+        slug: { type: string }
+        round_type: { type: string, enum: [dsa, online-assessment, system-design, lld, behavioural, hiring-manager] }
+        title: { type: string }
+        url: { type: string, description: Provenance only; empty for problems named in our research briefs. }
+        sources: { type: array, items: { type: string } }
+        difficulty: { type: [string, 'null'], enum: [easy, medium, hard, null] }
+        topic_tags: { type: array, items: { type: string } }
+        company_tags: { type: array, items: { type: string } }
+        company_evidence: { type: object, additionalProperties: { type: string, enum: [reported, inferred] }, description: "Per company tag: reported by a dataset or brief, or inferred by the model." }
+        level_tags: { type: array, items: { $ref: "#/components/schemas/EngineeringLevel" } }
+        enrichment_status: { type: string, enum: [raw, enriched, enrich_failed] }
+        content_status: { $ref: "#/components/schemas/QuestionContentStatus" }
+        content_version: { type: [string, 'null'] }
+        content_generated_at: { type: [string, 'null'] }
+        content_model: { type: [string, 'null'] }
+        content_error: { type: [string, 'null'] }
+        content:
+          description: Present with includeContent=true. Shape depends on round_type.
+          oneOf:
+            - $ref: "#/components/schemas/DsaContent"
+            - $ref: "#/components/schemas/SystemDesignContent"
+            - $ref: "#/components/schemas/LldContent"
+            - $ref: "#/components/schemas/BehaviouralContent"
+        acceptance_rate: { type: [number, 'null'] }
+        frequency_score: { type: [number, 'null'] }
+        is_premium: { type: [boolean, 'null'] }
+        category: { type: [string, 'null'] }
+        estimated_duration_mins: { type: [integer, 'null'] }
+    QuestionBankPage:
+      type: object
+      required: [questions, count]
+      properties:
+        questions: { type: array, items: { $ref: "#/components/schemas/QuestionRecord" } }
+        count: { type: integer, description: Total matching, ignoring the page limit. }
+        returned: { type: integer }
+    QuestionBankStats:
+      type: object
+      required: [rounds, total]
+      properties:
+        rounds:
+          type: object
+          description: "round_type -> content_status -> count"
+          additionalProperties: { type: object, additionalProperties: { type: integer } }
+        total: { type: integer }
+    QuestionGenerateResponse:
+      type: object
+      required: [run_id, status, already_running]
+      properties:
+        run_id: { type: string }
+        status: { type: string }
+        already_running: { type: boolean }
+    JdFitLevelGap:
+      type: string
+      enum: [none, stretch, below, unknown]
+      description: JD level vs the user's level. stretch = 2+ above (score capped), below = 2+ below, unknown = either level unset.
+    JdFitResult:
+      type: object
+      required: [jdId, score, levelGap, cap, levelFactor]
+      properties:
+        jdId: { type: string, format: uuid }
+        score: { type: [integer, 'null'], minimum: 0, maximum: 100, description: Null when the JD has nothing to match against. }
+        levelGap: { $ref: "#/components/schemas/JdFitLevelGap" }
+        cap: { type: [integer, 'null'], description: The stretch-role cap when levelGap is stretch. }
+        levelFactor: { type: [number, 'null'], description: "Multiplier applied for a role below the user's level (0.85 one level below, 0.7 two or more); null otherwise." }
+    JdFitList:
+      type: object
+      required: [configVersion, userLevel, results]
+      properties:
+        configVersion: { type: string }
+        userLevel: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        results: { type: array, items: { $ref: "#/components/schemas/JdFitResult" } }
+    JdFitEvidence:
+      type: object
+      required: [source, item, matched, tag]
+      properties:
+        source: { type: string, enum: [resume, github, leetcode, codeforces, tuf] }
+        item: { type: string, description: "The project, role, repo or platform topic that matched." }
+        matched: { type: string, description: "The word, entry or count that matched." }
+        tag: { type: string, description: "What it matched in the JD: a skill, domain, role, topic or experience range." }
+    JdFitPart:
+      type: object
+      required: [key, weight, value, status, evidence, uncovered, hint, reason]
+      properties:
+        key: { type: string, enum: [skills, domain, role, experience, round_topics] }
+        weight: { type: number, description: Configured weight; dropped parts are left out and the rest rescale. }
+        value: { type: number, minimum: 0, maximum: 1 }
+        status: { type: string, enum: [scored, missing, dropped], description: missing = the user has no source for it (counts 0); dropped = the JD has nothing to match against. }
+        evidence: { type: array, items: { $ref: "#/components/schemas/JdFitEvidence" } }
+        uncovered: { type: array, items: { type: string }, description: What the JD asks for that the profile doesn't show. }
+        hint: { type: [string, 'null'], description: Set when missing. }
+        reason: { type: [string, 'null'], description: Set when dropped. }
+    JdFitBreakdown:
+      type: object
+      required: [jdId, score, levelGap, cap, levelFactor, userLevel, jdLevel, configVersion, parts]
+      properties:
+        jdId: { type: string, format: uuid }
+        score: { type: [integer, 'null'], minimum: 0, maximum: 100 }
+        levelGap: { $ref: "#/components/schemas/JdFitLevelGap" }
+        cap: { type: [integer, 'null'], description: The stretch-role cap when levelGap is stretch. }
+        levelFactor: { type: [number, 'null'], description: "Multiplier applied for a role below the user's level (0.85 one level below, 0.7 two or more); null otherwise." }
+        userLevel: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        jdLevel: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        configVersion: { type: string }
+        parts: { type: array, items: { $ref: "#/components/schemas/JdFitPart" } }
+    JobDescriptionDetail:
+      type: object
+      required: [id, company, companyName, role, level, title, specialization, description, techStack, sourceUrl, yoeMin, yoeMax, ctcMinLpa, ctcMaxLpa, dataConfidence, dataAvailability, interviewProcess, sources, practiceTemplate]
+      properties:
+        id: { type: string, format: uuid }
+        practiceTemplate: { type: boolean, description: Simulated practice template, not a verified company process or hiring claim. }
+        company: { type: string }
+        companyName: { type: string }
+        role: { type: string }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel" }
+        legacyLevel: { type: string, nullable: true }
         title: { type: string }
         specialization: { type: [string, 'null'] }
         description: { type: [string, 'null'] }
@@ -1992,7 +3708,8 @@ components:
         jdId: { type: [string, 'null'], format: uuid }
         title: { type: string, maxLength: 255 }
         role: { type: string, maxLength: 255 }
-        level: { type: string, maxLength: 16 }
+        level: { $ref: "#/components/schemas/NullableEngineeringLevel", description: Null on reads for unknown historic labels only; saves and publication require a canonical selected level. }
+        legacyLevel: { type: string, nullable: true }
         specialization: { type: [string, 'null'], maxLength: 32 }
         description: { type: string, maxLength: 20000 }
         techStack: { type: array, maxItems: 50, items: { type: string, maxLength: 255 } }

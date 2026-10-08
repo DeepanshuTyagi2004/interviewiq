@@ -5,6 +5,336 @@
  */
 
 export interface paths {
+    "/api/v1/users/me/linkedin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the owner's confirmed LinkedIn snapshot status. */
+        get: operations["getLinkedInImportStatus"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove LinkedIn source evidence and drafts.
+         * @description Details explicitly merged into the editable profile remain editable there. Fences in-flight PDF extractions from silently reconnecting the source.
+         */
+        delete: operations["disconnectLinkedInImport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/validation-controls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read persisted LinkedIn import validation controls.
+         * @description ADMIN only. Defaults are safe and enabled. Settings affect new validation operations and do not recalculate existing scores.
+         */
+        get: operations["getAdminValidationControls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update one or more LinkedIn import validation controls.
+         * @description ADMIN only. Each supplied value is a boolean. Disabling LinkedIn import stops new PDF uploads before any extraction runs.
+         */
+        patch: operations["patchAdminValidationControls"];
+        trace?: never;
+    };
+    "/api/v1/intelligence/profile-scoring/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run one user's profile scoring live and stream every step (NDJSON).
+         * @description ADMIN only. Runs what the weekly batch runs for one user, streaming one ProfileLiveTraceEvent per line: reading stored sources, the AI-service item assessments (new or edited items; every item with forceReassess) and company-context lookups, the snapshot write, and the deterministic engine with every intermediate step. The last line is a `result` event (data = ProfileLiveTraceResponse) or an `error` event (data = { name, message, stack }). Source collectors are never called. Full detail is kept for admin debugging (names, contacts, employers, the stored profile and raw source data); credential-looking strings are scrubbed and the password hash is never included.
+         *
+         */
+        post: operations["inspectLiveProfileCalculation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/linkedin/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import the owner's LinkedIn "Save to PDF" file for review.
+         * @description Consent declares ownership but does not verify it. The PDF is read once by the AI service and never stored; nothing is fetched from LinkedIn. Only files shaped like LinkedIn's Save to PDF export are accepted. Every claim must quote the PDF text. Does not publish evidence or change the profile before confirmation.
+         */
+        post: operations["importLinkedInPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/linkedin/imports/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish only reviewed sections, optionally merging into profile details.
+         * @description Source-only by default. Optional merge fills blanks and appends deduplicated rows without changing existing human choices or engineering level. Uses draft profile revision to reject stale merges. Identical successful confirmations reuse their receipt.
+         */
+        post: operations["confirmLinkedInProfileSections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/candidate-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read saved profile details and the current engineering level.
+         * @description Known legacy labels normalize on read; unknown labels return null with legacyLevel metadata. Does not infer the current level from a target JD or rewrite saved identities.
+         */
+        get: operations["getCandidateProfile"];
+        /**
+         * Save profile details and optional current engineering level.
+         * @description Omitted level preserves the previous choice. A supplied non-null level must be canonical. Drafts may have null; completing onboarding requires a supplied or previously saved recognized level.
+         */
+        put: operations["saveCandidateProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/profile-score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the current beta profile assessment and frozen history.
+         * @description Lazily caches a frozen assessment when local inputs, settings, privacy, methodology or UTC Monday week change. No provider requests. Repeated unchanged reads do not create history. Current ranks are live decorations; historical ranks are finalized once by the weekly generation.
+         *
+         */
+        get: operations["getProfileScore"];
+        put?: never;
+        /**
+         * Recalculate the signed-in user's profile score from local evidence.
+         * @description Idempotent for the same week, configuration and local input fingerprint. No interview result changes.
+         */
+        post: operations["recalculateProfileScore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/profile-score/assess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh semantic sub-feature assessments for changed projects, internships and roles (v5).
+         * @description Calls the AI service once per new or edited item, judged relative to the user's rubric level, which is derived server-side (the body must be empty). Unchanged items are reused. Results are bounded INFERRED sub-features with verbatim quoted evidence; the deterministic engine combines them on the next read. Never returns or stores an overall score. Rate-limited per user; the weekly batch runs it automatically.
+         *
+         */
+        post: operations["assessProfileItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connections/platforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's coding-platform connections (Codeforces, CodeChef, AtCoder, takeUforward). */
+        get: operations["listPlatformConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connections/platforms/{platform}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: components["schemas"]["CodingPlatform"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect a coding platform by public handle (or pasted profile URL).
+         * @description Validates the handle against the platform's public data, then collects in the background (202, SYNCING; poll the profile). Re-connecting re-points the connection. A takeUforward import also connects the LeetCode/Codeforces/CodeChef/AtCoder profiles linked on TUF, only where the user has none.
+         *
+         */
+        post: operations["connectPlatform"];
+        /** Disconnect a coding platform and delete its fragment. Idempotent. */
+        delete: operations["disconnectPlatform"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/profile-score/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update the profile's engineering level or opt into the profile leaderboard.
+         * @description Legacy declaredLevel writes update CandidateProfile.level, not a separate scoring-only choice. Evidence assessment remains separate. Opt-in defaults false and privacy settings still apply.
+         */
+        patch: operations["updateProfileScoringSettings"];
+        trace?: never;
+    };
+    "/api/v1/profile-leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Same-level, current-week profile ranking with privacy-safe identities.
+         * @description Includes only opted-in eligible users with unchanged current inputs and matching level, version and configuration hash. Ties share competition rank. Percentiles are null below the minimum cohort. No user IDs, emails, evidence or connected account handles are returned.
+         *
+         */
+        get: operations["getProfileLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the problem bank (ADMIN). Thin index rows by default; includeContent=true adds each problem's content. */
+        get: operations["listQuestionBank"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/questions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Counts per round type and content status (ADMIN). */
+        get: operations["getQuestionBankStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/questions/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start content generation over the problem-bank index in the background (ADMIN). Progress via /intelligence/scrape/status. */
+        post: operations["generateQuestionContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ADMIN read-only local storage, methodology, replay and job diagnostics.
+         * @description Without userId checks system scoring state; with userId also checks that user's frozen snapshot, source freshness, numerical bounds, weighted formula and historical rank constraints. Live collectors, interview preparation and voice remain explicitly untested. Never recalculates on read.
+         *
+         */
+        get: operations["getProfileScoringDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -179,10 +509,68 @@ export interface paths {
         get: operations["getCurrentUser"];
         put?: never;
         post?: never;
+        /**
+         * Delete the account and everything it holds, immediately.
+         * @description The user types their email to confirm; password accounts also send the password. Refused while an interview is live (`interview_in_progress`), when the AI service cannot purge the account's interview data (`deletion_unavailable`), or when the confirmation does not match (`confirmation_mismatch`). Shares the login rate limit.
+         *
+         */
+        delete: operations["deleteAccount"];
+        options?: never;
+        head?: never;
+        /** Change the display name. */
+        patch: operations["updateCurrentUser"];
+        trace?: never;
+    };
+    "/api/v1/users/me/sessions/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out of every device, this one included (all refresh tokens revoked). */
+        post: operations["revokeAllSessions"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everything the API holds about the account, as a JSON attachment. */
+        get: operations["exportAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Account-level settings, every value resolved (defaults overlaid with what the user changed). */
+        get: operations["getPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change any subset of settings; unknown keys are rejected (`invalid_preferences`). */
+        patch: operations["updatePreferences"];
         trace?: never;
     };
     "/api/v1/interviews/sessions": {
@@ -226,7 +614,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/interviews/sessions/{sessionId}/regenerate": {
+    "/api/v1/interviews/sessions/{sessionId}/prep/retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -238,11 +626,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Re-queue prep generation for a session (retry after PREP_FAILED, or refresh).
-         * @description Idempotent by design — the ai-service caches on the fused input hash, so a regenerate with unchanged inputs returns the existing plan with no LLM calls. Moves the session back to `PREP_QUEUED`; the backend then (re)generates. Only the owning candidate may call this.
+         * Retry blueprint prep after PREP_FAILED.
+         * @description Moves a PREP_FAILED session back to PREP_QUEUED and starts a new blueprint run. Limited to 3 retries per rolling hour per session (server-enforced). Only the owning candidate may call this.
          *
          */
-        post: operations["regenerateInterviewSessionPrep"];
+        post: operations["retryInterviewSessionPrep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -267,10 +655,27 @@ export interface paths {
         put?: never;
         /**
          * Start (or resume) the live interview; mints a LiveKit join token.
-         * @description Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for the same room without altering session state. Only the owning candidate may call this.
+         * @description Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for the same room without altering session state. Only the owning candidate may call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable (`InterviewSession.liveAvailable` is false), and 409 `session_not_ready` unless PREP_READY. Going live marks the blueprint's problems as seen, so later blueprints never repeat them.
          *
          */
         post: operations["goLiveInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published role summaries, including explicitly marked simulated practice templates. */
+        get: operations["listJobDescriptions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -286,6 +691,44 @@ export interface paths {
         };
         /** Read a published JD with its current candidate-visible interview process. */
         get: operations["getJobDescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jd-fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in user's fit score for each role card (same JDs and filters as GET /api/v1/jds).
+         * @description JD fit (jd-fit-v1) is how closely the user's resume, GitHub and coding profiles match one JD's listing: skills, domain, role, experience and round topics. Rules only, computed on request, never stored. It is a separate contract from the profile score and never affects interview results, gating, readiness or leaderboards.
+         *
+         */
+        get: operations["listJdFit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jd-fit/{jdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Why the signed-in user's fit score for one JD is what it is, part by part. */
+        get: operations["getJdFit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -832,6 +1275,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/internal/brief-problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Named problems from the admin-published briefs, for the AI service's problem-bank collector (internal key). */
+        get: operations["listBriefProblems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/internal/research-targets": {
         parameters: {
             query?: never;
@@ -849,7 +1309,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/interview-plans": {
+    "/api/v1/intelligence/blueprints/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Onboarded candidates for the bench picker. */
+        get: operations["listBlueprintBenchCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blueprint runs, newest first. */
+        get: operations["listBlueprintRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One run with its full trace, request and blueprint. */
+        get: operations["getBlueprintRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/runs/{runId}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-run a run's inputs as a bench run (never touches the session). */
+        post: operations["rerunBlueprint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/bench": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare a blueprint for a candidate + JD (or practice loop round) without booking. */
+        post: operations["startBlueprintBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/sessions/{sessionId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A session's blueprint versions, newest first. */
+        get: operations["listBlueprintVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/sessions/{sessionId}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Structured diff between two versions of a session's blueprint. */
+        get: operations["diffBlueprintVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/blueprints/answer-keys/{roundType}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cached answer keys for one problem (every key version and content hash). */
+        get: operations["getBlueprintAnswerKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blueprints/runs": {
         parameters: {
             query?: never;
             header?: never;
@@ -859,18 +1455,35 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Build (or return the cached) InterviewPlan for a session.
-         * @description The backend assembles the session context + JD + candidate profile and posts it here. Stage 1 (no LLM) gathers the brief and the question bank and computes a deterministic input hash. If a stored plan for this session already has the same input hash, it is returned unchanged (no LLM calls). Otherwise three schema-validated LLM calls (persona, ladders, probes) run concurrently, the plan is assembled, persisted (one per session), and returned.
+         * Start a session's blueprint run (one running run per session).
+         * @description Returns at once; the run executes in the background (context → selection → answer keys → persona → personalization → playbooks → policies → validate). A second start while one is running returns the live run with `existing: true`.
          *
          */
-        post: operations["generateInterviewPlan"];
+        post: operations["startBlueprintRun"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/interview-plans/start": {
+    "/blueprints/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compact run status for the reconcile job and the live stepper. */
+        get: operations["getBlueprintRunStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blueprints/runs/{runId}/cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -879,31 +1492,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Start plan generation in the background (fire-and-poll variant).
-         * @description Same request body and cache/persist semantics as POST /interview-plans, but returns a run_id immediately and runs the pipeline in the background. The caller polls GET /interview-plans/runs/{runId} until the run is terminal. Used by the prep trigger so a slow, concurrent Stage-2 LLM run can't trip the HTTP client read timeout (which would wrongly mark the session PREP_FAILED). Single-process: start and poll must hit the same worker.
-         *
-         */
-        post: operations["startInterviewPlan"];
+        /** Cancel a run. */
+        post: operations["cancelBlueprintRun"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/interview-plans/runs/{runId}": {
+    "/blueprints/sessions/{sessionId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Poll a run started by /interview-plans/start.
-         * @description Returns the run's terminal state. While running, plan and error are null. On completed, plan carries the InterviewPlan. On failed, error carries {code, message} — code mirrors the synchronous route's failure modes (no_data ≈ 422, llm_error ≈ 502).
-         *
-         */
-        get: operations["getInterviewPlanRun"];
+        /** A session's current blueprint (or `version`). Never sent to a browser. */
+        get: operations["getSessionBlueprint"];
         put?: never;
         post?: never;
         delete?: never;
@@ -916,6 +1521,514 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ValidationControlSettings: {
+            linkedinImportEnabled: boolean;
+            requireSectionReview: boolean;
+        };
+        ValidationControlsResponse: {
+            settings: components["schemas"]["ValidationControlSettings"];
+            /** Format: date-time */
+            updatedAt: string | null;
+            /**
+             * Format: uuid
+             * @description Admin user ID that last changed the settings.
+             */
+            updatedBy: string | null;
+        };
+        ProfileTraceStage: {
+            id: string;
+            /** @enum {string} */
+            status: "completed" | "failed" | "skipped";
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string;
+            durationMs: number;
+            detail: string;
+        };
+        ProfileTraceSource: {
+            /** @description RESUME, GITHUB, LEETCODE, LINKEDIN or a coding platform (CODEFORCES, TUF, ...). */
+            source: string;
+            /** @enum {string} */
+            status: "available" | "missing" | "unsupported" | "partial" | "excluded";
+            /** Format: date-time */
+            fetchedAt: string | null;
+            ageDays: number | null;
+            contentHash: string | null;
+            extractedFieldCounts: {
+                [key: string]: number;
+            };
+            safeSummary: {
+                [key: string]: unknown;
+            };
+        };
+        ProfileTraceProviderCheck: {
+            provider: string;
+            mode: string;
+            configured: boolean;
+            used: boolean;
+            /** @enum {string} */
+            status: "used" | "not_used" | "failed";
+            /** Format: date-time */
+            retrievedAt: string | null;
+            reason: string;
+        };
+        ProfileTraceComponent: components["schemas"]["ProfileScoreComponent"] & {
+            availableWeight: number;
+            /** @description Sub-features (or items) that formed this component, with relative weight and share of the component score. status missing = no source produced it, so it was counted as 0. */
+            subFeatures: {
+                key: string;
+                value: number;
+                weight: number;
+                share: number;
+                /** @enum {string} */
+                status?: "found" | "missing";
+            }[];
+            formulaInput: {
+                score: number;
+                weight: number;
+            } | null;
+        };
+        ProfileLiveTraceResponse: {
+            /** Format: uuid */
+            traceId: string;
+            /** Format: uuid */
+            userId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string;
+            stages: components["schemas"]["ProfileTraceStage"][];
+            sources: components["schemas"]["ProfileTraceSource"][];
+            providerChecks: components["schemas"]["ProfileTraceProviderCheck"][];
+            score: number | null;
+            confidence: number;
+            coverage: number;
+            classification: components["schemas"]["ProfileScoreClassification"];
+            algorithm: {
+                version: string;
+                configHash: string;
+                inputHash: string;
+            };
+            components: components["schemas"]["ProfileTraceComponent"][];
+            evidence: components["schemas"]["ProfileScoreEvidence"][];
+            eligibility: {
+                eligible: boolean;
+                reasons: string[];
+            };
+            warnings: string[];
+            formula: {
+                expression: string;
+                availableWeight: number;
+                inputs: components["schemas"]["ProfileTraceComponent"][];
+            };
+            snapshot: components["schemas"]["ProfileScoreSnapshot"];
+            llmCalls: components["schemas"]["ProfileTraceLlmCall"][];
+            stackTrace: string;
+            copyText: string;
+        };
+        ProfileTraceLlmCall: {
+            callId: string;
+            /** @enum {string} */
+            call: "item-assessment" | "company-context";
+            /** @enum {string} */
+            status: "completed" | "failed" | "reused" | "skipped";
+            /** @enum {string|null} */
+            itemType: "project" | "experience" | "internship" | null;
+            itemTitle: string | null;
+            durationMs: number | null;
+            detail: string;
+            error: {
+                name: string;
+                message: string;
+                stack: string | null;
+            } | null;
+        };
+        /** @description One NDJSON line of the live trace. `data` is the step's structured detail; for `result` it is a ProfileLiveTraceResponse. */
+        ProfileLiveTraceEvent: {
+            seq: number;
+            /** Format: date-time */
+            ts: string;
+            elapsedMs: number;
+            /** @enum {string} */
+            kind: "stage" | "log" | "llm" | "engine" | "result" | "error";
+            stage: string;
+            /** @enum {string} */
+            level: "debug" | "info" | "warn" | "error";
+            message: string;
+            data?: unknown;
+        };
+        /** @enum {string} */
+        LinkedInSectionKey: "headline" | "about" | "experience" | "education" | "projects" | "skills" | "achievements" | "certifications" | "publications" | "patents" | "courses" | "languages" | "volunteering";
+        LinkedInImportSection: {
+            key: components["schemas"]["LinkedInSectionKey"];
+            label: string;
+            entries: string[];
+            /** @description Uploaded PDF filename (display only). Null for legacy URL snapshots. */
+            sourceFile: string | null;
+        };
+        /** @description Confirmed snapshot receipt, never proof of account ownership or employment. New imports are PDFs; legacy URL snapshots stay readable until replaced. */
+        LinkedInImportStatus: {
+            connected: boolean;
+            /** Format: date-time */
+            importedAt: string | null;
+            /** @enum {string|null} */
+            method: "pdf" | "url" | null;
+            sections: string[];
+            warnings: string[];
+            /**
+             * Format: uri
+             * @description Profile URL found in the PDF
+             */
+            sourceUrl: string | null;
+            /**
+             * @description Null for PDF imports; Firecrawl/Exa only on legacy URL snapshots.
+             * @enum {string|null}
+             */
+            provider: "exa" | "firecrawl" | null;
+            /** Format: date-time */
+            retrievedAt: string | null;
+        };
+        /** @description Owner-bound derived preview expires after 24 hours. The uploaded PDF is not stored. Profile level is null and never inferred from imported career text. */
+        LinkedInImportDraft: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** @enum {string} */
+            method: "pdf" | "url";
+            profileRevision: string | null;
+            profile: components["schemas"]["CandidateProfileResponse"];
+            sections: components["schemas"]["LinkedInImportSection"][];
+            warnings: string[];
+            /** Format: uri */
+            sourceUrl: string | null;
+            /** @enum {string|null} */
+            provider: "exa" | "firecrawl" | null;
+            /** Format: date-time */
+            retrievedAt: string | null;
+        };
+        LinkedInImportConfirmation: {
+            profile: components["schemas"]["CandidateProfileResponse"] | null;
+            import: components["schemas"]["LinkedInImportStatus"];
+        };
+        CandidateProfileEducation: {
+            institution: string | null;
+            degree: string | null;
+            field: string | null;
+            startYear: string | null;
+            endYear: string | null;
+            grade: string | null;
+        };
+        CandidateProfileExperience: {
+            company: string | null;
+            title: string | null;
+            startDate: string | null;
+            endDate: string | null;
+            location: string | null;
+            bullets: string[] | null;
+            /**
+             * Format: uri
+             * @description Explicitly supplied live/company URL.
+             */
+            link?: string | null;
+        };
+        CandidateProfileProject: {
+            name: string | null;
+            description: string | null;
+            tech: string[] | null;
+            bullets: string[] | null;
+            link: string | null;
+        };
+        CandidateProfileLinks: {
+            github: string | null;
+            leetcode: string | null;
+            linkedin: string | null;
+            /** Format: uri */
+            portfolioWebsite?: string | null;
+        };
+        CandidateProfileDetails: {
+            fullName: string | null;
+            email: string | null;
+            phone: string | null;
+            location: string | null;
+            headline: string | null;
+            /**
+             * Format: uri
+             * @description Personal or portfolio website explicitly supplied by the candidate or extracted from the resume.
+             */
+            portfolioWebsite?: string | null;
+            targetRole: string | null;
+            /** Format: uuid */
+            targetJdId: string | null;
+            education: components["schemas"]["CandidateProfileEducation"][];
+            experience: components["schemas"]["CandidateProfileExperience"][];
+            projects: components["schemas"]["CandidateProfileProject"][];
+            skills: string[];
+            achievements: string[];
+            detectedLinks: components["schemas"]["CandidateProfileLinks"];
+            resumeFilename: string | null;
+        };
+        CandidateProfileResponse: components["schemas"]["CandidateProfileDetails"] & {
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
+            /** Format: date-time */
+            resumeParsedAt: string | null;
+            onboardingComplete: boolean;
+        };
+        CandidateProfileRequest: components["schemas"]["CandidateProfileDetails"] & {
+            level?: components["schemas"]["NullableEngineeringLevel"];
+            complete: boolean;
+        };
+        ResumeParseRunResponse: {
+            /** @enum {string} */
+            status: "running" | "completed" | "failed";
+            profile: components["schemas"]["CandidateProfileResponse"] | null;
+            error: string | null;
+        };
+        /**
+         * @description Canonical user-choice enum across profiles, company JDs, processes, experiences and scoring. Target job level and current profile level are distinct choices using the same enum.
+         * @enum {string}
+         */
+        EngineeringLevel: "intern" | "fresher" | "sde1" | "sde2" | "sde3" | "staff" | "principal" | "distinguished";
+        /**
+         * @description Null only for unfinished profiles or unknown legacy records; never guess an engineering level.
+         * @enum {string|null}
+         */
+        NullableEngineeringLevel: "intern" | "fresher" | "sde1" | "sde2" | "sde3" | "staff" | "principal" | "distinguished" | null;
+        ProfileScoringSettings: {
+            /** @description Effective CandidateProfile.level; compatibility fallback only for old field-absent profiles. */
+            declaredLevel: components["schemas"]["NullableEngineeringLevel"];
+            /** @default false */
+            leaderboardOptIn: boolean;
+        };
+        ProfileScoreEvidence: {
+            id: string;
+            source: string;
+            path: string;
+            claim: string;
+            value: string | number;
+            confidence: number;
+            /** Format: date-time */
+            observedAt: string | null;
+            /** @enum {string} */
+            verification: "collector" | "self_reported";
+            recencyFactor: number;
+            /** @description V5 sub-feature key this evidence supports (e.g. codeforces_contest, technical_depth). */
+            feature?: string;
+            /** @description V5 raw observation before normalization (platform-native units or extracted structure). */
+            rawValue?: unknown;
+            /** @description V5 0-100 value after platform- or policy-specific normalization. */
+            normalizedValue?: number | null;
+            scoreContribution?: number | null;
+            /** @enum {string} */
+            evidenceType?: "DIRECT" | "DERIVED" | "INFERRED" | "SELF_REPORTED" | "UNAVAILABLE";
+            algorithmVersion?: string;
+            sourceUrl?: string | null;
+            sourceTimestamp?: string | null;
+            sourceMetadata?: {
+                [key: string]: unknown;
+            };
+            /** @description V3 attribution paths; repeated claims do not accumulate scoring or confidence credit. */
+            paths?: string[];
+            provenance?: {
+                section: string;
+                path: string;
+                file: string | null;
+                quote: string;
+            }[];
+        };
+        ProfileScoreComponent: {
+            id: string;
+            label: string;
+            weight: number;
+            score: number | null;
+            contribution: number | null;
+            evidenceIds: string[];
+            /**
+             * @description missing = no current evidence (a core part then counts as 0, including when its AI assessment failed or has not run). pending appears only on older v5 snapshots, which left an unassessed part out.
+             * @enum {string}
+             */
+            status: "available" | "missing" | "pending";
+            /**
+             * @description core = expected at the level and nothing else stands in for it (a gap is warned about); bonus = extra credit (a gap is a quiet 0 of its weight). Every part counts in proportion to its weight; missing = 0.
+             *
+             * @enum {string}
+             */
+            role?: "core" | "bonus";
+            /** @description v5: whether the part is in the score (missing core counts as 0; a bonus counts when present; pending is left out). */
+            counted?: boolean;
+        };
+        ProfileScoreSource: {
+            source: string;
+            /** @enum {string} */
+            status: "available" | "missing" | "unsupported" | "partial";
+            /** Format: date-time */
+            fetchedAt: string | null;
+            ageDays: number | null;
+            contentHash: string | null;
+            /**
+             * @description Historic methods remain replayable; new imports are uploaded LinkedIn PDFs.
+             * @enum {string|null}
+             */
+            importMethod?: "archive" | "pdf" | "text" | "url" | null;
+            /** Format: date-time */
+            importedAt?: string | null;
+            /** @enum {string|null} */
+            provider?: "exa" | "firecrawl" | null;
+            /**
+             * Format: date-time
+             * @description Retrieval time
+             */
+            retrievedAt?: string | null;
+        };
+        ProfileScoreClassification: {
+            declaredLevel: components["schemas"]["NullableEngineeringLevel"];
+            assessedLevel: components["schemas"]["EngineeringLevel"];
+            confidence: number;
+            reasons: string[];
+            warnings: string[];
+        };
+        /** @description Provisional deterministic assessment. Score and coverage are 0–100; unknown evidence is null, not zero. From v5, source data is taken as correct (no confidence weighting): confidence is 100 when scored, else 0, and leaderboard eligibility depends only on the level's minimum coverage.
+         *      */
+        ProfileScoreEvaluation: {
+            algorithmVersion: string;
+            configHash: string;
+            inputHash: string;
+            /** Format: date-time */
+            asOf: string;
+            /** @enum {string} */
+            status: "scored" | "insufficient_evidence";
+            score: number | null;
+            confidence: number;
+            coverage: number;
+            level: components["schemas"]["EngineeringLevel"];
+            classification: components["schemas"]["ProfileScoreClassification"];
+            components: components["schemas"]["ProfileScoreComponent"][];
+            evidence: components["schemas"]["ProfileScoreEvidence"][];
+            warnings: string[];
+            eligibility: {
+                eligible: boolean;
+                reasons: string[];
+            };
+            sources: components["schemas"]["ProfileScoreSource"][];
+        };
+        ProfileScoreSnapshot: components["schemas"]["ProfileScoreEvaluation"] & {
+            id: string;
+            /** Format: date-time */
+            calculatedAt: string;
+            /**
+             * Format: date
+             * @description UTC Monday cohort week.
+             */
+            week: string;
+            rank: number | null;
+            percentile: number | null;
+            cohortSize: number;
+        };
+        ProfileScoreResponse: {
+            current: components["schemas"]["ProfileScoreSnapshot"] | null;
+            history: components["schemas"]["ProfileScoreSnapshot"][];
+            settings: components["schemas"]["ProfileScoringSettings"];
+        };
+        ProfileLeaderboardResponse: {
+            level: components["schemas"]["EngineeringLevel"];
+            algorithmVersion: string;
+            /** Format: date */
+            week: string;
+            total: number;
+            entries: {
+                rank: number;
+                displayName: string;
+                score: number;
+                confidence: number;
+                percentile: number | null;
+            }[];
+        };
+        ProfileScoringConfig: {
+            version: string;
+            beta: boolean;
+            /** @description Current v2 configurations require all eight rubrics. intern/distinguished are optional only to describe immutable six-rubric v1 replay data. */
+            weights: {
+                intern?: {
+                    [key: string]: number;
+                };
+                fresher: {
+                    [key: string]: number;
+                };
+                sde1: {
+                    [key: string]: number;
+                };
+                sde2: {
+                    [key: string]: number;
+                };
+                sde3: {
+                    [key: string]: number;
+                };
+                staff: {
+                    [key: string]: number;
+                };
+                principal: {
+                    [key: string]: number;
+                };
+                distinguished?: {
+                    [key: string]: number;
+                };
+            };
+            normalizers: {
+                [key: string]: number;
+            };
+            thresholds: {
+                minimumCoverage: number;
+                minimumConfidence: number;
+                minimumCohort: number;
+            };
+        };
+        ProfileScoringJobStatus: {
+            enabled: boolean;
+            /** @enum {string} */
+            status: "idle" | "running" | "completed" | "failed";
+            /** Format: date-time */
+            lastStartedAt: string | null;
+            /** Format: date-time */
+            lastCompletedAt: string | null;
+            lastError: string | null;
+            /** Format: date-time */
+            nextDueAt: string | null;
+            processed: number;
+            failed: number;
+        };
+        ProfileDiagnosticCheck: {
+            id: string;
+            label: string;
+            /** @enum {string} */
+            status: "pass" | "fail" | "warning" | "untested";
+            detail: string;
+        };
+        ProfileDiagnosticsResponse: {
+            /** Format: date-time */
+            checkedAt: string;
+            checks: components["schemas"]["ProfileDiagnosticCheck"][];
+            score: components["schemas"]["ProfileScoreResponse"] | null;
+            jobs: components["schemas"]["ProfileScoringJobStatus"];
+            methodology: components["schemas"]["ProfileScoringConfig"];
+        };
+        /** @enum {string} */
+        CodingPlatform: "CODEFORCES" | "CODECHEF" | "ATCODER" | "TUF";
+        PlatformConnection: {
+            platform: components["schemas"]["CodingPlatform"];
+            handle: string;
+            /** @enum {string} */
+            status: "SYNCING" | "SYNCED" | "FAILED" | "DEGRADED";
+            /** Format: date-time */
+            connectedAt: string;
+            /** Format: date-time */
+            lastRefreshedAt?: string;
+            /** @description Set when the connection was made automatically from another profile's linked accounts (e.g. TUF). */
+            discoveredFrom?: string;
+        };
         /** @description The stable { code, message } error envelope used across the api. */
         ApiError: {
             /** @example session_jd_not_found */
@@ -994,6 +2107,94 @@ export interface components {
             /** @description The account can sign in with email + password (false = Google-only). */
             hasPassword: boolean;
         };
+        UpdateUserRequest: {
+            name: string;
+        };
+        DeleteAccountRequest: {
+            /** @description Must equal the account's email (case-insensitive). */
+            confirmEmail: string;
+            /** @description Required for accounts that have a password. */
+            password?: string;
+        };
+        /** @description Everything the API holds about the account. Shape follows the stores; only `exportedAt` is fixed. */
+        AccountExport: {
+            /** Format: date-time */
+            exportedAt: string;
+        } & {
+            [key: string]: unknown;
+        };
+        NotificationChannel: {
+            interviewReminders: boolean;
+            debriefReady: boolean;
+            retakeAvailable: boolean;
+            targetOpenings: boolean;
+            weeklyDigest: boolean;
+            productUpdates: boolean;
+        };
+        /** @description Account-level settings (Settings → Account / Notifications / Privacy & data). Device-only settings (theme, reduced motion) never reach the server.
+         *      */
+        Preferences: {
+            locale: {
+                /** @enum {string} */
+                appLanguage: "en" | "hi" | "ta" | "te" | "bn" | "mr";
+                /** @description IANA zone; null follows the browser. */
+                timezone: string | null;
+                /** @enum {string} */
+                dateFormat: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
+                /** @enum {string} */
+                timeFormat: "12h" | "24h";
+                /** @enum {string} */
+                weekStart: "monday" | "sunday";
+            };
+            interview: {
+                /** @enum {string} */
+                language: "en" | "hinglish" | "hi";
+                /** @enum {string} */
+                voice: "warm" | "neutral" | "crisp";
+                /** @enum {string} */
+                pace: "slower" | "normal" | "faster";
+                captions: boolean;
+                showTimer: boolean;
+                deviceCheck: boolean;
+                /** @enum {string} */
+                reminderLead: "15m" | "1h" | "1d";
+            };
+            notifications: {
+                emailPaused: boolean;
+                email: components["schemas"]["NotificationChannel"];
+                inApp: components["schemas"]["NotificationChannel"];
+            };
+            privacy: {
+                /**
+                 * @description How an opted-in profile appears on the leaderboard.
+                 * @enum {string}
+                 */
+                leaderboardVisibility: "name" | "anonymous" | "hidden";
+                shareWithCollege: boolean;
+                partnerDiscovery: boolean;
+                improveWithMyData: boolean;
+            };
+            /**
+             * Format: date-time
+             * @description When the user last changed a setting; null = never.
+             */
+            updatedAt: string | null;
+        };
+        /** @description Any subset of `Preferences` leaves (same shape, every field optional). Unknown keys are rejected. */
+        PreferencesPatch: {
+            locale?: {
+                [key: string]: unknown;
+            };
+            interview?: {
+                [key: string]: unknown;
+            };
+            notifications?: {
+                [key: string]: unknown;
+            };
+            privacy?: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * @description A live, human-conducted interview round InterviewIQ can mock. Online Assessment is intentionally excluded — it's an automated coding test, not a live round, so it isn't bookable/conductable here. (The ai-service brief pipeline still recognises OA when it describes companies' real hiring processes; that's a separate, internal vocabulary.)
          *
@@ -1009,8 +2210,11 @@ export interface components {
          */
         SessionStatus: "SCHEDULED" | "PREP_QUEUED" | "PREP_READY" | "PREP_FAILED" | "LIVE_IN_PROGRESS" | "COMPLETED" | "ABORTED_TECHNICAL" | "CANCELLED";
         CreateInterviewSessionRequest: {
-            /** Format: uuid */
-            jobDescriptionId: string;
+            /**
+             * Format: uuid
+             * @description Required for ad-hoc bookings; omitted for a loop round, including JD-independent custom practice.
+             */
+            jobDescriptionId?: string | null;
             /** @description Optional and normally omitted — the candidate does not pick the round. The backend assigns it (currently the first round; per-candidate round progression later). Accepted if sent (e.g. by the admin bench).
              *      */
             roundType?: components["schemas"]["RoundType"];
@@ -1032,7 +2236,7 @@ export interface components {
             /** @description The loop graph node (round) being booked. The round must be unlocked. */
             nodeId?: string | null;
         };
-        /** @description A booked interview session and its prep readiness. `planReady` (status == PREP_READY) is the only signal surfaced to the candidate — plan CONTENTS are the interviewer's material and are never returned here.
+        /** @description A booked interview session and its blueprint prep. Only `prep` (progress) and `briefing` (interviewer, format, duration) reach the candidate: blueprint CONTENTS — problems, topics, difficulty, answer keys — are the interviewer's material and are never returned here.
          *      */
         InterviewSession: {
             /** Format: uuid */
@@ -1040,27 +2244,26 @@ export interface components {
             /** Format: uuid */
             candidateId: string;
             /** Format: uuid */
-            jobDescriptionId: string;
+            jobDescriptionId: string | null;
             /** @description Company slug. */
             company: string;
             /** @description Human-readable company name, when known. */
             companyName?: string | null;
             role: string;
-            level: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            /** @description Unknown historic label retained for display/repair; not a selectable level. */
+            legacyLevel?: string | null;
             specialization: string;
             roundType: components["schemas"]["RoundType"];
             /** Format: date-time */
             scheduledAt: string;
             timezone: string;
             status: components["schemas"]["SessionStatus"];
-            /** @description True when status == PREP_READY (an InterviewPlan exists). */
-            planReady: boolean;
-            /** @description The plan_version recorded once prep succeeds. */
-            planVersion?: string | null;
-            /** @description The ai-service fused input hash of the generated plan. */
-            inputHash?: string | null;
-            /** @description Stable error code when status == PREP_FAILED. */
-            prepError?: string | null;
+            prep: components["schemas"]["SessionPrep"];
+            /** @description Set once the blueprint is ready (and while it refreshes). */
+            briefing: components["schemas"]["SessionBriefing"] | null;
+            /** @description False until the live interviewer is available; a ready session can't be joined yet. */
+            liveAvailable: boolean;
             /**
              * Format: uuid
              * @description The loop this session is a round of; null for ad-hoc bookings.
@@ -1087,6 +2290,7 @@ export interface components {
             /** @enum {string} */
             difficulty: "easy" | "medium" | "hard";
             topics: string[];
+            instructions?: string;
             position: components["schemas"]["ProcessPosition"];
         };
         /** @description A non-interview step (online test, take-home). Display only, never connected, scheduled, scored or counted. */
@@ -1096,6 +2300,10 @@ export interface components {
             kind: "info";
             name: string;
             note: string;
+            topics?: string[];
+            /** @enum {string} */
+            difficulty?: "easy" | "medium" | "hard";
+            instructions?: string;
             position: components["schemas"]["ProcessPosition"];
         };
         ProcessPosition: {
@@ -1114,11 +2322,13 @@ export interface components {
         JdBrief: {
             /** Format: uuid */
             jdId: string;
+            practiceTemplate: boolean;
             title: string;
             company: string;
             companyName: string;
             role: string;
-            level: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
             specialization: string | null;
             techStack: string[];
         };
@@ -1126,6 +2336,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
             jd: components["schemas"]["JdBrief"] | null;
             graph: components["schemas"]["ProcessGraph"];
             /** Format: date-time */
@@ -1136,11 +2348,12 @@ export interface components {
         InterviewProcessList: {
             processes: components["schemas"]["InterviewProcess"][];
         };
-        /** @description Create (jdId + name, optional graph; defaults to a copy of the official process) or update (name and/or graph). */
+        /** @description Create with name and canonical engineering level; optional jdId copies its suggested graph. Without jdId a coding round is supplied if graph is omitted. Update accepts name, level and/or graph. Unknown historic levels must be explicitly repaired before copying or confirming. Every saved process is custom. */
         SaveProcessRequest: {
             /** Format: uuid */
-            jdId?: string;
+            jdId?: string | null;
             name?: string;
+            level?: components["schemas"]["EngineeringLevel"];
             graph?: components["schemas"]["ProcessGraph"];
         };
         OfficialProcess: {
@@ -1148,12 +2361,15 @@ export interface components {
         };
         /** @enum {string} */
         LoopNodeState: "locked" | "available" | "booked" | "completed";
-        /** @description A confirmed process for a JD. `graph` is a snapshot taken at confirm time. */
+        /** @description A confirmed process with optional JD. Graph, name and level are snapshots taken at confirm time. Custom and simulated template loops never count toward readiness. */
         Loop: {
             /** Format: uuid */
             id: string;
+            name: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
             /** Format: uuid */
-            jdId: string;
+            jdId: string | null;
             jd: components["schemas"]["JdBrief"] | null;
             /** Format: uuid */
             processId: string | null;
@@ -1186,9 +2402,10 @@ export interface components {
         LoopList: {
             loops: components["schemas"]["Loop"][];
         };
+        /** @description Provide jdId to confirm a suggested process, or processId to confirm a custom saved process. Explicit null jdId detaches a copied process from its source JD. Practice template JDs always produce standalone loops. */
         ConfirmLoopRequest: {
             /** Format: uuid */
-            jdId: string;
+            jdId?: string | null;
             /**
              * Format: uuid
              * @description Omit to confirm the official process.
@@ -1223,175 +2440,406 @@ export interface components {
             roomName?: string | null;
             status: components["schemas"]["SessionStatus"];
         };
-        /** @description Everything the ai-service needs to build a plan. Assembled by the backend. */
-        GenerateInterviewPlanRequest: {
-            session: components["schemas"]["PlanSessionContext"];
-            jobDescription: components["schemas"]["PlanJobDescription"];
-            candidateProfile: components["schemas"]["PlanCandidateProfile"];
-            /** @description Optional backend-owned verified publication. When present, prep uses this instead of the AI research brief. Contains generated_at, published_revision and final_experience with ordered rounds (type, topics, problems, format, duration_minutes). */
-            companyBrief?: {
-                [key: string]: unknown;
-            } | null;
+        /** @description Blueprint prep progress. `steps` only while a run is active and readable. */
+        SessionPrep: {
+            /** @description The run's current stage id. */
+            step: string | null;
+            steps: components["schemas"]["PrepStep"][];
+            /** @description A refresh run is active; the current blueprint stays live. */
+            refreshing: boolean;
+            /** Format: date-time */
+            preparedAt: string | null;
+            /** @description Set when status == PREP_FAILED: round_not_found | not_enough_problems | answer_key_failed | playbook_failed | llm_unavailable | validation_failed | timeout | cancelled | interrupted | internal_error. */
+            errorCode: string | null;
         };
-        PlanSessionContext: {
-            /** Format: uuid */
-            sessionId: string;
-            /** Format: uuid */
-            candidateId: string;
+        PrepStep: {
+            id: components["schemas"]["BlueprintStageId"];
+            /** @enum {string} */
+            state: "done" | "active" | "pending" | "failed";
+            elapsedMs: number | null;
+        };
+        /** @description The only candidate-visible part of a blueprint. Never topics, problems or difficulty. */
+        SessionBriefing: {
+            interviewerName: string;
+            interviewerStyle: string;
+            /** @description e.g. "45-minute coding interview with a shared editor" */
+            format: string;
+            durationMins: number;
+        };
+        /** @enum {string} */
+        BlueprintStageId: "context" | "selection" | "answer_keys" | "persona" | "personalization" | "playbooks" | "policies" | "validate";
+        /** @enum {string} */
+        BlueprintTrigger: "booking" | "reconcile" | "refresh" | "retry" | "bench";
+        /** @enum {string} */
+        BlueprintRunStatus: "running" | "completed" | "failed" | "cancelled";
+        /** @description Everything a run needs, assembled by interviewiq-api. The candidate profile is a minimal projection (no contact details). */
+        BlueprintRunRequest: {
+            session: {
+                /** @description Null for bench runs. */
+                session_id: string | null;
+                candidate_id: string;
+                candidate_label?: string | null;
+                company: string;
+                role: string;
+                /** @description The booked JD level label (may be a legacy alias). */
+                level: string;
+                specialization?: string | null;
+                round_type: components["schemas"]["RoundType"];
+                scheduled_at?: string | null;
+                loop_id?: string | null;
+                node_id?: string | null;
+            };
+            job_description: {
+                id?: string | null;
+                title: string;
+                description?: string | null;
+                tech_stack?: string | null;
+            };
+            /** @description Null when the brief/snapshot has no such round (the run fails with round_not_found). */
+            round: components["schemas"]["BlueprintRound"] | null;
+            company_brief?: {
+                dominant_topics?: string[];
+                difficulty_calibration?: string | null;
+                interviewer_style_notes?: string | null;
+                company_specific_patterns?: string | null;
+                red_flags?: string[];
+            } | null;
+            candidate_profile: {
+                [key: string]: unknown;
+            };
+            /** @description Bank slugs this candidate must not get again. */
+            exclusions: string[];
+            trigger: components["schemas"]["BlueprintTrigger"];
+            options: {
+                bypass_blueprint_cache?: boolean;
+                bypass_answer_key_cache?: boolean;
+                ignore_exclusions?: boolean;
+            };
+            input_hash: string;
+            input_parts: {
+                [key: string]: string;
+            };
+        };
+        BlueprintRound: {
+            type: components["schemas"]["RoundType"];
+            name?: string | null;
+            duration_mins?: number | null;
+            format?: string | null;
+            topics: string[];
+            problems: string[];
+            /** @enum {string|null} */
+            difficulty?: "easy" | "medium" | "hard" | null;
+            /** @enum {string} */
+            source: "brief" | "practice";
+        };
+        BlueprintRunStarted: {
+            run_id: string;
+            /** @enum {string} */
+            status: "running";
+            existing?: boolean;
+        };
+        BlueprintRunStatusView: {
+            run_id: string;
+            session_id?: string | null;
+            status: components["schemas"]["BlueprintRunStatus"];
+            stage?: components["schemas"]["BlueprintStageId"] | null;
+            steps: {
+                id: components["schemas"]["BlueprintStageId"];
+                /** @enum {string} */
+                state: "done" | "active" | "pending" | "failed";
+                elapsed_ms?: number | null;
+            }[];
+            error?: components["schemas"]["BlueprintRunError"] | null;
+            blueprint_version?: number | null;
+            cached?: boolean;
+            input_hash?: string | null;
+            briefing?: components["schemas"]["BlueprintBriefing"] | null;
+        };
+        BlueprintRunError: {
+            code: string;
+            message: string;
+            stage?: string | null;
+        };
+        BlueprintRunSummary: {
+            run_id: string;
+            session_id?: string | null;
+            candidate_id?: string;
+            candidate_label?: string | null;
+            trigger: components["schemas"]["BlueprintTrigger"];
+            status: components["schemas"]["BlueprintRunStatus"];
+            stage?: string | null;
+            steps?: {
+                id?: string;
+                state?: string;
+                elapsed_ms?: number | null;
+            }[];
             company: string;
             role: string;
             level: string;
-            specialization: string;
-            roundType: components["schemas"]["RoundType"];
+            round_type: components["schemas"]["RoundType"];
+            error?: components["schemas"]["BlueprintRunError"] | null;
+            blueprint_version?: number | null;
+            cached?: boolean;
+            duration_ms?: number | null;
+            rerun_of?: string | null;
+            created_at: string;
+            ended_at?: string | null;
         };
-        PlanJobDescription: {
+        BlueprintRunList: {
+            runs: components["schemas"]["BlueprintRunSummary"][];
+            next_cursor: string | null;
+        };
+        /** @description One LLM call (or sandbox check) recorded on a stage. */
+        BlueprintLlmCall: {
+            label?: string;
+            attempt?: number;
+            system?: string;
+            user?: string;
+            raw?: string;
+            provider?: string | null;
+            model?: string | null;
+            latency_ms?: number | null;
+            attempts?: number | null;
+            tokens?: {
+                prompt?: number | null;
+                completion?: number | null;
+            };
+            valid?: boolean;
+            validation_errors?: string[];
+            sandbox?: boolean;
+            error?: string;
+        };
+        BlueprintStage: {
+            id: components["schemas"]["BlueprintStageId"];
+            label: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "done" | "skipped" | "failed";
+            started_at?: string | null;
+            ended_at?: string | null;
+            duration_ms?: number | null;
+            summary?: {
+                [key: string]: unknown;
+            };
+            /** @description Stage-specific detail (selection slots */
+            detail?: {
+                [key: string]: unknown;
+            };
+            llm_calls?: components["schemas"]["BlueprintLlmCall"][];
+            error?: components["schemas"]["BlueprintRunError"] | null;
+        };
+        BlueprintRunDetail: components["schemas"]["BlueprintRunSummary"] & {
+            stages: components["schemas"]["BlueprintStage"][];
+            request?: components["schemas"]["BlueprintRunRequest"];
+            input_hash?: string;
+            input_parts?: {
+                [key: string]: string;
+            };
+            blueprint?: components["schemas"]["Blueprint"] | null;
+            briefing?: components["schemas"]["BlueprintBriefing"] | null;
+        };
+        BlueprintBriefing: {
+            interviewer_name: string;
+            interviewer_style: string;
+            format: string;
+            duration_mins: number;
+        };
+        BlueprintBranch: {
+            /** @description One of the fixed condition vocabulary (spec §8.1). */
+            condition: string;
+            /** @description One of the fixed action vocabulary (spec §8.2). */
+            action: string;
+            say: string;
+            notes?: string;
+        };
+        BlueprintSlot: {
+            slot_id: string;
+            /** @enum {string} */
+            kind: "core" | "reserve";
+            order: number;
+            purpose?: string;
+            timebox_mins: number;
+            problem: {
+                round_type: string;
+                slug: string;
+                title: string;
+                difficulty?: string | null;
+                content_hash?: string | null;
+                content: {
+                    [key: string]: unknown;
+                };
+            };
+            answer_key: {
+                key?: {
+                    [key: string]: unknown;
+                };
+                key_version?: string;
+                cache_hit?: boolean;
+            };
+            ask: {
+                opening: string;
+                clarifications?: {
+                    question?: string;
+                    answer?: string;
+                }[];
+            };
+            hint_ladder: {
+                step?: number;
+                hint?: string;
+            }[];
+            branches: components["schemas"]["BlueprintBranch"][];
+            probes?: string[];
+            follow_ups?: string[];
+            expectations: {
+                must_show?: string[];
+                strong_signals?: string[];
+                weak_signals?: string[];
+            };
+            evaluation_signals: {
+                signal?: string;
+                observe?: string;
+            }[];
+        };
+        /** @description The interviewer's playbook for one session (spec §8). Admin/internal only; immutable per version. */
+        Blueprint: {
+            blueprint_id: string;
+            session_id?: string | null;
+            candidate_id: string;
+            version: number;
+            /** @enum {string} */
+            status: "current" | "superseded" | "bench";
+            input_hash: string;
+            input_parts?: {
+                [key: string]: string;
+            };
+            run_id: string;
+            created_at: string;
+            round: {
+                [key: string]: unknown;
+            };
+            persona: {
+                name?: string;
+                seniority?: string;
+                style?: string;
+                disposition?: string;
+                opening?: string;
+                closing?: string;
+                grounded_in?: string[];
+            };
+            arc: {
+                /** @enum {string} */
+                phase?: "greeting" | "small_talk" | "framing" | "candidate_intro" | "core" | "candidate_questions" | "wrap_up";
+                timebox_mins?: number;
+                scored?: boolean;
+                guidance?: string;
+            }[];
+            personalization: {
+                rapport_hooks?: {
+                    line?: string;
+                    source?: string;
+                }[];
+                resume_probes?: {
+                    prompt?: string;
+                    grounded_in?: string;
+                    what_it_tests?: string;
+                }[];
+                level_expectations?: string;
+                /** @description Hiring-manager rounds: questions the round's own topics or notes call for that no bank slot covers (CS fundamentals through the candidate's projects, HR checks such as relocation). Asked in the deep-dive time. */
+                round_questions?: {
+                    prompt?: string;
+                    covers?: string;
+                    what_it_tests?: string;
+                    expected?: string;
+                }[];
+            };
+            slots: components["schemas"]["BlueprintSlot"][];
+            policies: {
+                version?: string;
+                requests?: {
+                    kind?: string;
+                    /** @enum {string} */
+                    decision?: "comply" | "decline" | "partial";
+                    how?: string;
+                }[];
+                off_topic?: string;
+                time_management?: string;
+                integrity?: string;
+                fallback?: string;
+            };
+            evaluation: {
+                global_signals?: {
+                    signal?: string;
+                    observe?: string;
+                }[];
+                note?: string;
+            };
+            briefing: components["schemas"]["BlueprintBriefing"];
+            provenance: {
+                [key: string]: unknown;
+            };
+        };
+        BlueprintVersionList: {
+            versions: {
+                version?: number;
+                status?: string;
+                created_at?: string;
+                run_id?: string;
+                input_hash?: string;
+                input_parts?: {
+                    [key: string]: string;
+                };
+            }[];
+        };
+        BlueprintDiff: {
+            from_version: number;
+            to_version: number;
+            inputs_changed: string[];
+            problems_changed: {
+                [key: string]: {
+                    from?: string | null;
+                    to?: string | null;
+                };
+            };
+            persona_changed: boolean;
+            changes: {
+                path?: string;
+                from?: unknown;
+                to?: unknown;
+            }[];
+            truncated: boolean;
+        };
+        AnswerKeyList: {
+            keys: {
+                key_id?: string;
+                round_type?: string;
+                slug?: string;
+                content_hash?: string | null;
+                key_version?: string;
+                key?: {
+                    [key: string]: unknown;
+                };
+                created_at?: string;
+            }[];
+        };
+        BlueprintBenchCandidate: {
             /** Format: uuid */
             id: string;
-            title: string;
-            description?: string | null;
-            /** @description Comma-separated tech stack (as stored on the JD). */
-            techStack?: string | null;
+            name: string;
+            email: string | null;
         };
-        /** @description The candidate's descriptive profile, as the backend assembles it from CandidateProfile. Evidence-carrying, never scored. The ai-service hashes this to detect changes.
-         *      */
-        PlanCandidateProfile: {
-            fullName?: string | null;
-            headline?: string | null;
-            targetRole?: string | null;
-            education?: components["schemas"]["PlanEducation"][];
-            experience?: components["schemas"]["PlanExperience"][];
-            projects?: components["schemas"]["PlanProject"][];
-            skills?: string[];
-            achievements?: string[];
-            links?: components["schemas"]["PlanLinks"];
-            /** @description Curated GitHub + LeetCode signals from the Profile Builder, or null if not connected.
-             *      */
-            codingProfile?: components["schemas"]["PlanCodingProfile"] | null;
-        };
-        /** @description Compact, stable coding-platform signals the backend curates from the ProfileFragments — GitHub (languages, topRepos, contributionsLastYear) and LeetCode (solved, byTopic, contest). Free-form objects so the fragment shape can evolve without a contract change.
-         *      */
-        PlanCodingProfile: {
-            github?: {
-                [key: string]: unknown;
-            } | null;
-            leetcode?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        PlanProject: {
-            name?: string | null;
-            description?: string | null;
-            tech?: string[];
-            bullets?: string[];
-            link?: string | null;
-        };
-        PlanEducation: {
-            institution?: string | null;
-            degree?: string | null;
-            field?: string | null;
-            startYear?: string | null;
-            endYear?: string | null;
-            grade?: string | null;
-        };
-        PlanExperience: {
-            company?: string | null;
-            title?: string | null;
-            startDate?: string | null;
-            endDate?: string | null;
-            location?: string | null;
-            bullets?: string[];
-        };
-        PlanLinks: {
-            github?: string | null;
-            leetcode?: string | null;
-            linkedin?: string | null;
-        };
-        /** @description The interviewer's prep material for one session. Descriptive and evidence-carrying throughout. The rubric on each question ladder lives ONLY here — never on any Profile Builder / ProfileSummary contract.
-         *      */
-        InterviewPlan: {
-            /** Format: uuid */
-            sessionId: string;
+        BlueprintBenchRequest: {
             /** Format: uuid */
             candidateId: string;
-            company: string;
-            role: string;
-            level: string;
-            specialization: string;
-            roundType: components["schemas"]["RoundType"];
-            provenance: components["schemas"]["PlanProvenance"];
-            persona: components["schemas"]["InterviewerPersona"];
-            /** @description Ordered, timed beats of the round. */
-            roundArc: components["schemas"]["RoundBeat"][];
-            questionLadders: components["schemas"]["QuestionLadder"][];
-            candidateProbes: components["schemas"]["CandidateProbe"][];
-            /** @description Behaviours/signals to watch for, carried from the brief. */
-            redFlagWatchlist: string[];
-        };
-        /** @description Versioning + traceability for one plan. */
-        PlanProvenance: {
-            /** @description Overall plan-shape version. */
-            planVersion: string;
-            personaPromptVersion?: string | null;
-            ladderPromptVersion?: string | null;
-            probesPromptVersion?: string | null;
-            /** @description Timestamp of the brief the plan was built from. */
-            briefGeneratedAt?: string | null;
-            profileHash?: string | null;
-            /** @description sha256 of the fused inputs — the cache key. */
-            inputHash: string;
-            /** @description LLM model used (read from settings; never hardcoded). */
-            model: string;
-            /** Format: date-time */
-            generatedAt: string;
-        };
-        InterviewerPersona: {
-            name: string;
-            /** @description e.g. "Senior Software Engineer". */
-            seniority: string;
-            /** @description e.g. "warm but rigorous". */
-            disposition: string;
-            styleNotes?: string | null;
-            /** @description Opening script for the interviewer. */
-            opening?: string | null;
-            /** @description Closing script for the interviewer. */
-            closing?: string | null;
-            /** @description Evidence the persona is grounded in (brief/JD signals). */
-            groundedIn?: string[];
-        };
-        RoundBeat: {
-            /** @enum {string} */
-            phase: "intro" | "warm-up" | "core" | "curveball" | "candidate-qs" | "wrap";
-            title: string;
-            description?: string | null;
-            timeboxMins: number;
-        };
-        QuestionLadder: {
-            /** @description Optional link to a QuestionRecord slug in the question bank. */
-            questionSlug?: string | null;
-            basePrompt: string;
-            difficulty?: components["schemas"]["Difficulty"] | null;
-            /** @description Escalating follow-ups, ordered easiest-to-hardest. */
-            followUps: string[];
-            /** @description Increasingly explicit hints, ordered subtle-to-explicit. */
-            hints: string[];
-            /** @description Weighted evaluation criteria (interviewer-only). */
-            rubric: components["schemas"]["RubricCriterion"][];
-            timeboxMins?: number | null;
-        };
-        RubricCriterion: {
-            criterion: string;
-            /** @description Relative weight (0..1 or arbitrary scale; interviewer-only). */
-            weight: number;
-            /** @description What a strong answer looks like. */
-            strongDescriptor?: string | null;
-            /** @description What a weak answer looks like. */
-            weakDescriptor?: string | null;
-        };
-        CandidateProbe: {
-            prompt: string;
-            /** @description The profile/JD signal this probe is grounded in. */
-            groundedIn?: string | null;
-            whatItTests: string;
+            /** Format: uuid */
+            jobDescriptionId?: string | null;
+            /** Format: uuid */
+            loopId?: string | null;
+            nodeId?: string | null;
+            roundType?: components["schemas"]["RoundType"];
+            options?: {
+                bypassBlueprintCache?: boolean;
+                bypassAnswerKeyCache?: boolean;
+                ignoreExclusions?: boolean;
+            };
         };
         CompanyResearchState: {
             lastRunId: string | null;
@@ -1405,13 +2853,280 @@ export interface components {
             /** @description How many tracked research fields the latest draft fills; below total means partial research. */
             latestDraftCoverage?: components["schemas"]["DraftCoverageSummary"] | null;
         };
-        JobDescriptionDetail: {
+        JobDescriptionSummary: {
             /** Format: uuid */
             id: string;
+            practiceTemplate: boolean;
             company: string;
             companyName: string;
             role: string;
-            level: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
+            title: string;
+            specialization: string | null;
+            techStack: string[];
+            yoeMin: number | null;
+            yoeMax: number | null;
+            ctcMinLpa: number | null;
+            ctcMaxLpa: number | null;
+            dataConfidence: string | null;
+            /** @enum {string} */
+            dataAvailability: "rich" | "available" | "limited" | "none";
+        };
+        /**
+         * @description none = index only; generated = non-DSA content stored (no executable checks exist for these rounds); verified = DSA content built on a validated source's examples; failed = the last attempt did not pass its checks, so no content is stored. Content is never stored in any other state.
+         * @enum {string}
+         */
+        QuestionContentStatus: "none" | "generated" | "verified" | "failed";
+        QuestionRubricItem: {
+            criterion: string;
+            weight: number;
+            strong: string;
+            weak: string;
+        };
+        QuestionExample: {
+            /** @description Named arguments for the reference solution's entry point. */
+            args: {
+                [key: string]: unknown;
+            };
+            /** @description The value the entry point returns for those arguments. */
+            expected: unknown;
+            explanation: string;
+        };
+        QuestionJudgeTest: {
+            args: {
+                [key: string]: unknown;
+            };
+            expected: unknown;
+        };
+        DsaContent: {
+            statement: string;
+            input_format: string;
+            output_format: string;
+            constraints: string[];
+            examples: components["schemas"]["QuestionExample"][];
+            judge_tests?: components["schemas"]["QuestionJudgeTest"][];
+            /** @description Escalating */
+            hints: string[];
+            follow_ups: string[];
+            approaches?: {
+                name: string;
+                idea: string;
+                time_complexity: string;
+                space_complexity: string;
+            }[];
+            /** @description Null for source-grounded problems; answers are built at round-preparation time and cached. */
+            reference_solution?: {
+                /** @enum {string} */
+                language: "python";
+                entry_point: string;
+                code: string;
+            } | null;
+            answer_order_irrelevant?: boolean;
+            edge_cases?: string[];
+            common_mistakes?: string[];
+            rubric?: components["schemas"]["QuestionRubricItem"][];
+            patterns?: string[];
+            what_it_tests: string;
+            estimated_minutes: number;
+        };
+        SystemDesignContent: {
+            prompt: string;
+            clarifying_questions: string[];
+            functional_requirements: string[];
+            non_functional_requirements: string[];
+            scale_assumptions: string[];
+            expected_design: {
+                components: {
+                    name: string;
+                    purpose: string;
+                }[];
+                data_model: string;
+                api_sketch?: string[];
+                data_flow: string;
+            };
+            deep_dives: string[];
+            trade_offs: {
+                decision: string;
+                options: string[];
+                recommendation: string;
+            }[];
+            follow_ups: string[];
+            rubric: components["schemas"]["QuestionRubricItem"][];
+            red_flags?: string[];
+            strong_answer_summary: string;
+            what_it_tests: string;
+            estimated_minutes: number;
+        };
+        LldContent: {
+            prompt: string;
+            requirements: string[];
+            entities: string[];
+            expected_design: {
+                classes: {
+                    name: string;
+                    responsibilities: string;
+                    key_methods?: string[];
+                }[];
+                relationships?: string[];
+                patterns?: string[];
+            };
+            sample_api?: string[];
+            /** @enum {string} */
+            evaluation_mode: "discussion" | "working-code";
+            follow_ups: string[];
+            rubric: components["schemas"]["QuestionRubricItem"][];
+            red_flags?: string[];
+            strong_answer_summary: string;
+            what_it_tests: string;
+            estimated_minutes: number;
+        };
+        BehaviouralContent: {
+            question: string;
+            competency: string;
+            what_it_tests: string;
+            star_guide: {
+                situation: string;
+                task: string;
+                action: string;
+                result: string;
+            };
+            strong_answer_summary: string;
+            weak_answer_summary: string;
+            follow_up_probes: string[];
+            red_flags?: string[];
+            principle?: string | null;
+            /** @description Hiring-manager rounds only. */
+            deep_dive_guidance?: string | null;
+            estimated_minutes: number;
+        };
+        /** @description One problem-bank entry. The index fields come from the datasets and research briefs; `content` is our own text, generated from the index facts. */
+        QuestionRecord: {
+            slug: string;
+            /** @enum {string} */
+            round_type: "dsa" | "online-assessment" | "system-design" | "lld" | "behavioural" | "hiring-manager";
+            title: string;
+            /** @description Provenance only; empty for problems named in our research briefs. */
+            url: string;
+            sources: string[];
+            /** @enum {string|null} */
+            difficulty: "easy" | "medium" | "hard" | null;
+            topic_tags: string[];
+            company_tags: string[];
+            /** @description Per company tag: reported by a dataset or brief, or inferred by the model. */
+            company_evidence?: {
+                [key: string]: "reported" | "inferred";
+            };
+            level_tags: components["schemas"]["EngineeringLevel"][];
+            /** @enum {string} */
+            enrichment_status: "raw" | "enriched" | "enrich_failed";
+            content_status: components["schemas"]["QuestionContentStatus"];
+            content_version?: string | null;
+            content_generated_at?: string | null;
+            content_model?: string | null;
+            content_error?: string | null;
+            /** @description Present with includeContent=true. Shape depends on round_type. */
+            content?: components["schemas"]["DsaContent"] | components["schemas"]["SystemDesignContent"] | components["schemas"]["LldContent"] | components["schemas"]["BehaviouralContent"];
+            acceptance_rate?: number | null;
+            frequency_score?: number | null;
+            is_premium?: boolean | null;
+            category?: string | null;
+            estimated_duration_mins?: number | null;
+        };
+        QuestionBankPage: {
+            questions: components["schemas"]["QuestionRecord"][];
+            /** @description Total matching */
+            count: number;
+            returned?: number;
+        };
+        QuestionBankStats: {
+            /** @description round_type -> content_status -> count */
+            rounds: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            total: number;
+        };
+        QuestionGenerateResponse: {
+            run_id: string;
+            status: string;
+            already_running: boolean;
+        };
+        /**
+         * @description JD level vs the user's level. stretch = 2+ above (score capped), below = 2+ below, unknown = either level unset.
+         * @enum {string}
+         */
+        JdFitLevelGap: "none" | "stretch" | "below" | "unknown";
+        JdFitResult: {
+            /** Format: uuid */
+            jdId: string;
+            /** @description Null when the JD has nothing to match against. */
+            score: number | null;
+            levelGap: components["schemas"]["JdFitLevelGap"];
+            /** @description The stretch-role cap when levelGap is stretch. */
+            cap: number | null;
+            /** @description Multiplier applied for a role below the user's level (0.85 one level below, 0.7 two or more); null otherwise. */
+            levelFactor: number | null;
+        };
+        JdFitList: {
+            configVersion: string;
+            userLevel: components["schemas"]["NullableEngineeringLevel"];
+            results: components["schemas"]["JdFitResult"][];
+        };
+        JdFitEvidence: {
+            /** @enum {string} */
+            source: "resume" | "github" | "leetcode" | "codeforces" | "tuf";
+            /** @description The project, role, repo or platform topic that matched. */
+            item: string;
+            /** @description The word, entry or count that matched. */
+            matched: string;
+            /** @description What it matched in the JD: a skill, domain, role, topic or experience range. */
+            tag: string;
+        };
+        JdFitPart: {
+            /** @enum {string} */
+            key: "skills" | "domain" | "role" | "experience" | "round_topics";
+            /** @description Configured weight; dropped parts are left out and the rest rescale. */
+            weight: number;
+            value: number;
+            /**
+             * @description missing = the user has no source for it (counts 0); dropped = the JD has nothing to match against.
+             * @enum {string}
+             */
+            status: "scored" | "missing" | "dropped";
+            evidence: components["schemas"]["JdFitEvidence"][];
+            /** @description What the JD asks for that the profile doesn't show. */
+            uncovered: string[];
+            /** @description Set when missing. */
+            hint: string | null;
+            /** @description Set when dropped. */
+            reason: string | null;
+        };
+        JdFitBreakdown: {
+            /** Format: uuid */
+            jdId: string;
+            score: number | null;
+            levelGap: components["schemas"]["JdFitLevelGap"];
+            /** @description The stretch-role cap when levelGap is stretch. */
+            cap: number | null;
+            /** @description Multiplier applied for a role below the user's level (0.85 one level below, 0.7 two or more); null otherwise. */
+            levelFactor: number | null;
+            userLevel: components["schemas"]["NullableEngineeringLevel"];
+            jdLevel: components["schemas"]["NullableEngineeringLevel"];
+            configVersion: string;
+            parts: components["schemas"]["JdFitPart"][];
+        };
+        JobDescriptionDetail: {
+            /** Format: uuid */
+            id: string;
+            /** @description Simulated practice template */
+            practiceTemplate: boolean;
+            company: string;
+            companyName: string;
+            role: string;
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
             title: string;
             specialization: string | null;
             description: string | null;
@@ -1476,7 +3191,9 @@ export interface components {
             jdId?: string | null;
             title: string;
             role: string;
-            level: string;
+            /** @description Null on reads for unknown historic labels only; saves and publication require a canonical selected level. */
+            level: components["schemas"]["NullableEngineeringLevel"];
+            legacyLevel?: string | null;
             specialization: string | null;
             description: string;
             techStack: string[];
@@ -1957,6 +3674,746 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getLinkedInImportStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Imported snapshot or disconnected status; not live sync or verified employment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedInImportStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    disconnectLinkedInImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source and drafts removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Another import action is in progress. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAdminValidationControls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current validation controls and audit metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidationControlsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patchAdminValidationControls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    linkedinImportEnabled?: boolean;
+                    requireSectionReview?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Persisted controls. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidationControlsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description JSON is required. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    inspectLiveProfileCalculation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId: string;
+                    /** @description Re-send every resume item to the LLM even when unchanged. */
+                    forceReassess?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description NDJSON stream of trace events; a stage failure arrives as an `error` event, not an HTTP error. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": components["schemas"]["ProfileLiveTraceEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    importLinkedInPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The PDF from LinkedIn's Save to PDF (up to 5 MB).
+                     */
+                    file: string;
+                    /** @enum {string} */
+                    consent: "true";
+                };
+            };
+        };
+        responses: {
+            /** @description Private derived draft; review and confirm available sections. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedInImportDraft"];
+                };
+            };
+            /** @description File missing (linkedin_pdf_missing), consent absent (linkedin_consent_required) or malformed multipart (linkedin_import_invalid). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description User not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The import was cancelled by disconnecting LinkedIn */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The PDF is larger than 5 MB (linkedin_pdf_too_large). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not multipart/form-data */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not LinkedIn's Save to PDF file (linkedin_pdf_unrecognized), no readable text (linkedin_pdf_unreadable) or no evidenced career claims (linkedin_pdf_no_claims). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Owner already has three unexpired drafts. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description LinkedIn import disabled (linkedin_import_disabled), extractor unavailable (linkedin_extractor_unavailable) or storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirmLinkedInProfileSections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    sections: components["schemas"]["LinkedInSectionKey"][];
+                    /** @default false */
+                    mergeProfile?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Confirmed source receipt and optional merged profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedInImportConfirmation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Draft does not exist or belongs to another owner. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile changed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Draft expired. Retrieve a new preview. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Only JSON confirmation is supported. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage could not save the confirmation. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCandidateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved candidate profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfileResponse"];
+                };
+            };
+            /** @description No saved profile yet. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    saveCandidateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved profile; current level is separate from target JD level. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProfileScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current assessment, history and private scoring settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileScoreResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recalculateProfileScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Refreshed assessment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileScoreResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    assessProfileItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Refresh counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        assessed: number;
+                        reused: number;
+                        skipped: number;
+                        failed: number;
+                        budgetExhausted: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Too many refreshes; retry later. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Semantic assessment is not enabled (v5 policy and AI service required). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPlatformConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Supported platforms and current connections. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        supported: components["schemas"]["CodingPlatform"][];
+                        connections: components["schemas"]["PlatformConnection"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    connectPlatform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: components["schemas"]["CodingPlatform"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    handle: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Connection accepted; collection runs in the background. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformConnection"];
+                };
+            };
+            /** @description platform_handle_invalid or platform_bad_request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description platform_user_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description platform_unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    disconnectPlatform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: components["schemas"]["CodingPlatform"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description platform_bad_request (unknown platform) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateProfileScoringSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    declaredLevel?: components["schemas"]["NullableEngineeringLevel"];
+                    leaderboardOptIn?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated settings and assessment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileScoreResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProfileLeaderboard: {
+        parameters: {
+            query?: {
+                level?: "intern" | "fresher" | "sde1" | "sde2" | "sde3" | "staff" | "principal" | "distinguished";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eligible same-level cohort, possibly empty. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileLeaderboardResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listQuestionBank: {
+        parameters: {
+            query?: {
+                roundType?: "dsa" | "online-assessment" | "system-design" | "lld" | "behavioural" | "hiring-manager";
+                company?: string;
+                difficulty?: "easy" | "medium" | "hard";
+                contentStatus?: components["schemas"]["QuestionContentStatus"];
+                /** @description Case-insensitive substring of a topic tag. */
+                topic?: string;
+                includeContent?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching problems. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionBankPage"];
+                };
+            };
+        };
+    };
+    getQuestionBankStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionBankStats"];
+                };
+            };
+        };
+    };
+    generateQuestionContent: {
+        parameters: {
+            query?: {
+                roundType?: string;
+                /** @description Generate at most this many records (runs are resumable). */
+                limit?: number;
+                /** @description Regenerate records whose content is current. */
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run accepted (or the run already in progress). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionGenerateResponse"];
+                };
+            };
+        };
+    };
+    getProfileScoringDiagnostics: {
+        parameters: {
+            query?: {
+                userId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded checks and the current methodology. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileDiagnosticsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description ADMIN role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -2143,6 +4600,13 @@ export interface operations {
                     "application/json": components["schemas"]["TokenResponse"];
                 };
             };
+            /** @description No session (the request carried no refresh cookie); empty body. The visitor is signed out. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description No valid refresh token (empty body; the cookie is cleared). */
             401: {
                 headers: {
@@ -2196,6 +4660,175 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    deleteAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Deleted; the refresh cookie is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `invalid_request`, `confirmation_mismatch`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description `interview_in_progress`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `deletion_unavailable`. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            /** @description `invalid_name`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeAllSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked; the refresh cookie is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export (`Content-Disposition: attachment`). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description The full preferences after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            /** @description `invalid_preferences`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listMyInterviewSessions: {
@@ -2269,7 +4902,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    regenerateInterviewSessionPrep: {
+    retryInterviewSessionPrep: {
         parameters: {
             query?: never;
             header?: never;
@@ -2280,7 +4913,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Regeneration accepted; session moved to PREP_QUEUED. */
+            /** @description Retry accepted; the session is PREP_QUEUED. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2291,6 +4924,24 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            /** @description `prep_not_failed`: the session is not in PREP_FAILED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `prep_retry_limited`: too many retries this hour; the message says when to try again. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getLiveInterviewSession: {
@@ -2339,6 +4990,39 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            /** @description `live_unavailable` or `session_not_ready`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listJobDescriptions: {
+        parameters: {
+            query?: {
+                company?: string;
+                level?: string;
+                specialization?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published roles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionSummary"][];
+                };
+            };
         };
     };
     getJobDescription: {
@@ -2359,6 +5043,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description JD is unavailable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listJdFit: {
+        parameters: {
+            query?: {
+                company?: string;
+                level?: components["schemas"]["EngineeringLevel"];
+                specialization?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One score per listed JD. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JdFitList"];
+                };
+            };
+            /** @description Invalid level. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getJdFit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Score breakdown. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JdFitBreakdown"];
                 };
             };
             /** @description JD is unavailable. */
@@ -3475,6 +6219,39 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listBriefProblems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per brief with at least one round that carries problems. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        briefs: {
+                            company: string;
+                            final_experience: {
+                                rounds: {
+                                    type: string;
+                                    /** @enum {string} */
+                                    difficulty: "easy" | "medium" | "hard";
+                                    topics: string[];
+                                    problems: string[];
+                                }[];
+                            };
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     listResearchTargets: {
         parameters: {
             query?: never;
@@ -3496,79 +6273,75 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
-    generateInterviewPlan: {
+    listBlueprintBenchCandidates: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateInterviewPlanRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The generated or cached plan. */
+            /** @description Candidates sorted by name. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InterviewPlan"];
+                    "application/json": components["schemas"]["BlueprintBenchCandidate"][];
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description No brief/questions available for this (company, role, level). */
-            422: {
+            /** @description Admin role required. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Plan generation failed (LLM never produced a valid plan). */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
+                content?: never;
             };
         };
     };
-    startInterviewPlan: {
+    listBlueprintRuns: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: components["schemas"]["BlueprintRunStatus"];
+                company?: string;
+                round_type?: components["schemas"]["RoundType"];
+                trigger?: components["schemas"]["BlueprintTrigger"];
+                candidate_id?: string;
+                session_id?: string;
+                from?: string;
+                to?: string;
+                limit?: number;
+                /** @description The previous page's next_cursor. */
+                cursor?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateInterviewPlanRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The run was started. */
+            /** @description A page of runs. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        run_id: string;
-                        /** @enum {string} */
-                        status: "running";
-                    };
+                    "application/json": components["schemas"]["BlueprintRunList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
-    getInterviewPlanRun: {
+    getBlueprintRun: {
         parameters: {
             query?: never;
             header?: never;
@@ -3579,22 +6352,318 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The run snapshot. */
+            /** @description The run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintRunDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `run_not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rerunBlueprint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    bypassAnswerKeyCache?: boolean;
+                    ignoreExclusions?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The new run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintRunStarted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `run_not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startBlueprintBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlueprintBenchRequest"];
+            };
+        };
+        responses: {
+            /** @description The bench run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintRunStarted"];
+                };
+            };
+            /** @description `blueprint_bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listBlueprintVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    diffBlueprintVersions: {
+        parameters: {
+            query: {
+                from: number;
+                to: number;
+            };
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The diff. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintDiff"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `run_not_found`: unknown version. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBlueprintAnswerKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundType: components["schemas"]["RoundType"];
+                /** @description The bank slug (may contain "/"). */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Keys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerKeyList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startBlueprintRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlueprintRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Started (or the live run). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintRunStarted"];
+                };
+            };
+            /** @description Session runs need a session_id. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getBlueprintRunStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintRunStatusView"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelBlueprintRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether a running run was cancelled. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        run_id: string;
-                        /** @enum {string} */
-                        status: "running" | "completed" | "failed";
-                        plan?: components["schemas"]["InterviewPlan"] | null;
-                        error?: {
-                            code?: string;
-                            message?: string;
-                        } | null;
+                        cancelled: boolean;
                     };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSessionBlueprint: {
+        parameters: {
+            query?: {
+                version?: number;
+            };
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The blueprint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Blueprint"];
                 };
             };
             401: components["responses"]["Unauthorized"];
