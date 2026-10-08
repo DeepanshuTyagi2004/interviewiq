@@ -123,6 +123,12 @@ export function authRouter(c: Container): Router {
 
   r.post("/api/v1/auth/refresh", async (req, res) => {
     const raw = req.cookies?.[REFRESH_COOKIE];
+    if (raw === undefined) {
+      // No cookie at all: a visitor who never signed in. That is a normal answer, not an error, so every
+      // public page's silent refresh doesn't log a failed request. A cookie that is present but bad is a 401.
+      res.status(204).end();
+      return;
+    }
     if (typeof raw !== "string" || raw === "") {
       clearRefreshCookie(res);
       res.status(401).end();

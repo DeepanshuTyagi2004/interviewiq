@@ -13,7 +13,7 @@ import {
   loginWithGoogle,
   loginWithPassword,
   logout as logoutRequest,
-  refresh as refreshRequest,
+  refreshSession,
   registerWithPassword,
 } from "./client";
 import { getExpiresAt } from "./token-store";
@@ -37,11 +37,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Refresh this many ms before the access token actually expires. */
 const REFRESH_SKEW_MS = 60_000;
+/** While the API can't be reached, retry after 2 s, 4 s, 8 s … up to every 30 s. */
+const RETRY_BASE_MS = 2_000;
+const RETRY_MAX_MS = 30_000;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retriesRef = useRef(0);
   const mountedRef = useRef(true);
   // Latest refresh routine, so the scheduled timer can call it without a declaration cycle.
   const refreshRef = useRef<() => Promise<void>>(async () => {});
@@ -65,9 +69,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Attempt a silent refresh, then schedule the next one before expiry.
   const runRefresh = useCallback(async (): Promise<void> => {
-    const ok = await refreshRequest();
+    const outcome = await refreshSession();
     if (!mountedRef.current) return;
-    if (!ok) {
+    if (outcome === "unreachable") {
+      // No answer is not a sign-out: keep the current status (a page stays put, a first load keeps
+      // its spinner) and try again shortly, backing off while the API stays away.
+      clearTimer();
+      const delay = Math.min(RETRY_BASE_MS * 2 ** retriesRef.current, RETRY_MAX_MS);
+      retriesRef.current += 1;
+      timerRef.current = setTimeout(() => {
+        void refreshRef.current();
+      }, delay);
+      return;
+    }
+    retriesRef.current = 0;
+    if (outcome === "signed-out") {
       clearTimer();
       setStatus("unauthenticated");
       return;

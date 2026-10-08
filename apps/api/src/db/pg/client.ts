@@ -67,9 +67,21 @@ export function resolvePgConnection(settings: Pick<PgSettings, "url" | "ssl" | "
   return { connectionString: url.toString(), ssl };
 }
 
-export function createPgPool(settings: PgSettings): pg.Pool {
+const reportIdleError = (err: Error): void => {
+  console.error(`Postgres: an idle connection failed (${err.message}); the pool reconnects on the next query.`);
+};
+
+/**
+ * A pooled connection that fails while idle (the database restarts, the network drops, the laptop
+ * sleeps) makes the pool emit "error". With no listener Node treats that as unhandled and the whole
+ * process exits. The pool has already discarded the broken connection and opens a new one on the
+ * next query, so the error is only reported.
+ */
+export function createPgPool(settings: PgSettings, onIdleError: (err: Error) => void = reportIdleError): pg.Pool {
   const { connectionString, ssl } = resolvePgConnection(settings);
-  return new pg.Pool({ connectionString, ssl, max: settings.poolMax });
+  const pool = new pg.Pool({ connectionString, ssl, max: settings.poolMax });
+  pool.on("error", onIdleError);
+  return pool;
 }
 
 export function createDatabase(pool: pg.Pool): Database {

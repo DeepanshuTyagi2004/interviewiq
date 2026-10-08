@@ -37,11 +37,16 @@ type LoginRequest = components["schemas"]["LoginRequest"];
 type ResetPasswordRequest = components["schemas"]["ResetPasswordRequest"];
 
 /**
- * Exchange the httpOnly refresh-token cookie for a new access token.
- * Stores the token in memory on success. Returns false when there is no valid
- * session (401) — the caller should treat that as "logged out".
+ * What a silent refresh found: a session ("ok"), no session ("signed-out": 204, no cookie at all, or
+ * 401, a bad one), or no answer ("unreachable": offline, the API restarting, a 5xx or 429). An
+ * unreachable API says nothing about the session, so it must never be treated as a sign-out.
  */
-export async function refresh(): Promise<boolean> {
+export type RefreshOutcome = "ok" | "signed-out" | "unreachable";
+
+/**
+ * Exchange the httpOnly refresh-token cookie for a new access token, held in memory on success.
+ */
+export async function refreshSession(): Promise<RefreshOutcome> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${AUTH_ENDPOINTS.refresh}`, {
@@ -49,17 +54,23 @@ export async function refresh(): Promise<boolean> {
       credentials: "include", // send + receive the refresh_token cookie
     });
   } catch {
-    return false; // network error — treat as unauthenticated
+    return "unreachable";
   }
 
-  if (!res.ok) {
+  if (res.status >= 500 || res.status === 429) return "unreachable";
+  if (!res.ok || res.status === 204) {
     clearAccessToken();
-    return false;
+    return "signed-out";
   }
 
   const data = (await res.json()) as TokenResponse;
   setAccessToken(data.accessToken, data.expiresIn);
-  return true;
+  return "ok";
+}
+
+/** refreshSession() as a yes/no, for retrying a request after a 401. */
+export async function refresh(): Promise<boolean> {
+  return (await refreshSession()) === "ok";
 }
 
 /** Revoke the refresh token server-side and clear the in-memory access token. */
