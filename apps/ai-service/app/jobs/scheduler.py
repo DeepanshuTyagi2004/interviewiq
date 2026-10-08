@@ -1,7 +1,7 @@
 """In-process scheduler (APScheduler, AsyncIOScheduler).
 
 Schedules overview-only company suggestions. Detailed company/role brief generation is
-admin-triggered only; interview prep and question-bank pipelines are independent.
+admin-triggered only; interview blueprints and question-bank pipelines are independent.
 """
 from __future__ import annotations
 

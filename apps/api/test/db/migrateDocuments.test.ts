@@ -67,12 +67,11 @@ describe("migrateDocuments (legacy Postgres jsonb → MongoDB)", () => {
     expect(reports.map((r) => [r.table, r.rows])).toEqual([
       ["candidate_profile", 1],
       ["profile_fragment", 1],
-      ["interview_sessions.outcome", 1],
     ]);
     expect(await mongo.candidateProfiles.countDocuments()).toBe(0);
   });
 
-  it("copies all three kinds of documents", async () => {
+  it("copies both kinds of documents (legacy session outcomes are no longer migrated)", async () => {
     const reports = await migrateDocuments({ query, mongo });
     expect(reports.every((r) => r.inserted === 1)).toBe(true);
 
@@ -95,8 +94,6 @@ describe("migrateDocuments (legacy Postgres jsonb → MongoDB)", () => {
     // stored canonically, so the recorded hash still matches its data
     expect(sha256Hex(canonicalize(fragment!.data))).toBe(fragmentHash);
 
-    const outcome = await mongo.sessionOutcomes.findOne({ _id: sessionId });
-    expect(outcome?.outcome).toMatchObject({ ended_reason: "natural", live_score_final: 7.5 });
   });
 
   it("re-running keeps existing Mongo documents unless --overwrite", async () => {
@@ -112,7 +109,7 @@ describe("migrateDocuments (legacy Postgres jsonb → MongoDB)", () => {
   it("skips gracefully when the legacy tables are gone", async () => {
     const empty = new PGlite();
     const reports = await migrateDocuments({ query: async (t, p) => ({ rows: (await empty.query<Record<string, unknown>>(t, p)).rows }), mongo, dryRun: true });
-    expect(reports.map((r) => r.skipped)).toEqual(["table not found", "table not found", "column not found"]);
+    expect(reports.map((r) => r.skipped)).toEqual(["table not found", "table not found"]);
     await empty.close();
   });
 });

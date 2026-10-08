@@ -3,14 +3,15 @@ import { education, experience, links, listOf, project, str, strList } from "../
 import { PROFILE_SOURCES, type ProfileSource } from "../domain/enums.js";
 import { sortDeep } from "../lib/canonicalJson.js";
 import { isObject } from "../lib/json.js";
-import { type CandidateProfileDoc, ensureMongoIndexes, type MongoCollections, type ProfileFragmentDoc, type SessionOutcomeDoc } from "./mongo/client.js";
+import { type CandidateProfileDoc, ensureMongoIndexes, type MongoCollections, type ProfileFragmentDoc } from "./mongo/client.js";
 
 /**
  * Copy the document-shaped data the Spring backend kept in Postgres jsonb into MongoDB:
  *
  *   candidate_profile           → candidate_profiles  (_id = user_id)
  *   profile_fragment            → profile_fragments   (unique userId+source)
- *   interview_sessions.outcome  → session_outcomes    (_id = session id)
+ *
+ * (Legacy live-session outcomes are no longer migrated: the old live agent and its outcomes were removed.)
  *
  * Postgres is only READ. Documents that already exist in Mongo are kept (the API may have written
  * newer data since the cutover) unless `overwrite`. Safe to re-run.
@@ -79,7 +80,8 @@ export async function migrateDocuments(opts: {
             email: str(r.email),
             phone: str(r.phone),
             location: str(r.location),
-            headline: str(r.headline),
+             headline: str(r.headline),
+             portfolioWebsite: str(r.portfolio_website),
             targetRole: str(r.target_role),
             education: listOf(parseJson(r.education), education) ?? [],
             experience: listOf(parseJson(r.experience), experience) ?? [],
@@ -130,18 +132,6 @@ export async function migrateDocuments(opts: {
     await write("profile_fragment", mongo.profileFragments, ops);
   } else {
     reports.push({ table: "profile_fragment", rows: 0, inserted: 0, replaced: 0, skipped: "table not found" });
-  }
-
-  // --- interview_sessions.outcome ----------------------------------------------------------
-  if ((await tableExists("interview_sessions")) && (await columnExists("interview_sessions", "outcome"))) {
-    const { rows } = await query("select id, outcome, live_ended_at from interview_sessions where outcome is not null");
-    const ops = rows
-      .map((r) => ({ id: String(r.id), outcome: parseJson(r.outcome), at: date(r.live_ended_at) }))
-      .filter((r) => isObject(r.outcome))
-      .map((r) => upsert<SessionOutcomeDoc>({ _id: r.id }, { _id: r.id, outcome: r.outcome as Record<string, unknown>, receivedAt: r.at ?? new Date() }));
-    await write("interview_sessions.outcome", mongo.sessionOutcomes, ops);
-  } else {
-    reports.push({ table: "interview_sessions.outcome", rows: 0, inserted: 0, replaced: 0, skipped: "column not found" });
   }
 
   return reports;

@@ -67,7 +67,7 @@ def test_set_result_and_completed():
 def test_list_runs_newest_first_and_pipeline_filter():
     s = _store()
     r1 = s.start_run("resume_parse", "bench", "one", ["a"])
-    r2 = s.start_run("interview_prep", "bench", "two", ["a"])
+    r2 = s.start_run("other_pipeline", "bench", "two", ["a"])
     runs = s.list_runs()
     assert [r["run_id"] for r in runs] == [r2, r1]  # newest first
     only_resume = s.list_runs("resume_parse")

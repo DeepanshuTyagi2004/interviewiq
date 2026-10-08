@@ -1,4 +1,4 @@
-"""Keyed, in-memory run store for the admin observability consoles (résumé parse, interview-prep).
+"""Keyed, in-memory run store for the admin observability consoles (résumé parse).
 
 Generalizes ``run_store.py``'s single-slot model to many concurrent runs keyed by ``run_id``, each
 with a pre-declared, ordered step list (status + timing + per-step detail) and a per-run log ring
