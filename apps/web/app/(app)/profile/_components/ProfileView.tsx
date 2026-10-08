@@ -18,9 +18,10 @@ import { LogoutButton } from "./LogoutButton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { ResumeFileRow } from "./ResumeFileRow";
 import { ScrollColumn } from "./ScrollColumn";
-import { ActivityCard } from "./SourceActivity";
+import { SourceSignalCards } from "./SourceSignalCards";
 import { educationLine } from "./identity";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
+import { ProfileScoreCard, ProfileScoreReadout } from "@/features/profile-scoring";
 
 const SCAFFOLD = PAGE_SCAFFOLD;
 /** Desktop: the page fills the card and stops scrolling; the header stays put and each column scrolls. */
@@ -36,7 +37,7 @@ function Cell({ order, children }: { order: string; children: React.ReactNode })
  * achievements, sources), the long parts on the right (experience, projects, activity),
  * each column scrolling on its own under a fixed header. Phones and tablets get one column in
  * reading order, scrolling with the page. Each resume section edits on its own.
- * Descriptive throughout — the only score slot is the identity card's interview score "—" tile.
+ * Descriptive source sections remain separate from the provisional beta assessment card.
  */
 export function ProfileView() {
   const { data, isLoading, isError } = useProfile();
@@ -61,14 +62,17 @@ export function ProfileView() {
 
   return (
     <div className={cn(SCAFFOLD, FILL)}>
-      <div className="min-w-0">
-        <p className="iq-eyebrow m-0">Profile</p>
-        <h1 className="m-0 mt-1.5 break-words text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
-          {name ?? "Your profile"}
-        </h1>
-        <p className="m-0 mt-1.5 text-[14px] leading-[1.5] text-muted-foreground">
-          {headline ?? "What your interviewer knows about you, from your resume and connected sources."}
-        </p>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="min-w-0">
+          <p className="iq-eyebrow m-0">Profile</p>
+          <h1 className="m-0 mt-1.5 break-words text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+            {name ?? "Your profile"}
+          </h1>
+          <p className="m-0 mt-1.5 text-[14px] leading-[1.5] text-muted-foreground">
+            {headline ?? "What your interviewer knows about you, from your resume and connected sources."}
+          </p>
+        </div>
+        <ProfileScoreReadout />
       </div>
 
       <DetailsProvider>
@@ -81,20 +85,23 @@ export function ProfileView() {
                 skills={data.mostUsedSkills}
               />
             </Cell>
+            <Cell order="order-2">
+              <ProfileScoreCard />
+            </Cell>
+            <Cell order="order-3">
+              <AchievementsSection />
+            </Cell>
             <Cell order="order-11">
               <ResumeFileRow />
             </Cell>
             <Cell order="order-2">
-              <ContactSection />
+              <div id="profile-level"><ContactSection /></div>
             </Cell>
             <Cell order="order-5">
               <EducationSection />
             </Cell>
             <Cell order="order-6">
               <SkillsSection />
-            </Cell>
-            <Cell order="order-7">
-              <AchievementsSection />
             </Cell>
             <Cell order="order-10">
               <ConnectedSourcesCard profile={data} />
@@ -109,7 +116,7 @@ export function ProfileView() {
               <ProjectsSection />
             </Cell>
             <Cell order="order-9">
-              <ActivityCard profile={data} />
+              <SourceSignalCards profile={data} />
             </Cell>
             <Cell order="order-12">
               <div className="pt-2">

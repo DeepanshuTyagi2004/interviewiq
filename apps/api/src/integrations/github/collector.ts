@@ -32,6 +32,8 @@ query {
         stargazerCount
         pushedAt
         isFork
+        isPrivate
+        description
         primaryLanguage { name }
         languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
           edges { size node { name } }
@@ -52,6 +54,29 @@ query {
 }
 `;
 
+/**
+ * Merged pull requests the user authored in public repositories outside their own namespace
+ * (open-source contribution evidence). File paths are read only to tell docs-only changes apart and
+ * are not stored.
+ */
+export const GITHUB_MERGED_PRS_QUERY = `
+query($q: String!) {
+  search(query: $q, type: ISSUE, first: 100) {
+    nodes {
+      ... on PullRequest {
+        title
+        mergedAt
+        additions
+        deletions
+        changedFiles
+        files(first: 30) { nodes { path } }
+        repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
+      }
+    }
+  }
+}
+`;
+
 export class GitHubCollector {
   constructor(
     private readonly graphqlUrl: string,
@@ -64,7 +89,11 @@ export class GitHubCollector {
   async collectAndStore(connection: GitHubConnectionRow): Promise<void> {
     const accessToken = this.tokenCipher.decrypt(connection.accessTokenEnc);
     const root = await this.postGraphQl(accessToken);
-    const canonical = toGitHubFragmentJson(root);
+    // Best-effort READMEs for the top public repositories (project context for semantic scoring).
+    const readmes = await this.fetchReadmes(accessToken, root).catch(() => null);
+    // Best-effort merged external PRs (open-source contribution scoring).
+    const mergedPRs = await this.fetchMergedPullRequests(accessToken, asString(path(root, "data", "viewer", "login"), "")).catch(() => null);
+    const canonical = toGitHubFragmentJson(root, readmes, mergedPRs);
     const hash = sha256Hex(canonical);
     const now = new Date();
 
@@ -91,6 +120,33 @@ export class GitHubCollector {
     }
   }
 
+  /** One aliased query for up to six public, non-fork repositories; private repositories are never read. */
+  private async fetchReadmes(accessToken: string, root: unknown): Promise<unknown> {
+    const repos = topPublicRepos(root);
+    if (!repos.length) return null;
+    const fields = repos.map((name, i) => `r${i}: repository(name: ${JSON.stringify(name)}) { name description object(expression: "HEAD:README.md") { ... on Blob { text } } }`).join("\n");
+    const response = await requestJson(this.fetchImpl, {
+      method: "POST",
+      url: this.graphqlUrl,
+      headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "interviewiq-backend", "Content-Type": "application/json" },
+      body: JSON.stringify({ query: `query {\n  viewer {\n${fields}\n  }\n}` }),
+      timeoutMs: 30_000,
+    });
+    return isObject(response) && !("errors" in response) ? response : null;
+  }
+
+  private async fetchMergedPullRequests(accessToken: string, login: string): Promise<unknown> {
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(login)) return null;
+    const response = await requestJson(this.fetchImpl, {
+      method: "POST",
+      url: this.graphqlUrl,
+      headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "interviewiq-backend", "Content-Type": "application/json" },
+      body: JSON.stringify({ query: GITHUB_MERGED_PRS_QUERY, variables: { q: `author:${login} is:pr is:merged is:public -user:${login} sort:updated-desc` } }),
+      timeoutMs: 30_000,
+    });
+    return isObject(response) && !("errors" in response) ? response : null;
+  }
+
   private async postGraphQl(accessToken: string): Promise<unknown> {
     const root = await requestJson(this.fetchImpl, {
       method: "POST",
@@ -110,7 +166,17 @@ export class GitHubCollector {
  * Map the raw GraphQL JSON into the normalized fragment and return it as canonical (key-sorted)
  * JSON, ready for hashing + storage. Pure — exported for tests.
  */
-export function toGitHubFragmentJson(root: unknown): string {
+/** Top public, non-fork repositories by stars (query order breaks ties), at most six. */
+export function topPublicRepos(root: unknown): string[] {
+  return items(path(root, "data", "viewer", "repositories", "nodes"))
+    .filter((repo) => !asBoolean(path(repo, "isFork"), false) && path(repo, "isPrivate") === false)
+    .map((repo, order) => ({ name: asString(path(repo, "name"), ""), stars: asInt(path(repo, "stargazerCount"), 0), order }))
+    .filter((repo) => /^[A-Za-z0-9._-]{1,100}$/.test(repo.name))
+    .sort((a, b) => b.stars - a.stars || a.order - b.order)
+    .slice(0, 6).map((repo) => repo.name);
+}
+
+export function toGitHubFragmentJson(root: unknown, readmeRoot: unknown = null, mergedRoot: unknown = null): string {
   const viewer = path(root, "data", "viewer");
 
   // contributions: lastYear total + 52x7 weeks grid
@@ -162,6 +228,37 @@ export function toGitHubFragmentJson(root: unknown): string {
     languages,
     topRepos: topRepos.slice(0, 10),
     externalPRs,
+    // Only when READMEs were fetched, so existing canonical fragments stay byte-identical.
+    ...(readmes(readmeRoot).length ? { readmes: readmes(readmeRoot) } : {}),
+    ...(mergedPullRequests(mergedRoot, login).length ? { mergedPullRequests: mergedPullRequests(mergedRoot, login) } : {}),
+  });
+}
+
+const DOC_PATH = /(?:^|\/)(?:docs?|documentation)\/|\.(?:md|mdx|markdown|rst|txt|adoc)$/i;
+/** Two significant figures, so a popular repository's star drift does not change the fragment hash every week. */
+const roughStars = (stars: number) => stars < 100 ? stars : Number(stars.toPrecision(2));
+
+/** Merged PRs to public, non-fork repositories the viewer does not own. */
+export function mergedPullRequests(mergedRoot: unknown, login: string): { repo: string; stars: number; additions: number; deletions: number; changedFiles: number; docsOnly: boolean; mergedAt: string; title: string }[] {
+  return items(path(mergedRoot, "data", "search", "nodes")).flatMap((pr) => {
+    const repo = path(pr, "repository"), owner = asString(path(repo, "owner", "login"), "");
+    const name = asString(path(repo, "nameWithOwner"), ""), mergedAt = asString(path(pr, "mergedAt"), "");
+    if (!name || !mergedAt || path(repo, "isPrivate") !== false || asBoolean(path(repo, "isFork"), false) || owner.toLowerCase() === login.toLowerCase()) return [];
+    const files = items(path(pr, "files", "nodes")).map((file) => asString(path(file, "path"), "")), changedFiles = asInt(path(pr, "changedFiles"), 0);
+    return [{ repo: name, stars: roughStars(asInt(path(repo, "stargazerCount"), 0)), additions: asInt(path(pr, "additions"), 0), deletions: asInt(path(pr, "deletions"), 0), changedFiles,
+      docsOnly: files.length > 0 && files.length >= changedFiles && files.every((file) => DOC_PATH.test(file)), mergedAt, title: asString(path(pr, "title"), "").slice(0, 120) }];
+  }).sort((a, b) => b.mergedAt.localeCompare(a.mergedAt) || a.repo.localeCompare(b.repo));
+}
+
+/** Clipped README text (markdown noise stripped) + description per fetched public repository. */
+function readmes(readmeRoot: unknown): { repo: string; description: string; text: string }[] {
+  const viewer = path(readmeRoot, "data", "viewer");
+  if (!isObject(viewer)) return [];
+  return Object.keys(viewer).sort().flatMap((alias) => {
+    const repo = viewer[alias], name = asString(path(repo, "name"), "");
+    const raw = asString(path(repo, "object", "text"), "");
+    const text = raw.replace(/```[\s\S]*?```/g, " ").replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/<[^>]+>/g, " ").replace(/[#*_>`|-]{2,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000);
+    return name && text.length >= 40 ? [{ repo: name, description: asString(path(repo, "description"), "").slice(0, 300), text }] : [];
   });
 }
 

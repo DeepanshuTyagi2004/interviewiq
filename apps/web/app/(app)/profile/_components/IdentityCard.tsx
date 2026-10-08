@@ -14,8 +14,8 @@ export interface IdentityCardProps {
 
 /**
  * Avatar, name and education line, the interview score tile, and most-used skills when known. The
- * scoring contract doesn't exist yet (formulas are an open product decision), so the score is an
- * honest "—". There is no profile score — sources describe you, they don't score you.
+ * interview aggregate isn't available, so this score stays an honest "—". The provisional
+ * profile assessment lives in its own card and never populates this interview tile.
  */
 export function IdentityCard({ name, subtitle, skills }: IdentityCardProps) {
   return (

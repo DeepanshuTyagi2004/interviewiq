@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GitHubConnectionRow } from "../../src/db/pg/schema.js";
-import { GITHUB_GRAPHQL_QUERY, GitHubCollector, toGitHubFragmentJson } from "../../src/integrations/github/collector.js";
+import { GITHUB_GRAPHQL_QUERY, GITHUB_MERGED_PRS_QUERY, GitHubCollector, toGitHubFragmentJson } from "../../src/integrations/github/collector.js";
 import { canonicalize, sha256Hex } from "../../src/lib/canonicalJson.js";
 import { TokenCipher } from "../../src/lib/crypto.js";
 import { UpstreamHttpError } from "../../src/lib/http.js";
@@ -151,7 +151,9 @@ describe("GitHubCollector.collectAndStore", () => {
     const userId = randomUUID();
     await collector.collectAndStore(connection(userId));
 
-    expect(fake.calls).toHaveLength(1);
+    // Main query first; the merged-PR search is a separate best-effort call.
+    expect(fake.calls).toHaveLength(2);
+    expect(fake.calls[1]!.json).toEqual({ query: GITHUB_MERGED_PRS_QUERY, variables: { q: "author:aishav is:pr is:merged is:public -user:aishav sort:updated-desc" } });
     const call = fake.calls[0]!;
     expect(call.method).toBe("POST");
     expect(call.url).toBe(GRAPHQL_URL);

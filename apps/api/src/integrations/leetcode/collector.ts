@@ -55,6 +55,22 @@ query recent($username: String!) {
 }
 `;
 
+/**
+ * Call 4 (optional) — contest rating history and the submission calendar. Feeds contest trajectory,
+ * volatility, participation and weekly solving consistency for scoring; absence stays unknown.
+ */
+export const HISTORY_QUERY = `
+query history($username: String!) {
+  userContestRankingHistory(username: $username) {
+    attended rating ranking
+    contest { startTime }
+  }
+  matchedUser(username: $username) {
+    userCalendar { submissionCalendar }
+  }
+}
+`;
+
 const MAX_ATTEMPTS = 3;
 const BACKOFF_BASE_MS = 500;
 const RECENT_WINDOW_SECONDS = 30 * 24 * 60 * 60;
@@ -125,7 +141,16 @@ export class LeetCodeCollector {
       this.log.warn(`LeetCode recent-submissions query failed for ${username} (${err.code}); storing partial fragment`);
     }
 
-    const canonical = toLeetCodeFragmentJson(profileData, contestData, recentData, new Date(), partial);
+    let historyData: unknown = null;
+    try {
+      historyData = await this.postGraphQl(HISTORY_QUERY, username);
+    } catch (err) {
+      if (!(err instanceof LeetCodeProfileError)) throw err;
+      // Optional enrichment: its absence leaves trajectory/consistency unknown; other data stays complete.
+      this.log.warn(`LeetCode history query failed for ${username} (${err.code}); storing without contest history`);
+    }
+
+    const canonical = toLeetCodeFragmentJson(profileData, contestData, recentData, new Date(), partial, historyData);
     const hash = sha256Hex(canonical);
     const now = new Date();
 
@@ -218,6 +243,7 @@ export function toLeetCodeFragmentJson(
   recentData: unknown,
   now: Date,
   partial: boolean,
+  historyData: unknown = null,
 ): string {
   const matchedUser = path(profileData, "matchedUser");
 
@@ -226,7 +252,15 @@ export function toLeetCodeFragmentJson(
   let medium = 0;
   let hard = 0;
   let total = 0;
+  // Keep the legacy descriptive counters, but preserve absence separately for assessments.
+  // Missing/malformed rows must never become evidence of zero ability.
+  const availableDifficulty = new Set<string>();
   for (const entry of items(path(matchedUser, "submitStatsGlobal", "acSubmissionNum"))) {
+    const rawCount = path(entry, "count");
+    const difficulty = asString(path(entry, "difficulty"), "");
+    if (["Easy", "Medium", "Hard"].includes(difficulty) && typeof rawCount === "number" && Number.isInteger(rawCount) && rawCount >= 0) {
+      availableDifficulty.add(difficulty.toLowerCase());
+    }
     const count = asInt(path(entry, "count"), 0);
     switch (asString(path(entry, "difficulty"), "")) {
       case "Easy":
@@ -256,6 +290,11 @@ export function toLeetCodeFragmentJson(
     }
   }
   byTopic.sort((a, b) => b.count - a.count || compareStrings(a.topic, b.topic));
+  // LeetCode's own "advanced" tier (DP, graphs, tries, segment trees…) for advanced-topic coverage.
+  const advancedTopics = items(path(tags, "advanced"))
+    .map((tag) => ({ topic: asString(path(tag, "tagName"), ""), count: asInt(path(tag, "problemsSolved"), 0) }))
+    .filter((tag) => tag.topic !== "" && tag.count > 0)
+    .sort((a, b) => b.count - a.count || compareStrings(a.topic, b.topic));
 
   // contest stats — null when the user has never entered a contest
   const c = path(contestData, "userContestRanking");
@@ -281,6 +320,35 @@ export function toLeetCodeFragmentJson(
   const preferredLanguage =
     [...langCounts.entries()].sort((a, b) => b[1] - a[1] || compareStrings(a[0], b[0]))[0]?.[0] ?? null;
 
+  // Contest history: attended flag + rating + rank per contest (last ~2 years), oldest first.
+  const contestHistory = items(path(historyData, "userContestRankingHistory"))
+    .map((row) => ({ attended: path(row, "attended") === true, rating: Math.round(asDouble(path(row, "rating"), 0)), ranking: asInt(path(row, "ranking"), 0), startTime: asInt(path(row, "contest", "startTime"), 0) }))
+    .filter((row) => row.startTime > 0)
+    .sort((a, b) => a.startTime - b.startTime)
+    .slice(-104);
+  // Submission calendar -> counts only (no timestamp, so an unchanged profile keeps its hash).
+  let calendar: { activeWeeks: number; windowWeeks: number; last30Days: number } | null = null;
+  const rawCalendar = path(historyData, "matchedUser", "userCalendar", "submissionCalendar");
+  if (typeof rawCalendar === "string") {
+    try {
+      const days = JSON.parse(rawCalendar) as unknown;
+      if (isObject(days)) {
+        const nowSeconds = Math.floor(now.getTime() / 1000), weeks = new Set<number>();
+        let last30Days = 0;
+        for (const [key, value] of Object.entries(days)) {
+          const at = Number(key), amount = typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+          if (!Number.isFinite(at) || at > nowSeconds || amount === 0) continue;
+          const ageDays = (nowSeconds - at) / 86_400;
+          if (ageDays <= 364) weeks.add(Math.floor(ageDays / 7));
+          if (ageDays <= 30) last30Days += amount;
+        }
+        calendar = { activeWeeks: weeks.size, windowWeeks: 52, last30Days };
+      }
+    } catch { /* malformed calendar stays unknown */ }
+  }
+
+  const missingSolveBuckets = ["easy", "medium", "hard"].filter((key) => !availableDifficulty.has(key));
+  const recentAvailable = Array.isArray(path(recentData, "recentAcSubmissionList"));
   return canonicalize({
     username: asString(path(matchedUser, "username"), ""),
     country: asString(path(matchedUser, "profile", "countryName"), ""),
@@ -291,6 +359,12 @@ export function toLeetCodeFragmentJson(
     // streak: LeetCode does not expose it on public profiles
     streak: null,
     partial,
+    // Omit on complete responses so existing hashes/contracts remain unchanged.
+    ...(missingSolveBuckets.length || !recentAvailable ? { scoringAvailability: { missingSolveBuckets, recentActivity: recentAvailable } } : {}),
+    // Scoring enrichments: only present when available, so older fragments/hashes are unchanged.
+    ...(advancedTopics.length ? { advancedTopics } : {}),
+    ...(contestHistory.length ? { contestHistory } : {}),
+    ...(calendar ? { calendar } : {}),
   });
 }
 

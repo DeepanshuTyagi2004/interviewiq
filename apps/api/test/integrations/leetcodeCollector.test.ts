@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { LeetCodeConnectionRow } from "../../src/db/pg/schema.js";
 import {
   CONTEST_QUERY,
+  HISTORY_QUERY,
   LeetCodeCollector,
   PROFILE_QUERY,
   RECENT_QUERY,
@@ -116,7 +117,9 @@ describe("toLeetCodeFragmentJson (ported from LeetCodeCollectorTest)", () => {
 describe("toLeetCodeFragmentJson — edge cases mirrored from the Java implementation", () => {
   it("canonical output for the fixtures (sorted keys at every level)", () => {
     expect(build()).toBe(
-      '{"byTopic":[{"count":90,"topic":"Array"},{"count":60,"topic":"String"},{"count":55,"topic":"Hash Table"},' +
+      // advancedTopics: LeetCode's own "advanced" tag tier, read by scoring's advanced-topics sub-feature.
+      '{"advancedTopics":[{"count":40,"topic":"Dynamic Programming"},{"count":10,"topic":"Backtracking"}],' +
+        '"byTopic":[{"count":90,"topic":"Array"},{"count":60,"topic":"String"},{"count":55,"topic":"Hash Table"},' +
         '{"count":40,"topic":"Dynamic Programming"},{"count":30,"topic":"Greedy"},{"count":10,"topic":"Backtracking"}],' +
         '"contest":{"attended":12,"globalRanking":50000,"rating":1751,"topPercent":6.25,"totalParticipants":800000},' +
         '"country":"India","partial":false,"recentActivity":{"last30Days":3,"preferredLanguage":"python3"},' +
@@ -393,6 +396,7 @@ describe("LeetCodeCollector.collectAndStore, LeetCodeCollectionJob, LeetCodeServ
     userProfile: always(() => json(PROFILE_ROOT)),
     contest: always(() => json(CONTEST_ROOT)),
     recent: always(() => json(RECENT_ROOT)),
+    history: always(() => json({ data: { userContestRankingHistory: [], matchedUser: { userCalendar: { submissionCalendar: "{}" } } } })),
   });
 
   const newConnection = (username = "aakash_42"): Promise<LeetCodeConnectionRow> => connections.upsertSyncing(randomUUID(), username);
@@ -403,11 +407,12 @@ describe("LeetCodeCollector.collectAndStore, LeetCodeCollectionJob, LeetCodeServ
       const conn = await newConnection();
       expect(await collector.collectAndStore(conn)).toBe("STORED");
 
-      expect(fake.calls.map(opName)).toEqual(["userProfile", "contest", "recent"]);
+      expect(fake.calls.map(opName)).toEqual(["userProfile", "contest", "recent", "history"]);
       expect(fake.calls.map((c) => c.json)).toEqual([
         { query: PROFILE_QUERY, variables: { username: "aakash_42" } },
         { query: CONTEST_QUERY, variables: { username: "aakash_42" } },
         { query: RECENT_QUERY, variables: { username: "aakash_42" } },
+        { query: HISTORY_QUERY, variables: { username: "aakash_42" } },
       ]);
 
       const stored = (await fragments.findByUserIdAndSource(conn.userId, "LEETCODE"))!;
