@@ -11,9 +11,11 @@ import type {
   TargetRepository,
 } from "../repositories/pg.js";
 import type { CompanyEnrichmentService } from "./companyEnrichment.js";
+import { engineeringLevelView, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "../domain/engineeringLevels.js";
 
 const MAX_PROCESSES_PER_USER = 50;
 const MAX_TARGETS_PER_USER = 200;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const bad = (code: string, message: string) => new ApiError(400, code, message);
 const conflict = (code: string, message: string) => new ApiError(409, code, message);
@@ -25,9 +27,11 @@ export interface JdBrief {
   company: string;
   companyName: string;
   role: string;
-  level: string;
+  level: EngineeringLevel | null;
+  legacyLevel?: string | null;
   specialization: string | null;
   techStack: string[];
+  practiceTemplate: boolean;
 }
 
 export type FetchBrief = (company: string, role: string, level: string, specialization: string | null) => Promise<unknown | null>;
@@ -72,19 +76,19 @@ export class LoopService {
     const names = new Map(companies.map((c) => [c.slug, c.name]));
     return new Map(rows.map((j) => [j.id, {
       jdId: j.id, title: j.title, company: j.company, companyName: names.get(j.company) ?? j.company,
-      role: j.role, level: j.level, specialization: j.specialization, techStack: csv(j.techStack),
+      role: j.role, ...engineeringLevelView(j.level), specialization: j.specialization, techStack: csv(j.techStack), practiceTemplate: j.source === "template",
     }]));
   }
 
-  private async jdBriefs(ids: string[]): Promise<Map<string, JdBrief>> {
-    const rows = (await Promise.all([...new Set(ids)].map((id) => this.jds.findById(id)))).filter((j): j is JobDescriptionRow => !!j);
+  private async jdBriefs(ids: (string | null)[]): Promise<Map<string | null, JdBrief>> {
+    const rows = (await Promise.all([...new Set(ids)].filter((id): id is string => id !== null).map((id) => this.jds.findById(id)))).filter((j): j is JobDescriptionRow => !!j);
     return this.briefs(rows);
   }
 
   /** The JD's suggested process as a graph. Never stored per user; read-only for everyone. */
   async officialGraph(jdId: string): Promise<ProcessGraph> {
     const jd = await this.activeJd(jdId);
-    const brief = (await this.enrichment.briefForJd(jd.id)) ?? (await this.fetchBrief(jd.company, jd.role, jd.level, jd.specialization));
+    const brief = (await this.enrichment.briefForJd(jd.id)) ?? (jd.source === "template" ? null : await this.fetchBrief(jd.company, jd.role, jd.level, jd.specialization));
     const rounds = briefRounds(brief).filter(isObject).map((r, i) => ({
       id: str(r.id) ?? `round-${i + 1}`,
       name: str(r.name) ?? `Round ${i + 1}`,
@@ -94,6 +98,7 @@ export class LoopService {
       difficulty: str(r.difficulty),
       topics: strings(r.topics ?? r.dominant_topics),
       note: str(r.format) ?? undefined,
+      instructions: str(r.format) ?? undefined,
     }));
     return linearGraph(rounds);
   }
@@ -101,7 +106,7 @@ export class LoopService {
   // --- processes ----------------------------------------------------------------------------------
 
   private processView(p: InterviewProcessRow, jd: JdBrief | undefined) {
-    return { id: p.id, name: p.name, jd: jd ?? null, graph: p.graph, createdAt: p.createdAt, updatedAt: p.updatedAt };
+    return { id: p.id, name: p.name, ...engineeringLevelView(p.level), jd: jd ?? null, graph: p.graph, createdAt: p.createdAt, updatedAt: p.updatedAt };
   }
 
   async listProcesses(userId: string) {
@@ -127,22 +132,30 @@ export class LoopService {
     return name;
   }
 
-  /** New saved process for a JD; starts as a copy of the official process unless a graph is sent. */
-  async createProcess(userId: string, body: { jdId: unknown; name: unknown; graph?: unknown }) {
-    if (typeof body.jdId !== "string") throw bad("invalid_process", "jdId is required");
-    const jd = await this.activeJd(body.jdId.toLowerCase());
+  private cleanLevel(raw: unknown): EngineeringLevel {
+    if (!isEngineeringLevel(raw)) throw bad("invalid_process", "Choose a valid engineering level");
+    return raw;
+  }
+
+  /** Every saved process is custom, optionally copied from a JD's suggested graph. */
+  async createProcess(userId: string, body: { jdId?: unknown; name?: unknown; level?: unknown; graph?: unknown }) {
+    if (body.jdId !== undefined && body.jdId !== null && (typeof body.jdId !== "string" || !UUID_RE.test(body.jdId))) throw bad("invalid_process", "jdId must be a UUID or null");
+    const jd = typeof body.jdId === "string" ? await this.activeJd(body.jdId.toLowerCase()) : null;
     if ((await this.processes.findAllByUser(userId)).length >= MAX_PROCESSES_PER_USER) {
       throw conflict("process_limit", `You can save up to ${MAX_PROCESSES_PER_USER} processes`);
     }
-    const graph = body.graph === undefined ? parseProcessGraph(await this.officialGraph(jd.id)) : parseProcessGraph(body.graph);
-    const row = await this.processes.insert({ userId, jdId: jd.id, name: this.cleanName(body.name), graph });
-    return this.processView(row, (await this.jdBriefs([jd.id])).get(jd.id));
+    const graph = body.graph === undefined ? parseProcessGraph(jd ? await this.officialGraph(jd.id) : linearGraph([
+      { id: "round-1", name: "Coding interview", type: "dsa", durationMinutes: 45, difficulty: "medium", topics: [] },
+    ])) : parseProcessGraph(body.graph);
+    const row = await this.processes.insert({ userId, jdId: jd?.id ?? null, name: this.cleanName(body.name), level: this.cleanLevel(body.level === undefined ? normalizeLegacyLevel(jd?.level) : body.level), graph });
+    return this.processView(row, jd ? (await this.jdBriefs([jd.id])).get(jd.id) : undefined);
   }
 
-  async updateProcess(userId: string, id: string, body: { name?: unknown; graph?: unknown }) {
+  async updateProcess(userId: string, id: string, body: { name?: unknown; level?: unknown; graph?: unknown }) {
     const p = await this.ownedProcess(userId, id);
-    const patch: { name?: string; graph?: ProcessGraph } = {};
+    const patch: { name?: string; level?: string; graph?: ProcessGraph } = {};
     if (body.name !== undefined) patch.name = this.cleanName(body.name);
+    if (body.level !== undefined) patch.level = this.cleanLevel(body.level);
     if (body.graph !== undefined) patch.graph = parseProcessGraph(body.graph);
     const row = (await this.processes.update(p.id, patch)) ?? p;
     return this.processView(row, (await this.jdBriefs([row.jdId])).get(row.jdId));
@@ -150,7 +163,7 @@ export class LoopService {
 
   async duplicateProcess(userId: string, id: string) {
     const p = await this.ownedProcess(userId, id);
-    return this.createProcess(userId, { jdId: p.jdId, name: `${p.name} (copy)`.slice(0, 120), graph: p.graph });
+    return this.createProcess(userId, { jdId: p.jdId, name: `${p.name} (copy)`.slice(0, 120), level: this.cleanLevel(normalizeLegacyLevel(p.level)), graph: p.graph });
   }
 
   async deleteProcess(userId: string, id: string): Promise<void> {
@@ -161,37 +174,45 @@ export class LoopService {
   // --- loops --------------------------------------------------------------------------------------
 
   /** Confirm a process for a JD: snapshot it as a loop. Custom processes become standalone loops. */
-  async confirmLoop(userId: string, body: { jdId: unknown; processId?: unknown }) {
-    if (typeof body.jdId !== "string") throw bad("invalid_loop", "jdId is required");
-    const jd = await this.activeJd(body.jdId.toLowerCase());
+  async confirmLoop(userId: string, body: { jdId?: unknown; processId?: unknown }) {
+    if (body.jdId !== undefined && body.jdId !== null && (typeof body.jdId !== "string" || !UUID_RE.test(body.jdId))) throw bad("invalid_loop", "jdId must be a UUID or null");
+    let jd = typeof body.jdId === "string" ? await this.activeJd(body.jdId.toLowerCase()) : null;
     let graph: ProcessGraph;
     let processId: string | null = null;
+    let name: string;
+    let level: string;
     if (body.processId === undefined || body.processId === null) {
+      if (!jd) throw bad("invalid_loop", "jdId or processId is required");
       const official = await this.officialGraph(jd.id);
       if (!official.nodes.some((n) => n.kind === "round")) {
         throw conflict("no_official_process", "This role has no interview process to confirm yet");
       }
       graph = parseProcessGraph(official);
+      name = jd.title.slice(0, 120);
+      level = this.cleanLevel(normalizeLegacyLevel(jd.level));
     } else {
-      if (typeof body.processId !== "string") throw bad("invalid_loop", "processId must be a string");
+      if (typeof body.processId !== "string" || !UUID_RE.test(body.processId)) throw bad("invalid_loop", "processId must be a UUID");
       const p = await this.ownedProcess(userId, body.processId.toLowerCase());
-      if (p.jdId !== jd.id) throw bad("invalid_loop", "that process belongs to a different role");
+      if (jd && p.jdId && p.jdId !== jd.id) throw bad("invalid_loop", "that process belongs to a different role");
+      if (body.jdId === undefined && p.jdId) jd = await this.activeJd(p.jdId);
       graph = parseProcessGraph(p.graph);
       processId = p.id;
+      name = p.name;
+      level = this.cleanLevel(normalizeLegacyLevel(p.level));
     }
-    const row = await this.loops.insertIfNoLiveLoop({ userId, jdId: jd.id, processId, kind: processId ? "standalone" : "official", status: "active", graph });
+    const row = await this.loops.insertIfNoLiveLoop({ userId, jdId: jd?.id ?? null, processId, name, level, kind: processId || jd?.source === "template" ? "standalone" : "official", status: "active", graph });
     if (!row) throw conflict("loop_exists", "You already have a live loop for this role");
-    await this.targets.remove(userId, jd.id);
-    return this.loopView(row, [], (await this.jdBriefs([jd.id])).get(jd.id));
+    if (jd) await this.targets.remove(userId, jd.id);
+    return this.loopView(row, [], jd ? (await this.jdBriefs([jd.id])).get(jd.id) : undefined);
   }
 
   private loopView(l: LoopRow, sessions: { id: string; loopId: string | null; nodeId: string | null; status: string; scheduledAt: Date }[], jd: JdBrief | undefined) {
     const mine = sessions.filter((s) => s.loopId === l.id);
     const states = nodeStates(l.graph, mine);
     return {
-      id: l.id, jd: jd ?? null, jdId: l.jdId, processId: l.processId, kind: l.kind, status: l.status,
+      id: l.id, name: l.name, ...engineeringLevelView(l.level), jd: jd ?? null, jdId: l.jdId, processId: l.processId, kind: l.kind, status: l.status,
       /** Only unedited, suggested processes count toward readiness. */
-      countsTowardReadiness: l.kind === "official",
+      countsTowardReadiness: l.kind === "official" && !jd?.practiceTemplate && l.jdId !== null,
       confirmedAt: l.confirmedAt, graph: l.graph,
       nodeStates: Object.fromEntries(states),
       progress: progressOf(l.graph, mine),

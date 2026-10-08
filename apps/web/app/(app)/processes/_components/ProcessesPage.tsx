@@ -19,7 +19,7 @@ export function ProcessesPage() {
           <p className="iq-eyebrow m-0">Interview processes</p>
           <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">Your processes</h1>
           <p className="m-0 mt-1.5 max-w-[640px] text-[14px] leading-[1.5] text-muted-foreground">
-            Build your own version of a role&apos;s interview: add, remove and connect rounds, then start a track from it. Custom
+            Build an interview process for any level: add, remove and connect rounds, then start a track from it. Custom
             processes are standalone practice and never count towards readiness.
           </p>
         </div>
@@ -33,7 +33,7 @@ export function ProcessesPage() {
         <input
           type="search"
           aria-label="Search processes"
-          placeholder="Search by name, company or role"
+          placeholder="Search by name, level, company or role"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint"

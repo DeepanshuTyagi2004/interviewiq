@@ -7,6 +7,7 @@ import { PAGE_SCAFFOLD } from "@/components/layout/page";
 import { Count, HudCard, SegmentMeter } from "@/components/hud";
 import { EmptyState } from "@/components/patterns";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusPill } from "@/app/(app)/interviews/_components/StatusPill";
 import { useMySessions } from "@/features/interview";
@@ -25,9 +26,10 @@ export function LoopDetail({ loopId }: { loopId: string }) {
   const loop = useLoop(loopId);
   const mySessions = useMySessions();
   const setStatus = useSetLoopStatus();
-  const { cancel, pending: cancelling } = useCancelWithToast();
+  const { cancel, pending: cancelling, confirmation: cancelConfirmation } = useCancelWithToast();
   const [booking, setBooking] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
+  const [abandoning, setAbandoning] = useState(false);
 
   if (loop.isLoading) return <div className={PAGE_SCAFFOLD}><Skeleton className="h-[480px] rounded-[14px]" /></div>;
   if (loop.isError || !loop.data) {
@@ -51,7 +53,6 @@ export function LoopDetail({ loopId }: { loopId: string }) {
   const movingSession = moving ? byId.get(moving) ?? null : null;
 
   function change(status: "active" | "paused" | "abandoned") {
-    if (status === "abandoned" && !window.confirm("Abandon this track? Its upcoming interviews will be cancelled.")) return;
     setStatus.mutate({ id: l.id, status }, { onError: (err) => toast.error(err instanceof ApiFetchError && err.code === "loop_exists" ? "You already have another active track for this role." : "Couldn't update the track.") });
   }
 
@@ -60,19 +61,19 @@ export function LoopDetail({ loopId }: { loopId: string }) {
       <nav aria-label="Breadcrumb">
         <ol className="m-0 flex list-none flex-wrap items-center gap-x-2 p-0 text-[13px] text-faint">
           <li className="flex items-center gap-2"><Link href={ROUTES.loops} className="rounded-sm hover:text-foreground">My tracks</Link><span aria-hidden>›</span></li>
-          <li aria-current="page" className="text-foreground">{l.jd ? `${l.jd.companyName} · ${l.jd.title}` : "Track"}</li>
+          <li aria-current="page" className="text-foreground">{l.jd ? `${l.jd.companyName} · ${l.jd.title}` : l.name}</li>
         </ol>
       </nav>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex flex-col gap-2.5">
-          <JdTitle jd={l.jd} href={l.jd ? `${ROUTES.jobs}/${l.jd.jdId}` : undefined} />
+          <JdTitle jd={l.jd} name={l.name} level={l.level} href={l.jd ? `${ROUTES.jobs}/${l.jd.jdId}` : undefined} />
           <div className="flex flex-wrap items-center gap-2"><LoopStatusPill status={l.status} /><KindPill loop={l} /></div>
         </div>
         {live ? (
           <div className="flex flex-wrap gap-2">
             {l.status === "active" ? <Button variant="strong" size="sm" disabled={setStatus.isPending} onClick={() => change("paused")}>Pause</Button> : <Button size="sm" disabled={setStatus.isPending} onClick={() => change("active")}>Resume</Button>}
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={setStatus.isPending} onClick={() => change("abandoned")}>Abandon</Button>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={setStatus.isPending} onClick={() => setAbandoning(true)}>Abandon</Button>
           </div>
         ) : null}
       </div>
@@ -94,7 +95,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
           A round unlocks once every round leading into it is completed.{" "}
           {l.countsTowardReadiness
             ? "This is the unedited process, so completed rounds count towards your readiness for this role."
-            : "This is your edited process: it gets full analysis but isn't counted towards readiness."}
+            : "This is standalone practice: it gets full analysis but isn't counted towards readiness."}
         </p>
       </HudCard>
 
@@ -111,7 +112,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusPill status={s.status} />
-                  {s.status === "PREP_READY" || s.status === "LIVE_IN_PROGRESS" ? <Button asChild size="sm"><Link href={`${ROUTES.interviews}/${s.id}/live`}>{s.status === "PREP_READY" ? "Join" : "Rejoin"}</Link></Button> : null}
+                  {s.status === "PREP_READY" || s.status === "LIVE_IN_PROGRESS" ? <Button asChild size="sm"><Link href={`${ROUTES.interviews}/${s.id}`}>{s.status === "PREP_READY" ? "Join" : "Rejoin"}</Link></Button> : null}
                   {s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL" ? <Button asChild size="sm" variant="strong"><Link href={`${ROUTES.interviews}/${s.id}/report`}>Debrief</Link></Button> : null}
                   {MOVABLE.has(s.status) && byId.has(s.id) ? <Button size="sm" variant="ghost" onClick={() => setMoving(s.id)}>Reschedule</Button> : null}
                   {MOVABLE.has(s.status) ? <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={cancelling} onClick={() => cancel(s.id)}>Cancel</Button> : null}
@@ -124,6 +125,8 @@ export function LoopDetail({ loopId }: { loopId: string }) {
 
       <BookRoundDialog loop={l} nodeId={booking} onOpenChange={(o) => { if (!o) setBooking(null); }} />
       <RescheduleDialog session={movingSession} onOpenChange={(o) => { if (!o) setMoving(null); }} />
+      {cancelConfirmation}
+      <ConfirmationDialog open={abandoning} onOpenChange={setAbandoning} title="Abandon this track?" description="Its upcoming interviews will be cancelled." confirmLabel="Abandon track" destructive pending={setStatus.isPending} onConfirm={() => change("abandoned")} />
     </div>
   );
 }

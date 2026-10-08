@@ -2,7 +2,7 @@ import type { Loop } from "./types";
 
 /** "2 of 4 rounds" across the unedited (official) tracks: the only ones that count. Null when there are none. */
 export function readinessSummary(loops: Loop[]): { completed: number; total: number } | null {
-  const official = loops.filter((l) => l.countsTowardReadiness && l.status !== "abandoned");
+  const official = loops.filter((l) => l.countsTowardReadiness && !l.jd?.practiceTemplate && l.status !== "abandoned");
   if (official.length === 0) return null;
   return {
     completed: official.reduce((n, l) => n + l.progress.completed, 0),
@@ -24,7 +24,7 @@ export function trackStatus(loops: Loop[], targetRole?: string | null): TrackSta
   const active = loops.filter((l) => l.status === "active");
   if (active.length === 1) {
     const jd = active[0]!.jd;
-    return { text: jd ? `Active track · ${jd.companyName} · ${jd.title}` : "1 active track", active: true };
+    return { text: jd ? `Active track · ${jd.companyName} · ${jd.title}` : `Active track · ${active[0]!.name}`, active: true };
   }
   if (active.length > 1) return { text: `${active.length} active tracks`, active: true };
   const paused = loops.filter((l) => l.status === "paused").length;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCancelSession, useCreateSession, useMySessions, useRescheduleSession, type InterviewSession } from "@/features/interview";
 import { bookingError } from "../errors";
@@ -11,6 +12,7 @@ import { slotAt, slotText } from "../slots";
 import type { Loop } from "../types";
 import { roundTypeLabel } from "../graph";
 import { SlotPicker } from "./SlotPicker";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -54,13 +56,13 @@ export function BookRoundDialog({ loop, nodeId, onOpenChange }: { loop: Loop; no
         {node && node.kind === "round" ? (
           <SlotDialogBody
             title={`Book ${node.name}`}
-            description={`${loop.jd?.companyName ?? ""} · ${roundTypeLabel(node.type)} · ${node.durationMinutes} min`}
+            description={`${loop.jd?.companyName ?? loop.name} · ${levelLabel(loop.level)} · ${roundTypeLabel(node.type)} · ${node.durationMinutes} min`}
             confirmLabel="Book"
             allowNow
             pending={create.isPending}
             onConfirm={(scheduledAt) =>
               create.mutate(
-                { jobDescriptionId: loop.jdId, loopId: loop.id, nodeId: node.id, scheduledAt, timezone: tz() },
+                { ...(loop.jdId ? { jobDescriptionId: loop.jdId } : {}), loopId: loop.id, nodeId: node.id, scheduledAt, timezone: tz() },
                 {
                   onSuccess: () => { toast.success("Round booked. We'll prepare your interviewer before the slot."); onOpenChange(false); },
                   onError: (err) => toast.error(bookingError(err)),
@@ -106,11 +108,13 @@ export function RescheduleDialog({ session, onOpenChange }: { session: Interview
 /** Cancel after a confirmation click. */
 export function useCancelWithToast() {
   const cancel = useCancelSession();
+  const [cancelId, setCancelId] = useState<string | null>(null);
   return {
     pending: cancel.isPending,
-    cancel: (id: string) => {
-      if (!window.confirm("Cancel this interview? Its slot and track round will be freed.")) return;
-      cancel.mutate(id, { onSuccess: () => toast.success("Interview cancelled."), onError: (err) => toast.error(bookingError(err)) });
-    },
+    cancel: setCancelId,
+    confirmation: <ConfirmationDialog open={cancelId !== null} onOpenChange={(open) => { if (!open) setCancelId(null); }} title="Cancel this interview?" description="Its slot and track round will be freed." confirmLabel="Cancel interview" destructive pending={cancel.isPending} onConfirm={async () => {
+      if (!cancelId) return;
+      try { await cancel.mutateAsync(cancelId); toast.success("Interview cancelled."); } catch (error) { toast.error(bookingError(error)); }
+    }} />,
   };
 }

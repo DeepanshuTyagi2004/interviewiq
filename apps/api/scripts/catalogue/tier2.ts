@@ -111,7 +111,7 @@ const S = {
 const sOa = (): RoundIn => ({
   name: "Online assessment", type: "dsa", minutes: 90, difficulty: "medium",
   topics: ["Arrays", "Graphs", "Dynamic programming", "Trees"],
-  guidance: "Three medium coding questions on HackerRank or HackerEarth.",
+  guidance: "Three medium coding questions on an online assessment platform.",
   src: [S.accio, S.coding],
 });
 const sMachine = (): RoundIn => ({

@@ -1,6 +1,8 @@
 export * from "./types";
 export * from "./hooks";
 export * from "./graph";
+export { NODE_CATEGORIES, NODE_PRESETS, filterNodePresets } from "./presets";
+export type { NodePreset } from "./presets";
 export * from "./slots";
 export * from "./readiness";
 export { bookingError } from "./errors";

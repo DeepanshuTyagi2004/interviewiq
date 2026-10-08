@@ -20,7 +20,7 @@ export function loopsRouter(c: Container): Router {
 export function processesRouter(c: Container): Router {
   const r = router();
   r.get("/", async (req, res) => { res.json(await c.loops.listProcesses(userId(req))); });
-  r.post("/", async (req, res) => { res.status(201).json(await c.loops.createProcess(userId(req), body(req.body) as { jdId: unknown; name: unknown; graph?: unknown })); });
+  r.post("/", async (req, res) => { res.status(201).json(await c.loops.createProcess(userId(req), body(req.body))); });
   // Declared before "/:id" so "official" is not parsed as an id.
   r.get("/official/:jdId", async (req, res) => { res.json({ graph: await c.loops.officialGraph(uuidParam(req, "jdId")) }); });
   r.get("/:id", async (req, res) => { res.json(await c.loops.getProcess(userId(req), uuidParam(req, "id"))); });

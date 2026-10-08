@@ -45,7 +45,11 @@ export function useCreateProcess() {
 
 export function useUpdateProcess() {
   const done = useInvalidateLoops();
-  return useMutation({ mutationFn: ({ id, ...body }: { id: string; name?: string; graph?: Parameters<typeof api.updateProcess>[1]["graph"] }) => api.updateProcess(id, body), onSuccess: done });
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ id, ...body }: { id: string } & Parameters<typeof api.updateProcess>[1]) => api.updateProcess(id, body), onSuccess: (process) => {
+    qc.setQueryData(LOOP_QUERY_KEYS.process(process.id), process);
+    done();
+  } });
 }
 
 export function useDuplicateProcess() {

@@ -3,10 +3,10 @@ import { readinessSummary, trackStatus } from "./readiness";
 import type { Loop } from "./types";
 
 const loop = (over: Partial<Loop>): Loop => ({
-  id: "l", jdId: "j", processId: null, kind: "official", status: "active", countsTowardReadiness: true,
+  id: "l", name: "SDE I", level: "fresher", jdId: "j", processId: null, kind: "official", status: "active", countsTowardReadiness: true,
   confirmedAt: "2030-01-01T00:00:00Z", graph: { nodes: [], edges: [] }, nodeStates: {},
   progress: { total: 4, completed: 1, nextNodeIds: [] }, sessions: [],
-  jd: { jdId: "j", title: "SDE I", company: "meesho", companyName: "Meesho", role: "software-engineer", level: "fresher", specialization: null, techStack: [] },
+  jd: { practiceTemplate: false, jdId: "j", title: "SDE I", company: "meesho", companyName: "Meesho", role: "software-engineer", level: "fresher", specialization: null, techStack: [] },
   ...over,
 });
 
@@ -29,5 +29,8 @@ describe("readinessSummary", () => {
     expect(readinessSummary([])).toBeNull();
     expect(readinessSummary([loop({ kind: "standalone", countsTowardReadiness: false })])).toBeNull();
     expect(readinessSummary([loop({}), loop({ status: "abandoned" }), loop({ kind: "standalone", countsTowardReadiness: false })])).toEqual({ completed: 1, total: 4 });
+    const template = loop({});
+    template.jd!.practiceTemplate = true;
+    expect(readinessSummary([template])).toBeNull();
   });
 });

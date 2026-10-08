@@ -6,12 +6,15 @@ import type { JdBrief, Loop } from "@/features/loops";
 import { ROUTES } from "@/lib/constants/shared";
 
 /** "Software Engineer (Fresher)" with "Company · Fresher · Backend" underneath. */
-export function JdTitle({ jd, href, live = true }: { jd: JdBrief | null; href?: string; live?: boolean }) {
-  if (!jd) return <span className="text-sm text-faint">Role no longer available</span>;
-  const sub = [jd.companyName, levelLabel(jd.level), jd.specialization ? specializationLabel(jd.specialization) : null].filter(Boolean).join(" · ");
+export function JdTitle({ jd, href, live = true, name, level }: { jd: JdBrief | null; href?: string; live?: boolean; name?: string; level?: string | null }) {
+  if (!jd) {
+    const body = <><span className="block text-[15px]">{name || "Custom practice"}</span><span className="block text-xs text-faint">{[level ? levelLabel(level) : "Choose a level", "Standalone practice"].join(" · ")}</span></>;
+    return href ? <Link href={href} className="hover:underline underline-offset-4">{body}</Link> : <div>{body}</div>;
+  }
+  const sub = [jd.companyName, levelLabel(level ?? jd.level), jd.practiceTemplate ? "Practice template" : null, jd.specialization ? specializationLabel(jd.specialization) : null].filter(Boolean).join(" · ");
   const body = (
     <>
-      <span className="block truncate text-[15px]">{jd.title}</span>
+      <span className="block truncate text-[15px]">{name || jd.title}</span>
       <span className="block truncate text-xs text-faint">{sub}</span>
     </>
   );
@@ -34,7 +37,7 @@ export function LoopStatusPill({ status }: { status: Loop["status"] }) {
 /** Official tracks count towards readiness; edited ones are standalone practice. Never a badge. */
 export function KindPill({ loop }: { loop: Pick<Loop, "kind" | "countsTowardReadiness"> }) {
   return loop.countsTowardReadiness ? (
-    <MonoPill tone="soft" title="Unedited process: counts towards readiness for this role">Official process</MonoPill>
+    <MonoPill tone="soft" title="Unedited suggested process: counts towards readiness for this role">Suggested process</MonoPill>
   ) : (
     <MonoPill tone="ghost" title="Edited process: fully analysed, but not counted towards readiness">Standalone · not counted</MonoPill>
   );

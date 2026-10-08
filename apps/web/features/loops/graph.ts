@@ -1,18 +1,13 @@
 import type { RoundType } from "@/features/interview";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
+import { NODE_PRESETS, ROUND_PRESETS } from "./presets";
 import type { InfoNode, ProcessGraph, ProcessNode, RoundNode } from "./types";
 
 export const MAX_ROUND_NODES = 12;
 export const MAX_INFO_NODES = 12;
 
-/** The runnable round presets the editor palette offers, with sensible starting values. */
-export const ROUND_PRESETS: { type: RoundType; label: string; durationMinutes: number; difficulty: RoundNode["difficulty"]; topics: string[] }[] = [
-  { type: "dsa", durationMinutes: 60, difficulty: "medium", topics: ["Arrays", "Trees", "Dynamic programming"] },
-  { type: "system-design", durationMinutes: 60, difficulty: "hard", topics: ["Scalability", "Storage", "Trade-offs"] },
-  { type: "lld", durationMinutes: 60, difficulty: "medium", topics: ["Object-oriented design", "Extensibility"] },
-  { type: "behavioural", durationMinutes: 45, difficulty: "medium", topics: ["Ownership", "Collaboration"] },
-  { type: "hiring-manager", durationMinutes: 45, difficulty: "medium", topics: ["Project deep-dive", "Team fit"] },
-].map((p) => ({ ...p, type: p.type as RoundType, difficulty: p.difficulty as RoundNode["difficulty"], label: ROUND_OPTIONS.find((o) => o.value === p.type)!.label }));
+// Retain the existing graph import path for callers of the round-only API.
+export { ROUND_PRESETS } from "./presets";
 
 export const roundTypeLabel = (t: string) => ROUND_OPTIONS.find((o) => o.value === t)?.label ?? t;
 
@@ -20,12 +15,31 @@ let counter = 0;
 const uid = () => `n${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export function newRoundNode(type: RoundType, position: { x: number; y: number }): RoundNode {
-  const p = ROUND_PRESETS.find((r) => r.type === type)!;
-  return { id: uid(), kind: "round", type, name: p.label, durationMinutes: p.durationMinutes, difficulty: p.difficulty, topics: [...p.topics], position };
+  const p = ROUND_PRESETS.find((r) => r.type === type);
+  if (!p) throw new Error("Unsupported interview round type");
+  return newPresetNode(p.id, position);
+}
+
+export function newPresetNode(id: string, position: { x: number; y: number }): RoundNode {
+  const p = ROUND_PRESETS.find((preset) => preset.id === id);
+  if (!p) throw new Error("Unknown interview round preset");
+  return { id: uid(), kind: "round", type: p.type, name: p.label, durationMinutes: p.durationMinutes, difficulty: p.difficulty, topics: [...p.topics], ...(p.instructions ? { instructions: p.instructions } : {}), position: { ...position } };
+}
+
+/** Materialise catalogue guidance, without persisting search/category metadata. */
+export function newCatalogueNode(id: string, position: { x: number; y: number }): ProcessNode {
+  const preset = NODE_PRESETS.find((candidate) => candidate.id === id);
+  if (!preset) throw new Error("Unknown process node preset");
+  if (preset.kind === "round") return newPresetNode(preset.id, position);
+  return {
+    id: uid(), kind: "info", name: preset.label, note: preset.note,
+    topics: [...preset.topics], difficulty: preset.difficulty, instructions: preset.instructions,
+    position: { ...position },
+  };
 }
 
 export function newInfoNode(position: { x: number; y: number }): InfoNode {
-  return { id: uid(), kind: "info", name: "Info step", note: "", position };
+  return { id: uid(), kind: "info", name: "Info step", note: "", position: { ...position } };
 }
 
 export const roundNodesOf = (g: ProcessGraph): RoundNode[] => g.nodes.filter((n): n is RoundNode => n.kind === "round");
@@ -42,6 +56,8 @@ export function graphProblems(g: ProcessGraph): string[] {
   if (rounds.length > MAX_ROUND_NODES) out.push(`A process can have at most ${MAX_ROUND_NODES} interview rounds.`);
   if (g.nodes.filter((n) => n.kind === "info").length > MAX_INFO_NODES) out.push(`At most ${MAX_INFO_NODES} info steps.`);
   if (rounds.some((r) => r.name.trim() === "")) out.push("Every round needs a name.");
+  if (g.nodes.some((node) => (node.topics?.length ?? 0) > 20 || node.topics?.some((topic) => topic.trim().length > 80 || !topic.trim()))) out.push("Use at most 20 topics per step, each 1–80 characters.");
+  if (g.nodes.some((node) => (node.instructions?.length ?? 0) > 4000)) out.push("Interviewer instructions must be at most 4,000 characters.");
 
   const indeg = new Map(ids.map((i) => [i, 0]));
   for (const e of g.edges) indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);

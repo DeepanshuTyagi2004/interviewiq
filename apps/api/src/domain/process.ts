@@ -26,6 +26,7 @@ const roundNode = z.object({
   durationMinutes: z.number().int().min(5).max(240),
   difficulty: z.enum(["easy", "medium", "hard"]),
   topics: z.array(text(80).min(1)).max(20),
+  instructions: text(4000).optional(),
   position,
 }).strict();
 
@@ -34,6 +35,9 @@ const infoNode = z.object({
   kind: z.literal("info"),
   name: text(120).min(1),
   note: text(1000),
+  topics: z.array(text(80).min(1)).max(20).optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+  instructions: text(4000).optional(),
   position,
 }).strict();
 
@@ -154,7 +158,7 @@ export function progressOf(g: ProcessGraph, sessions: NodeSession[]) {
 /** A linear graph from an ordered round list, laid out left to right. Non-interview rounds become info nodes. */
 export function linearGraph(rounds: {
   id: string; name: string; type: string | null | undefined; kind?: string | null;
-  durationMinutes: number | null | undefined; difficulty: string | null | undefined; topics: string[]; note?: string;
+  durationMinutes: number | null | undefined; difficulty: string | null | undefined; topics: string[]; note?: string; instructions?: string;
 }[]): ProcessGraph {
   const nodes: ProcessNode[] = [];
   const edges: ProcessGraph["edges"] = [];
@@ -166,7 +170,7 @@ export function linearGraph(rounds: {
     const id = r.id.slice(0, 64);
     const runnable = r.kind !== "info" && (ROUND_TYPES as readonly string[]).includes(r.type ?? "");
     if (!runnable) {
-      nodes.push({ id, kind: "info", name: r.name.slice(0, 120), note: (r.note ?? "").slice(0, 1000), position: { x: infoRow * 260, y: -170 } });
+      nodes.push({ id, kind: "info", name: r.name.slice(0, 120), note: (r.note ?? "").slice(0, 1000), topics: r.topics.slice(0, 20).map((t) => t.slice(0, 80)).filter(Boolean), difficulty: diff(r.difficulty), ...(r.instructions ? { instructions: r.instructions.slice(0, 4000) } : {}), position: { x: infoRow * 260, y: -170 } });
       infoRow++;
       continue;
     }
@@ -174,6 +178,7 @@ export function linearGraph(rounds: {
       id, kind: "round", type: r.type as RoundNode["type"], name: r.name.slice(0, 120),
       durationMinutes: Math.min(240, Math.max(5, Math.round(r.durationMinutes ?? 45))), difficulty: diff(r.difficulty),
       topics: r.topics.slice(0, 20).map((t) => t.slice(0, 80)).filter(Boolean), position: { x: col * 280, y: 0 },
+      ...(r.instructions ? { instructions: r.instructions.slice(0, 4000) } : {}),
     });
     if (prev) edges.push({ source: prev, target: id });
     prev = id;

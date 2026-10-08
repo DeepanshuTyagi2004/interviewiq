@@ -17,7 +17,7 @@ import { loopHref } from "./loopUi";
 const MOVABLE = new Set(["SCHEDULED", "PREP_READY", "PREP_FAILED"]);
 
 function Row({ s, loopTitle, onMove }: { s: InterviewSession; loopTitle: string | null; onMove: (s: InterviewSession) => void }) {
-  const { cancel, pending } = useCancelWithToast();
+  const { cancel, pending, confirmation } = useCancelWithToast();
   const movable = MOVABLE.has(s.status);
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5">
@@ -28,10 +28,11 @@ function Row({ s, loopTitle, onMove }: { s: InterviewSession; loopTitle: string 
           {s.loopId && loopTitle ? <> · <Link href={loopHref(s.loopId)} className="underline underline-offset-2">{loopTitle}</Link></> : " · ad-hoc"}
         </p>
       </div>
+      {confirmation}
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={s.status} />
         {s.status === "PREP_READY" || s.status === "LIVE_IN_PROGRESS" ? (
-          <Button asChild size="sm"><Link href={`${ROUTES.interviews}/${s.id}/live`}>{s.status === "PREP_READY" ? "Join" : "Rejoin"}</Link></Button>
+          <Button asChild size="sm"><Link href={`${ROUTES.interviews}/${s.id}`}>{s.status === "PREP_READY" ? "Join" : "Rejoin"}</Link></Button>
         ) : null}
         {s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL" ? (
           <Button asChild size="sm" variant="strong"><Link href={`${ROUTES.interviews}/${s.id}/report`}>Debrief</Link></Button>
@@ -52,7 +53,7 @@ export function ScheduleTab() {
   if (sessions.isLoading) return <Skeleton className="h-[240px] rounded-[14px]" />;
   if (sessions.isError) return <EmptyState title="Couldn't load your interviews" action={<Button variant="outline" size="sm" onClick={() => void sessions.refetch()}>Try again</Button>} />;
   const { upcoming, past } = partitionSessions(sessions.data?.sessions ?? []);
-  const loopTitle = new Map((loops.data ?? []).map((l) => [l.id, l.jd ? `${l.jd.companyName} track` : "Track"]));
+  const loopTitle = new Map((loops.data ?? []).map((l) => [l.id, l.jd ? `${l.jd.companyName} track` : l.name]));
 
   return (
     <div className="flex flex-col gap-3">

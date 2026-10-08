@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
 import { HudCard, SegmentMeter } from "@/components/hud";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { roundTypeLabel, useSetLoopStatus, type Loop } from "@/features/loops";
 import { JdTitle, KindPill, LoopStatusPill, loopHref } from "./loopUi";
 
@@ -14,17 +16,17 @@ export function loopNextRounds(loop: Loop) {
 /** One loop: role, how far along it is, what unlocks next, and quick actions. */
 export function LoopCard({ loop, onBook }: { loop: Loop; onBook?: (loop: Loop, nodeId: string) => void }) {
   const setStatus = useSetLoopStatus();
+  const [abandoning, setAbandoning] = useState(false);
   const { total, completed } = loop.progress;
   const next = loop.status === "active" ? loopNextRounds(loop) : [];
 
   function change(status: "active" | "paused" | "abandoned") {
-    if (status === "abandoned" && !window.confirm("Abandon this track? Its upcoming interviews will be cancelled.")) return;
     setStatus.mutate({ id: loop.id, status }, { onError: () => toast.error("Couldn't update the track. Please try again.") });
   }
 
   return (
     <HudCard as="article" glow="tr" title={<LoopStatusPill status={loop.status} />} meta={<KindPill loop={loop} />} bodyClassName="flex flex-col gap-4 p-4 sm:p-5">
-      <JdTitle jd={loop.jd} href={loopHref(loop.id)} />
+      <JdTitle jd={loop.jd} name={loop.name} level={loop.level} href={loopHref(loop.id)} />
       <div>
         <p className="m-0 mb-2 flex justify-between text-[13px]">
           <span className="text-faint">Progress</span>
@@ -52,9 +54,10 @@ export function LoopCard({ loop, onBook }: { loop: Loop; onBook?: (loop: Loop, n
         {loop.status === "active" ? <Button variant="ghost" size="sm" disabled={setStatus.isPending} onClick={() => change("paused")}>Pause</Button> : null}
         {loop.status === "paused" ? <Button variant="ghost" size="sm" disabled={setStatus.isPending} onClick={() => change("active")}>Resume</Button> : null}
         {loop.status === "active" || loop.status === "paused" ? (
-          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={setStatus.isPending} onClick={() => change("abandoned")}>Abandon</Button>
+          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={setStatus.isPending} onClick={() => setAbandoning(true)}>Abandon</Button>
         ) : null}
       </div>
+      <ConfirmationDialog open={abandoning} onOpenChange={setAbandoning} title="Abandon this track?" description="Its upcoming interviews will be cancelled." confirmLabel="Abandon track" destructive pending={setStatus.isPending} onConfirm={() => change("abandoned")} />
     </HudCard>
   );
 }
