@@ -79,6 +79,23 @@ export const resumeUpload = multer({
   defParamCharset: "utf8", // non-ASCII filenames like "resume.pdf"
 }).single("file");
 
+export const MAX_LINKEDIN_PDF_BYTES = 5 * 1024 * 1024;
+
+/** LinkedIn "Save to PDF" upload: one file plus the `consent` field. Limits fire as MulterError. */
+export const linkedinPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_LINKEDIN_PDF_BYTES, files: 1, fields: 2, fieldSize: 16 },
+  defParamCharset: "utf8",
+}).single("file");
+
+/** The uploaded LinkedIn PDF, checked by magic bytes (not the client-supplied type). */
+export function readLinkedInPdf(req: Request): { bytes: Buffer; filename: string | null } {
+  const file = req.file;
+  if (!file || file.size === 0) throw new ApiError(400, "linkedin_pdf_missing", "Choose the PDF you downloaded from LinkedIn.");
+  if (file.buffer.subarray(0, 5).toString("latin1") !== "%PDF-") throw new ApiError(415, "linkedin_pdf_unsupported_media", "Upload the PDF from LinkedIn's Save to PDF.");
+  return { bytes: file.buffer, filename: file.originalname || null };
+}
+
 /** Shared resume validation (present / size / looks like a PDF). Returns the bytes + filename. */
 export function readResume(req: Request): { bytes: Buffer; filename: string | null } {
   const file = req.file;

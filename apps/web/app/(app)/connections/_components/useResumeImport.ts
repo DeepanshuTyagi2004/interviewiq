@@ -31,12 +31,15 @@ export function useResumeImport() {
 
   const importDraft = useCallback(
     (draft: CandidateProfileResponse) => {
-      mutate(formToRequest(responseToForm(draft), false), {
+      const request = formToRequest(responseToForm({ ...draft, level: profile?.level ?? null, targetJdId: profile?.targetJdId ?? null, targetRole: profile?.targetRole ?? draft.targetRole }), false);
+      // A failed or unfinished profile read must not erase a previously saved user choice.
+      if (profile === undefined || (profile?.level === null && profile.legacyLevel)) delete request.level;
+      mutate(request, {
         onSuccess: () => toast.success("Resume saved to your profile."),
         onError: () => toast.error("Couldn’t save your resume. Please try again."),
       });
     },
-    [mutate],
+    [mutate, profile],
   );
 
   return { profile, hasProfile, importDraft, saving: save.isPending };

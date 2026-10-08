@@ -1,8 +1,10 @@
 import type { GitHubConnectionRow } from "../db/pg/schema.js";
 import type { GitHubCollector } from "../integrations/github/collector.js";
 import type { ProfileFragmentRepository } from "../repositories/mongo.js";
-import type { GitHubConnectionRepository, LeetCodeConnectionRepository, UserRepository } from "../repositories/pg.js";
+import type { GitHubConnectionRepository, LeetCodeConnectionRepository, PlatformConnectionRepository, UserRepository } from "../repositories/pg.js";
+import { CODING_PLATFORMS } from "../domain/enums.js";
 import { assembleProfileBands, type NotableItem, type SkillItem } from "./profileAssembler.js";
+import { importedStatus } from "../domain/linkedinImport.js";
 
 /**
  * Per-source connection status. Null fields are OMITTED from the JSON (the Spring DTO was
@@ -33,24 +35,30 @@ export class ProfileService {
     private readonly leetcodeConnections: LeetCodeConnectionRepository,
     private readonly fragments: ProfileFragmentRepository,
     private readonly githubCollector: GitHubCollector,
+    private readonly platformConnections?: PlatformConnectionRepository,
   ) {}
 
   async getProfile(userId: string): Promise<ProfileResponse> {
     const user = await this.users.findById(userId);
     if (!user) throw new UnknownUserError(`Unknown user: ${userId}`);
 
-    const [fragments, github, leetcode] = await Promise.all([
+    const [fragments, github, leetcode, platforms] = await Promise.all([
       this.fragments.findByUserId(userId),
       this.githubConnections.findByUserId(userId),
       this.leetcodeConnections.findByUserId(userId),
+      this.platformConnections?.findByUserId(userId) ?? Promise.resolve([]),
     ]);
 
+    const linkedin = importedStatus(fragments.find((f) => f.source === "LINKEDIN")?.data);
     const sources: SourceStatus[] = [
       status("GITHUB", github !== null, github?.lastRefreshedAt ?? null, null),
       status("RESUME", false, null, null),
       status("LEETCODE", leetcode !== null, leetcode?.lastRefreshedAt ?? null, leetcode?.status ?? null),
-      status("LINKEDIN", false, null, null),
-      status("X", false, null, null),
+      ...CODING_PLATFORMS.map((platform) => {
+        const row = platforms.find((p) => p.platform === platform);
+        return status(platform, !!row, row?.lastRefreshedAt ?? null, row?.status ?? null);
+      }),
+      status("LINKEDIN", linkedin.connected, linkedin.importedAt ? new Date(linkedin.importedAt) : null, linkedin.connected ? "IMPORTED" : null),
     ];
 
     const bands = assembleProfileBands(fragments);

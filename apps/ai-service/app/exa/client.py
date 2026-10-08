@@ -60,15 +60,21 @@ class ExaClient:
         *,
         include_domains: list[str],
         exclude_domains: list[str],
+        num_results: int | None = None,
+        retry: bool = True,
     ) -> list[dict]:
         """Run each query variant through Exa /search, merge + dedup by URL (order preserved).
-        Returns [{title, url, content, date}]."""
+        Returns [{title, url, content, date}].
+
+        Live LinkedIn previews pass ``retry=False`` because the preview itself is one explicit
+        paid attempt. Existing research callers retain the retrying default.
+        """
         out: list[dict] = []
         seen: set[str] = set()
         for query in queries:
             payload: dict = {
                 "query": query,
-                "numResults": self._num_results,
+                "numResults": min(num_results, self._num_results) if num_results is not None else self._num_results,
                 "type": self._type,
                 "userLocation": self._user_location,
                 # text capped (not True/uncapped): uncapped dumps post + full comment tree + chrome,
@@ -79,7 +85,7 @@ class ExaClient:
                 payload["includeDomains"] = include_domains
             if exclude_domains:
                 payload["excludeDomains"] = exclude_domains
-            data = await self._post_with_retries(payload, label="search")
+            data = await self._post_with_retries(payload, label="search", retry=retry)
             for r in _parse_search_results(data):
                 if r["url"] in seen:
                     continue
@@ -87,7 +93,7 @@ class ExaClient:
                 out.append(r)
         return out
 
-    async def _post_with_retries(self, payload: dict, *, label: str) -> dict:
+    async def _post_with_retries(self, payload: dict, *, label: str, retry: bool = True) -> dict:
         rate_limit_attempts = 0
         server_error_attempts = 0
         timeout_retried = False
@@ -97,6 +103,8 @@ class ExaClient:
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
                     resp = await client.post(self._url, json=payload, headers=self._headers)
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                if not retry:
+                    raise ExaError(f"Exa request failed for {label}") from exc
                 if not timeout_retried:
                     timeout_retried = True
                     logger.warning("[exa] %s timed out (%s); retrying once", label, exc)
@@ -111,6 +119,8 @@ class ExaClient:
                 raise ExaConfigError(f"Exa returned {status} — invalid EXA_API_KEY.")
 
             if status == 429:
+                if not retry:
+                    raise ExaError(f"Exa request was rate-limited for {label}")
                 rate_limit_attempts += 1
                 if rate_limit_attempts > _RATE_LIMIT_RETRIES:
                     raise ExaError(f"Exa rate-limited {label} after {_RATE_LIMIT_RETRIES} retries.")
@@ -120,6 +130,8 @@ class ExaClient:
                 continue
 
             if status in (500, 503):
+                if not retry:
+                    raise ExaError(f"Exa request failed for {label}")
                 server_error_attempts += 1
                 if server_error_attempts > _SERVER_ERROR_RETRIES:
                     raise ExaError(f"Exa server error {status} for {label} after retries.")

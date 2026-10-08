@@ -15,20 +15,23 @@ export function ConnectionsGrid({
   errorSource,
   exclude,
   className,
+  resumeLinkedInUrl,
 }: {
   errorSource?: SourceKind;
   /** Sources to leave out, e.g. the resume on onboarding (it has its own step). */
   exclude?: SourceKind[];
   /** Merged onto the list container, e.g. for narrower containers like onboarding. */
   className?: string;
+  /** Current onboarding résumé URL, including a draft that has not saved yet. */
+  resumeLinkedInUrl?: string | null;
 }) {
   const { data, isLoading, isError } = useProfile();
 
   if (isLoading) {
     return (
-      <div className="grid gap-2.5" aria-busy="true" aria-label="Loading your sources">
+      <div className="grid gap-2" aria-busy="true" aria-label="Loading your sources">
         {PROVIDERS.map((p) => (
-          <Skeleton key={p.source} className="h-[70px] w-full rounded-lg" />
+          <Skeleton key={p.source} className="h-[58px] w-full rounded-lg" />
         ))}
       </div>
     );
@@ -53,5 +56,5 @@ export function ConnectionsGrid({
   }
 
   const sources = exclude?.length ? PROVIDERS.map((p) => p.source).filter((s) => !exclude.includes(s)) : undefined;
-  return <SourceList profile={data} sources={sources} errorSource={errorSource} className={className} />;
+  return <SourceList profile={data} sources={sources} errorSource={errorSource} className={className} resumeLinkedInUrl={resumeLinkedInUrl} />;
 }

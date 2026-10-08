@@ -4,9 +4,11 @@ import type { ProfileResponse, SourceKind } from "@/features/profile";
 import { cn } from "@/lib/utils/cn";
 import { joinDetail } from "./format";
 import { LeetCodeRow } from "./LeetCodeRow";
+import { isCodingPlatform, PlatformRow } from "./PlatformRow";
 import { ProviderRow } from "./ProviderRow";
 import { PROVIDERS } from "./providers";
 import { ResumeRow } from "./ResumeRow";
+import { LinkedInRow } from "./LinkedInRow";
 import type { SourceRowVariant } from "./SourceRow";
 
 /** What the GitHub fragment already tells us, for the row's detail line. */
@@ -26,22 +28,23 @@ export interface SourceListProps {
   sources?: SourceKind[];
   errorSource?: SourceKind;
   className?: string;
+  resumeLinkedInUrl?: string | null;
 }
 
 /**
  * The rows for each connectable source. LeetCode has a username + async-sync flow of its own and
- * the resume is an upload-and-parse import; the rest use the generic OAuth-style row. All of them
- * read from the same shared profile query. Each row derives its status dot (`sourceDotState`) from
- * the connected / errored / sync state it already has.
+ * the resume is an upload-and-parse import. LinkedIn retrieves a consented public URL snapshot
+ * for explicit section review; the other providers use the generic OAuth-style row. Source rows
+ * distinguish imported snapshots from live collection.
  */
-export function SourceList({ profile, variant = "stack", sources, errorSource, className }: SourceListProps) {
+export function SourceList({ profile, variant = "stack", sources, errorSource, className, resumeLinkedInUrl }: SourceListProps) {
   const byKind = Object.fromEntries(profile.sources.map((s) => [s.source, s]));
   const providers = sources
     ? sources.flatMap((kind) => PROVIDERS.filter((p) => p.source === kind))
     : PROVIDERS;
 
   return (
-    <ul className={cn("m-0 list-none p-0", variant === "stack" && "grid gap-2.5", className)}>
+    <ul className={cn("m-0 list-none p-0", variant === "stack" && "grid gap-2", className)}>
       {providers.map((provider) => {
         if (provider.source === "LEETCODE") {
           return (
@@ -53,8 +56,14 @@ export function SourceList({ profile, variant = "stack", sources, errorSource, c
             />
           );
         }
+        if (isCodingPlatform(provider.source)) {
+          return <PlatformRow key={provider.source} platform={provider.source} provider={provider} variant={variant} />;
+        }
         if (provider.source === "RESUME") {
           return <ResumeRow key={provider.source} provider={provider} variant={variant} />;
+        }
+        if (provider.source === "LINKEDIN") {
+          return <LinkedInRow key={provider.source} provider={provider} variant={variant} resumeLinkedInUrl={resumeLinkedInUrl} />;
         }
         const src = byKind[provider.source];
         return (

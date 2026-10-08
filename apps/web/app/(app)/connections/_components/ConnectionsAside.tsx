@@ -12,12 +12,12 @@ const NOTES = [
     body: "A resume is enough to start. Connected sources just give the interviewer more of your own work to ask about.",
   },
   {
-    title: "Public data only",
-    body: "We only read public activity from the accounts you connect.",
+    title: "Your data, your upload",
+    body: "Connected accounts provide public activity. LinkedIn uses a PDF you download from your own profile; we never fetch anything from LinkedIn.",
   },
   {
     title: "Disconnect any time",
-    body: "Disconnecting removes the connection and its synced data from your profile. You can reconnect whenever you like.",
+    body: "Removing a source removes its imported evidence. LinkedIn details you explicitly merged into your editable profile remain there.",
   },
 ];
 

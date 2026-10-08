@@ -29,7 +29,7 @@ export default async function ConnectionsPage({
           <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
             Connect your work
           </h1>
-          <p className="m-0 mt-1.5 max-w-xl text-[14px] leading-[1.5] text-muted-foreground">
+          <p className="m-0 mt-1.5 max-w-2xl text-[14px] leading-[1.5] text-muted-foreground">
             Optional — but the more we see, the more personal your questions get. We only read public data.
           </p>
         </div>

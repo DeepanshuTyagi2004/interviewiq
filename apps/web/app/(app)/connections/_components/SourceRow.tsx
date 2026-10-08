@@ -86,12 +86,15 @@ export function SourceRow({
   className,
 }: SourceRowProps) {
   const stack = variant === "stack";
+  // Conditional children like `{a ? <x/> : null}{b ? <y/> : null}` arrive as an array of nulls, which is truthy:
+  // count only what renders, so a row with nothing to show gets no empty body (and no extra height).
+  const hasBody = React.Children.toArray(children).length > 0;
   return (
     <li
       className={cn(
         "min-w-0 list-none transition-colors duration-200",
         stack
-          ? cn("rounded-lg border px-4 py-3.5", connected ? "border-line-4 bg-panel" : "border-line-2 bg-card")
+          ? cn("rounded-lg border px-4 py-2.5", connected ? "border-line-4 bg-panel" : "border-line-2 bg-card")
           : "border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5",
         className,
       )}
@@ -114,7 +117,7 @@ export function SourceRow({
         </div>
         {actions ? <div className="ml-auto flex flex-none flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {children ? (
+      {hasBody ? (
         <div id={bodyId} hidden={bodyHidden} className={cn("mt-3.5", stack ? "sm:pl-[54px]" : "sm:pl-12")}>
           {children}
         </div>

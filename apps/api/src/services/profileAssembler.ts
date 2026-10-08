@@ -1,5 +1,6 @@
 import type { ProfileFragmentDoc } from "../db/mongo/client.js";
 import { asInt, asString, isObject, items, path } from "../lib/json.js";
+import { importedStatus } from "../domain/linkedinImport.js";
 
 export interface NotableItem {
   text: string;
@@ -94,5 +95,49 @@ export function assembleProfileBands(fragments: ProfileFragmentDoc[]): Bands {
     }
   }
 
+  notable.push(...codingPlatformNotables(fragments));
+
+  const linkedin = fragments.find((f) => f.source === "LINKEDIN")?.data;
+  if (importedStatus(linkedin).connected) {
+    for (const value of items(path(linkedin, "profile", "skills"))) {
+      if (typeof value === "string" && value.trim()) {
+        const existing = skills.find((s) => s.skill.trim().toLowerCase() === value.trim().toLowerCase());
+        if (existing) existing.evidence += "; LinkedIn self-reported (reviewed import)";
+        else skills.push({ skill: value, evidence: "LinkedIn self-reported (reviewed import)", source: "LINKEDIN" });
+      }
+    }
+  }
   return { notable, mostUsedSkills: skills };
+}
+
+const plural = (n: number, word: string) => `${formatInt(n)} ${word}${n === 1 ? "" : "s"}`;
+
+/** One descriptive line per connected coding platform: what the platform reports, never a comparison. */
+function codingPlatformNotables(fragments: ProfileFragmentDoc[]): NotableItem[] {
+  const out: NotableItem[] = [];
+  const data = (source: string) => fragments.find((f) => f.source === source)?.data;
+  const cf = data("CODEFORCES");
+  if (cf) {
+    const rating = asInt(path(cf, "info", "rating"), 0), max = asInt(path(cf, "info", "maxRating"), 0), contests = asInt(cf.contestsAttended, 0), solved = asInt(cf.totalSolved, 0);
+    const parts = [rating > 0 ? `Codeforces rating ${rating}${max > rating ? ` (max ${max})` : ""}` : null, contests > 0 ? plural(contests, "rated contest") : null, solved > 0 ? `${plural(solved, "problem")} solved` : null].filter(Boolean);
+    if (parts.length) out.push({ text: rating > 0 ? parts.join(", ") : `Codeforces: ${parts.join(", ")}`, source: "CODEFORCES" });
+  }
+  const ac = data("ATCODER");
+  if (ac) {
+    const rating = asInt(ac.rating, 0), max = asInt(ac.highestRating, 0), contests = asInt(ac.ratedMatches, 0), solved = asInt(ac.acceptedCount, 0);
+    const parts = [rating > 0 ? `AtCoder rating ${rating}${max > rating ? ` (highest ${max})` : ""}` : null, contests > 0 ? plural(contests, "rated contest") : null, solved > 0 ? `${plural(solved, "problem")} accepted` : null].filter(Boolean);
+    if (parts.length) out.push({ text: rating > 0 ? parts.join(", ") : `AtCoder: ${parts.join(", ")}`, source: "ATCODER" });
+  }
+  const cc = data("CODECHEF");
+  if (cc) {
+    const rating = asInt(cc.rating, 0), max = asInt(cc.highestRating, 0), stars = asInt(cc.stars, 0), solved = asInt(cc.fullySolved, 0);
+    const parts = [rating > 0 ? `CodeChef rating ${rating}${stars > 0 ? ` (${stars}★)` : ""}${max > rating ? `, highest ${max}` : ""}` : null, solved > 0 ? `${plural(solved, "problem")} solved` : null].filter(Boolean);
+    if (parts.length) out.push({ text: rating > 0 ? parts.join(", ") : `CodeChef: ${parts.join(", ")}`, source: "CODECHEF" });
+  }
+  const tuf = data("TUF");
+  if (tuf) {
+    const total = asInt(tuf.totalSolved, 0);
+    if (total > 0) out.push({ text: `${plural(total, "problem")} solved on takeUforward (${asInt(path(tuf, "solved", "easy"), 0)} Basic, ${asInt(path(tuf, "solved", "medium"), 0)} Core, ${asInt(path(tuf, "solved", "hard"), 0)} Pro)`, source: "TUF" });
+  }
+  return out;
 }

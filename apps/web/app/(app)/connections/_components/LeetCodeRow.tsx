@@ -68,7 +68,8 @@ export function LeetCodeRow({
   // Read status from the shared profile query; poll only while a sync is in flight.
   const source = useSourceStatus();
   const connected = Boolean(source?.connected);
-  const status = source?.status;
+  // IMPORTED is a LinkedIn snapshot receipt, never a LeetCode collection lifecycle.
+  const status = source?.status === "IMPORTED" ? undefined : source?.status;
 
   // Polls the shared profile query every 5s while syncing so the row flips to SYNCED/FAILED.
   useProfile({ refetchInterval: status === PROFILE_SYNC_STATUS.syncing ? PROFILE_POLLING.syncIntervalMs : false });
