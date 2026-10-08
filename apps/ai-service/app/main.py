@@ -16,9 +16,10 @@ from fastapi import FastAPI
 
 from app.api.admin import router as admin_router
 from app.api.routes import router
+from app.blueprint.api import admin_router as blueprint_admin_router, router as blueprint_router
+from app.linkedin.api import router as linkedin_router
 from app.config import get_settings
 from app.db import mongo
-from app.interview_agent.diagnostics_emit import AgentDiagLogHandler
 from app.jobs.pipeline_runs import PipelineRunLogHandler
 from app.jobs.run_store import RunLogHandler
 from app.jobs.scheduler import create_scheduler
@@ -45,14 +46,10 @@ async def lifespan(app: FastAPI):
     root.setLevel(settings.log_level.upper())
     if not any(isinstance(h, RunLogHandler) for h in root.handlers):
         root.addHandler(RunLogHandler())
-    # Same idea for the keyed observability consoles (résumé parse, interview-prep): routes logs
-    # to the run bound to the current task's context. No-op unless a run is bound.
+    # Same idea for the keyed observability consoles (résumé parse): routes logs to the run bound
+    # to the current task's context. No-op unless a run is bound.
     if not any(isinstance(h, PipelineRunLogHandler) for h in root.handlers):
         root.addHandler(PipelineRunLogHandler())
-    # And the agent-diagnostics console: routes logs to the bound diagnostic session (keyed by the
-    # emitter contextvar). No-op unless an agent-diag session is bound.
-    if not any(isinstance(h, AgentDiagLogHandler) for h in root.handlers):
-        root.addHandler(AgentDiagLogHandler())
     # Research traces: forward every log record emitted inside a research run into its trace.
     if not any(isinstance(h, ResearchLogHandler) for h in root.handlers):
         root.addHandler(ResearchLogHandler())
@@ -64,6 +61,12 @@ async def lifespan(app: FastAPI):
             h.setLevel(settings.log_level.upper())
 
     await mongo.connect(settings)
+    from app.blueprint.store import recover_interrupted_runs
+    try:
+        if (interrupted := await recover_interrupted_runs(settings.blueprint_run_retention_days, settings.blueprint_run_timeout_seconds)):
+            logger.warning("marked %d interrupted blueprint run(s) failed", interrupted)
+    except Exception as exc:  # noqa: BLE001 — recovery is housekeeping; it must never block startup
+        logger.warning("blueprint run recovery skipped: %s", exc)
     app.state.exa = build_exa_client(settings)
 
     research = None
@@ -85,10 +88,15 @@ async def lifespan(app: FastAPI):
     finally:
         if scheduler:
             scheduler.shutdown(wait=False)
+        from app.blueprint.pipeline import close_shared_llm
+        await close_shared_llm()
         await mongo.close()
 
 
 app = FastAPI(title="interviewiq-ai-service", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
+app.include_router(linkedin_router)
 app.include_router(admin_router)
 app.include_router(research_router)
+app.include_router(blueprint_router)
+app.include_router(blueprint_admin_router)

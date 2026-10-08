@@ -11,7 +11,5 @@ os.environ.setdefault("MONGODB_URL", "mongodb://localhost")
 os.environ.setdefault("INTERNAL_API_KEY", "x")
 os.environ.setdefault("LLM_API_KEY", "g")
 os.environ.setdefault("LLM_MODEL_NAME", "gemma-3-27b-it")
-os.environ.setdefault("LIVEKIT_URL", "wss://test.livekit.cloud")
-os.environ.setdefault("LIVEKIT_API_KEY", "test-lk-key")
-os.environ.setdefault("LIVEKIT_API_SECRET", "test-lk-secret")
-os.environ.setdefault("DEEPGRAM_API_KEY", "test-dg-key")
+# The paid Gemini key in a developer's .env must never be used by tests (environment beats .env).
+os.environ["GEMINI_API_KEY"] = ""

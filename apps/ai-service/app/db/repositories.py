@@ -7,6 +7,8 @@ Datetimes are stored as native BSON dates so range queries/sorts work. Enums as 
 """
 from __future__ import annotations
 
+import re
+
 from datetime import datetime
 
 from pymongo import UpdateOne
@@ -14,7 +16,6 @@ from pymongo import UpdateOne
 from app.db.mongo import (
     EXPERIENCES,
     INTERVIEW_BRIEFS,
-    INTERVIEW_PLANS,
     INTERVIEW_QUESTIONS,
     get_db,
 )
@@ -122,7 +123,8 @@ async def clear_questions() -> int:
     return res.deleted_count
 
 
-def _question_filter(round_type: str | None, company: str | None, difficulty: str | None) -> dict:
+def _question_filter(round_type: str | None, company: str | None, difficulty: str | None,
+                     content_status: str | None = None, topic: str | None = None) -> dict:
     q: dict = {}
     if round_type:
         q["round_type"] = round_type
@@ -130,21 +132,85 @@ def _question_filter(round_type: str | None, company: str | None, difficulty: st
         q["company_tags"] = company.lower()
     if difficulty:
         q["difficulty"] = difficulty.lower()
+    if content_status:
+        # Records collected before content existed have no field at all: treat them as "none".
+        q["content_status"] = {"$in": [None, "none"]} if content_status == "none" else content_status
+    if topic:
+        q["topic_tags"] = {"$regex": re.escape(topic.strip()), "$options": "i"}
     return q
 
 
 async def query_questions(round_type: str | None = None, company: str | None = None,
-                          difficulty: str | None = None, limit: int = 100) -> list[dict]:
+                          difficulty: str | None = None, limit: int = 100, *,
+                          content_status: str | None = None, topic: str | None = None,
+                          include_content: bool = False) -> list[dict]:
+    projection = {"_id": 0} if include_content else {"_id": 0, "content": 0}
     cursor = get_db()[INTERVIEW_QUESTIONS].find(
-        _question_filter(round_type, company, difficulty), {"_id": 0}).limit(limit)
+        _question_filter(round_type, company, difficulty, content_status, topic), projection).limit(limit)
     return [doc async for doc in cursor]
 
 
 async def count_questions_matching(round_type: str | None = None, company: str | None = None,
-                                   difficulty: str | None = None) -> int:
+                                   difficulty: str | None = None, *, content_status: str | None = None,
+                                   topic: str | None = None) -> int:
     """True total matching the filter, ignoring the page limit — for 'showing N of TOTAL'."""
     return await get_db()[INTERVIEW_QUESTIONS].count_documents(
-        _question_filter(round_type, company, difficulty))
+        _question_filter(round_type, company, difficulty, content_status, topic))
+
+
+async def question_stats() -> dict:
+    """Counts per round type and content status: {"rounds": {"dsa": {"none": 12, "verified": 3}}, "total": 15}."""
+    rounds: dict[str, dict[str, int]] = {}
+    total = 0
+    cursor = get_db()[INTERVIEW_QUESTIONS].aggregate([
+        {"$group": {"_id": {"round_type": "$round_type", "status": {"$ifNull": ["$content_status", "none"]}}, "n": {"$sum": 1}}},
+    ])
+    async for row in cursor:
+        rt, status = row["_id"]["round_type"], row["_id"]["status"]
+        rounds.setdefault(rt, {})[status] = row["n"]
+        total += row["n"]
+    return {"rounds": rounds, "total": total}
+
+
+async def questions_needing_content(round_type: str | None, content_version: str, limit: int | None, force: bool) -> list[dict]:
+    """Index records whose content is missing, failed or from another prompt version (all of them when forced)."""
+    q: dict = {}
+    if round_type:
+        q["round_type"] = round_type
+    if not force:
+        q["$or"] = [{"content_status": {"$in": [None, "none", "failed"]}}, {"content_version": {"$ne": content_version}}]
+    cursor = get_db()[INTERVIEW_QUESTIONS].find(q, {"_id": 0, "content": 0}).sort([("round_type", 1), ("slug", 1)])
+    if limit:
+        cursor = cursor.limit(limit)
+    return [doc async for doc in cursor]
+
+
+_PROVEN_ONLY = ("dsa", "online-assessment")
+
+
+class UnverifiedContentError(ValueError):
+    """Raised instead of saving content that has not passed its checks."""
+
+
+async def update_question_content(round_type: str, slug: str, patch: dict) -> None:
+    """Partial update, so a concurrent collection replacing index fields is never clobbered.
+
+    Guarantee: content is only ever stored when it passed its checks. DSA content requires status
+    `verified`; any round's content requires `verified` or `generated`; everything else (a failure, a
+    withdrawal) stores no content at all."""
+    if patch.get("content") is not None:
+        status = patch.get("content_status")
+        allowed = ("verified",) if round_type in _PROVEN_ONLY else ("verified", "generated")
+        if status not in allowed:
+            raise UnverifiedContentError(f"refusing to save {round_type}/{slug} content with status {status!r}")
+    await get_db()[INTERVIEW_QUESTIONS].update_one({"round_type": round_type, "slug": slug}, {"$set": patch})
+
+
+async def brief_rounds() -> list[dict]:
+    """Every brief's company and rounds (type, difficulty, topics, problems) for the briefs collector."""
+    projection = {"_id": 0, "company": 1, "final_experience.rounds.type": 1, "final_experience.rounds.difficulty": 1,
+                  "final_experience.rounds.topics": 1, "final_experience.rounds.problems": 1}
+    return [doc async for doc in get_db()[INTERVIEW_BRIEFS].find({}, projection)]
 
 
 async def stored_states(collection_version: str) -> dict[tuple[str, str], dict]:
@@ -155,33 +221,6 @@ async def stored_states(collection_version: str) -> dict[tuple[str, str], dict]:
     return {(d["round_type"], d["slug"]):
             {"source_hash": d.get("source_hash"), "enrichment_status": d.get("enrichment_status")}
             async for d in cur}
-
-
-# --- interview_plans (one plan per session: Pipeline 1) --------------------------
-# Docs are the camelCase wire shape from the contract (interviewiq-infra openapi.yaml), so the
-# backend consumes them as-is. Keyed on sessionId.
-
-def _plan_key(doc: dict) -> dict:
-    return {"sessionId": doc["sessionId"]}
-
-
-async def upsert_plan(doc: dict) -> dict:
-    """Replace the plan for this session — idempotent upsert keyed on sessionId (mirrors upsert_brief)."""
-    await get_db()[INTERVIEW_PLANS].replace_one(_plan_key(doc), doc, upsert=True)
-    return doc
-
-
-async def get_plan(session_id: str) -> dict | None:
-    """The stored plan for a session (clean camelCase doc, Mongo _id projected out), or None."""
-    return await get_db()[INTERVIEW_PLANS].find_one({"sessionId": session_id}, {"_id": 0})
-
-
-async def delete_plans_for_sessions(session_ids: list[str]) -> int:
-    """Account deletion: drop the stored plans for these sessions. Returns how many were removed."""
-    if not session_ids:
-        return 0
-    result = await get_db()[INTERVIEW_PLANS].delete_many({"sessionId": {"$in": session_ids}})
-    return result.deleted_count
 
 
 def _with_id(doc: dict | None) -> dict:
@@ -201,6 +240,9 @@ __all__ = [
     "clear_questions",
     "query_questions",
     "stored_states",
-    "upsert_plan",
-    "get_plan",
+    "question_stats",
+    "UnverifiedContentError",
+    "questions_needing_content",
+    "update_question_content",
+    "brief_rounds",
 ]

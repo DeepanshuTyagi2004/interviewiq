@@ -19,7 +19,7 @@ _DEFAULT_QUESTIONS_DATA_DIR = str(Path(__file__).resolve().parent / "questions" 
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False, hide_input_in_errors=True)
 
     # --- Exa AI Search (brief generation source collection) ---
     # Replaced Perplexity 2026-06-21. Required key; never hardcoded.
@@ -90,10 +90,6 @@ class Settings(BaseSettings):
     # lets résumé extraction run on a different Gemini Flash than briefs/questions. Empty → falls
     # back to llm_model, so the service still starts and parses when this is unset.
     resume_llm_model: str = Field("", alias="RESUME_LLM_MODEL")
-    # Dedicated model for interview-prep PLAN synthesis (persona / ladders / probes). Same keys and
-    # round-robin client; empty → falls back to llm_model. Scoped so plan-gen can run on a different
-    # model than brief generation / question enrichment (which stay on llm_model).
-    prep_llm_model: str = Field("", alias="PREP_LLM_MODEL")
     # 120s, not 60: Gemma 4 31B always emits a <thought> preamble, so responses are slow (seen 12-31s)
     # and the tail runs past 60s -> httpx ReadTimeout (surfaces as "transport error", not a 429).
     llm_timeout_seconds: float = Field(120.0, alias="LLM_TIMEOUT_SECONDS")
@@ -106,11 +102,38 @@ class Settings(BaseSettings):
     )
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_timeout_seconds: float = Field(30.0, alias="GROQ_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+    # Reasoning effort sent to Groq's gpt-oss models ("" sends none). Their reasoning tokens count against the output
+    # cap, which must stay small to fit the free tier's per-minute ledger: low keeps answers from being cut off.
+    groq_reasoning_effort: Literal["", "low", "medium", "high"] = Field("low", alias="GROQ_GPT_OSS_REASONING_EFFORT")
+    # Bytes per token the quota ledger assumes when reserving a prompt. Measured 2026-10-08 on blueprint prompts:
+    # ~4.0; 3.6 stays conservative without refusing prompts the provider would accept.
+    groq_bytes_per_token: float = Field(3.6, alias="GROQ_BYTES_PER_TOKEN", ge=2.0, le=6.0)
 
     @field_validator("groq_api_keys", "groq_fallback_models", mode="before")
     @classmethod
     def _split_groq_values(cls, v):
         values = v.split(",") if isinstance(v, str) else v
+        return list(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+    # Google Gemini over the native generateContent API (a paid key). When set, every routed call
+    # (research, question content, profile scoring, interview blueprints) tries Gemini first, then
+    # Groq -> Cloudflare -> LLM_*. Comma-separated keys rotate like Groq's.
+    gemini_api_keys: Annotated[list[str], NoDecode] = Field(default_factory=list, alias="GEMINI_API_KEY", repr=False)
+    gemini_model: str = Field("gemini-3.8-flash", alias="GEMINI_MODEL_NAME", min_length=1)
+    gemini_base_url: str = Field("https://generativelanguage.googleapis.com/v1beta", alias="GEMINI_BASE_URL")
+    # Per request. Measured 2026-10-08: a 2.3k-token playbook takes 20-28s alone but 2-4x that with a dozen calls in
+    # flight, so 90s sent slow-but-fine calls to the free-tier fallback.
+    gemini_timeout_seconds: float = Field(180.0, alias="GEMINI_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+    # Gemini's output budget per call (thinking tokens count against it). The caller's own cap wins when larger;
+    # the smaller caps elsewhere exist only to fit Groq's free-tier per-minute token ledger.
+    gemini_max_output_tokens: int = Field(8192, alias="GEMINI_MAX_OUTPUT_TOKENS", ge=256, le=65536)
+    # Gemini 3 thinking level; "" leaves the model default (dynamic, slower).
+    gemini_thinking_level: Literal["", "minimal", "low", "medium", "high"] = Field("low", alias="GEMINI_THINKING_LEVEL")
+
+    @field_validator("gemini_api_keys", mode="before")
+    @classmethod
+    def _split_gemini_keys(cls, v):
+        values = v.split(",") if isinstance(v, str) else (v or [])
         return list(dict.fromkeys(value.strip() for value in values if value.strip()))
 
     # Research only: optional Workers AI fallback after Groq and before LLM_*.
@@ -189,6 +212,11 @@ class Settings(BaseSettings):
     research_google_timeout_seconds: float = Field(12.0, alias="RESEARCH_GOOGLE_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
     research_max_output_tokens: int = Field(2048, alias="RESEARCH_MAX_OUTPUT_TOKENS", ge=128, le=8192)
     research_groq_tpm: int = Field(8000, alias="RESEARCH_GROQ_TPM", ge=1)
+    # Profile scoring (item assessment + company context) uses the same Groq-first routing as research
+    # with its own limits. One call (plus one repair) must finish well inside the API's 120s wait.
+    profile_scoring_llm_deadline_seconds: float = Field(50.0, alias="PROFILE_SCORING_LLM_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
+    profile_scoring_groq_stage_seconds: float = Field(40.0, alias="PROFILE_SCORING_GROQ_STAGE_SECONDS", gt=0, allow_inf_nan=False)
+    profile_scoring_max_output_tokens: int = Field(4096, alias="PROFILE_SCORING_MAX_OUTPUT_TOKENS", ge=256, le=8192)
     research_groq_rpm: int = Field(30, alias="RESEARCH_GROQ_RPM", ge=1)
     research_chunk_chars: int = Field(4500, alias="RESEARCH_CHUNK_CHARS", ge=1000, le=12000)
     research_max_chunks: int = Field(4, alias="RESEARCH_MAX_CHUNKS", ge=1, le=12)
@@ -203,6 +231,24 @@ class Settings(BaseSettings):
     github_timeout_seconds: float = Field(60.0, alias="GITHUB_TIMEOUT_SECONDS")
     # Concurrent LLM enrich calls for SD/LLD. Same RPM discipline as EXTRACT_CONCURRENCY.
     question_enrich_concurrency: int = Field(2, alias="QUESTION_ENRICH_CONCURRENCY")
+    # Content generation (docs/question-bank.md): parallel generations, output budget per problem,
+    # per-call deadline, and the sandbox wall-clock for verifying a DSA reference solution.
+    question_content_concurrency: int = Field(6, alias="QUESTION_CONTENT_CONCURRENCY", ge=1, le=32)
+    # Must stay well under the per-key per-minute token cap (Groq free tier: 8000 TPM) or no request is ever schedulable.
+    question_content_max_output_tokens: int = Field(5500, alias="QUESTION_CONTENT_MAX_OUTPUT_TOKENS", ge=1024, le=16000)
+    # Grounded DSA problems return only prose (the examples are supplied): a small budget fits more calls per minute.
+    question_content_grounded_max_output_tokens: int = Field(2600, alias="QUESTION_CONTENT_GROUNDED_MAX_OUTPUT_TOKENS", ge=512, le=8000)
+    question_content_deadline_seconds: float = Field(150.0, alias="QUESTION_CONTENT_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
+    question_content_groq_stage_seconds: float = Field(90.0, alias="QUESTION_CONTENT_GROQ_STAGE_SECONDS", gt=0, allow_inf_nan=False)
+    question_content_sandbox_timeout_seconds: float = Field(10.0, alias="QUESTION_CONTENT_SANDBOX_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False)
+    # Free-tier keys exhaust per-minute quota under load: wait and retry this many times before failing an item.
+    question_content_quota_retries: int = Field(30, alias="QUESTION_CONTENT_QUOTA_RETRIES", ge=0, le=60)
+    # DSA problems must prove correct: failed checks go back to the model with the exact failures, this many times.
+    question_content_repair_rounds: int = Field(3, alias="QUESTION_CONTENT_REPAIR_ROUNDS", ge=0, le=6)
+    # DSA problems are generated only when a validated source statement (with two readable examples) exists:
+    # the source's examples are the ground truth the solutions must reproduce. Set true to also generate
+    # the rest from the index alone (two solutions must still agree on every test).
+    question_content_allow_ungrounded: bool = Field(False, alias="QUESTION_CONTENT_ALLOW_UNGROUNDED")
     # Where the vendored seed data lives (NeetCode list, Kaggle CSV, SD/LLD seed JSON).
     questions_data_dir: str = Field(_DEFAULT_QUESTIONS_DATA_DIR, alias="QUESTIONS_DATA_DIR")
     # --- Question bank: live sources ---
@@ -219,54 +265,37 @@ class Settings(BaseSettings):
     rohan_behavioural_repo: str = Field("rohan-paul/Awesome-JavaScript-Interviews", alias="ROHAN_BEHAVIOURAL_REPO")
     rohan_behavioural_ref: str = Field("master", alias="ROHAN_BEHAVIOURAL_REF")
 
-    # --- Interview prep (Pipeline 1) ---
-    # Seed questions pulled from the bank per round when building ladders.
-    prep_questions_per_round: int = Field(6, alias="PREP_QUESTIONS_PER_ROUND")
-    # structured.py re-ask budget: how many times to re-ask the LLM to fix invalid JSON.
-    prep_max_repairs: int = Field(2, alias="PREP_MAX_REPAIRS")
-    # Recorded on every stored plan; bump to force regeneration when the plan SHAPE changes.
-    prep_plan_version: str = Field("v4", alias="PREP_PLAN_VERSION")
-    # Concurrent LLM calls in Stage 2 (persona / ladders / probes = 3). Same RPM discipline as EXTRACT_CONCURRENCY.
-    prep_concurrency: int = Field(3, alias="PREP_CONCURRENCY")
+    # --- Interview blueprint (prep phase; docs/superpowers/specs/2026-10-07-interview-blueprint-design.md) ---
+    # Groq-first research client budgets for the blueprint's LLM stages (persona, personalization,
+    # playbooks, answer keys). The quota ledger reserves prompt + this cap per call and refuses any
+    # reservation above RESEARCH_GROQ_TPM (8000): a playbook prompt is ~3-4k tokens, so the cap must
+    # stay around 3500 or no call can ever be scheduled. Truncated replies get a repair round plus
+    # BLUEPRINT_TRANSIENT_RETRIES fresh attempts instead of a bigger budget.
+    blueprint_max_output_tokens: int = Field(3500, alias="BLUEPRINT_MAX_OUTPUT_TOKENS", ge=1024, le=16000)
+    # One routed call, Gemini included (it gets 60% of this, then the free-tier chain gets the rest).
+    blueprint_deadline_seconds: float = Field(300.0, alias="BLUEPRINT_DEADLINE_SECONDS", ge=10)
+    blueprint_groq_stage_seconds: float = Field(120.0, alias="BLUEPRINT_GROQ_STAGE_SECONDS", ge=5)
+    # Concurrent LLM calls inside one run (playbooks fan out one call per slot).
+    blueprint_concurrency: int = Field(4, alias="BLUEPRINT_CONCURRENCY", ge=1, le=16)
+    @property
+    def blueprint_parallel(self) -> int:
+        """Parallel LLM calls in a run: the configured number with Gemini; exactly 1 on the free-tier chain: Groq limits are per organization, so all keys share one 8k tokens/minute budget and
+        parallel calls only rate-limit each other and the run stalls behind the slower fallbacks (measured 2026-10-08)."""
+        return self.blueprint_concurrency if self.gemini_api_keys else 1
 
-    # --- Live interview (Pipeline 2) ---
-    # Conversation-turn model (spoken lines). Empty → falls back to llm_model. Same keys/client.
-    interview_llm_model: str = Field("", alias="INTERVIEW_LLM_MODEL")
-    # Scoring / classification / pacing-judgment / topic-derivation model (cheaper/faster). Empty → llm_model.
-    interview_scorer_model: str = Field("", alias="INTERVIEW_SCORER_MODEL")
-    # Pacing rails (minutes). Floor = never end before this; base = target; max = hard ceiling.
-    interview_min_duration_min: int = Field(18, alias="INTERVIEW_MIN_DURATION_MIN")
-    interview_base_duration_min: int = Field(45, alias="INTERVIEW_BASE_DURATION_MIN")
-    interview_max_duration_min: int = Field(60, alias="INTERVIEW_MAX_DURATION_MIN")
-    # Score bands (0..1): below low → may wind down; above high → may extend.
-    interview_low_band: float = Field(0.40, alias="INTERVIEW_LOW_BAND")
-    interview_high_band: float = Field(0.70, alias="INTERVIEW_HIGH_BAND")
-    # Hybrid answer-score weights (must sum to 1.0): competency vs behavioral.
-    interview_w_competency: float = Field(0.75, alias="INTERVIEW_W_COMPETENCY")
-    interview_w_behavioral: float = Field(0.25, alias="INTERVIEW_W_BEHAVIORAL")
-    # Negative-event penalties applied to the rolling score.
-    interview_pivot_penalty: float = Field(0.15, alias="INTERVIEW_PIVOT_PENALTY")
-    interview_out_of_scope_penalty: float = Field(0.30, alias="INTERVIEW_OUT_OF_SCOPE_PENALTY")
-    interview_idk_penalty: float = Field(0.05, alias="INTERVIEW_IDK_PENALTY")
-    # How many in-scope pivots to honor before holding ground.
-    interview_pivot_cap: int = Field(2, alias="INTERVIEW_PIVOT_CAP")
-    # Seconds into a topic derivation before emitting a "bear with me" nudge line.
-    interview_nudge_after_s: float = Field(8.0, alias="INTERVIEW_NUDGE_AFTER_S")
-    # How long before base_s the extend gate opens.
-    interview_extend_lookahead_s: float = Field(300.0, alias="INTERVIEW_EXTEND_LOOKAHEAD_S")
-    # Minimum plan-core coverage before a wind-down is allowed (guards the floor with evidence).
-    interview_min_coverage: float = Field(0.34, alias="INTERVIEW_MIN_COVERAGE")
-    # structured.py re-ask budget for live LLM ops.
-    interview_max_repairs: int = Field(1, alias="INTERVIEW_MAX_REPAIRS")
-    # How many "sorry, didn't catch that" retries before aborting on persistent silence.
-    interview_silence_retries: int = Field(2, alias="INTERVIEW_SILENCE_RETRIES")
-
-    # --- LiveKit (Pipeline 2 live interview worker) ---
-    livekit_url: str = Field(..., alias="LIVEKIT_URL")
-    livekit_api_key: str = Field(..., alias="LIVEKIT_API_KEY")
-    livekit_api_secret: str = Field(..., alias="LIVEKIT_API_SECRET")
-    # Deepgram STT + Aura TTS (sub-project D voice pipeline).
-    deepgram_api_key: str = Field(..., alias="DEEPGRAM_API_KEY")
+    # Whole-run ceiling; the API times a run out a little later (BLUEPRINT_RUN_TIMEOUT_MINUTES).
+    blueprint_run_timeout_seconds: float = Field(900.0, alias="BLUEPRINT_RUN_TIMEOUT_SECONDS", ge=30)
+    # Free-tier quota waits, as in question-content generation. With a paid Gemini key only the first two are used:
+    # a Gemini failure is better retried soon than parked for minutes behind Groq's per-minute ledger.
+    blueprint_quota_retries: int = Field(20, alias="BLUEPRINT_QUOTA_RETRIES", ge=0, le=60)
+    # Retries of one LLM call on a transient failure (a malformed or truncated reply, a dropped connection).
+    blueprint_transient_retries: int = Field(2, alias="BLUEPRINT_TRANSIENT_RETRIES", ge=0, le=10)
+    # Runs executing at once; the rest queue (every run crawls when the free-tier quota is shared too widely).
+    blueprint_max_parallel_runs: int = Field(3, alias="BLUEPRINT_MAX_PARALLEL_RUNS", ge=1, le=32)
+    # Run traces are kept this long, except the run behind a session's current blueprint.
+    blueprint_run_retention_days: int = Field(30, alias="BLUEPRINT_RUN_RETENTION_DAYS", ge=1)
+    # Selection weights (§7.4) as JSON overrides of the defaults in app/blueprint/selection.py.
+    blueprint_selection_weights: str = Field("", alias="BLUEPRINT_SELECTION_WEIGHTS")
 
     # --- Langfuse tracing (OPTIONAL) ---
     # New runtime dependency, kept OPTIONAL: the service starts and runs without the `langfuse`

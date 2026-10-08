@@ -5,11 +5,10 @@
 - GET  /briefs/{company}/{role}/{level}      — internal key; the brief (404 if failed/missing)
 - POST /briefs/{company}/{role}/{level}/refresh — internal key; regenerate now, return it
 - GET  /experiences/{company}/{role}/{level} — internal key; paginated paste-in experiences
-- POST /interview-plans                       — internal key; build/return the cached InterviewPlan (prep)
-- POST /interview-plans/start                  — internal key; start plan gen in background, return run_id
-- GET  /interview-plans/runs/{run_id}          — internal key; poll a started run (running|completed|failed)
 - POST /resumes/parse                         — internal key; PDF body -> structured JSON (onboarding)
-- POST /users/purge                           — internal key; account deletion, drop the user's interview plans
+- POST /profile-scoring/assess                — internal key; bounded feature inferences from minimized evidence
+- POST /profile-scoring/company-context       — internal key; general-knowledge company facts (no score)
+- POST /users/purge                           — internal key; account deletion, drop the user's blueprints and runs
 """
 from __future__ import annotations
 
@@ -21,14 +20,14 @@ from pydantic import BaseModel, Field, ValidationError
 from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import mongo, repositories as repo
-from app.llm.client import LLMError, build_llm_client
+from app.llm.client import LLMError, build_llm_client, build_profile_scoring_llm_client
 from app.jobs.brief_generation import generate_one
-from app.exa.client import ExaClient, ExaConfigError
-from app.interview_prep.async_runner import PLAN_RUNS, run_plan_async
-from app.interview_prep.pipeline import PrepDataError, generate_interview_plan
-from app.interview_prep.schema import GenerateInterviewPlanRequest
+from app.exa.client import ExaClient, ExaConfigError, build_exa_client
 from app.models.resume import ParsedResume
+from app.models.engineering_levels import Level
 from app.prompts.parse_resume import RESUME_SYSTEM, build_parse_resume_prompt
+from app.profile_scoring.assess import COMPANY_MAX_OUTPUT_TOKENS, run_company_context, run_profile_assessment
+from app.profile_scoring.models import CompanyContextRequest, ProfileScoringAssessmentRequest
 from app.resume.extract import ResumeExtractError, extract_text
 from app.resume.formatting import restore_nesting
 from app.targets import Combination, fetch_combinations
@@ -69,12 +68,13 @@ async def get_brief(company: str, role: str, level: str, specialization: str) ->
 async def refresh_brief(
     company: str,
     role: str,
-    level: str,
+    level: Level,
     specialization: str,
     exa: ExaClient = Depends(get_exa),
 ) -> dict:
     """Regenerate this JD's brief immediately (synchronous) and return it.
     Uses the JD's real title/content from the catalogue when available."""
+    level = level.value
     settings = get_settings()
     combos = await fetch_combinations(settings)
     combo = next(
@@ -94,13 +94,22 @@ async def refresh_brief(
     return doc
 
 
+@router.get("/questions/stats", dependencies=[Depends(require_internal_key)])
+async def question_stats() -> dict:
+    """Counts per round type and content status (the admin Problem bank panel)."""
+    return await repo.question_stats()
+
+
 @router.get("/questions", dependencies=[Depends(require_internal_key)])
 async def list_questions(round_type: str | None = None, company: str | None = None,
-                         difficulty: str | None = None, limit: int = 100) -> dict:
-    """Read the collected question bank (thin metadata + url). Filter by round/company/difficulty."""
-    items = await repo.query_questions(round_type, company, difficulty, min(limit, 500))
-    total = await repo.count_questions_matching(round_type, company, difficulty)
-    # count = TRUE total matching the filter (may exceed the returned page); returned = this page size.
+                         difficulty: str | None = None, limit: int = 100,
+                         content_status: str | None = None, topic: str | None = None,
+                         include_content: bool = False) -> dict:
+    """Read the question bank: thin index by default, full content with include_content=true."""
+    limit = min(limit, 500)
+    items = await repo.query_questions(round_type, company, difficulty, limit, content_status=content_status,
+                                       topic=topic, include_content=include_content)
+    total = await repo.count_questions_matching(round_type, company, difficulty, content_status=content_status, topic=topic)
     return {"questions": items, "count": total, "returned": len(items)}
 
 
@@ -114,46 +123,6 @@ async def list_experiences(
 ) -> dict:
     total, items = await repo.paginate_experiences(company, role, level, page, size)
     return {"total": total, "page": page, "size": size, "items": items}
-
-
-@router.post("/interview-plans", dependencies=[Depends(require_internal_key)])
-async def generate_plan(req: GenerateInterviewPlanRequest) -> dict:
-    """Build (or return the cached) InterviewPlan for a session (Pipeline 1).
-
-    The backend assembles the session context + JD + candidate profile and posts it here. Cache-
-    gated on the fused input hash, so an identical re-request returns the stored plan with no LLM
-    calls. Returns the camelCase plan doc (interviewiq-infra openapi.yaml InterviewPlan)."""
-    settings = get_settings()
-    try:
-        return await generate_interview_plan(req, settings)
-    except PrepDataError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
-    except LLMError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"interview plan generation failed: {exc}")
-
-
-@router.post("/interview-plans/start", dependencies=[Depends(require_internal_key)])
-async def start_interview_plan(req: GenerateInterviewPlanRequest) -> dict:
-    """Fire-and-poll variant of POST /interview-plans. Start plan generation (the same cache-gated,
-    persisted production path) in the background and return a ``run_id`` immediately, so the caller
-    never holds one long HTTP call open for the concurrent Stage-2 LLM work. Poll
-    GET /interview-plans/runs/{run_id} until status is ``completed`` (carries the plan) or ``failed``.
-    """
-    settings = get_settings()
-    run_id = PLAN_RUNS.create()
-    asyncio.create_task(run_plan_async(req, run_id, settings))
-    return {"run_id": run_id, "status": "running"}
-
-
-@router.get("/interview-plans/runs/{run_id}", dependencies=[Depends(require_internal_key)])
-async def interview_plan_run_status(run_id: str) -> dict:
-    """Poll a run started by /interview-plans/start. Returns ``{run_id, status, plan, error}`` where
-    status is ``running`` | ``completed`` (``plan`` set) | ``failed`` (``error`` = {code, message})."""
-    rec = PLAN_RUNS.get(run_id)
-    if rec is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown run_id")
-    return rec
 
 
 @router.post("/resumes/parse", dependencies=[Depends(require_internal_key)])
@@ -191,15 +160,84 @@ async def parse_resume(request: Request) -> dict:
     return restore_nesting(parsed, text).model_dump()
 
 
-class PurgeUserRequest(BaseModel):
-    """Every interview-session id the deleted account owned (the API batches in 1000s)."""
+@router.post("/profile-scoring/assess", dependencies=[Depends(require_internal_key)])
+async def assess_profile(request: Request) -> dict:
+    """Assess requested profile features from caller-minimized evidence.
 
+    The endpoint never accepts or returns an LLM-derived overall profile score. The API remains
+    responsible for any deterministic aggregation and policy decisions.
+    """
+    # Stream with a transport cap too: model-level budgets do not bound an arbitrary raw JSON body.
+    # Parsing here keeps Pydantic error inputs (which can contain evidence/secrets) out of FastAPI's
+    # default 422 response. No invalid request contents or upstream exceptions are ever echoed.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 100_000:
+            raise HTTPException(status_code=413, detail="profile scoring assessment input too large")
+    try:
+        req = ProfileScoringAssessmentRequest.model_validate_json(bytes(body))
+    except ValidationError:
+        raise HTTPException(status_code=422, detail="invalid minimized profile scoring assessment request") from None
+    settings = get_settings()
+    try:
+        async with build_profile_scoring_llm_client(settings) as llm:
+            response = await run_profile_assessment(llm, req, max_repairs=1)
+    except LLMError:
+        # Do not echo provider responses, prompts, evidence, or credentials into an HTTP error.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="profile scoring assessment unavailable",
+        ) from None
+    except ValueError:
+        # Includes deterministic feature-set validation after a structurally valid LLM response.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="profile scoring assessment produced invalid data",
+        ) from None
+    return response.model_dump(by_alias=True, mode="json")
+
+
+@router.post("/profile-scoring/company-context", dependencies=[Depends(require_internal_key)])
+async def company_context(request: Request) -> dict:
+    """Engineering context of one company from general knowledge, for the scoring knowledge base.
+
+    Only a company name is accepted. An unidentifiable company comes back known=false with no facts.
+    The response never contains a score, prestige rating or ranking.
+    """
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 2_000:
+            raise HTTPException(status_code=413, detail="company context input too large")
+    try:
+        req = CompanyContextRequest.model_validate_json(bytes(body))
+    except ValidationError:
+        raise HTTPException(status_code=422, detail="invalid company context request") from None
+    settings = get_settings()
+    try:
+        try:
+            exa = build_exa_client(settings)  # web fallback for companies the model does not know
+        except (ExaConfigError, AttributeError):
+            exa = None
+        async with build_profile_scoring_llm_client(settings, max_output_tokens=COMPANY_MAX_OUTPUT_TOKENS) as llm:
+            response = await run_company_context(llm, req, max_repairs=1, exa=exa)
+    except (LLMError, ValueError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="company context unavailable") from None
+    return response.model_dump(by_alias=True, mode="json")
+
+
+class PurgeUserRequest(BaseModel):
+    """The deleted account and every interview-session id it owned (the API batches in 1000s)."""
+
+    candidate_id: str | None = None
     session_ids: list[str] = Field(default_factory=list, max_length=1000)
 
 
 @router.post("/users/purge", dependencies=[Depends(require_internal_key)])
 async def purge_user(req: PurgeUserRequest) -> dict:
-    """Account deletion: remove everything stored for these sessions (their interview plans).
-    Idempotent — purging already-deleted sessions removes nothing and still succeeds."""
-    deleted = await repo.delete_plans_for_sessions(req.session_ids)
-    return {"deleted_plans": deleted}
+    """Account deletion: remove the user's interview blueprints and blueprint runs (bench runs
+    included). Idempotent — purging already-deleted data removes nothing and still succeeds."""
+    from app.blueprint import store
+
+    return await store.purge(req.candidate_id, req.session_ids)
