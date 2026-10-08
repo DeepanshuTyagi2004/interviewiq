@@ -15,9 +15,10 @@ vi.mock("@/features/onboarding", async (importOriginal) => ({
 }));
 
 import { DetailsProvider } from "./DetailsProvider";
-import { ContactSection, ExperienceSection, ProjectsSection, SkillsSection } from "./sections";
+import { AchievementsSection, ContactSection, ExperienceSection, ProjectsSection, SkillsSection } from "./sections";
 
 const base: CandidateProfileResponse = {
+  level: "staff",
   fullName: "Asha Rao",
   email: "asha@example.com",
   phone: null,
@@ -52,6 +53,7 @@ function renderSections() {
       <ExperienceSection />
       <ProjectsSection />
       <SkillsSection />
+      <AchievementsSection />
     </DetailsProvider>,
   );
 }
@@ -66,11 +68,76 @@ beforeEach(() => {
 });
 
 describe("profile detail sections", () => {
+  it("preserves nullable parsed arrays when saving unrelated contact details", async () => {
+    const user = userEvent.setup();
+    m.profile = {
+      ...base,
+      portfolioWebsite: "https://asha.example",
+      experience: [{ ...base.experience[0], bullets: null, link: "https://acme.example" }],
+      projects: [{ name: "Unknown project", description: null, tech: null, bullets: null, link: null }],
+    };
+    renderSections();
+    await user.click(screen.getByRole("button", { name: "Edit contact" }));
+    await user.type(screen.getByLabelText("Phone"), "9");
+    await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
+    expect(sent().experience[0].bullets).toBeNull();
+    expect(sent().projects[0].tech).toBeNull();
+    expect(sent().projects[0].bullets).toBeNull();
+    expect(sent().portfolioWebsite).toBe("https://asha.example");
+    expect(sent().experience[0].link).toBe("https://acme.example");
+  });
+  it("edits the shared engineering level while preserving other profile details", async () => {
+    const user = userEvent.setup();
+    renderSections();
+    await user.click(screen.getByRole("button", { name: "Edit contact" }));
+    await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
+    expect(screen.getAllByRole("option")).toHaveLength(9);
+    await user.click(screen.getByRole("option", { name: "Principal" }));
+    await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
+    expect(sent()).toMatchObject({ level: "principal", fullName: base.fullName, experience: base.experience, skills: base.skills });
+  });
+
+  it("requires a choice when repairing a legacy profile in Contact", async () => {
+    const user = userEvent.setup();
+    m.profile = { ...base, level: null, legacyLevel: "Career switcher" };
+    renderSections();
+    await user.click(screen.getByRole("button", { name: "Edit contact" }));
+    await user.type(screen.getByLabelText("Phone"), "9");
+    await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
+    expect(m.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Choose your engineering level")).toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
+    await user.click(screen.getByRole("option", { name: "Intern" }));
+    await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
+    expect(sent().level).toBe("intern");
+  });
+  it("leaves unknown saved level metadata alone when saving unrelated details", async () => {
+    const user = userEvent.setup();
+    m.profile = { ...base, level: null, legacyLevel: "Career switcher" };
+    renderSections();
+    await user.click(screen.getByRole("button", { name: "Edit experience" }));
+    await user.type(within(card("Experience")).getByDisplayValue("Flipkart"), " India");
+    await user.click(within(card("Experience")).getByRole("button", { name: "Save" }));
+    expect(sent()).not.toHaveProperty("level");
+    expect(sent().experience[0].company).toBe("Flipkart India");
+  });
   it("shows the read-only views, with formatted highlights", () => {
     renderSections();
     expect(within(card("Experience")).getByText("rate limiter").tagName).toBe("STRONG");
     expect(within(card("Skills")).getByText("Python")).toBeInTheDocument();
     expect(within(card("Contact")).getByText("asha@example.com")).toBeInTheDocument();
+  });
+
+  it("renders safe experience and project links in a new tab", () => {
+    m.profile = {
+      ...base,
+      experience: [{ ...base.experience[0], link: "https://acme.example/work" }],
+      projects: [{ name: "Relay", description: null, tech: null, bullets: null, link: "https://github.com/asha/relay" }],
+    };
+    renderSections();
+    expect(within(card("Experience")).getByRole("link")).toHaveAttribute("target", "_blank");
+    expect(within(card("Experience")).getByRole("link")).toHaveAttribute("rel", "noopener noreferrer");
+    expect(within(card("Projects")).getByRole("link")).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("edits one section at a time and switches freely when nothing changed", async () => {
@@ -118,6 +185,7 @@ describe("profile detail sections", () => {
     expect(sent().experience[0].bullets).toEqual(["- Built a **rate limiter**", "  - Nested point"]);
     expect(sent().skills).toEqual(["Go", "Python"]);
     expect(sent().fullName).toBe("Asha Rao");
+    expect(sent()).not.toHaveProperty("level");
     expect(sent().complete).toBe(false);
     // Back to the view, focus on that section's Edit.
     expect(screen.getByRole("button", { name: "Edit experience" })).toHaveFocus();
@@ -167,5 +235,13 @@ describe("profile detail sections", () => {
     await user.click(screen.getByRole("button", { name: "Add projects" }));
     expect(within(card("Projects")).getAllByLabelText("Name")).toHaveLength(1);
     expect(within(card("Projects")).getByRole("button", { name: "Add project" })).toBeInTheDocument();
+  });
+
+  it("keeps the empty achievements state neutral", () => {
+    renderSections();
+    const achievements = card("Achievements");
+    expect(within(achievements).getByText("No achievements added")).toBeInTheDocument();
+    expect(within(achievements).queryByText("Add awards, hackathons, contests or scholarships.")).toBeNull();
+    expect(within(achievements).getByRole("button", { name: "Add achievements" })).toBeInTheDocument();
   });
 });

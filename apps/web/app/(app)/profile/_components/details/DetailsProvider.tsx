@@ -39,7 +39,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 
 /** The form fields each section owns — saving a section validates only these. */
 const SECTION_FIELDS: Record<SectionKey, FieldPath<CandidateFormValues>[]> = {
-  contact: ["fullName", "email", "phone", "location", "headline", "targetRole"],
+  contact: ["fullName", "email", "phone", "location", "headline", "targetRole", "level"],
   education: ["education"],
   experience: ["experience"],
   projects: ["projects"],
@@ -113,7 +113,31 @@ export function DetailsProvider({ children }: { children: React.ReactNode }) {
     const section = editing;
     if (!section) return;
     if (!(await form.trigger(SECTION_FIELDS[section]))) return;
-    saveProfile.mutate(formToRequest(form.getValues(), false), {
+    const request = formToRequest(form.getValues(), false);
+    if (profile) {
+      // Preserve untouched wire values, especially unknown (null) parsed arrays.
+      if (section !== "education") request.education = profile.education;
+      if (section !== "experience") request.experience = profile.experience;
+      if (section !== "projects") request.projects = profile.projects;
+      if (section !== "skills") request.skills = profile.skills;
+      if (section !== "achievements") request.achievements = profile.achievements;
+      if (section !== "contact") {
+        request.fullName = profile.fullName;
+        request.email = profile.email;
+        request.phone = profile.phone;
+        request.location = profile.location;
+        request.headline = profile.headline;
+        request.targetRole = profile.targetRole;
+        request.portfolioWebsite = profile.portfolioWebsite ?? profile.detectedLinks?.portfolioWebsite ?? null;
+      }
+      request.targetJdId = profile.targetJdId;
+      request.detectedLinks = profile.detectedLinks;
+      request.resumeFilename = profile.resumeFilename;
+    }
+    // Only Contact edits the user's level. Omission preserves the saved choice (including
+    // unknown legacy metadata) when another section is saved or a background read changes.
+    if (section !== "contact") delete request.level;
+    saveProfile.mutate(request, {
       onSuccess: () => {
         toast.success(`${SECTION_LABEL[section]} saved.`);
         setEditing(null);

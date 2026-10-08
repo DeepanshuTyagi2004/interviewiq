@@ -1,4 +1,5 @@
 import { isObject, items } from "../lib/json.js";
+import type { EngineeringLevel } from "./engineeringLevels.js";
 
 /**
  * The editable, user-owned candidate details (onboarding + profile page) and their normalizers.
@@ -25,6 +26,8 @@ export interface ExperienceDto {
   endDate: string | null;
   location: string | null;
   bullets: string[] | null;
+  /** Optional live/company/project URL explicitly present in the source or entered by the user. */
+  link?: string | null;
 }
 
 /** A resume project (personal/academic/side) — distinct from work experience. */
@@ -41,14 +44,18 @@ export interface ResumeLinksDto {
   github: string | null;
   leetcode: string | null;
   linkedin: string | null;
+  portfolioWebsite?: string | null;
 }
 
 export interface CandidateProfileResponse {
+  level: EngineeringLevel | null;
+  legacyLevel?: string | null;
   fullName: string | null;
   email: string | null;
   phone: string | null;
   location: string | null;
   headline: string | null;
+  portfolioWebsite?: string | null;
   targetRole: string | null;
   /** The JD picked on onboarding's Target step (its label is `targetRole`). */
   targetJdId: string | null;
@@ -77,6 +84,30 @@ export function strList(v: unknown): string[] | null {
   return items(v).map((x) => str(x) ?? "");
 }
 
+/**
+ * Keep only links that can safely be rendered as an external URL. Credentials are deliberately
+ * rejected so a pasted URL cannot leak an embedded username/password through the profile API.
+ * Bare domains are accepted as a convenience for manually entered profile links and normalized
+ * to HTTPS; resume extraction still only emits links explicitly found in the source text.
+ */
+export function safeUrl(v: unknown): string | null {
+  const raw = str(v)?.trim();
+  if (!raw || /[\u0000-\u0020\u007f]/.test(raw)) return null;
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw)
+    ? raw
+    : /^[a-z\d-]+(?:\.[a-z\d-]+)+(?:\/[^\s]*)?$/i.test(raw)
+      ? `https://${raw}`
+      : null;
+  if (!candidate) return null;
+  try {
+    const url = new URL(candidate);
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname || url.username || url.password) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 export function education(v: unknown): EducationDto {
   const o = isObject(v) ? v : {};
   return {
@@ -91,6 +122,7 @@ export function education(v: unknown): EducationDto {
 
 export function experience(v: unknown): ExperienceDto {
   const o = isObject(v) ? v : {};
+  const rawLink = Object.hasOwn(o, "link") ? o.link : o.url;
   return {
     company: str(o.company),
     title: str(o.title),
@@ -98,6 +130,7 @@ export function experience(v: unknown): ExperienceDto {
     endDate: str(o.endDate),
     location: str(o.location),
     bullets: strList(o.bullets),
+    link: safeUrl(rawLink),
   };
 }
 
@@ -108,16 +141,21 @@ export function project(v: unknown): ProjectDto {
     description: str(o.description),
     tech: strList(o.tech),
     bullets: strList(o.bullets),
-    link: str(o.link),
+    link: safeUrl(o.link),
   };
 }
 
 export function links(v: unknown): ResumeLinksDto {
   const o = isObject(v) ? v : {};
-  return { github: str(o.github), leetcode: str(o.leetcode), linkedin: str(o.linkedin) };
+  return {
+    github: safeUrl(o.github),
+    leetcode: safeUrl(o.leetcode),
+    linkedin: safeUrl(o.linkedin),
+    portfolioWebsite: safeUrl(Object.hasOwn(o, "portfolioWebsite") ? o.portfolioWebsite : o.portfolio_website),
+  };
 }
 
-export const EMPTY_LINKS: ResumeLinksDto = Object.freeze({ github: null, leetcode: null, linkedin: null });
+export const EMPTY_LINKS: ResumeLinksDto = Object.freeze({ github: null, leetcode: null, linkedin: null, portfolioWebsite: null });
 
 /** Normalize a JSON array with `fn`; null/absent → null (so callers can apply their fallback). */
 export function listOf<T>(v: unknown, fn: (x: unknown) => T): T[] | null {
@@ -132,12 +170,17 @@ export function listOf<T>(v: unknown, fn: (x: unknown) => T): T[] | null {
 export function draftFromParsedResume(parsed: unknown, filename: string | null): CandidateProfileResponse {
   const p = isObject(parsed) ? parsed : {};
   const l = isObject(p.links) ? p.links : null;
+  const detectedLinks = l
+    ? links({ ...l, portfolioWebsite: p.portfolio_website ?? p.portfolioWebsite ?? l.portfolio_website ?? l.portfolioWebsite })
+    : { ...EMPTY_LINKS, portfolioWebsite: safeUrl(p.portfolio_website ?? p.portfolioWebsite) };
   return {
     fullName: str(p.full_name),
+    level: null,
     email: str(p.email),
     phone: str(p.phone),
     location: str(p.location),
     headline: str(p.headline),
+    portfolioWebsite: safeUrl(p.portfolio_website ?? p.portfolioWebsite ?? detectedLinks.portfolioWebsite),
     targetRole: null,
     targetJdId: null,
     education: items(p.education).map((e) => {
@@ -160,6 +203,7 @@ export function draftFromParsedResume(parsed: unknown, filename: string | null):
         endDate: str(o.end_date),
         location: str(o.location),
         bullets: strList(o.bullets) ?? [],
+        link: safeUrl(Object.hasOwn(o, "link") ? o.link : o.url),
       };
     }),
     projects: items(p.projects).map((x) => {
@@ -169,12 +213,12 @@ export function draftFromParsedResume(parsed: unknown, filename: string | null):
         description: str(o.description),
         tech: strList(o.tech) ?? [],
         bullets: strList(o.bullets) ?? [],
-        link: str(o.link),
+        link: safeUrl(o.link),
       };
     }),
     skills: strList(p.skills) ?? [],
     achievements: strList(p.achievements) ?? [],
-    detectedLinks: l ? { github: str(l.github), leetcode: str(l.leetcode), linkedin: str(l.linkedin) } : { ...EMPTY_LINKS },
+    detectedLinks,
     resumeFilename: filename,
     resumeParsedAt: null,
     onboardingComplete: false,

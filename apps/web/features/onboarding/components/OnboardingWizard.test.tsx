@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CandidateProfileResponse } from "../types";
 
 const draftProfile: CandidateProfileResponse = {
+  level: "sde2",
   fullName: "Asha Rao",
   email: "asha@example.com",
   phone: null,
@@ -29,6 +30,7 @@ const m = vi.hoisted(() => ({
   mutate: vi.fn(),
   replace: vi.fn(),
   search: "",
+  parsed: null as CandidateProfileResponse | null,
   gridProps: [] as Record<string, unknown>[],
 }));
 
@@ -49,7 +51,7 @@ vi.mock("@/app/(app)/connections/_components/ConnectionsGrid", () => ({
 }));
 vi.mock("./ResumeUpload", () => ({
   ResumeUpload: ({ onParsed }: { onParsed: (d: CandidateProfileResponse) => void }) => (
-    <button type="button" onClick={() => onParsed(draftProfile)}>
+    <button type="button" onClick={() => onParsed(m.parsed ?? draftProfile)}>
       Fake parse
     </button>
   ),
@@ -76,10 +78,34 @@ function renderWizard() {
 const continueButton = () => screen.getByRole("button", { name: /^continue/i });
 
 describe("OnboardingWizard", () => {
+  it("requires a current engineering level before leaving Profile", async () => {
+    const user = userEvent.setup();
+    m.existing = { data: { ...draftProfile, level: null }, isLoading: false };
+    renderWizard();
+    await user.click(continueButton());
+    expect(screen.getByText("Choose your engineering level")).toBeInTheDocument();
+    expect(m.mutateAsync).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
+    expect(screen.getAllByRole("option")).toHaveLength(9);
+    await user.click(screen.getByRole("option", { name: "Distinguished" }));
+    await user.click(continueButton());
+    await waitFor(() => expect(m.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ level: "distinguished", complete: false })));
+  });
+
+  it("redirects completion to Profile when the saved draft level is unknown", async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem("iq-onboarding-step", "3");
+    m.existing = { data: { ...draftProfile, level: null, legacyLevel: "Career switcher" }, isLoading: false };
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    expect(await screen.findByRole("heading", { name: "Check your profile" })).toBeInTheDocument();
+    expect(m.mutate).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     m.existing = { data: null, isLoading: false };
     m.mutateAsync.mockResolvedValue(draftProfile);
     m.search = "";
+    m.parsed = null;
     m.gridProps = [];
   });
   afterEach(() => {
@@ -93,7 +119,7 @@ describe("OnboardingWizard", () => {
     await user.click(screen.getByRole("button", { name: "Fake parse" }));
 
     await waitFor(() => expect(m.mutateAsync).toHaveBeenCalledTimes(1));
-    expect(m.mutateAsync.mock.calls[0][0]).toMatchObject({ fullName: "Asha Rao", complete: false });
+    expect(m.mutateAsync.mock.calls[0][0]).toMatchObject({ fullName: "Asha Rao", complete: false, level: null });
     expect(screen.getAllByText("FOUND").length).toBeGreaterThan(0);
     expect(continueButton()).toHaveTextContent("Continue");
   });
@@ -123,6 +149,22 @@ describe("OnboardingWizard", () => {
     expect(m.gridProps.at(-1)).toMatchObject({ errorSource: "GITHUB" });
   });
 
+  it("passes the current résumé LinkedIn URL to Sources even when saving the draft fails", async () => {
+    const user = userEvent.setup();
+    const linkedin = "https://www.linkedin.com/in/resume-owner/";
+    sessionStorage.setItem("iq-onboarding-step", "0");
+    m.existing = { data: draftProfile, isLoading: false };
+    m.parsed = { ...draftProfile, detectedLinks: { ...draftProfile.detectedLinks, linkedin } };
+    m.mutateAsync.mockRejectedValue(new Error("Draft unavailable"));
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: "Fake parse" }));
+    await user.click(continueButton());
+    await user.click(continueButton());
+    await screen.findByRole("heading", { name: "Connect your work" });
+    expect(m.gridProps.at(-1)).toMatchObject({ resumeLinkedInUrl: linkedin });
+    expect(m.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ detectedLinks: expect.objectContaining({ linkedin }) }));
+  });
+
   it("finishing with a target stores the JD id and lands on its roadmap", async () => {
     const user = userEvent.setup();
     sessionStorage.setItem("iq-onboarding-step", "3");
@@ -138,6 +180,7 @@ describe("OnboardingWizard", () => {
       complete: true,
       targetJdId: "jd-1",
       targetRole: "Meesho · SDE I Backend",
+      level: "sde2",
     });
     expect(m.replace).toHaveBeenCalledWith("/jobs/jd-1");
     expect(sessionStorage.getItem("iq-onboarding-step")).toBeNull();

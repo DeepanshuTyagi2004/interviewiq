@@ -3,6 +3,7 @@
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ENGINEERING_LEVELS } from "@/lib/constants/engineering-levels";
 
 /**
  * Form-side shape of the candidate profile. It deliberately differs from the API DTOs in two
@@ -31,6 +32,7 @@ const experienceRowSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   location: z.string(),
+  link: z.string().optional(),
   bulletsText: z.string(),
 });
 
@@ -43,11 +45,13 @@ const projectRowSchema = z.object({
 });
 
 export const candidateFormSchema = z.object({
+  level: z.union([z.enum(ENGINEERING_LEVELS), z.literal("")]).refine((value): boolean => value !== "", "Choose your engineering level"),
   fullName: z.string().min(1, "Your name is required"),
   email: z.string().refine((v) => v === "" || EMAIL_RE.test(v), "Enter a valid email"),
   phone: z.string(),
   location: z.string(),
   headline: z.string(),
+  portfolioWebsite: z.string(),
   targetRole: z.string(),
   targetJdId: z.string(), // "" = no target picked
   education: z.array(educationRowSchema),
@@ -59,6 +63,7 @@ export const candidateFormSchema = z.object({
     github: z.string(),
     leetcode: z.string(),
     linkedin: z.string(),
+    portfolioWebsite: z.string().optional(),
   }),
   resumeFilename: z.string().nullable(),
 });
@@ -83,6 +88,7 @@ export const emptyExperienceRow: ExperienceRow = {
   startDate: "",
   endDate: "",
   location: "",
+  link: "",
   bulletsText: "",
 };
 
@@ -95,11 +101,13 @@ export const emptyProjectRow: ProjectRow = {
 };
 
 export const emptyCandidateForm: CandidateFormValues = {
+  level: "",
   fullName: "",
   email: "",
   phone: "",
   location: "",
   headline: "",
+  portfolioWebsite: "",
   targetRole: "",
   targetJdId: "",
   education: [],

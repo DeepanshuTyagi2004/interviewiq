@@ -10,6 +10,7 @@ import {
   project,
   str,
   strList,
+  safeUrl,
 } from "../domain/candidateProfile.js";
 import type { AiServiceClient } from "../integrations/aiService/client.js";
 import { isUpstreamStatus, parseJsonBody } from "../lib/http.js";
@@ -17,6 +18,7 @@ import { BadRequestError } from "../lib/errors.js";
 import { asString, isObject, path, trimToNull } from "../lib/json.js";
 import type { CandidateProfileRepository } from "../repositories/mongo.js";
 import type { UserRepository } from "../repositories/pg.js";
+import { engineeringLevelView, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "../domain/engineeringLevels.js";
 
 export interface ResumeParseRunResponse {
   status: "running" | "completed" | "failed";
@@ -26,11 +28,13 @@ export interface ResumeParseRunResponse {
 
 /** PUT /users/me/candidate-profile body. `complete=true` finishes onboarding. */
 export interface CandidateProfileRequest {
+  level?: EngineeringLevel | null;
   fullName: string | null;
   email: string | null;
   phone: string | null;
   location: string | null;
   headline: string | null;
+  portfolioWebsite?: string | null;
   targetRole: string | null;
   targetJdId: string | null;
   education: unknown;
@@ -55,12 +59,24 @@ function targetJdIdOf(v: unknown): string | null {
 
 export function parseCandidateProfileRequest(body: unknown): CandidateProfileRequest {
   const b = isObject(body) ? body : {};
+  if (Object.hasOwn(b, "level") && b.level !== null && !isEngineeringLevel(b.level)) {
+    throw new BadRequestError("Choose a valid engineering level", "invalid_level");
+  }
+  if (b.complete === true && b.level === null) throw new BadRequestError("Choose an engineering level to finish onboarding", "invalid_level");
   return {
+    ...(Object.hasOwn(b, "level") ? { level: b.level as EngineeringLevel | null } : {}),
     fullName: str(b.fullName),
     email: str(b.email),
     phone: str(b.phone),
     location: str(b.location),
     headline: str(b.headline),
+    portfolioWebsite: safeUrl(
+      Object.hasOwn(b, "portfolioWebsite")
+        ? b.portfolioWebsite
+        : isObject(b.detectedLinks)
+          ? b.detectedLinks.portfolioWebsite ?? b.detectedLinks.portfolio_website
+          : null,
+    ),
     targetRole: str(b.targetRole),
     targetJdId: targetJdIdOf(b.targetJdId),
     education: b.education,
@@ -84,7 +100,15 @@ export class CandidateProfileService {
     private readonly profiles: CandidateProfileRepository,
     private readonly users: UserRepository,
     private readonly aiService: AiServiceClient,
+    /** Compatibility read for the previous scoring-only choice; never supersedes an owned profile field. */
+    private readonly legacyLevel?: (userId: string) => Promise<unknown>,
   ) {}
+
+  private async response(doc: CandidateProfileDoc, onboardingComplete: boolean): Promise<CandidateProfileResponse> {
+    if (Object.hasOwn(doc, "level") || !this.legacyLevel) return toResponse(doc, onboardingComplete);
+    const fallback = normalizeLegacyLevel(await this.legacyLevel(doc.userId));
+    return toResponse({ ...doc, level: fallback }, onboardingComplete);
+  }
 
   /**
    * Parse a resume PDF into an unsaved draft (prefills the wizard). Nothing is stored. Upstream
@@ -133,7 +157,7 @@ export class CandidateProfileService {
 
   async getProfile(userId: string): Promise<CandidateProfileResponse | null> {
     const [user, doc] = await Promise.all([this.users.findById(userId), this.profiles.findByUserId(userId)]);
-    return doc ? toResponse(doc, user?.onboardingComplete ?? false) : null;
+    return doc ? this.response(doc, user?.onboardingComplete ?? false) : null;
   }
 
   async saveProfile(userId: string, req: CandidateProfileRequest): Promise<CandidateProfileResponse> {
@@ -142,6 +166,11 @@ export class CandidateProfileService {
     if (!user) throw new Error(`authenticated user not found: ${userId}`);
 
     const existing = await this.profiles.findByUserId(userId);
+    if (req.level !== undefined && req.level !== null && !isEngineeringLevel(req.level)) throw new BadRequestError("Choose a valid engineering level", "invalid_level");
+    const previousLevel = existing && Object.hasOwn(existing, "level") ? existing.level ?? null
+      : this.legacyLevel ? normalizeLegacyLevel(await this.legacyLevel(userId)) : null;
+    const level = req.level === undefined ? previousLevel : req.level;
+    if (req.complete && normalizeLegacyLevel(level) === null) throw new BadRequestError("Choose an engineering level to finish onboarding", "invalid_level");
 
     // Stamp parse time only when the resume actually changed — re-saving the same filename on a
     // plain details edit must not keep bumping resumeParsedAt.
@@ -155,11 +184,14 @@ export class CandidateProfileService {
 
     const saved = await this.profiles.save({
       userId,
+      // Omission must not overwrite a concurrent level-only edit with our earlier read.
+      ...(req.level !== undefined ? { level: req.level } : {}),
       fullName: req.fullName,
       email: req.email,
       phone: req.phone,
       location: req.location,
       headline: req.headline,
+      portfolioWebsite: req.portfolioWebsite,
       targetRole: req.targetRole,
       targetJdId: req.targetJdId,
       education: listOf(req.education, education) ?? [],
@@ -176,17 +208,20 @@ export class CandidateProfileService {
     if (req.complete && !onboardingComplete) {
       onboardingComplete = (await this.users.markOnboardingComplete(userId))?.onboardingComplete ?? true;
     }
-    return toResponse(saved, onboardingComplete);
+    return this.response(saved, onboardingComplete);
   }
 }
 
 export function toResponse(doc: CandidateProfileDoc, onboardingComplete: boolean): CandidateProfileResponse {
+  const detectedLinks = links(doc.detectedLinks);
   return {
+    ...engineeringLevelView(doc.level),
     fullName: doc.fullName ?? null,
     email: doc.email ?? null,
     phone: doc.phone ?? null,
     location: doc.location ?? null,
     headline: doc.headline ?? null,
+    portfolioWebsite: safeUrl(doc.portfolioWebsite) ?? detectedLinks.portfolioWebsite ?? null,
     targetRole: doc.targetRole ?? null,
     targetJdId: doc.targetJdId ?? null,
     education: (doc.education ?? []).map(education),
@@ -194,7 +229,7 @@ export function toResponse(doc: CandidateProfileDoc, onboardingComplete: boolean
     projects: (doc.projects ?? []).map(project),
     skills: doc.skills ?? [],
     achievements: doc.achievements ?? [],
-    detectedLinks: links(doc.detectedLinks),
+    detectedLinks,
     resumeFilename: doc.resumeFilename ?? null,
     resumeParsedAt: doc.resumeParsedAt ?? null,
     onboardingComplete,

@@ -18,7 +18,7 @@ export function externalHref(link: string | null): string | null {
   if (!candidate) return null;
   try {
     const url = new URL(candidate);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+    return url.protocol === "http:" || url.protocol === "https:" ? (url.username || url.password ? null : url.href) : null;
   } catch {
     return null;
   }

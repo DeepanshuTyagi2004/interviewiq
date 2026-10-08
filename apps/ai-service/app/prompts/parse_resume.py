@@ -7,7 +7,7 @@ null rather than inventing. Output is validated against app.models.resume.Parsed
 """
 from __future__ import annotations
 
-RESUME_VERSION = "v4"  # v4: highlight lines keep the resume's Markdown formatting
+RESUME_VERSION = "v5"  # v5: preserve explicitly printed safe portfolio and experience URLs
 
 RESUME_SYSTEM = (
     "You extract structured data from a candidate's résumé. Report ONLY what the résumé text "
@@ -26,10 +26,12 @@ Return a JSON object with EXACTLY this shape (use null / [] where the résumé d
   "phone": "<phone or null>",
   "location": "<city/area as written, or null>",
   "headline": "<one-line current title or summary, or null>",
+  "portfolio_website": "<full personal/portfolio website URL if explicitly printed, else null>",
   "links": {
     "github":   "<full GitHub profile URL if present, else null>",
     "leetcode": "<full LeetCode profile URL if present, else null>",
-    "linkedin": "<full LinkedIn profile URL if present, else null>"
+    "linkedin": "<full LinkedIn profile URL if present, else null>",
+    "portfolio_website": "<full personal/portfolio website URL if present, else null>"
   },
   "education": [
     { "institution": "<school/college>", "degree": "<e.g. B.Tech>", "field": "<e.g. Computer Science>",
@@ -39,6 +41,7 @@ Return a JSON object with EXACTLY this shape (use null / [] where the résumé d
   "experience": [
     { "company": "<employer>", "title": "<role>", "start_date": "<as written or null>",
       "end_date": "<as written, 'Present' if ongoing, or null>", "location": "<or null>",
+      "link": "<company/product/live URL if explicitly printed, else null>",
       "bullets": ["<each line under this role as Markdown, verbatim — see FORMATTING>"] }
   ],
   "projects": [
@@ -95,6 +98,9 @@ FORMATTING (applies to "bullets" only):
 - "achievements" are awards, honours, hackathon/competition results, scholarships, or ranked
   standings the résumé states — copy each verbatim. Empty list if the résumé lists none; never invent.
 - Only fill a link if the résumé actually contains that profile URL; otherwise null.
+- Only fill a link or portfolio_website if the résumé explicitly prints the URL. Preserve only
+  http:// or https:// URLs without embedded credentials; reject javascript:, data:, file:, and
+  other schemes. Do not infer a site from a company name or email domain, and do not scrape links.
 Output ONLY the JSON object — no reasoning or text around it.
 """
 

@@ -98,6 +98,7 @@ describe("CandidateProfileService storage split (Mongo profile doc + Postgres on
         detectedLinks: { github: "https://github.com/asha" },
         resumeFilename: "resume.pdf",
         complete: true,
+        level: "fresher",
       }),
     );
     expect(saved.fullName).toBe("Asha Rao");
@@ -107,7 +108,7 @@ describe("CandidateProfileService storage split (Mongo profile doc + Postgres on
     expect(doc).not.toBeNull();
     expect(doc!.userId).toBe(user.id);
     expect(doc!.skills).toEqual(["Python"]);
-    expect(doc!.detectedLinks).toEqual({ github: "https://github.com/asha", leetcode: null, linkedin: null });
+    expect(doc!.detectedLinks).toEqual({ github: "https://github.com/asha", leetcode: null, linkedin: null, portfolioWebsite: null });
     expect(doc!.resumeFilename).toBe("resume.pdf");
     expect(doc!.resumeParsedAt).toBeInstanceOf(Date);
     expect(doc).not.toHaveProperty("onboardingComplete");

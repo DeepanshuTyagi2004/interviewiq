@@ -3,6 +3,7 @@ import { responseToForm, formToRequest } from "./mapping";
 import type { CandidateProfileResponse } from "./types";
 
 const sample: CandidateProfileResponse = {
+  level: "sde2",
   fullName: "Asha Rao",
   email: "asha@example.com",
   phone: null,
@@ -28,9 +29,20 @@ const sample: CandidateProfileResponse = {
 };
 
 describe("responseToForm", () => {
+  it("handles nullable parsed bullet and technology arrays from the generated contract", () => {
+    const form = responseToForm({ ...sample, experience: [{ ...sample.experience[0], bullets: null }], projects: [{ ...sample.projects[0], tech: null, bullets: null }] });
+    expect(form.experience[0].bulletsText).toBe("");
+    expect(form.projects[0].techText).toBe("");
+    expect(form.projects[0].bulletsText).toBe("");
+    const request = formToRequest(form, false);
+    expect(request.experience[0].bullets).toEqual([]);
+    expect(request.projects[0].tech).toEqual([]);
+    expect(request.projects[0].bullets).toEqual([]);
+  });
   it("maps nulls to empty strings and joins bullets/skills for editing", () => {
     const form = responseToForm(sample);
     expect(form.fullName).toBe("Asha Rao");
+    expect(form.level).toBe("sde2");
     expect(form.phone).toBe("");
     expect(form.experience[0].bulletsText).toBe("Built X\nShipped Y");
     expect(form.skillsText).toBe("Python, SQL");
@@ -43,6 +55,16 @@ describe("responseToForm", () => {
 });
 
 describe("formToRequest", () => {
+  it("permits an unset draft but requires a canonical level to complete", () => {
+    const form = { ...responseToForm(sample), level: "" as const };
+    expect(formToRequest(form, false).level).toBeNull();
+    expect(() => formToRequest(form, true)).toThrow("Choose your engineering level");
+    expect(formToRequest(responseToForm(sample), true).level).toBe("sde2");
+  });
+
+  it("leaves an unknown saved level unset for repair", () => {
+    expect(responseToForm({ ...sample, level: null, legacyLevel: "Career switcher" }).level).toBe("");
+  });
   it("round-trips, trimming blanks to null and splitting bullets/skills", () => {
     const req = formToRequest(responseToForm(sample), true);
     expect(req.complete).toBe(true);

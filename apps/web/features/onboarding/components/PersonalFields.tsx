@@ -4,6 +4,8 @@ import { useFormContext } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/patterns";
 import type { CandidateFormValues } from "../form";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 /**
  * Personal details (also reused in profile edit). Reads the shared RHF context. Onboarding hides
@@ -12,6 +14,8 @@ import type { CandidateFormValues } from "../form";
 export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boolean }) {
   const {
     register,
+    watch,
+    setValue,
     formState: { errors },
   } = useFormContext<CandidateFormValues>();
 
@@ -19,6 +23,9 @@ export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boo
   return (
     <div className="iq-fields">
       <div className="iq-grid gap-4" data-cols="3">
+        <FormField label="Engineering level" error={errors.level?.message} hint="Your current level, independent of your target role">
+          <CustomSelect label="Engineering level" value={watch("level")} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setValue("level", value, { shouldDirty: true, shouldValidate: true }); }} />
+        </FormField>
         <FormField
           label="Full name"
           htmlFor="fullName"
@@ -45,6 +52,10 @@ export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boo
             <Input id="targetRole" placeholder="Backend Engineer" {...register("targetRole")} />
           </FormField>
         ) : null}
+
+        <FormField label="Portfolio website" htmlFor="portfolioWebsite" hint="Optional personal or portfolio URL">
+          <Input id="portfolioWebsite" placeholder="https://your-site.example" {...register("portfolioWebsite")} />
+        </FormField>
 
         <FormField
           label="Headline"

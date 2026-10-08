@@ -151,6 +151,9 @@ export function ExperienceFields({ heading = true }: SectionFieldsProps) {
               <FormField label="Location" htmlFor={`experience-${i}-location`} className="iq-span-2">
                 <Input id={`experience-${i}-location`} {...register(`experience.${i}.location`)} />
               </FormField>
+              <FormField label="Link" htmlFor={`experience-${i}-link`} className="iq-span-2">
+                <Input id={`experience-${i}-link`} placeholder="https://company.example" {...register(`experience.${i}.link`)} />
+              </FormField>
             </div>
             <FormField label="Highlights" htmlFor={`experience-${i}-highlights`} hint={HIGHLIGHTS_HINT}>
               <Controller

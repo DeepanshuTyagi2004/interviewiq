@@ -61,6 +61,7 @@ describe("externalHref / displayLink", () => {
     expect(externalHref("javascript:alert(1)")).toBeNull();
     expect(externalHref("mailto:a@b.co")).toBeNull();
     expect(externalHref("my side project")).toBeNull();
+    expect(externalHref("https://user:pass@example.com")).toBeNull();
     expect(externalHref(null)).toBeNull();
   });
 });

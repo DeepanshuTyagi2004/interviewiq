@@ -13,6 +13,7 @@ import {
 import { displayLink, externalHref, yearRange } from "../identity";
 import { EditableSection } from "./EditableSection";
 import { useDetails } from "./DetailsProvider";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 /**
  * The profile's resume sections. Each is an EditableSection: a compact read-only view plus the
@@ -26,6 +27,7 @@ export function ContactSection({ className }: { className?: string }) {
   const { profile } = useDetails();
   const rows: [string, string | null | undefined][] = [
     ["Name", profile?.fullName],
+    ["Level", profile?.level ? levelLabel(profile.level) : "Choose a level"],
     ["Headline", profile?.headline],
     ["Email", profile?.email],
     ["Phone", profile?.phone],
@@ -50,6 +52,23 @@ export function ContactSection({ className }: { className?: string }) {
           </div>
         ))}
       </dl>
+      {profile?.portfolioWebsite ? (
+        <div className="border-t border-line px-4 py-3.5 text-[13px] sm:px-5">
+          <span className="mr-4 text-faint">Portfolio</span>
+          {externalHref(profile.portfolioWebsite) ? (
+            <a
+              href={externalHref(profile.portfolioWebsite)!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-faint hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <span className="truncate">{displayLink(externalHref(profile.portfolioWebsite)!)}</span>
+              <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          ) : null}
+        </div>
+      ) : null}
     </EditableSection>
   );
 }
@@ -121,7 +140,7 @@ export function AchievementsSection({ className }: { className?: string }) {
       section="achievements"
       count={achievements.length}
       isEmpty={achievements.length === 0}
-      emptyHint="Add awards, hackathons, contests or scholarships."
+      emptyHint="No achievements added"
       fields={<AchievementsField heading={false} />}
       className={className}
     >
@@ -154,6 +173,18 @@ export function ExperienceSection({ className }: { className?: string }) {
                 {dates ? <p className="m-0 flex-none font-mono text-[11.5px] text-faint">{dates}</p> : null}
               </div>
               {sub ? <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">{sub}</p> : null}
+              {externalHref(x.link ?? null) ? (
+                <a
+                  href={externalHref(x.link ?? null)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-faint hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <span className="truncate">{displayLink(externalHref(x.link ?? null)!)}</span>
+                  <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
+                  <span className="sr-only">(opens in a new tab)</span>
+                </a>
+              ) : x.link?.trim() ? <p className="m-0 mt-1 truncate font-mono text-[11.5px] text-faint">{x.link}</p> : null}
               <FormattedLines lines={x.bullets ?? []} className="mt-3 text-[13px] leading-[1.55]" />
             </li>
           );

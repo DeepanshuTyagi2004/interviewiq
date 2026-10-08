@@ -63,7 +63,7 @@ type DraftState = "idle" | "saving" | "saved" | "error";
  *
  * Progress survives a refresh and the GitHub OAuth round trip: the profile is saved as a draft
  * (`complete: false`) once the resume is parsed and whenever the Profile step is left, and the
- * current step is remembered per tab. Only name + email are required; Target is optional and,
+ * current step is remembered per tab. Name and current engineering level are required; Target is optional and,
  * when used, finishing lands on that role's roadmap.
  */
 export function OnboardingWizard() {
@@ -92,9 +92,9 @@ export function OnboardingWizard() {
     }
   }, [existing.data, form]);
 
-  const [resumeFilename, targetJdId, targetRole] = useWatch({
+  const [resumeFilename, targetJdId, targetRole, resumeLinkedInUrl] = useWatch({
     control: form.control,
-    name: ["resumeFilename", "targetJdId", "targetRole"],
+    name: ["resumeFilename", "targetJdId", "targetRole", "detectedLinks.linkedin"],
   });
   const hasResume = Boolean(resumeFilename);
   const step = chosenStep ?? (existing.data ? PROFILE : 0);
@@ -121,7 +121,7 @@ export function OnboardingWizard() {
   }
 
   function handleParsed(parsed: CandidateProfileResponse) {
-    form.reset(responseToForm(parsed));
+    form.reset({ ...responseToForm(parsed), level: form.getValues("level") });
     // Parsed data wins — a slower initial GET /candidate-profile must not clobber it.
     seeded.current = true;
     void saveDraft();
@@ -132,7 +132,7 @@ export function OnboardingWizard() {
     if (step === PROFILE) {
       // Only the Profile step has required fields. Save before moving on, so a GitHub redirect
       // from the next step can't lose anything.
-      if (!(await form.trigger(["fullName", "email"]))) return;
+      if (!(await form.trigger(["fullName", "email", "level"]))) return;
       await saveDraft();
     }
     goTo(Math.min(step + 1, LAST));
@@ -220,7 +220,7 @@ export function OnboardingWizard() {
                   {step === SOURCES ? (
                     <div className="flex flex-col gap-3">
                       {/* The resume has its own step — don't offer a second, competing upload here. */}
-                      <ConnectionsGrid exclude={["RESUME"]} errorSource={githubError} className="sm:grid-cols-1 lg:grid-cols-1" />
+                      <ConnectionsGrid exclude={["RESUME"]} errorSource={githubError} className="sm:grid-cols-1 lg:grid-cols-1" resumeLinkedInUrl={resumeLinkedInUrl} />
                       <p className="m-0 text-[12.5px] text-faint">
                         We only read public activity. Disconnect any time from your profile.
                       </p>

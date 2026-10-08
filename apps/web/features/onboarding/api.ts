@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client/client";
 import { ONBOARDING_ENDPOINTS } from "@/lib/constants/onboarding";
+import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 import type {
   CandidateProfileRequest,
   CandidateProfileResponse,
@@ -40,6 +41,8 @@ export async function getCandidateProfile(): Promise<CandidateProfileResponse | 
 export function saveCandidateProfile(
   request: CandidateProfileRequest,
 ): Promise<CandidateProfileResponse> {
+  if (request.level != null && !isEngineeringLevel(request.level)) return Promise.reject(new Error("Choose a valid engineering level"));
+  if (request.complete && !isEngineeringLevel(request.level)) return Promise.reject(new Error("Choose your engineering level"));
   return apiFetch<CandidateProfileResponse>(ONBOARDING_ENDPOINTS.candidateProfile, {
     method: "PUT",
     json: request,

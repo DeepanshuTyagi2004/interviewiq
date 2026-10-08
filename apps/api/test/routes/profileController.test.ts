@@ -60,8 +60,11 @@ describe("GET /profile/me", () => {
       { source: "GITHUB", connected: true, lastRefreshedAt: GH_REFRESHED.toISOString() },
       { source: "RESUME", connected: false },
       { source: "LEETCODE", connected: true, lastRefreshedAt: LC_REFRESHED.toISOString(), status: "SYNCED" },
+      { source: "CODEFORCES", connected: false },
+      { source: "CODECHEF", connected: false },
+      { source: "ATCODER", connected: false },
+      { source: "TUF", connected: false },
       { source: "LINKEDIN", connected: false },
-      { source: "X", connected: false },
     ]);
 
     expect(b.notable[0]).toEqual({ text: "1,204 GitHub contributions in the last year", source: "GITHUB" });
@@ -86,8 +89,11 @@ describe("GET /profile/me", () => {
       { source: "GITHUB", connected: false },
       { source: "RESUME", connected: false },
       { source: "LEETCODE", connected: false },
+      { source: "CODEFORCES", connected: false },
+      { source: "CODECHEF", connected: false },
+      { source: "ATCODER", connected: false },
+      { source: "TUF", connected: false },
       { source: "LINKEDIN", connected: false },
-      { source: "X", connected: false },
     ]);
     expect(res.body.notable).toEqual([]);
     expect(res.body.mostUsedSkills).toEqual([]);

@@ -69,6 +69,20 @@ def test_parsed_resume_all_missing_is_valid():
     assert parsed.education == [] and parsed.experience == [] and parsed.skills == []
 
 
+def test_parsed_resume_preserves_safe_links_and_drops_unsafe_values():
+    parsed = ParsedResume.model_validate({
+        "portfolio_website": "example.com/me",
+        "links": {"github": "https://github.com/asha", "portfolio_website": "javascript:alert(1)"},
+        "experience": [{"company": "Acme", "url": "https://acme.example/work"}],
+        "projects": [{"name": "Demo", "link": "file:///tmp/demo"}],
+    })
+    assert parsed.portfolio_website == "https://example.com/me"
+    assert parsed.links.github == "https://github.com/asha"
+    assert parsed.links.portfolio_website is None
+    assert parsed.experience[0].link == "https://acme.example/work"
+    assert parsed.projects[0].link is None
+
+
 # --- /resumes/parse route ---
 
 class _FakeRequest:

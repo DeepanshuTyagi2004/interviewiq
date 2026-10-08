@@ -8,7 +8,10 @@ CandidateProfile, which the user then edits — so "wrong but present" is fine; 
 """
 from __future__ import annotations
 
+from urllib.parse import urlsplit, urlunsplit
+
 from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import model_validator
 
 
 def _coerce_str(v):
@@ -17,6 +20,23 @@ def _coerce_str(v):
         return None
     s = str(v).strip()
     return s or None
+
+
+def _safe_url(v):
+    """Normalize an explicitly supplied external URL and reject unsafe authorities/schemes."""
+    value = _coerce_str(v)
+    if not value or any(ord(ch) <= 0x20 or ord(ch) == 0x7F for ch in value):
+        return None
+    candidate = value if "://" in value else f"https://{value}"
+    try:
+        parsed = urlsplit(candidate)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            return None
+        # Accessing port validates malformed port values without changing the URL's path/query.
+        _ = parsed.port
+        return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path, parsed.query, parsed.fragment))
+    except (TypeError, ValueError):
+        return None
 
 
 def _coerce_str_list(v) -> list[str]:
@@ -76,13 +96,22 @@ class Experience(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     location: str | None = None
+    link: str | None = None             # live/company URL if explicitly present
     # Markdown lines in the resume's own order: "- " bullets, "  - " nested bullets, plain
     # sub-heading lines, **bold** where the resume has it.
     bullets: list[str] = []
 
     _s = field_validator("company", "title", "start_date", "end_date", "location",
-                         mode="before")(_coerce_str)
+                          mode="before")(_coerce_str)
+    _url = field_validator("link", mode="before")(_safe_url)
     _b = field_validator("bullets", mode="before")(_coerce_line_list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _link_alias(cls, value):
+        if isinstance(value, dict) and "link" not in value and "url" in value:
+            return {**value, "link": value["url"]}
+        return value
 
 
 class Project(BaseModel):
@@ -94,7 +123,8 @@ class Project(BaseModel):
     bullets: list[str] = []             # Markdown lines, as for Experience.bullets
     link: str | None = None             # repo or live URL if present
 
-    _s = field_validator("name", "description", "link", mode="before")(_coerce_str)
+    _s = field_validator("name", "description", mode="before")(_coerce_str)
+    _url = field_validator("link", mode="before")(_safe_url)
     _l = field_validator("tech", mode="before")(_coerce_str_list)
     _b = field_validator("bullets", mode="before")(_coerce_line_list)
 
@@ -106,8 +136,9 @@ class ResumeLinks(BaseModel):
     github: str | None = None
     leetcode: str | None = None
     linkedin: str | None = None
+    portfolio_website: str | None = None
 
-    _s = field_validator("github", "leetcode", "linkedin", mode="before")(_coerce_str)
+    _url = field_validator("github", "leetcode", "linkedin", "portfolio_website", mode="before")(_safe_url)
 
 
 class ParsedResume(BaseModel):
@@ -118,6 +149,7 @@ class ParsedResume(BaseModel):
     phone: str | None = None
     location: str | None = None
     headline: str | None = None          # a one-line summary / current title
+    portfolio_website: str | None = None # personal site, only when explicitly printed
     links: ResumeLinks = ResumeLinks()
     education: list[Education] = []
     experience: list[Experience] = []
@@ -126,7 +158,8 @@ class ParsedResume(BaseModel):
     achievements: list[str] = []         # awards, honours, hackathon wins, competitions
 
     _s = field_validator("full_name", "email", "phone", "location", "headline",
-                         mode="before")(_coerce_str)
+                          mode="before")(_coerce_str)
+    _portfolio = field_validator("portfolio_website", mode="before")(_safe_url)
     _sk = field_validator("skills", mode="before")(_coerce_str_list)
     _ach = field_validator("achievements", mode="before")(_coerce_str_list)
 

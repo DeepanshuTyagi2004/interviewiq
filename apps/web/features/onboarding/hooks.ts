@@ -6,6 +6,7 @@ import {
   RESUME_PARSE_POLL_MS,
 } from "@/lib/constants/onboarding";
 import { PROFILE_QUERY_KEYS } from "@/lib/constants/profile";
+import { SCORE_KEYS } from "@/features/profile-scoring/constants";
 import {
   getCandidateProfile,
   getResumeParseRun,
@@ -65,6 +66,7 @@ export function useSaveCandidateProfile() {
       queryClient.setQueryData(ONBOARDING_QUERY_KEYS.candidateProfile, saved);
       queryClient.invalidateQueries({ queryKey: ONBOARDING_QUERY_KEYS.candidateProfile });
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEYS.profile });
+      queryClient.invalidateQueries({ queryKey: SCORE_KEYS.all });
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     },
   });

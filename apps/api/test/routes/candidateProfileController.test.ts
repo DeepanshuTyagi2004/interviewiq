@@ -26,8 +26,9 @@ const PARSED = {
   phone: "+91 90000 00000",
   location: "Delhi",
   headline: "Aspiring SDE",
+  portfolio_website: null,
   education: [{ institution: "IIT", degree: "B.Tech", field: "CS", start_year: "2021", end_year: "2025", grade: "8.9" }],
-  experience: [{ company: "Acme", title: "Intern", start_date: "2024", end_date: "2024", location: "Remote", bullets: ["Built X"] }],
+  experience: [{ company: "Acme", title: "Intern", start_date: "2024", end_date: "2024", location: "Remote", bullets: ["Built X"], link: null }],
   projects: [
     {
       name: "Relay",
@@ -39,21 +40,23 @@ const PARSED = {
   ],
   skills: ["Python", "SQL"],
   achievements: ["Smart India Hackathon 2024 finalist"],
-  links: { github: "https://github.com/asha", leetcode: null, linkedin: null },
+  links: { github: "https://github.com/asha", leetcode: null, linkedin: null, portfolio_website: null },
   some_future_field: { ignored: true },
 };
 
 /** The camelCase draft the endpoint returns for PARSED. */
 const DRAFT = {
+  level: null,
   fullName: "Asha Rao",
   email: "asha@example.com",
   phone: "+91 90000 00000",
   location: "Delhi",
   headline: "Aspiring SDE",
+  portfolioWebsite: null,
   targetRole: null,
   targetJdId: null,
   education: [{ institution: "IIT", degree: "B.Tech", field: "CS", startYear: "2021", endYear: "2025", grade: "8.9" }],
-  experience: [{ company: "Acme", title: "Intern", startDate: "2024", endDate: "2024", location: "Remote", bullets: ["Built X"] }],
+  experience: [{ company: "Acme", title: "Intern", startDate: "2024", endDate: "2024", location: "Remote", bullets: ["Built X"], link: null }],
   projects: [
     {
       name: "Relay",
@@ -65,7 +68,7 @@ const DRAFT = {
   ],
   skills: ["Python", "SQL"],
   achievements: ["Smart India Hackathon 2024 finalist"],
-  detectedLinks: { github: "https://github.com/asha", leetcode: null, linkedin: null },
+  detectedLinks: { github: "https://github.com/asha", leetcode: null, linkedin: null, portfolioWebsite: null },
   resumeFilename: "resume.pdf",
   resumeParsedAt: null,
   onboardingComplete: false,
@@ -107,8 +110,8 @@ describe("POST /users/me/resume/parse (synchronous parse)", () => {
     expect(res.body.projects).toEqual([]);
     expect(res.body.skills).toEqual([]);
     expect(res.body.achievements).toEqual([]);
-    expect(res.body.experience).toEqual([{ company: "X", title: null, startDate: null, endDate: null, location: null, bullets: [] }]);
-    expect(res.body.detectedLinks).toEqual({ github: null, leetcode: null, linkedin: null });
+    expect(res.body.experience).toEqual([{ company: "X", title: null, startDate: null, endDate: null, location: null, bullets: [], link: null }]);
+    expect(res.body.detectedLinks).toEqual({ github: null, leetcode: null, linkedin: null, portfolioWebsite: null });
     expect(res.body.resumeFilename).toBe("cv.pdf");
   });
 
@@ -306,6 +309,7 @@ describe("GET/PUT /users/me/candidate-profile", () => {
     detectedLinks: { github: null, leetcode: null, linkedin: null },
     resumeFilename: "resume.pdf",
     complete: true,
+    level: "fresher",
   };
 
   it("getCandidateProfile_whenNone_returnsNoContent", async () => {
@@ -339,10 +343,13 @@ describe("GET/PUT /users/me/candidate-profile", () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       fullName: "Asha Rao",
+      level: "fresher",
+      legacyLevel: null,
       email: "asha@example.com",
       phone: null,
       location: "Delhi",
       headline: null,
+      portfolioWebsite: null,
       targetRole: "SDE",
       targetJdId: null,
       education: [{ institution: "IIT", degree: "B.Tech", field: "CS", startYear: "2021", endYear: "2025", grade: "8.9" }],
@@ -350,7 +357,7 @@ describe("GET/PUT /users/me/candidate-profile", () => {
       projects: [],
       skills: ["Python"],
       achievements: [],
-      detectedLinks: { github: null, leetcode: null, linkedin: null },
+      detectedLinks: { github: null, leetcode: null, linkedin: null, portfolioWebsite: null },
       resumeFilename: "resume.pdf",
       resumeParsedAt: saved.body.resumeParsedAt,
       onboardingComplete: true,
@@ -389,7 +396,7 @@ describe("GET/PUT /users/me/candidate-profile", () => {
     expect(res.body.onboardingComplete).toBe(false);
     expect(res.body.education).toEqual([]);
     expect(res.body.skills).toEqual([]);
-    expect(res.body.detectedLinks).toEqual({ github: null, leetcode: null, linkedin: null });
+    expect(res.body.detectedLinks).toEqual({ github: null, leetcode: null, linkedin: null, portfolioWebsite: null });
     expect(res.body.resumeFilename).toBeNull();
     expect(res.body.resumeParsedAt).toBeNull();
   });

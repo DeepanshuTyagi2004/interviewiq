@@ -1,5 +1,6 @@
 import type { CandidateFormValues } from "./form";
 import type { CandidateProfileRequest, CandidateProfileResponse } from "./types";
+import { isEngineeringLevel, normalizeLegacyLevel } from "@/lib/constants/engineering-levels";
 
 const trimToNull = (s: string): string | null => {
   const t = s.trim();
@@ -19,11 +20,13 @@ const toLines = (text: string): string[] =>
 /** API response (or parsed draft) → editable form values. */
 export function responseToForm(r: CandidateProfileResponse): CandidateFormValues {
   return {
+    level: normalizeLegacyLevel(r.level) ?? "",
     fullName: r.fullName ?? "",
     email: r.email ?? "",
     phone: r.phone ?? "",
     location: r.location ?? "",
     headline: r.headline ?? "",
+    portfolioWebsite: r.portfolioWebsite ?? r.detectedLinks?.portfolioWebsite ?? "",
     targetRole: r.targetRole ?? "",
     targetJdId: r.targetJdId ?? "",
     education: (r.education ?? []).map((e) => ({
@@ -41,6 +44,7 @@ export function responseToForm(r: CandidateProfileResponse): CandidateFormValues
       endDate: x.endDate ?? "",
       location: x.location ?? "",
       bulletsText: (x.bullets ?? []).join("\n"),
+      link: x.link ?? "",
     })),
     projects: (r.projects ?? []).map((p) => ({
       name: p.name ?? "",
@@ -62,6 +66,8 @@ export function responseToForm(r: CandidateProfileResponse): CandidateFormValues
 
 /** Editable form values → PUT payload. Trims blanks to null and drops fully-empty rows. */
 export function formToRequest(v: CandidateFormValues, complete: boolean): CandidateProfileRequest {
+  if (v.level !== "" && !isEngineeringLevel(v.level)) throw new Error("Choose a valid engineering level");
+  if (complete && !isEngineeringLevel(v.level)) throw new Error("Choose your engineering level");
   const education = v.education
     .map((e) => ({
       institution: trimToNull(e.institution),
@@ -80,11 +86,12 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
       startDate: trimToNull(x.startDate),
       endDate: trimToNull(x.endDate),
       location: trimToNull(x.location),
+      link: trimToNull(x.link ?? ""),
       bullets: toLines(x.bulletsText),
     }))
     .filter(
       (x) =>
-        x.company || x.title || x.location || x.startDate || x.endDate || x.bullets.length > 0,
+        x.company || x.title || x.location || x.startDate || x.endDate || x.link || x.bullets.length > 0,
     );
 
   const projects = v.projects
@@ -111,12 +118,14 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
     .filter(Boolean);
 
   return {
+    level: v.level || null,
     fullName: trimToNull(v.fullName),
     email: trimToNull(v.email),
     phone: trimToNull(v.phone),
     location: trimToNull(v.location),
     headline: trimToNull(v.headline),
     targetRole: trimToNull(v.targetRole),
+    portfolioWebsite: trimToNull(v.portfolioWebsite),
     targetJdId: trimToNull(v.targetJdId),
     education,
     experience,
@@ -127,6 +136,7 @@ export function formToRequest(v: CandidateFormValues, complete: boolean): Candid
       github: trimToNull(v.detectedLinks.github),
       leetcode: trimToNull(v.detectedLinks.leetcode),
       linkedin: trimToNull(v.detectedLinks.linkedin),
+      portfolioWebsite: trimToNull(v.detectedLinks.portfolioWebsite ?? ""),
     },
     resumeFilename: v.resumeFilename,
     complete,

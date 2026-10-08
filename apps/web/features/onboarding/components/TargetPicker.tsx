@@ -6,13 +6,12 @@ import { MonoPill } from "@/components/patterns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
 import { useJds, useJobCompanies, type JdSummary } from "@/features/jobs";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 /** A company is "live" once at least one of its roles has researched interview data. */
 function isLive(jds: JdSummary[]): boolean {
-  return jds.some((jd) => jd.dataAvailability === "rich" || jd.dataAvailability === "available");
+  return jds.some((jd) => !jd.practiceTemplate && (jd.dataAvailability === "rich" || jd.dataAvailability === "available"));
 }
-
-const LEVEL_LABEL: Record<string, string> = { fresher: "Fresher", sde1: "SDE I", sde2: "SDE II", sde3: "SDE III" };
 
 export function targetLabel(jd: JdSummary): string {
   return `${jd.companyName} · ${jd.title}`;
@@ -149,7 +148,7 @@ export function TargetPicker({ valueId, onChange }: TargetPickerProps) {
                 >
                   <span className="block">{jd.title}</span>
                   <span className="mt-0.5 block text-[11.5px] opacity-65">
-                    {[LEVEL_LABEL[jd.level] ?? jd.level, jd.specialization].filter(Boolean).join(" · ")}
+                    {[levelLabel(jd.level), jd.specialization].filter(Boolean).join(" · ")}
                   </span>
                 </button>
               );
