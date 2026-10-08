@@ -10,6 +10,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.engineering_levels import Level
+
 
 class Source(str, Enum):
     LEETCODE_DISCUSS = "leetcode-discuss"
@@ -17,13 +19,6 @@ class Source(str, Enum):
     REDDIT = "reddit"
     AMBITIONBOX = "ambitionbox"
     USER_SUBMITTED = "user-submitted"  # first-party paste-in from candidates
-
-
-class Level(str, Enum):
-    FRESHER = "fresher"
-    SDE1 = "sde1"
-    SDE2 = "sde2"
-    SDE3 = "sde3"
 
 
 class ProcessingStatus(str, Enum):

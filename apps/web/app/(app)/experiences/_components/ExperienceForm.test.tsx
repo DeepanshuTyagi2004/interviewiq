@@ -39,7 +39,7 @@ describe("ExperienceForm", () => {
     const user = userEvent.setup();
     render(<ExperienceForm />);
     await user.type(screen.getByLabelText(/company/i), "  Meesho ");
-    await user.click(screen.getByRole("radio", { name: "SDE-2" }));
+    await user.click(screen.getByRole("radio", { name: "SDE II" }));
     await user.type(screen.getByLabelText(/what happened/i), "Round 1 was DSA on arrays and a heap problem.");
     await user.click(screen.getByRole("button", { name: /submit experience/i }));
 
@@ -58,6 +58,9 @@ describe("ExperienceForm", () => {
   it("shows the level choices as a radio group with Fresher selected by default", () => {
     render(<ExperienceForm />);
     expect(screen.getByRole("group", { name: /level/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    expect(screen.getByRole("radio", { name: "Intern" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Distinguished" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Fresher" })).toBeChecked();
   });
 });

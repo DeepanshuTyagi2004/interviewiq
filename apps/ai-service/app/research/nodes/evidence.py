@@ -71,7 +71,7 @@ LEVEL_SIGNALS = {
     "sde1": r"\b(?:sde|swe|software (?:development )?engineer)[\s-]*(?:1|i)\b",
     "sde2": r"\b(?:sde|swe|software (?:development )?engineer)[\s-]*(?:2|ii)\b",
     "sde3": r"\bsenior\b|\b(?:sde|swe|software (?:development )?engineer)[\s-]*(?:3|iii)\b",
-    "staff": r"\bstaff\b", "principal": r"\bprincipal\b",
+    "staff": r"\bstaff\b", "principal": r"\bprincipal\b", "distinguished": r"\bdistinguished\b",
 }
 CATEGORY_SIGNALS = {
     "business_model": {"product": r"\bproducts?\b|\bsaas\b|software[\s-]as[\s-]a[\s-]service|\bplatforms?\b",

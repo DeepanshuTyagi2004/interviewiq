@@ -2,14 +2,16 @@ import { createHash } from "node:crypto";
 import type { CompanyRow, JobDescriptionRow } from "../db/pg/schema.js";
 import type { EnrichmentDocument, EnrichmentRole } from "../domain/enrichment.js";
 import { ROUND_TYPES } from "../domain/enums.js";
+import { engineeringLevelView } from "../domain/engineeringLevels.js";
 
 type ObjectValue = Record<string, unknown>;
 const obj = (v: unknown): ObjectValue => v !== null && typeof v === "object" && !Array.isArray(v) ? v as ObjectValue : {};
+const simulated = (v: unknown) => ["template", "practice_template", "custom_practice"].includes(String(obj(v).provenance));
 // Only the supported company/role fields below are read. Candidate profiles, arbitrary metadata,
 // unverified claims and inferred/template fields are never copied into the editor.
 const value = (v: unknown): unknown => {
   const o = obj(v);
-  return ["unavailable", "template", "inferred_from_similar"].includes(String(o.provenance)) ? null : "value" in o ? o.value : v;
+  return simulated(o) || ["unavailable", "inferred_from_similar"].includes(String(o.provenance)) ? null : "value" in o ? o.value : v;
 };
 const str = (v: unknown, max = 10000): string => typeof value(v) === "string" ? (value(v) as string).trim().slice(0, max).trim() : "";
 const list = (v: unknown): unknown[] => Array.isArray(value(v)) ? value(v) as unknown[] : [];
@@ -81,7 +83,7 @@ export function companyPrefill(company: CompanyRow, snapshot: unknown): Enrichme
 }
 
 function emptyRole(id: string): EnrichmentRole {
-  return { id, jdId: null, title: "", role: "", level: "", specialization: null, description: "", techStack: [],
+  return { id, jdId: null, title: "", role: "", level: "fresher", specialization: null, description: "", techStack: [],
     yoeMin: null, yoeMax: null, ctcMinLpa: null, ctcMaxLpa: null, sourceUrls: [], verified: false, rounds: [] };
 }
 
@@ -92,7 +94,7 @@ function validRanges(role: EnrichmentRole): void {
 }
 
 export function jdPrefill(j: JobDescriptionRow): EnrichmentRole {
-  const r = { ...emptyRole(j.id), jdId: j.id, title: str(j.title, 255), role: str(j.role, 255), level: str(j.level, 16),
+  const r = { ...emptyRole(j.id), jdId: j.id, title: str(j.title, 255), role: str(j.role, 255), ...engineeringLevelView(j.level),
     specialization: str(j.specialization, 32) || null, description: str(j.description, 20000),
     techStack: texts(j.techStack?.split(",")), yoeMin: number(j.yoeMin, 99.9), yoeMax: number(j.yoeMax, 99.9),
     ctcMinLpa: number(j.ctcMinLpa, 9999.99), ctcMaxLpa: number(j.ctcMaxLpa, 9999.99), sourceUrls: safeSourceUrls(j.sourceUrl) };
@@ -104,12 +106,13 @@ export function jdPrefill(j: JobDescriptionRow): EnrichmentRole {
  * the strict round schema cannot represent an unknown duration, difficulty or unsupported OA. */
 export function addProcess(role: EnrichmentRole, process: unknown, sourceFields: unknown[] = []): void {
   const p = value(process), o = obj(p);
+  if (simulated(process) || sourceFields.some(simulated) || o.template_used === true) return;
   const rounds = Array.isArray(p) ? p : list(o.rounds);
   const references: string[] = [];
   if (typeof p === "string") references.push(p.trim());
   const parentSources = sources(process, o, ...sourceFields);
-  const template = o.template_used === true || o.provenance === "template";
   for (const [index, input] of rounds.slice(0, 50).entries()) {
+    if (simulated(input)) continue;
     const r = obj(value(input));
     const name = str(r.name ?? r.title, 255), type = str(r.type ?? r.round_type, 255).toLowerCase();
     const duration = number(r.duration_minutes ?? r.durationMinutes, 240);
@@ -117,7 +120,7 @@ export function addProcess(role: EnrichmentRole, process: unknown, sourceFields:
     const topics = texts(r.topics, 255, 30), questions = texts(r.problems ?? r.questions, 2000, 30);
     const guidance = str(r.format ?? r.guidance ?? r.description);
     role.sourceUrls = safeSourceUrls(role.sourceUrls, sources(r));
-    if (!template && r.provenance !== "template" && name && (ROUND_TYPES as readonly string[]).includes(type)
+    if (name && (ROUND_TYPES as readonly string[]).includes(type)
         && duration !== null && duration >= 1 && Number.isInteger(duration) && ["easy", "medium", "hard"].includes(difficulty)
         && role.rounds.length < 12) {
       const id = stableId(role.id, `round:${index}:${norm(name)}:${type}`);
@@ -137,12 +140,13 @@ export function addProcess(role: EnrichmentRole, process: unknown, sourceFields:
 export function researchRoles(companyId: string, snapshot: unknown, jds: JobDescriptionRow[]): EnrichmentRole[] {
   const result: EnrichmentRole[] = [];
   for (const raw of list(obj(snapshot).roles).slice(0, 100)) {
+    if (simulated(raw)) continue;
     const r = obj(raw), title = str(r.title, 255);
     if (!title) continue;
     const key = str(r.role_key, 128) || [norm(title), norm(str(r.role)), norm(str(r.level)), norm(str(r.specialization)), norm(str(r.employment_type))].join(":");
-    const linked = jds.find((j) => j.roleKey && j.roleKey === str(r.role_key));
+    const linked = jds.find((j) => j.source !== "template" && j.roleKey && j.roleKey === str(r.role_key));
     const role = { ...emptyRole(stableId(companyId, `role:${key}`)), title, role: str(r.role, 255),
-      level: str(r.level, 16), specialization: str(r.specialization, 32) || null, description: str(r.jd ?? r.description, 20000),
+      ...engineeringLevelView(value(r.level)), specialization: str(r.specialization, 32) || null, description: str(r.jd ?? r.description, 20000),
       techStack: texts(r.tech_stack ?? r.techStack), yoeMin: number(r.yoe_min, 99.9), yoeMax: number(r.yoe_max, 99.9),
       ctcMinLpa: number(r.ctc_min_lpa, 9999.99), ctcMaxLpa: number(r.ctc_max_lpa, 9999.99),
       sourceUrls: sources(r, ...["title", "level", "specialization", "jd", "tech_stack", "yoe_min", "yoe_max", "ctc_min_lpa", "ctc_max_lpa"].map((k) => r[k])),
@@ -186,7 +190,11 @@ export function fillRole(target: EnrichmentRole, source: EnrichmentRole): void {
   if (target.verified) return;
   let changed = fill(target, source, ["title", "description", "techStack"]);
   // Never adopt/change a saved role's JD identity during an import.
-  if (!target.jdId) changed = fill(target, source, ["role", "level", "specialization"]) || changed;
+  if (!target.jdId) {
+    changed = fill(target, source, ["role", "specialization"]) || changed;
+    // An unknown historical label needs an explicit selection, never a guessed import repair.
+    if (!target.legacyLevel) changed = fill(target, source, ["level"]) || changed;
+  }
   for (const [low, high] of [["yoeMin", "yoeMax"], ["ctcMinLpa", "ctcMaxLpa"]] as const) {
     const min = target[low] ?? source[low], max = target[high] ?? source[high];
     if (min === null || max === null || min <= max) {

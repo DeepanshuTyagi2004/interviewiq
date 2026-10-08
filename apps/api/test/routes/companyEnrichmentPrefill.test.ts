@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { companyEnrichments } from "../../src/db/pg/schema.js";
 import { parseEnrichment, type EnrichmentDocument } from "../../src/domain/enrichment.js";
 import { CompanyEnrichmentService } from "../../src/services/companyEnrichment.js";
+import { seedPracticeProfiles } from "../../scripts/seed-practice-profiles.js";
 import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 import { json } from "../support/fakeFetch.js";
 import { AI, seedJd } from "./helpers.js";
@@ -92,6 +93,35 @@ describe("available company enrichment prefill", () => {
     expect((await env.c.repos.companies.findById(companyId))!.publishedAt).toBeNull();
   });
 
+  it("excludes all 48 simulation JDs before the editor's 50-role cap on initial read and explicit prefill", async () => {
+    research({});
+    await seedPracticeProfiles(env.db, { apply: true, only: [slug] });
+    const real = await Promise.all(Array.from({ length: 3 }, (_, i) => seedJd(env, { company: slug, title: `Real opening ${i}` })));
+    const initial = await get();
+    expect(initial.status).toBe(200);
+    expect(initial.body.document.roles.map((r: { jdId: string }) => r.jdId).sort()).toEqual(real.map((j) => j.id).sort());
+    expect(initial.body.publishedRevision).toBeNull();
+    expect(JSON.stringify(initial.body)).not.toContain("[Practice template]");
+    const added = await seedJd(env, { company: slug, title: "Another real opening" });
+    const imported = await prefill(0);
+    expect(imported.status).toBe(200);
+    expect(imported.body.document.roles.map((r: { jdId: string }) => r.jdId).sort()).toEqual([...real.map((j) => j.id), added.id].sort());
+    expect(JSON.stringify(imported.body)).not.toContain("[Practice template]");
+    const briefReads = env.fetch.calls.filter((c) => c.url.includes("/briefs/"));
+    expect(briefReads.every((c) => c.url === `${AI}/briefs/${slug}/software-engineer/sde1/backend`)).toBe(true);
+    expect((await env.c.repos.jds.findAllActiveOrdered()).filter((j) => j.company === slug && j.source === "template")).toHaveLength(48);
+  });
+
+  it("does not import simulation-provenance research roles or rounds into human factual enrichment", async () => {
+    research({ roles: [role({ provenance: "practice_template", title: field("Simulation role") }),
+      role({ interview_process: field({ rounds: [round({ provenance: "practice_template", name: "Simulation round" })] }) })] });
+    const result = await get();
+    expect(result.status).toBe(200);
+    expect(result.body.document.roles).toHaveLength(1);
+    expect(result.body.document.roles[0].rounds).toEqual([]);
+    expect(JSON.stringify(result.body)).not.toContain("Simulation");
+  });
+
   it("imports historical rich roles without inventing unknown level, pay, duration or difficulty", async () => {
     research({ roles: [role(), role({ role_key: "junior", title: field("Junior developer"), level: field(null),
       ctc_min_lpa: field(null), ctc_max_lpa: field(null), interview_process: field({ rounds: [round({ difficulty: null })] }) })] });
@@ -99,7 +129,7 @@ describe("available company enrichment prefill", () => {
     expect(result.status).toBe(200);
     expect(result.body.document.roles[0]).toMatchObject({ title: "Platform engineer", level: "sde2", specialization: "backend",
       description: "Build distributed systems", techStack: ["Go", "Postgres"], yoeMin: 2, yoeMax: 5, ctcMinLpa: 20, ctcMaxLpa: 30, verified: false });
-    expect(result.body.document.roles[1]).toMatchObject({ level: "", ctcMinLpa: null, ctcMaxLpa: null, rounds: [] });
+    expect(result.body.document.roles[1]).toMatchObject({ level: null, ctcMinLpa: null, ctcMaxLpa: null, rounds: [] });
     expect(result.body.document.roles[1].description).toContain("Interview process reference");
     expect((await prefill(0)).body).toEqual(result.body);
   });

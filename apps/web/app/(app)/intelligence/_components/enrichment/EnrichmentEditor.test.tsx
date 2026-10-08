@@ -8,6 +8,9 @@ import { enrichmentKey, newRole, newRound, type EnrichmentResponse, type Enrichm
 import { makeCompany } from "@/features/research/testing";
 import { EnrichmentEditor } from "./EnrichmentEditor";
 
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: navigation.push }) }));
+
 vi.mock("@/lib/api-client/client", async (original) => ({ ...(await original<typeof import("@/lib/api-client/client")>()), apiFetch: vi.fn() }));
 vi.mock("@/features/research", async (original) => ({ ...(await original<typeof import("@/features/research")>()), useAdminCompanies: () => ({ data: { companies: [makeCompany()] } }) }));
 vi.mock("@xyflow/react", () => ({
@@ -29,7 +32,7 @@ let failPrefill: ApiFetchError | null;
 function fixture(): EnrichmentResponse {
   return { revision: 2, publishedRevision: null, publishedAt: null, verifiedBy: null, document: {
     company: { overview: "Verified overview", culture: "", benefits: "", sourceUrls: ["https://example.com/about"], verified: true },
-    roles: [{ ...newRole(), title: "Platform engineer", role: "backend", level: "SDE2", description: "Build reliable services.", sourceUrls: ["https://example.com/jobs"], verified: true,
+    roles: [{ ...newRole(), title: "Platform engineer", role: "backend", level: "sde2", description: "Build reliable services.", sourceUrls: ["https://example.com/jobs"], verified: true,
       rounds: [{ ...newRound(), name: "Technical", sourceUrls: ["https://example.com/interviews"], verified: true }, { ...newRound(), name: "Discussion", sourceUrls: ["https://example.com/interviews"], verified: true }] }],
   } };
 }
@@ -65,6 +68,35 @@ beforeEach(() => {
 });
 
 describe("EnrichmentEditor", () => {
+  it("confirms leaving dirty work without publishing and lets cancellation preserve edits", async () => {
+    mount(); await screen.findByLabelText("Company overview");
+    fireEvent.change(screen.getByLabelText("Company overview"), { target: { value: "Unsaved correction" } });
+    await userEvent.click(screen.getByRole("link", { name: "Back to companies" }));
+    const dialog = screen.getByRole("dialog", { name: "Leave enrichment editor?" });
+    expect(dialog).toHaveAccessibleDescription("Your unsaved changes will be lost.");
+    expect(navigation.push).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("Company overview")).toHaveValue("Unsaved correction");
+    await userEvent.click(screen.getByRole("link", { name: "Back to companies" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leave without saving" }));
+    expect(navigation.push).toHaveBeenCalledTimes(1);
+    expect(navigation.push).toHaveBeenCalledWith("/intelligence?tab=companies");
+    expect(vi.mocked(apiFetch).mock.calls.every(([, options]) => !options?.method)).toBe(true);
+  });
+
+  it("confirms role removal in a draft-only dialog and does not save or publish it", async () => {
+    mount(); await screen.findByLabelText("Company overview");
+    await userEvent.click(screen.getByRole("button", { name: "Remove role profile" }));
+    const dialog = screen.getByRole("dialog", { name: "Remove role profile?" });
+    expect(dialog).toHaveAccessibleDescription(/Platform engineer and all its rounds/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("Job title")).toHaveValue("Platform engineer");
+    await userEvent.click(screen.getByRole("button", { name: "Remove role profile" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove role and rounds" }));
+    expect(screen.queryByLabelText("Job title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(vi.mocked(apiFetch).mock.calls.every(([, options]) => !options?.method)).toBe(true);
+  });
   it("shows initial research-prefilled fields as editable and unverified", async () => {
     server.document.company = { overview: "Collected company overview", culture: "", benefits: "", sourceUrls: ["https://example.com/research"], verified: false };
     server.document.roles[0]!.verified = false;
@@ -266,6 +298,12 @@ describe("EnrichmentEditor", () => {
     expect(screen.getByRole("button", { name: "Saving draft…" })).toBeDisabled();
     expect(screen.getByLabelText("Company overview")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Submit & publish" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Round type" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Difficulty" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remove role profile" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("link", { name: "Back to companies" }));
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Leave enrichment editor?" })).not.toBeInTheDocument();
     finish({ ...server, revision: 3 });
     await screen.findByText(/Draft saved/);
     expect(screen.getByLabelText("Company overview")).toBeEnabled();

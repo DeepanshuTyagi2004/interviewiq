@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client/client";
 import type { components } from "@/lib/api-client/generated/schema";
 import { RESEARCH_ENDPOINTS } from "@/lib/constants/research";
+import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 export type EnrichmentDocument = components["schemas"]["EnrichmentDocument"];
 export type EnrichmentRole = components["schemas"]["EnrichmentRole"];
@@ -17,7 +18,7 @@ export const saveEnrichment = (id: string, body: EnrichmentWriteRequest) => apiF
 export const publishEnrichment = (id: string, body: EnrichmentWriteRequest) => apiFetch<EnrichmentResponse>(`${endpoint(id)}/publish`, { method: "POST", json: body });
 
 export function newRole(): EnrichmentRole {
-  return { id: crypto.randomUUID(), title: "", role: "", level: "", specialization: null, description: "", techStack: [], yoeMin: null, yoeMax: null, ctcMinLpa: null, ctcMaxLpa: null, sourceUrls: [], verified: false, rounds: [] };
+  return { id: crypto.randomUUID(), title: "", role: "", level: "fresher", specialization: null, description: "", techStack: [], yoeMin: null, yoeMax: null, ctcMinLpa: null, ctcMaxLpa: null, sourceUrls: [], verified: false, rounds: [] };
 }
 
 export function newRound(): EnrichmentRound {
@@ -40,6 +41,7 @@ export function moveRound(rounds: EnrichmentRound[], id: string, delta: -1 | 1):
 
 const cleanLines = (values: string[]) => values.map((v) => v.trim()).filter(Boolean);
 export function cleanDocument(document: EnrichmentDocument): EnrichmentDocument {
+  if (document.roles.some((role) => !isEngineeringLevel(role.level))) throw new Error("Choose a valid engineering level for every role");
   return { company: { ...document.company, sourceUrls: cleanLines(document.company.sourceUrls) }, roles: document.roles.map((role) => ({ ...role, techStack: cleanLines(role.techStack), sourceUrls: cleanLines(role.sourceUrls), rounds: role.rounds.map((round) => ({ ...round, topics: cleanLines(round.topics), questions: cleanLines(round.questions), sourceUrls: cleanLines(round.sourceUrls) })) })) };
 }
 
@@ -56,8 +58,9 @@ export function publicationIssues(document: EnrichmentDocument): string[] {
   if (!document.roles.length) issues.push("Add at least one role profile and interview sequence.");
   for (const [index, role] of document.roles.entries()) {
     const label = role.title || `Role ${index + 1}`;
+    if (!isEngineeringLevel(role.level)) issues.push(`${label}: choose a valid engineering level.`);
     sources(role.sourceUrls, label);
-    if (![role.title, role.role, role.level, role.description].every((value) => value.trim())) issues.push(`${label}: complete the title, role, level and job description.`);
+    if (![role.title, role.role, role.description].every((value) => value.trim()) || !isEngineeringLevel(role.level)) issues.push(`${label}: complete the title, role, level and job description.`);
     if (!role.verified) issues.push(`${label}: verify the role profile.`);
     if (!role.rounds.length) issues.push(`${label}: add at least one round.`);
     for (const [i, round] of role.rounds.entries()) {

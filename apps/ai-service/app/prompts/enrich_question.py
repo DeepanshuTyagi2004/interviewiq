@@ -4,8 +4,9 @@ tags, components/patterns, duration). Mirrors app/prompts/extract_source.py styl
 from __future__ import annotations
 
 from app.questions.models import QuestionRecord
+from app.models.engineering_levels import ENGINEERING_LEVELS
 
-ENRICH_VERSION = "v1"
+ENRICH_VERSION = "v2"
 
 ENRICH_SYSTEM = (
     "You label a well-known software interview question with metadata for an Indian campus-placement "
@@ -17,7 +18,7 @@ _SD_SCHEMA = """
 Return a JSON object (use [] / null where unknown; never invent companies):
 {
   "company_tags": ["<lowercase company slugs that commonly ask this, e.g. amazon, flipkart>"],
-  "level_tags": ["<sde1|sde2|sde3 where this is typically asked>"],
+  "level_tags": ["<ENGINEERING_LEVEL_TAGS where this is typically asked>"],
   "topic_tags": ["<concepts, e.g. scalability, caching, sharding>"],
   "components_tested": ["<system components, e.g. load-balancer, database-design, caching, api-design>"],
   "category": "<one of: web-service|social|infrastructure|storage|messaging|search or null>",
@@ -29,7 +30,7 @@ _LLD_SCHEMA = """
 Return a JSON object (use [] / null where unknown; never invent companies):
 {
   "company_tags": ["<lowercase company slugs that commonly ask this>"],
-  "level_tags": ["<sde1|sde2|sde3>"],
+  "level_tags": ["<ENGINEERING_LEVEL_TAGS>"],
   "topic_tags": ["<concepts, e.g. oops, concurrency, design-patterns>"],
   "patterns_tested": ["<design patterns, e.g. factory, singleton, observer, strategy>"],
   "entities_involved": ["<core domain entities, e.g. User, Booking, Payment>"],
@@ -43,6 +44,7 @@ Return a JSON object (use [] / null where unknown; never invent companies):
 
 def build_enrich_prompt(record: QuestionRecord) -> str:
     schema = _LLD_SCHEMA if record.round_type.value == "lld" else _SD_SCHEMA
+    schema = schema.replace("ENGINEERING_LEVEL_TAGS", "|".join(ENGINEERING_LEVELS))
     return (
         f"Round type: {record.round_type.value}\n"
         f"Question: {record.title}\n"

@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HudCard, Readout } from "@/components/hud";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ApiFetchError } from "@/lib/api-client/client";
 import { RESEARCH_QUERY_KEYS } from "@/lib/constants/research";
@@ -27,6 +29,7 @@ export function EnrichmentEditor({ companyId }: { companyId: string }) {
 }
 
 function EditorSession({ companyId, initial }: { companyId: string; initial: EnrichmentResponse }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const companies = useAdminCompanies();
   const company = companies.data?.companies.find((c) => c.id === companyId);
@@ -36,6 +39,8 @@ function EditorSession({ companyId, initial }: { companyId: string; initial: Enr
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
   const [confirmPrefill, setConfirmPrefill] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [removeRole, setRemoveRole] = useState<{ id: string; title: string } | null>(null);
   const prefillInFlight = useRef(false);
   const [researchOpen, setResearchOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -98,7 +103,7 @@ function EditorSession({ companyId, initial }: { companyId: string; initial: Enr
   return <div className="space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-5">
       <div><p className="iq-eyebrow m-0">Intelligence / company enrichment</p><h1 className="mb-0 mt-2 text-3xl font-normal tracking-tight">{company?.name ?? "Enrich company"}</h1><p className="mb-0 mt-2 max-w-2xl text-sm text-muted-foreground">Curate company information, role profiles and interview rounds. Save privately, verify each section, then submit to publish immediately.</p></div>
-      <Button asChild variant="ghost"><Link href="/intelligence?tab=companies" onClick={(event) => { if (pending || (dirty && !window.confirm("Leave this editor? Unsaved changes will be lost."))) event.preventDefault(); }}>Back to companies</Link></Button>
+      <Button asChild variant="ghost"><Link href="/intelligence?tab=companies" aria-disabled={pending || undefined} onClick={(event) => { if (pending || dirty) event.preventDefault(); if (!pending && dirty) setConfirmLeave(true); }}>Back to companies</Link></Button>
     </header>
 
     <HudCard title="Publication record" bodyClassName="grid gap-5 p-5 sm:grid-cols-3">
@@ -129,7 +134,7 @@ function EditorSession({ companyId, initial }: { companyId: string; initial: Enr
           <p className="m-0 text-xs text-muted-foreground">Company jobs and their interview processes.</p>
           <div className="space-y-2" role="group" aria-label="Role profiles">{document.roles.map((r, index) => <button type="button" key={r.id} aria-pressed={role?.id === r.id} onClick={() => setSelectedId(r.id)} className={`w-full rounded-lg border p-3 text-left text-sm ${role?.id === r.id ? "border-brand bg-brand/5" : "border-line-2"}`}><span className="mb-1 block font-mono text-[10px] text-muted-foreground">{String(index + 1).padStart(2, "0")} · {r.verified ? "VERIFIED" : "DRAFT"}</span>{r.title || "Untitled role"}</button>)}</div>
           <Button variant="strong" className="w-full" disabled={document.roles.length >= 50} onClick={() => { const added = newRole(); setDocument((prev) => ({ ...prev, roles: [...prev.roles, added] })); setSelectedId(added.id); }}>Add role profile</Button>
-          {role ? <Button variant="ghost" className="w-full" onClick={() => { if (window.confirm(`Remove ${role.title || "this role"} and all its rounds from this draft?`)) setDocument((prev) => ({ ...prev, roles: prev.roles.filter((r) => r.id !== role.id) })); }}>Remove role profile</Button> : null}
+          {role ? <Button variant="ghost" className="w-full" disabled={pending} onClick={() => { if (!pending) setRemoveRole({ id: role.id, title: role.title || "Untitled role" }); }}>Remove role profile</Button> : null}
         </HudCard>
         {role ? <RoleEditor key={role.id} role={role} disabled={pending} onChange={(updated) => { setNotice(null); setDocument((prev) => ({ ...prev, roles: prev.roles.map((r) => r.id === updated.id ? updated : r) })); }} /> : <HudCard title="Build the interview process" bodyClassName="p-8"><p className="text-sm text-muted-foreground">Add a role profile to enter a job description and build its interview rounds.</p></HudCard>}
       </div>
@@ -143,6 +148,13 @@ function EditorSession({ companyId, initial }: { companyId: string; initial: Enr
     <Dialog open={confirmPublish} onOpenChange={(open) => { if (!pending) setConfirmPublish(open); }}><DialogContent><DialogHeader><DialogTitle>Publish company enrichment now?</DialogTitle><DialogDescription>Submitting makes this company information, all role profiles and their interview rounds public immediately. There is no later approval step. Confirm that you have verified all content and sources.</DialogDescription></DialogHeader>{write.error ? <p role="alert" className="text-sm text-destructive">{conflict ? "Draft revision conflict. Close this dialog to reconcile your preserved edits." : message(write.error)}</p> : null}<DialogFooter><Button variant="ghost" disabled={pending} onClick={() => setConfirmPublish(false)}>Keep editing</Button><Button disabled={pending || conflict} onClick={() => { setNotice(null); write.mutate(true); }}>{write.isPending ? "Publishing…" : "Confirm & publish immediately"}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={confirmReload} onOpenChange={(open) => { if (!pending) setConfirmReload(open); }}><DialogContent><DialogHeader><DialogTitle>Replace editor with the latest saved draft?</DialogTitle><DialogDescription>This discards your local unsaved changes. Download your edits first so you can reconcile them with the latest version.</DialogDescription></DialogHeader>{reload.error ? <p role="alert">{message(reload.error)}</p> : null}<DialogFooter><Button variant="ghost" disabled={pending} onClick={() => setConfirmReload(false)}>Keep my edits</Button><Button disabled={pending} onClick={() => reload.mutate()}>{reload.isPending ? "Loading…" : "Discard local edits & load latest"}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={confirmPrefill} onOpenChange={(open) => { if (!pending) setConfirmPrefill(open); }}><DialogContent><DialogHeader><DialogTitle>Fill missing fields from research?</DialogTitle><DialogDescription>This fills blanks in unverified sections and adds newly researched roles with sources. Existing content and verified sections are preserved. Added research remains unverified for your review. The draft is saved privately; nothing is published.</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" disabled={pending} onClick={() => setConfirmPrefill(false)}>Keep editing</Button><Button disabled={pending || dirty || conflict} onClick={() => { if (pending || dirty || conflict || prefillInFlight.current) return; prefillInFlight.current = true; setNotice(null); prefill.mutate(); }}>{prefill.isPending ? "Filling…" : "Confirm & fill missing fields"}</Button></DialogFooter></DialogContent></Dialog>
+    <ConfirmationDialog open={confirmLeave} onOpenChange={(open) => { if (!pending) setConfirmLeave(open); }} pending={pending} title="Leave enrichment editor?" description="Your unsaved changes will be lost." confirmLabel="Leave without saving" destructive onConfirm={() => { if (!pending) router.push("/intelligence?tab=companies"); }} />
+    <ConfirmationDialog open={removeRole !== null} onOpenChange={(open) => { if (!pending && !open) setRemoveRole(null); }} pending={pending} title="Remove role profile?" description={`Remove ${removeRole?.title ?? "this role"} and all its rounds from this draft? This changes the draft only.`} confirmLabel="Remove role and rounds" destructive onConfirm={() => {
+      if (pending || !removeRole) return;
+      setDocument((prev) => ({ ...prev, roles: prev.roles.filter((item) => item.id !== removeRole.id) }));
+      setSelectedId((current) => current === removeRole.id ? null : current);
+      setNotice(null);
+    }} />
     {researchOpen && company ? <DraftReviewDialog company={company} open onOpenChange={setResearchOpen} readOnly /> : null}
   </div>;
 }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { EngineeringLevel } from "../../src/domain/engineeringLevels.js";
 
 export type RoundType = "dsa" | "system-design" | "lld" | "behavioural" | "hiring-manager";
 
@@ -18,8 +19,7 @@ export interface RoleIn {
   /** Stable within the company; seeds the deterministic role/round UUIDs so re-runs update in place. */
   key: string;
   title: string;
-  /** intern | fresher | sde1 | sde2 | sde3 | staff | principal */
-  level: string;
+  level: EngineeringLevel;
   spec: string | null;
   description: string;
   stack: string[];

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { EnrichmentDocument } from "../../src/domain/enrichment.js";
+import { seedPracticeProfiles } from "../../scripts/seed-practice-profiles.js";
 import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 import { AI, FUTURE_SLOT, seedJd, seedSession } from "./helpers.js";
 
@@ -80,13 +81,15 @@ describe("verified manual company enrichment", () => {
       .send({ jobDescriptionId: jdId, scheduledAt: FUTURE_SLOT, timezone: "Asia/Kolkata" });
     expect(booking.status).toBe(201);
     expect(booking.body.roundType).toBe("system-design");
+    await env.c.background.drain();
     const session = (await env.c.repos.sessions.findById(booking.body.id))!;
-    const request = await env.c.prep.assembleRequest(session);
-    expect(request.companyBrief?.final_experience.rounds).toEqual(detail.body.interviewProcess.rounds);
-    expect(request.companyBrief?.company_overview).toEqual(detail.body.companyOverview);
+    // The blueprint is grounded in the published round, not in AI research.
+    const request = await env.c.blueprintPrep.assemble(session, "booking");
+    expect(request.round).toMatchObject({ type: "system-design", duration_mins: 60, problems: ["Design a cache"], format: "Discuss trade-offs", source: "brief" });
+    expect(request.company_brief?.company_specific_patterns).toContain("Builds useful tools");
     const listed = await env.http.get(`/api/v1/jds?company=${slug}`).set("Authorization", student);
     expect(listed.body).toEqual([expect.objectContaining({ id: jdId, dataConfidence: "high", dataAvailability: "rich" })]);
-    expect(env.fetch.calls).toHaveLength(0);
+    expect(env.fetch.callsTo(/\/briefs\//)).toHaveLength(0);
 
     const d = first.body.document as EnrichmentDocument;
     d.roles[0]!.title = "Senior backend engineer";
@@ -94,13 +97,19 @@ describe("verified manual company enrichment", () => {
     expect(next.status).toBe(200);
     expect(next.body.document.roles[0].jdId).toBe(jdId);
     expect(next.body.publishedRevision).toBe(2);
-    expect((await env.c.prep.assembleRequest(session)).companyBrief?.published_revision).toBe(2);
-    expect((await env.c.repos.sessions.findById(session.id))!.status).toBe("SCHEDULED");
-    env.fetch.on("POST", `${AI}/interview-plans/start`, { run_id: "manual-run" });
-    env.fetch.on("GET", `${AI}/interview-plans/runs/manual-run`, { status: "completed", plan: { provenance: { planVersion: "manual-v2", inputHash: "verified" } } });
-    await env.c.prep.generatePrep(session.id);
-    expect((env.fetch.callsTo(`${AI}/interview-plans/start`)[0]!.json as { companyBrief: unknown }).companyBrief).toEqual(await env.c.enrichment.briefForJd(jdId));
-    expect((await env.c.repos.sessions.findById(session.id))!.status).toBe("PREP_READY");
+    expect((await env.c.repos.sessions.findById(session.id))!.status).toBe("PREP_QUEUED");
+    // A run against the republished brief is applied when its fingerprint still matches the session's inputs.
+    const fresh = await env.c.blueprintPrep.assemble(session, "booking");
+    env.fetch.on("POST", `${AI}/blueprints/runs`, { run_id: "bpr_manual", status: "running", existing: false });
+    env.fetch.on("GET", `${AI}/blueprints/runs/bpr_manual`, { status: "completed", input_hash: fresh.input_hash, blueprint_version: 1,
+      briefing: { interviewer_name: "Asha Rao", interviewer_style: "Staff engineer", format: "60-minute system design discussion with a shared whiteboard", duration_mins: 60 } });
+    await env.c.repos.sessions.update(session.id, { prepRunId: null });
+    await env.c.blueprintPrep.start((await env.c.repos.sessions.findById(session.id))!, "reconcile");
+    expect((env.fetch.callsTo(`${AI}/blueprints/runs`, "POST")[0]!.json as { round: { problems: string[] } }).round.problems).toEqual(["Design a cache"]);
+    await env.c.blueprintPrep.collect((await env.c.repos.sessions.findById(session.id))!);
+    const ready = (await env.c.repos.sessions.findById(session.id))!;
+    expect(ready.status).toBe("PREP_READY");
+    expect(ready).toMatchObject({ blueprintVersion: 1, prepInputHash: fresh.input_hash, prepRunId: null });
   });
 
   it.each([
@@ -201,10 +210,51 @@ describe("verified manual company enrichment", () => {
     expect((await publish(next, 1)).status).toBe(200);
     expect((await env.c.repos.jds.findById(removedId))!.active).toBe(false);
     expect((await env.c.repos.jds.findById(unrelated.id))!.active).toBe(true);
-    expect((await env.c.prep.assembleRequest(session)).companyBrief?.final_experience.rounds).toHaveLength(1);
+    expect((await env.c.blueprintPrep.assemble(session, "booking")).company_brief).not.toBeNull();
     expect((await env.http.get(`/api/v1/jds/${removedId}`).set("Authorization", student)).status).toBe(404);
     expect((await env.http.post("/api/v1/interviews/sessions").set("Authorization", student)
       .send({ jobDescriptionId: removedId, scheduledAt: FUTURE_SLOT, timezone: "Asia/Kolkata" })).status).toBe(400);
+  });
+
+  it("real publication and removal retain all 48 active simulations with their distinct unsourced briefs", async () => {
+    await seedPracticeProfiles(env.db, { apply: true, only: [slug] });
+    const templates = (await env.c.repos.jds.findAllActiveOrdered()).filter((j) => j.company === slug && j.source === "template");
+    expect(templates).toHaveLength(48);
+    const briefs = await Promise.all(templates.map((j) => env.c.enrichment.briefForJd(j.id)));
+    const first = await publish(document());
+    expect(first.status).toBe(200);
+    const realId = first.body.document.roles[0].jdId as string;
+    expect((await publish(document(), 1)).status).toBe(200); // Replaces/archives only the real role.
+    expect((await env.c.repos.jds.findById(realId))!.active).toBe(false);
+    for (const [i, template] of templates.entries()) {
+      expect(await env.c.repos.jds.findById(template.id)).toEqual(template);
+      expect(await env.c.enrichment.briefForJd(template.id)).toEqual(briefs[i]);
+      expect(briefs[i]).toMatchObject({ provenance: "practice_template", published_revision: null, sources: [],
+        company_overview: { verified: false, sourceUrls: [] }, final_experience: { template_used: true, data_confidence: "low" } });
+    }
+    expect((await env.http.get(url()).set("Authorization", admin)).body.document.roles).toHaveLength(1);
+    const confirmed = await env.c.loops.confirmLoop(actor, { jdId: templates[0]!.id });
+    expect(confirmed).toMatchObject({ kind: "standalone", countsTowardReadiness: false });
+    expect(env.fetch.calls).toHaveLength(0);
+  });
+
+  it.each(["jdId", "roleId"])("rejects adopting a simulation by %s as human-verified enrichment without changing source or brief", async (identity) => {
+    await seedPracticeProfiles(env.db, { apply: true, only: [slug] });
+    const template = (await env.c.repos.jds.findAllActiveOrdered()).find((j) => j.company === slug && j.source === "template")!;
+    const before = await env.c.enrichment.briefForJd(template.id);
+    const d = document();
+    d.roles[0]!.role = template.role;
+    d.roles[0]!.level = "intern";
+    d.roles[0]!.specialization = template.specialization;
+    if (identity === "jdId") d.roles[0]!.jdId = template.id;
+    else d.roles[0]!.id = template.id;
+    const rejected = await publish(d);
+    expect(rejected.status).toBe(400);
+    expect(rejected.body).toMatchObject({ code: "invalid_enrichment", message: expect.stringContaining("simulation cannot be adopted") });
+    expect(await env.c.repos.jds.findById(template.id)).toEqual(template);
+    expect(await env.c.enrichment.briefForJd(template.id)).toEqual(before);
+    expect((await env.c.repos.jds.findAllActiveOrdered()).filter((j) => j.company === slug)).toHaveLength(48);
+    expect((await env.c.repos.companies.findById(companyId))!.publishedAt).toBeNull();
   });
 
   it.each(["role", "level", "specialization"] as const)("rejects changing booked JD %s and retains a prep-compatible publication", async (field) => {
@@ -212,17 +262,18 @@ describe("verified manual company enrichment", () => {
     const jdId = first.body.document.roles[0].jdId;
     const jd = (await env.c.repos.jds.findById(jdId))!;
     const session = await seedSession(env, (await createUser(env)).id, jd);
-    const before = await env.c.prep.assembleRequest(session);
+    const before = await env.c.blueprintPrep.assemble(session, "booking");
     const d = structuredClone(first.body.document) as EnrichmentDocument;
     d.company.overview = "Must not publish";
-    d.roles[0]![field] = field === "level" ? "sde3" : "different";
+    if (field === "level") d.roles[0]!.level = "sde3";
+    else d.roles[0]![field] = "different";
     const rejected = await publish(d, 1);
     expect(rejected.status).toBe(409);
     expect(rejected.body.code).toBe("enrichment_identity_conflict");
     expect((await env.http.get(url()).set("Authorization", admin)).body).toEqual(first.body);
-    const after = await env.c.prep.assembleRequest(session);
+    const after = await env.c.blueprintPrep.assemble(session, "booking");
     expect(after).toEqual(before);
-    expect(after.companyBrief).toMatchObject({ company: after.session.company, role: after.session.role, level: after.session.level, specialization: after.session.specialization });
+    expect(after.company_brief).not.toBeNull();
     expect((await env.c.repos.sessions.findById(session.id))!.status).toBe("SCHEDULED");
   });
 
@@ -245,9 +296,9 @@ describe("verified manual company enrichment", () => {
     d.roles[0]!.level = "sde3";
     expect((await publish(d, 1)).status).toBe(200);
     expect((await env.c.repos.jds.findById(oldJd.id))!.active).toBe(false);
-    const request = await env.c.prep.assembleRequest(session);
-    expect(request.companyBrief?.level).toBe(request.session.level);
-    expect(request.companyBrief?.level).toBe("sde2");
+    const request = await env.c.blueprintPrep.assemble(session, "booking");
+    expect(request.session.level).toBe("sde2");
+    expect(request.company_brief).not.toBeNull(); // still the brief the session was booked against
   });
 
   it("stores company overview separately and never reuses or overwrites review summaries", async () => {
@@ -285,7 +336,7 @@ describe("verified manual company enrichment", () => {
     const seeds = (await env.c.repos.jds.findAllActiveOrdered()).filter((j) => j.company === "meesho");
     const d = document();
     d.roles[0]!.jdId = seeds[0]!.id;
-    d.roles[0]!.level = seeds[0]!.level;
+    d.roles[0]!.level = "fresher";
     d.roles[0]!.specialization = seeds[0]!.specialization;
     const result = await publish(d);
     expect(result.status).toBe(200);

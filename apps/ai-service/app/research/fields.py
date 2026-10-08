@@ -7,10 +7,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field as dc_field
 from typing import Literal
 
+from app.models.engineering_levels import ENGINEERING_LEVELS
+
 Kind = Literal["text", "number", "category", "item"]
 Section = Literal["profile", "culture", "roles"]
 
-LEVELS = frozenset({"intern", "fresher", "sde1", "sde2", "sde3", "staff", "principal"})
+LEVELS = frozenset(ENGINEERING_LEVELS)
 
 
 @dataclass(frozen=True)

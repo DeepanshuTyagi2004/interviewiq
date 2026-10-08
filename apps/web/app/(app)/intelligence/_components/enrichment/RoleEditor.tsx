@@ -5,10 +5,12 @@ import type { XYPosition } from "@xyflow/react";
 import { Maximize2 } from "lucide-react";
 import { HudCard } from "@/components/hud";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { moveRound, newRound, type EnrichmentRole, type EnrichmentRound } from "@/features/research/enrichment";
 import { ListField, NumberField, TextField, VerifiedField } from "./Fields";
 import { RoundsCanvas } from "./RoundsCanvas";
+import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel, normalizeLegacyLevel } from "@/lib/constants/engineering-levels";
 
 export function RoleEditor({ role, onChange, disabled }: { role: EnrichmentRole; onChange: (role: EnrichmentRole) => void; disabled: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(role.rounds[0]?.id ?? null);
@@ -38,7 +40,7 @@ export function RoleEditor({ role, onChange, disabled }: { role: EnrichmentRole;
       <div className="grid gap-5 md:grid-cols-2">
         <TextField label="Job title" value={role.title} onChange={(title) => edit({ title })} />
         <TextField label="Role" value={role.role} onChange={(value) => edit({ role: value })} />
-        <TextField label="Level" value={role.level} onChange={(level) => edit({ level })} />
+        <div className="space-y-2 text-sm text-muted-foreground"><span className="block">Level</span><CustomSelect label="Level" disabled={disabled} value={normalizeLegacyLevel(role.level) ?? ""} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(level) => { if (isEngineeringLevel(level)) edit({ level }); }} /></div>
         <TextField label="Specialization (optional)" value={role.specialization ?? ""} onChange={(specialization) => edit({ specialization: specialization || null })} />
       </div>
       <TextField label="Job description" multiline value={role.description} onChange={(description) => edit({ description })} />
@@ -107,18 +109,20 @@ function RoundsWorkspace({ rounds, selected, expanded, disabled, positions, onPo
         </li>)}
       </ol>
       <Button type="button" variant="strong" disabled={disabled || rounds.length >= 12} onClick={onAdd}>Add round</Button>
-      {selected ? <RoundEditor key={selected.id} round={selected} onChange={onEditRound} expanded={expanded} /> : null}
+      {selected ? <RoundEditor key={selected.id} round={selected} onChange={onEditRound} expanded={expanded} disabled={disabled} /> : null}
     </div>
   </fieldset>;
 }
 
-function RoundEditor({ round, onChange, expanded }: { round: EnrichmentRound; onChange: (round: EnrichmentRound) => void; expanded: boolean }) {
-  const edit = (patch: Partial<EnrichmentRound>) => onChange({ ...round, ...patch, verified: false });
+function RoundEditor({ round, onChange, expanded, disabled }: { round: EnrichmentRound; onChange: (round: EnrichmentRound) => void; expanded: boolean; disabled: boolean }) {
+  const edit = (patch: Partial<EnrichmentRound>) => { if (!disabled) onChange({ ...round, ...patch, verified: false }); };
+  const types: EnrichmentRound["type"][] = ["dsa", "system-design", "lld", "behavioural", "hiring-manager"];
+  const difficulties: EnrichmentRound["difficulty"][] = ["easy", "medium", "hard"];
   return <div className="space-y-5 border-t border-line-2 pt-6">
     <TextField label="Round name" value={round.name} onChange={(name) => edit({ name })} />
     <div className={expanded ? "grid gap-5" : "grid gap-5 sm:grid-cols-3"}>
-      <label className="space-y-2 text-sm text-muted-foreground"><span className="block">Round type</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-foreground" value={round.type} onChange={(e) => edit({ type: e.target.value as EnrichmentRound["type"] })}>{["dsa", "system-design", "lld", "behavioural", "hiring-manager"].map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-      <label className="space-y-2 text-sm text-muted-foreground"><span className="block">Difficulty</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-foreground" value={round.difficulty} onChange={(e) => edit({ difficulty: e.target.value as EnrichmentRound["difficulty"] })}>{["easy", "medium", "hard"].map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}</select></label>
+      <label className="space-y-2 text-sm text-muted-foreground"><span className="block">Round type</span><CustomSelect label="Round type" disabled={disabled} className="h-10 w-full rounded-md border border-input bg-background px-3 text-foreground" value={round.type} options={types.map((type) => ({ value: type, label: type }))} onValueChange={(value) => { const type = types.find((item) => item === value); if (type) edit({ type }); }} /></label>
+      <label className="space-y-2 text-sm text-muted-foreground"><span className="block">Difficulty</span><CustomSelect label="Difficulty" disabled={disabled} className="h-10 w-full rounded-md border border-input bg-background px-3 text-foreground" value={round.difficulty} options={difficulties.map((difficulty) => ({ value: difficulty, label: difficulty }))} onValueChange={(value) => { const difficulty = difficulties.find((item) => item === value); if (difficulty) edit({ difficulty }); }} /></label>
       <NumberField label="Duration (minutes)" integer value={round.durationMinutes} onChange={(durationMinutes) => edit({ durationMinutes: durationMinutes ?? 0 })} />
     </div>
     <div className={expanded ? "grid gap-5" : "grid gap-5 lg:grid-cols-2"}><ListField label="Topics" value={round.topics} onChange={(topics) => edit({ topics })} /><ListField label="Questions" value={round.questions} onChange={(questions) => edit({ questions })} /></div>

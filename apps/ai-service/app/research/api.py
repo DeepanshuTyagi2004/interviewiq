@@ -18,7 +18,7 @@ from app.research.trace.tracer import hydrate_span, utcnow
 
 router = APIRouter(prefix="/research", dependencies=[Depends(require_internal_key)])
 
-Level = Literal["trace", "debug", "info", "warn", "error"]
+TraceLevel = Literal["trace", "debug", "info", "warn", "error"]
 _ITEM_HIDDEN = ("state", "target")
 
 
@@ -138,7 +138,7 @@ async def run_events(
     after_seq: Annotated[int, Query(ge=0)] = 0,
     before_seq: Annotated[int | None, Query(ge=1)] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 500,
-    level: Annotated[Level | None, Query()] = None,
+    level: Annotated[TraceLevel | None, Query()] = None,
     company_id: Annotated[str | None, Query()] = None,
     node: Annotated[str | None, Query()] = None,
     type_: Annotated[str | None, Query(alias="type")] = None,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "../lib/errors.js";
-import { ROUND_TYPES } from "./enums.js";
+import { ROUND_TYPES, type RoundType } from "./enums.js";
+import { ENGINEERING_LEVELS, engineeringLevelView, parseEngineeringLevel } from "./engineeringLevels.js";
 
 const text = (max: number) => z.string().trim().max(max);
 const uuid = z.uuid().transform((value) => value.toLowerCase());
@@ -19,7 +20,8 @@ const round = z.object({
   guidance: text(10000), sourceUrls: urls, verified: z.boolean(),
 }).strict();
 const role = z.object({
-  id: uuid, jdId: uuid.nullable().optional(), title: text(255), role: text(255), level: text(16),
+  id: uuid, jdId: uuid.nullable().optional(), title: text(255), role: text(255), level: z.enum(ENGINEERING_LEVELS).nullable(),
+  legacyLevel: z.string().nullable().optional(),
   specialization: text(32).nullable(), description: text(20000), techStack: z.array(text(255)).max(50),
   yoeMin: z.number().min(0).max(99.9).nullable(), yoeMax: z.number().min(0).max(99.9).nullable(),
   ctcMinLpa: z.number().min(0).max(9999.99).nullable(), ctcMaxLpa: z.number().min(0).max(9999.99).nullable(),
@@ -29,9 +31,15 @@ const document = z.object({
   company: z.object({ overview: text(10000), culture: text(10000), benefits: text(10000), sourceUrls: urls, verified: z.boolean() }).strict(),
   roles: z.array(role).max(50),
 }).strict();
-const request = z.object({ revision: z.number().int().min(0).max(2147483646), document }).strict();
+const writeRole = role.extend({ level: z.enum(ENGINEERING_LEVELS) }).transform(({ legacyLevel: _legacyLevel, ...chosen }) => chosen);
+const request = z.object({ revision: z.number().int().min(0).max(2147483646), document: document.extend({ roles: z.array(writeRole).max(50) }) }).strict();
 export type EnrichmentDocument = z.infer<typeof document>;
 export type EnrichmentRole = z.infer<typeof role>;
+
+/** Read compatibility for saved editor documents, without changing stored research evidence. */
+export function enrichmentDocumentView(saved: EnrichmentDocument): EnrichmentDocument {
+  return { ...saved, roles: saved.roles.map((r) => ({ ...r, ...engineeringLevelView(r.level ?? r.legacyLevel) })) };
+}
 
 export function parseEnrichment(input: unknown, publish: boolean): z.infer<typeof request> {
   const parsed = request.safeParse(input);
@@ -63,10 +71,36 @@ export function parseEnrichment(input: unknown, publish: boolean): z.infer<typeo
   return parsed.data;
 }
 
+/** Shared grounding shape; storing a brief does not imply human verification/publication. */
+export interface EnrichmentBrief {
+  company: string;
+  role: string;
+  level: string;
+  specialization: string | null;
+  generated_at: string;
+  generation_status: string;
+  data_confidence: string;
+  provenance: string;
+  published_revision: number | null;
+  sources: string[];
+  company_overview: EnrichmentDocument["company"];
+  final_experience: {
+    rounds: {
+      id: string; round_number: number; name: string; type: RoundType; kind: "interview" | "info";
+      duration_minutes: number; difficulty: "easy" | "medium" | "hard"; topics: string[];
+      problems: string[]; format: string; provenance: string; source_urls: string[];
+    }[];
+    dominant_topics: string[];
+    company_specific_patterns: string;
+    data_confidence: string;
+    template_used: boolean;
+  };
+}
+
 /** Shape consumed by both catalogue and Python prep's round-scoped grounding. */
-export function enrichmentBrief(company: string, role: EnrichmentRole, facts: EnrichmentDocument["company"], revision: number, at: Date) {
+export function enrichmentBrief(company: string, role: EnrichmentRole, facts: EnrichmentDocument["company"], revision: number, at: Date): EnrichmentBrief {
   return {
-    company, role: role.role, level: role.level, specialization: role.specialization,
+    company, role: role.role, level: parseEngineeringLevel(role.level), specialization: role.specialization,
     generated_at: at.toISOString(), generation_status: "completed", data_confidence: "high",
     provenance: "admin_verified", published_revision: revision,
     sources: [...new Set([...facts.sourceUrls, ...role.sourceUrls, ...role.rounds.flatMap((r) => r.sourceUrls)])],
@@ -83,4 +117,3 @@ export function enrichmentBrief(company: string, role: EnrichmentRole, facts: En
     },
   };
 }
-export type EnrichmentBrief = ReturnType<typeof enrichmentBrief>;

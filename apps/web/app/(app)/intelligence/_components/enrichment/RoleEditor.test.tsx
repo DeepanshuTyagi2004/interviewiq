@@ -2,6 +2,7 @@ import { useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { selectOption } from "@/tests/helpers/select-option";
 import { newRole, newRound, type EnrichmentRole } from "@/features/research/enrichment";
 import { RoleEditor } from "./RoleEditor";
 import type { RoundsCanvas } from "./RoundsCanvas";
@@ -30,6 +31,27 @@ function Harness({ initial = fixture(), disabled = false, onChange = () => {} }:
 }
 
 describe("RoleEditor rounds workspace", () => {
+  it("offers all eight canonical engineering levels and clears role verification on selection", async () => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
+    render(<Harness onChange={changed} />);
+    expect(screen.queryByRole("textbox", { name: "Level" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: "Level" }));
+    expect(screen.getAllByRole("option")).toHaveLength(9);
+    expect(screen.getByRole("option", { name: "SDE III" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "Distinguished" }));
+    expect(changed.mock.lastCall?.[0]).toMatchObject({ level: "distinguished", verified: false });
+  });
+  it("selects difficulty from the keyboard and returns focus to the labelled trigger", async () => {
+    const changed = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onChange={changed} />);
+    const trigger = screen.getByRole("combobox", { name: "Difficulty" });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}h{Enter}");
+    expect(changed.mock.lastCall?.[0].rounds[0].difficulty).toBe("hard");
+    expect(trigger).toHaveFocus();
+  });
   it("edits every round field in full screen and retains changes and verification on close", async () => {
     const changed = vi.fn();
     render(<Harness onChange={changed} />);
@@ -41,8 +63,8 @@ describe("RoleEditor rounds workspace", () => {
     expect(dialog.style.height).toBe("calc(100dvh / var(--hud-zoom, 1))");
     expect(within(dialog).getByRole("region", { name: "Round inspector" })).toHaveClass("overflow-y-auto");
     fireEvent.change(within(dialog).getByLabelText("Round name"), { target: { value: "Architecture" } });
-    await userEvent.selectOptions(within(dialog).getByLabelText("Round type"), "system-design");
-    await userEvent.selectOptions(within(dialog).getByLabelText("Difficulty"), "hard");
+    await selectOption(within(dialog).getByRole("combobox", { name: "Round type" }), "system-design");
+    await selectOption(within(dialog).getByRole("combobox", { name: "Difficulty" }), "hard");
     fireEvent.change(within(dialog).getByLabelText("Duration (minutes)"), { target: { value: "60" } });
     fireEvent.change(within(dialog).getByLabelText("Topics (one per line)"), { target: { value: "Scaling\nStorage" } });
     fireEvent.change(within(dialog).getByLabelText("Questions (one per line)"), { target: { value: "Design a queue" } });

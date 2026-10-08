@@ -18,12 +18,13 @@ import {
   manualJdBriefs,
 } from "../src/db/pg/schema.js";
 import type { EnrichmentDocument } from "../src/domain/enrichment.js";
+import type { EngineeringLevel } from "../src/domain/engineeringLevels.js";
 
 type Correction = {
   company: string;
   fromTitle: string;
   toTitle: string;
-  level: string;
+  level: EngineeringLevel;
   specialization: string;
 };
 

@@ -12,19 +12,14 @@ import { ApiFetchError } from "@/lib/api-client/client";
 import { cn } from "@/lib/utils/cn";
 import { useSubmitExperience } from "@/features/experiences";
 
-const LEVELS = [
-  { value: "fresher", label: "Fresher" },
-  { value: "sde1", label: "SDE-1" },
-  { value: "sde2", label: "SDE-2" },
-  { value: "sde3", label: "SDE-3" },
-];
+import { ENGINEERING_LEVEL_OPTIONS as LEVELS, type EngineeringLevel } from "@/lib/constants/engineering-levels";
 
 export const MIN_CONTENT = 20;
 
 /** Company, level and a free-text write-up, posted to the experiences endpoint. */
 export function ExperienceForm() {
   const [company, setCompany] = useState("");
-  const [level, setLevel] = useState("fresher");
+  const [level, setLevel] = useState<EngineeringLevel>("fresher");
   const [content, setContent] = useState("");
   const submit = useSubmitExperience();
 
@@ -107,10 +102,10 @@ export function ExperienceForm() {
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              rows={10}
+              rows={6}
               aria-describedby="content-hint"
               placeholder="Walk through each round: format (DSA / system design / behavioural), topics, problems asked, difficulty, whether hints were given, and the outcome if you know it."
-              className="min-h-[220px] leading-[1.55]"
+              className="min-h-[132px] leading-[1.55]"
             />
             <div id="content-hint" className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs">
               <span className="text-faint">
