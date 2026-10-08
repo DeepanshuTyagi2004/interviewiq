@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { selectOption } from "@/tests/helpers/select-option";
 import { makeEvent, makeItem } from "@/features/research/testing";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -22,10 +23,10 @@ describe("LiveConsole", () => {
   it("filters by minimum level and by text", async () => {
     renderConsole();
     expect(screen.getByText("node · resolve")).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("Minimum level"), "warn");
+    await selectOption(screen.getByRole("combobox", { name: "Minimum level" }), "warn+");
     expect(screen.queryByText("node · resolve")).not.toBeInTheDocument();
     expect(screen.getByText("Meesho evidence dropped")).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("Minimum level"), "trace");
+    await selectOption(screen.getByRole("combobox", { name: "Minimum level" }), "trace+");
     await userEvent.type(screen.getByLabelText("Search messages"), "evidence");
     expect(screen.queryByText("node · resolve")).not.toBeInTheDocument();
   });
@@ -40,7 +41,7 @@ describe("LiveConsole", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     renderConsole();
-    await userEvent.selectOptions(screen.getByLabelText("Minimum level"), "warn");
+    await selectOption(screen.getByRole("combobox", { name: "Minimum level" }), "warn+");
     await userEvent.click(screen.getByRole("button", { name: "Copy visible" }));
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0]![0]).toContain("Meesho evidence dropped");

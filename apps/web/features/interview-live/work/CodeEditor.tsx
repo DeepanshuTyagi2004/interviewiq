@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
+import { CustomSelect } from '@/components/ui/custom-select'
 import type { LiveSession } from '../session/types'
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -36,18 +37,14 @@ export function CodeEditor({ session }: { session: LiveSession }) {
         <label htmlFor="code-language" className="sr-only">
           Language
         </label>
-        <select
+        <CustomSelect
           id="code-language"
+          label="Language"
           value={lang}
-          onChange={(e) => setLang(e.target.value as (typeof LANGS)[number])}
-          className="h-7 rounded-full border border-line-3 bg-card px-2.5 font-mono text-[12px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          {LANGS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
+          onValueChange={(value) => { const language = LANGS.find((item) => item === value); if (language) setLang(language) }}
+          options={LANGS.map((language) => ({ value: language, label: language }))}
+          className="h-7 w-auto rounded-full border border-line-3 bg-card px-2.5 font-mono text-[12px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
       </div>
       <div className="flex-1">
         <Editor

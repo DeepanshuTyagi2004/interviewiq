@@ -5,15 +5,16 @@ import { Copy } from "lucide-react";
 import { padCount } from "@/components/hud";
 import { ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Input } from "@/components/ui/input";
 import { NODE_ORDER } from "@/lib/constants/research";
 import { cn } from "@/lib/utils/cn";
 import {
   DEFAULT_FILTERS, LEVEL_ORDER, copyText, filterEvents, logLine,
-  type EventFilters, type ResearchEvent, type ResearchItem, type ResearchLevel,
+   type EventFilters, type ResearchEvent, type ResearchItem,
 } from "@/features/research";
 
-const SELECT = "h-8 rounded-full border border-input bg-card px-3 font-mono text-[12px]";
+const SELECT = "h-8 w-auto rounded-full border border-input bg-card px-3 font-mono text-[12px]";
 
 /** Bottom pane: every trace event, live. Filters, follow-tail, older pages, copy. */
 export function LiveConsole({
@@ -55,17 +56,9 @@ export function LiveConsole({
   return (
     <ConsoleCard title="Console" meta={<HeaderCount>{padCount(shown.length)} / {padCount(events.length)}{live ? " · live" : ""}</HeaderCount>}>
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <select aria-label="Minimum level" className={SELECT} value={filters.minLevel} onChange={(e) => set("minLevel", e.target.value as ResearchLevel)}>
-          {LEVEL_ORDER.map((l) => <option key={l} value={l}>{l}+</option>)}
-        </select>
-        <select aria-label="Company" className={SELECT} value={filters.companyId ?? ""} onChange={(e) => set("companyId", e.target.value || null)}>
-          <option value="">All companies</option>
-          {[...companies].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-        <select aria-label="Node" className={SELECT} value={filters.node ?? ""} onChange={(e) => set("node", e.target.value || null)}>
-          <option value="">All nodes</option>
-          {NODE_ORDER.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+        <CustomSelect label="Minimum level" className={SELECT} value={filters.minLevel} options={LEVEL_ORDER.map((level) => ({ value: level, label: `${level}+` }))} onValueChange={(value) => { const level = LEVEL_ORDER.find((item) => item === value); if (level) set("minLevel", level); }} />
+        <CustomSelect label="Company" className={SELECT} value={filters.companyId ?? ""} options={[{ value: "", label: "All companies" }, ...[...companies].map(([id, name]) => ({ value: id, label: name }))]} onValueChange={(value) => set("companyId", value || null)} />
+        <CustomSelect label="Node" className={SELECT} value={filters.node ?? ""} options={[{ value: "", label: "All nodes" }, ...NODE_ORDER.map((node) => ({ value: node, label: node }))]} onValueChange={(value) => set("node", value || null)} />
         <Input aria-label="Event type prefix" placeholder="type, e.g. span." value={filters.type} onChange={(e) => set("type", e.target.value)} className="h-8 w-36 rounded-full font-mono text-[12px]" />
         <Input aria-label="Search messages" placeholder="search…" value={filters.q} onChange={(e) => set("q", e.target.value)} className="h-8 w-44 rounded-full text-[12px]" />
         <Button size="sm" variant={follow ? "ink" : "strong"} aria-pressed={follow} onClick={() => setFollow((f) => !f)}>

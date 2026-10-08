@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { HudCard, StatusDot } from "@/components/hud";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ApiFetchError } from "@/lib/api-client/client";
 import {
@@ -13,7 +14,7 @@ import {
 } from "@/features/research";
 
 const MODES: ResearchMode[] = ["live", "record", "replay"];
-const SELECT = "h-8 rounded-full border border-input bg-card px-3 font-mono text-[12px]";
+const SELECT = "h-8 w-auto rounded-full border border-input bg-card px-3 font-mono text-[12px]";
 
 function errorMessage(err: unknown): string {
   return err instanceof ApiFetchError ? err.message : "Request failed. Check the API logs.";
@@ -69,13 +70,9 @@ export function RunControlBar({
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {options.length > 0 ? (
-            <select aria-label="Run" className={`${SELECT} max-w-[340px]`} value={run?.run_id ?? ""} onChange={(e) => onSelectRun(e.target.value)}>
-              {options.map((r) => <option key={r.run_id} value={r.run_id}>{runLabel(r)}</option>)}
-            </select>
+            <CustomSelect label="Run" className={`${SELECT} max-w-[340px]`} disabled={start.isPending || control.isPending} value={run?.run_id ?? ""} onValueChange={onSelectRun} options={[...(!run ? [{ value: "", label: "Select a run" }] : []), ...options.map((r) => ({ value: r.run_id, label: runLabel(r) }))]} />
           ) : null}
-          <select aria-label="Mode" className={SELECT} value={mode} onChange={(e) => setMode(e.target.value as ResearchMode)}>
-            {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <CustomSelect label="Mode" className={SELECT} disabled={start.isPending || control.isPending} value={mode} options={MODES.map((item) => ({ value: item, label: item }))} onValueChange={(value) => { const next = MODES.find((item) => item === value); if (next) setMode(next); }} />
           <Button size="sm" disabled={!controls.start} onClick={() => startRun({ scope: "all", mode })}>Start all</Button>
           <StartSelected disabled={!controls.start} onStart={(ids) => startRun({ scope: "selected", companyIds: ids, mode })} />
           <Button size="sm" variant="strong" disabled={!controls.pause} onClick={() => act("pause")}>Pause</Button>
@@ -137,7 +134,7 @@ function StartSelected({ disabled, onStart }: { disabled: boolean; onStart: (ids
         <Button size="sm" variant="strong" disabled={disabled}>Start selected…</Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-3">
-        <fieldset className="m-0 flex max-h-64 flex-col gap-1.5 overflow-y-auto border-0 p-0">
+        <fieldset disabled={disabled} className="m-0 flex max-h-64 flex-col gap-1.5 overflow-y-auto border-0 p-0">
           <legend className="iq-eyebrow mb-2">Companies to research</legend>
           {active.length === 0 ? <p className="m-0 text-[13px] text-muted-foreground">No active companies. Add one on the Companies tab.</p> : null}
           {active.map((c) => (
@@ -150,8 +147,9 @@ function StartSelected({ disabled, onStart }: { disabled: boolean; onStart: (ids
         <Button
           size="sm"
           className="mt-3 w-full"
-          disabled={picked.size === 0}
+          disabled={disabled || picked.size === 0}
           onClick={() => {
+            if (disabled) return;
             onStart([...picked]);
             setOpen(false);
             setPicked(new Set());

@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { selectOption } from "@/tests/helpers/select-option";
 import { makeItem, makeRun } from "@/features/research/testing";
 
-const h = vi.hoisted(() => ({ controlMutate: vi.fn(), startMutate: vi.fn() }));
+const h = vi.hoisted(() => ({ controlMutate: vi.fn(), startMutate: vi.fn(), pending: false }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/api-client/client", () => ({ ApiFetchError: class extends Error {}, apiFetch: vi.fn() }));
 vi.mock("@/features/research", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/research")>()),
-  useRunControl: () => ({ mutate: h.controlMutate, isPending: false }),
-  useStartRun: () => ({ mutate: h.startMutate, isPending: false }),
+  useRunControl: () => ({ mutate: h.controlMutate, isPending: h.pending }),
+  useStartRun: () => ({ mutate: h.startMutate, isPending: h.pending }),
   useAdminCompanies: () => ({ data: { companies: [], researchAvailable: true } }),
 }));
 
@@ -18,7 +19,21 @@ import { RunControlBar } from "./RunControlBar";
 const enabled = (name: string) => !(screen.getByRole("button", { name }) as HTMLButtonElement).disabled;
 
 describe("RunControlBar", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); h.pending = false; });
+
+  it("closes an open picker and locks run/mode controls while a request is pending", async () => {
+    const run = makeRun({ status: "completed" });
+    const choose = vi.fn();
+    const view = render(<RunControlBar runs={[run]} run={run} items={[]} onSelectRun={choose} />);
+    await userEvent.click(screen.getByRole("combobox", { name: "Mode" }));
+    expect(screen.getByRole("listbox", { name: "Mode" })).toBeInTheDocument();
+    h.pending = true;
+    view.rerender(<RunControlBar runs={[run]} run={run} items={[]} onSelectRun={choose} />);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Mode" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Run" })).toBeDisabled();
+    expect(choose).not.toHaveBeenCalled();
+  });
 
   it.each([
     ["running", { "Start all": false, Pause: true, Resume: false, Stop: true }],
@@ -63,7 +78,7 @@ describe("RunControlBar", () => {
 
   it("Start all uses the chosen mode", async () => {
     render(<RunControlBar runs={[]} run={undefined} items={[]} onSelectRun={vi.fn()} />);
-    await userEvent.selectOptions(screen.getByLabelText("Mode"), "replay");
+    await selectOption(screen.getByRole("combobox", { name: "Mode" }), "replay");
     await userEvent.click(screen.getByRole("button", { name: "Start all" }));
     expect(h.startMutate).toHaveBeenCalledWith({ scope: "all", mode: "replay" }, expect.any(Object));
   });
