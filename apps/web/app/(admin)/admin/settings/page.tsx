@@ -1,10 +1,10 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { RequireAdmin } from "@/components/auth/RequireAdmin";
+import { ValidationControlsPanel } from "./_components/ValidationControlsPanel";
 
 export default function AdminSettingsPage() {
-  // TODO: admin settings
   return (
-    <main className="flex-1">
-      <StubScreen title="Admin · Settings" />
-    </main>
+    <RequireAdmin>
+      <ValidationControlsPanel />
+    </RequireAdmin>
   );
 }

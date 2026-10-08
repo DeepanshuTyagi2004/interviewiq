@@ -230,6 +230,7 @@ export function AccountMenu({
             <DropdownMenuGroup>
               <DropdownMenuLabel className={groupLabel}>Admin</DropdownMenuLabel>
               <LinkItem entry={{ label: "Intelligence", href: ROUTES.intelligence, icon: Activity }} />
+              <LinkItem entry={{ label: "Validation controls", href: "/admin/settings", icon: ShieldCheck }} />
             </DropdownMenuGroup>
           </>
         ) : null}
