@@ -43,6 +43,27 @@
       "when": 1791044846954,
       "tag": "0005_session_cancelled_status",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791048516712,
+      "tag": "0006_custom_practice",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791201954308,
+      "tag": "0007_platform_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791400000000,
+      "tag": "0008_interview_blueprint",
+      "breakpoints": true
     }
   ]
 }

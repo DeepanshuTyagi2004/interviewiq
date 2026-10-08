@@ -13,6 +13,7 @@ vi.mock("next/navigation", async () => {
 // these tests exercise the prejoin view, so report a PREP_READY session as already loaded.
 vi.mock("@/features/interview/hooks", () => ({
   useLiveState: () => ({ data: { status: "PREP_READY" }, isLoading: false }),
+  useSession: () => ({ data: { liveAvailable: true }, isLoading: false }),
 }));
 
 import LiveInterview from "./LiveInterview";

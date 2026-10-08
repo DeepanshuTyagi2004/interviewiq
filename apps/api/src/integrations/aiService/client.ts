@@ -7,9 +7,12 @@ import {
   requestText,
   UpstreamError,
   UpstreamMalformedError,
+  UpstreamHttpError,
+  UpstreamTransportError,
 } from "../../lib/http.js";
 import { asString, isObject, path } from "../../lib/json.js";
-import type { GenerateInterviewPlanRequest } from "./types.js";
+import type { BlueprintRunRequest, ProfileScoringAssessmentRequest, ProfileScoringAssessmentResponse } from "./types.js";
+import { companyContextRequestSchema, parseCompanyContextResponse, parseProfileScoringAssessmentRequest, parseProfileScoringAssessmentResponse, type CompanyContextResponse } from "./profileAssessment.js";
 
 /**
  * HTTP client for interviewiq-ai-service — the home of all LLM logic. This API never calls an LLM
@@ -82,12 +85,39 @@ export class AiServiceClient {
     return this.postJson("/admin/questions/collect");
   }
 
+  /** Start content generation over the question index (docs/question-bank.md); shares the run slot. */
+  generateQuestionContent(opts: { roundType?: string | null; limit?: number | null; force?: boolean } = {}): Promise<unknown> {
+    const q = new URLSearchParams();
+    if (opts.roundType && opts.roundType.trim()) q.set("round_type", opts.roundType);
+    if (opts.limit && opts.limit > 0) q.set("limit", String(opts.limit));
+    if (opts.force) q.set("force", "true");
+    const qs = q.toString();
+    return this.postJson(`/admin/questions/generate${qs ? `?${qs}` : ""}`);
+  }
+
+  /** Counts per round type and content status; null on failure. */
+  async questionStats(): Promise<unknown | null> {
+    try {
+      return await this.getJson("/questions/stats");
+    } catch (err) {
+      if (err instanceof UpstreamError) {
+        this.log.warn({ err: err.message }, "AI service question stats fetch failed");
+        return null;
+      }
+      throw err;
+    }
+  }
+
   /** Ingested question-bank metadata for the admin console; null on failure. */
-  async listQuestions(roundType: string | null, company: string | null, difficulty: string | null, limit: number): Promise<unknown | null> {
+  async listQuestions(roundType: string | null, company: string | null, difficulty: string | null, limit: number,
+    extra: { contentStatus?: string | null; topic?: string | null; includeContent?: boolean } = {}): Promise<unknown | null> {
     const q = new URLSearchParams({ limit: String(limit) });
     if (roundType && roundType.trim()) q.set("round_type", roundType);
     if (company && company.trim()) q.set("company", company);
     if (difficulty && difficulty.trim()) q.set("difficulty", difficulty);
+    if (extra.contentStatus && extra.contentStatus.trim()) q.set("content_status", extra.contentStatus);
+    if (extra.topic && extra.topic.trim()) q.set("topic", extra.topic);
+    if (extra.includeContent) q.set("include_content", "true");
     try {
       return await this.getJson(`/questions?${q.toString()}`);
     } catch (err) {
@@ -105,6 +135,12 @@ export class AiServiceClient {
   }
 
   // --- resume parsing ------------------------------------------------------------------------
+
+  /** Private synchronous LinkedIn "Save to PDF" extraction (raw PDF bytes in); no observable run payloads. */
+  async parseLinkedInPdf(pdf: Uint8Array): Promise<unknown> {
+    const body = await this.send({ method: "POST", url: this.url("/linkedin/parse"), body: pdf, headers: { "Content-Type": "application/pdf" } });
+    return this.nonEmptyJson(body, "/linkedin/parse");
+  }
 
   /**
    * Synchronous resume parse (raw PDF bytes in, snake_case JSON text out). Does NOT swallow
@@ -137,57 +173,94 @@ export class AiServiceClient {
     return this.getJson("/admin/resume/parse/runs");
   }
 
-  // --- interview prep (Pipeline 1) -----------------------------------------------------------
+  // --- profile scoring -----------------------------------------------------------------------
 
-  /**
-   * Fire-and-poll plan generation: start a run and return its run_id immediately; the caller polls
-   * getInterviewPlanRun. Keeps every HTTP call short so a slow multi-LLM run can't trip a read timeout.
-   */
-  async startInterviewPlan(request: GenerateInterviewPlanRequest): Promise<string> {
-    const snap = this.nonEmptyJson(await this.send(this.jsonPost("/interview-plans/start", request)), "/interview-plans/start");
+  /** Bounded feature inferences only. Deterministic profile aggregation stays with the caller. */
+  async assessProfileScoring(request: ProfileScoringAssessmentRequest): Promise<ProfileScoringAssessmentResponse> {
+    const minimized = parseProfileScoringAssessmentRequest(request);
+    let body: unknown;
+    try {
+      body = await this.postJson("/profile-scoring/assess", minimized);
+    } catch (err) {
+      // The shared transport retains upstream text/causes for other consumers. This private
+      // evidence boundary must never expose reflected input, keys, or provider errors to logs.
+      if (err instanceof UpstreamHttpError) {
+        throw new UpstreamHttpError(err.status, "", `ai-service /profile-scoring/assess failed (HTTP ${err.status})`);
+      }
+      if (err instanceof UpstreamMalformedError) {
+        throw new UpstreamMalformedError("ai-service /profile-scoring/assess returned invalid JSON");
+      }
+      throw new UpstreamTransportError("ai-service /profile-scoring/assess unavailable");
+    }
+    return parseProfileScoringAssessmentResponse(body, minimized);
+  }
+
+  /** General-knowledge company context for the scoring knowledge base. Only a company name is sent. */
+  async companyContext(companyName: string): Promise<CompanyContextResponse> {
+    const request = companyContextRequestSchema.parse({ companyName });
+    let body: unknown;
+    try {
+      body = await this.postJson("/profile-scoring/company-context", request);
+    } catch (err) {
+      if (err instanceof UpstreamHttpError) throw new UpstreamHttpError(err.status, "", `ai-service /profile-scoring/company-context failed (HTTP ${err.status})`);
+      if (err instanceof UpstreamMalformedError) throw new UpstreamMalformedError("ai-service /profile-scoring/company-context returned invalid JSON");
+      throw new UpstreamTransportError("ai-service /profile-scoring/company-context unavailable");
+    }
+    return parseCompanyContextResponse(body);
+  }
+
+  // --- interview blueprint (docs/superpowers/specs/2026-10-07-interview-blueprint-design.md) ---
+
+  /** Start a session's blueprint run → `{run_id, status, existing}` (the live run when one is already running). */
+  async startBlueprintRun(request: BlueprintRunRequest): Promise<{ runId: string; existing: boolean }> {
+    const snap = this.nonEmptyJson(await this.send(this.jsonPost("/blueprints/runs", request)), "/blueprints/runs");
     const runId = asString(path(snap, "run_id"), "");
-    if (runId.trim() === "") throw new UpstreamMalformedError("ai-service /interview-plans/start returned no run_id");
-    return runId;
+    if (runId.trim() === "") throw new UpstreamMalformedError("ai-service /blueprints/runs returned no run_id");
+    return { runId, existing: path(snap, "existing") === true };
   }
 
-  /** Run snapshot `{run_id, status: running|completed|failed, plan, error}`. 404 → UpstreamHttpError. */
-  async getInterviewPlanRun(runId: string): Promise<unknown> {
-    return this.nonEmptyJson(await this.send({ method: "GET", url: this.url(`/interview-plans/runs/${seg(runId)}`) }), "/interview-plans/runs");
+  /** Compact run status `{status, stage, steps, error, blueprint_version, briefing, input_hash, ...}`. 404 → UpstreamHttpError. */
+  async getBlueprintRun(runId: string): Promise<unknown> {
+    return this.nonEmptyJson(await this.send({ method: "GET", url: this.url(`/blueprints/runs/${seg(runId)}`) }), "/blueprints/runs");
   }
 
-  /** Instrumented admin-bench prep run (cache bypassed, plan not persisted) → `{run_id, status}`. */
-  async startInterviewPrepRun(request: GenerateInterviewPlanRequest): Promise<unknown> {
-    return this.nonEmptyJson(await this.send(this.jsonPost("/admin/interview-prep/run", request)), "/admin/interview-prep/run");
+  cancelBlueprintRun(runId: string): Promise<unknown> {
+    return this.postJson(`/blueprints/runs/${seg(runId)}/cancel`);
   }
 
-  getInterviewPrepRun(runId: string, after: number): Promise<unknown> {
-    return this.getJson(`/admin/interview-prep/runs/${seg(runId)}?after=${after}`);
+  /** A session's blueprint (the current one, or `version`). The live interviewer's source; never sent to a browser. */
+  getSessionBlueprint(sessionId: string, version?: number): Promise<unknown> {
+    return this.getJson(`/blueprints/sessions/${seg(sessionId)}${version ? `?version=${version}` : ""}`);
   }
 
-  listInterviewPrepRuns(): Promise<unknown> {
-    return this.getJson("/admin/interview-prep/runs");
+  // Admin diagnostics: snake_case passthrough for the Intelligence "Interview prep" tab.
+
+  listBlueprintRuns(query: URLSearchParams): Promise<unknown> {
+    return this.getJson(`/admin/blueprints/runs?${query.toString()}`);
   }
 
-  // --- agent diagnostics (interactive brain harness) -----------------------------------------
-
-  async startAgentRun(plan: unknown): Promise<unknown> {
-    return this.nonEmptyJson(await this.send(this.jsonPost("/admin/interview-agent/run", plan)), "/admin/interview-agent/run");
+  getBlueprintRunDetail(runId: string): Promise<unknown> {
+    return this.getJson(`/admin/blueprints/runs/${seg(runId)}`);
   }
 
-  submitAgentTurn(runId: string, turn: unknown): Promise<unknown> {
-    return this.postJson(`/admin/interview-agent/runs/${seg(runId)}/turn`, turn);
+  async startBlueprintBench(request: BlueprintRunRequest): Promise<unknown> {
+    return this.nonEmptyJson(await this.send(this.jsonPost("/admin/blueprints/bench", request)), "/admin/blueprints/bench");
   }
 
-  getAgentRun(runId: string, after: number): Promise<unknown> {
-    return this.getJson(`/admin/interview-agent/runs/${seg(runId)}?after=${after}`);
+  rerunBlueprint(runId: string, body: unknown): Promise<unknown> {
+    return this.postJson(`/admin/blueprints/runs/${seg(runId)}/rerun`, body);
   }
 
-  listAgentRuns(): Promise<unknown> {
-    return this.getJson("/admin/interview-agent/runs");
+  blueprintVersions(sessionId: string): Promise<unknown> {
+    return this.getJson(`/admin/blueprints/sessions/${seg(sessionId)}/versions`);
   }
 
-  endAgentRun(runId: string): Promise<unknown> {
-    return this.postJson(`/admin/interview-agent/runs/${seg(runId)}/end`);
+  blueprintDiff(sessionId: string, from: number, to: number): Promise<unknown> {
+    return this.getJson(`/admin/blueprints/sessions/${seg(sessionId)}/diff?from=${from}&to=${to}`);
+  }
+
+  blueprintAnswerKeys(roundType: string, slug: string): Promise<unknown> {
+    return this.getJson(`/admin/blueprints/answer-keys/${seg(roundType)}/${slug.split("/").map(seg).join("/")}`);
   }
 
   // --- company research (Phase 1) -------------------------------------------------------------
@@ -254,11 +327,11 @@ export class AiServiceClient {
 
   // --- account deletion ----------------------------------------------------------------------
 
-  /** Drop everything the AI service stores for these sessions (their interview plans). Throws UpstreamError. */
-  async purgeUser(sessionIds: string[]): Promise<number> {
-    const body = await this.postJson("/users/purge", { session_ids: sessionIds });
-    const deleted = isObject(body) ? body.deleted_plans : undefined;
-    return typeof deleted === "number" ? deleted : 0;
+  /** Drop the user's blueprints and blueprint runs (bench runs included). Throws UpstreamError. */
+  async purgeUser(candidateId: string, sessionIds: string[]): Promise<number> {
+    const body = await this.postJson("/users/purge", { candidate_id: candidateId, session_ids: sessionIds });
+    const count = (k: string) => (isObject(body) && typeof body[k] === "number" ? (body[k] as number) : 0);
+    return count("deleted_blueprints") + count("deleted_runs");
   }
 
   // --- transport -----------------------------------------------------------------------------

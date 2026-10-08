@@ -1,4 +1,5 @@
 "use client";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 import Link from "next/link";
 import { HudCard, SegmentMeter } from "@/components/hud";
@@ -68,7 +69,7 @@ export function ReadinessCard({ className }: { className?: string }) {
             </div>
           ) : (
             <p className="m-0 text-[length:calc(15*var(--u))] leading-[1.5] text-muted-foreground">
-              Your tracks use edited processes, so they&apos;re standalone practice and don&apos;t count towards readiness.
+               Your tracks are standalone practice and don&apos;t count towards readiness.
             </p>
           )}
           <ul className="m-0 flex list-none flex-col gap-[calc(10*var(--u))] p-0">
@@ -76,7 +77,7 @@ export function ReadinessCard({ className }: { className?: string }) {
               <li key={l.id}>
                 <Link href={`${ROUTES.loops}/${l.id}`} className="block rounded-lg border border-line-2 px-[calc(12*var(--u))] py-[calc(10*var(--u))] transition-colors hover:border-faint-2">
                   <span className="flex items-baseline justify-between gap-2 text-[length:calc(14.5*var(--u))]">
-                    <span className="truncate">{l.jd ? `${l.jd.companyName} · ${l.jd.title}` : "Track"}</span>
+                    <span className="truncate">{l.name}{l.level ? ` · ${levelLabel(l.level)}` : ""}</span>
                     <span className="flex-none font-mono text-[length:calc(11.5*var(--u))] tabular-nums text-muted-foreground">{l.progress.completed}/{l.progress.total}</span>
                   </span>
                   <SegmentMeter segments={Math.max(l.progress.total, 1)} filled={l.progress.completed} tone="brand" className="mt-[calc(6*var(--u))]" />

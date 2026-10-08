@@ -27,3 +27,8 @@ InterviewIQ Landing Page/
 
 # Recorded research fixtures are real web text; never commit
 apps/ai-service/.research-fixtures/
+
+# dev audit reports (apps/api/scripts/dev)
+.fit-audit/
+.blueprint-audit/
+.blueprint-judge/

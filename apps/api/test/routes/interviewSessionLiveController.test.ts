@@ -19,7 +19,7 @@ const LIVEKIT_KEY = "lk-key";
 const LIVEKIT_SECRET = "lk-secret-lk-secret-lk-secret-lk-secret";
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ LIVE_INTERVIEWER_AVAILABLE: "true" });
   await seedCompany(env, "google", "Google");
   jd = await seedJd(env);
 });

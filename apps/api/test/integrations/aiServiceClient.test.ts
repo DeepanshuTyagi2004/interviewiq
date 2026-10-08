@@ -2,7 +2,7 @@ import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AiServiceClient } from "../../src/integrations/aiService/client.js";
-import type { GenerateInterviewPlanRequest } from "../../src/integrations/aiService/types.js";
+import type { BlueprintRunRequest } from "../../src/integrations/aiService/types.js";
 import { UpstreamHttpError, UpstreamMalformedError } from "../../src/lib/http.js";
 import { silentLogger } from "../../src/lib/logger.js";
 import { FakeFetch, json, status, text } from "../support/fakeFetch.js";
@@ -67,11 +67,11 @@ describe("AiServiceClient request shape (FakeFetch)", () => {
     expect(Buffer.from(call.body as Uint8Array).equals(Buffer.from(pdfBytes))).toBe(true);
   });
 
-  it("startInterviewPlan POSTs the request as JSON and returns run_id", async () => {
-    fake.on("POST", `${BASE}/interview-plans/start`, { run_id: "run-42", status: "running" });
-    const request = { session_id: "s1", round_type: "dsa" } as unknown as GenerateInterviewPlanRequest;
+  it("startBlueprintRun POSTs the request as JSON and returns the run id", async () => {
+    fake.on("POST", `${BASE}/blueprints/runs`, { run_id: "bpr_42", status: "running", existing: true });
+    const request = { session: { session_id: "s1", round_type: "dsa" } } as unknown as BlueprintRunRequest;
 
-    expect(await client.startInterviewPlan(request)).toBe("run-42");
+    expect(await client.startBlueprintRun(request)).toEqual({ runId: "bpr_42", existing: true });
     const call = fake.calls[0]!;
     expect(call.method).toBe("POST");
     expect(call.headers["content-type"]).toBe("application/json");
@@ -79,11 +79,17 @@ describe("AiServiceClient request shape (FakeFetch)", () => {
     expect(call.json).toEqual(request);
   });
 
-  it("startInterviewPlan without a run_id (or with an empty body) is malformed", async () => {
-    fake.on("POST", `${BASE}/interview-plans/start`, { status: "running" });
-    await expect(client.startInterviewPlan({} as GenerateInterviewPlanRequest)).rejects.toThrow("returned no run_id");
-    fake.on("POST", `${BASE}/interview-plans/start`, () => text(""));
-    await expect(client.startInterviewPlan({} as GenerateInterviewPlanRequest)).rejects.toThrow("returned an empty body");
+  it("startBlueprintRun without a run_id (or with an empty body) is malformed", async () => {
+    fake.on("POST", `${BASE}/blueprints/runs`, { status: "running" });
+    await expect(client.startBlueprintRun({} as BlueprintRunRequest)).rejects.toThrow("returned no run_id");
+    fake.on("POST", `${BASE}/blueprints/runs`, () => text(""));
+    await expect(client.startBlueprintRun({} as BlueprintRunRequest)).rejects.toThrow("returned an empty body");
+  });
+
+  it("purgeUser sends the candidate and its sessions and sums what was deleted", async () => {
+    fake.on("POST", `${BASE}/users/purge`, { deleted_blueprints: 2, deleted_runs: 5 });
+    expect(await client.purgeUser("c1", ["s1"])).toBe(7);
+    expect(fake.calls[0]!.json).toEqual({ candidate_id: "c1", session_ids: ["s1"] });
   });
 
   it("submitExperience sends the snake_case JSON body", async () => {
@@ -91,6 +97,25 @@ describe("AiServiceClient request shape (FakeFetch)", () => {
     await client.submitExperience("acme", "sde", "sde1", "raw text");
     expect(fake.calls[0]!.json).toEqual({ company: "acme", role: "sde", level: "sde1", raw_content: "raw text" });
     expect(fake.calls[0]!.headers["content-type"]).toBe("application/json");
+  });
+
+  it("parseLinkedInPdf POSTs the raw PDF bytes as application/pdf and parses the JSON draft", async () => {
+    fake.on("POST", `${BASE}/linkedin/parse`, { method: "pdf", sections: [] });
+    await expect(client.parseLinkedInPdf(pdfBytes)).resolves.toEqual({ method: "pdf", sections: [] });
+    const call = fake.calls[0]!;
+    expect(call.url).toBe(`${BASE}/linkedin/parse`);
+    expect(call.headers["content-type"]).toContain("application/pdf");
+    expect(call.headers["x-internal-api-key"]).toBe(KEY);
+  });
+
+  it("parseLinkedInPdf surfaces 422s and rejects a blank body", async () => {
+    fake.on("POST", `${BASE}/linkedin/parse`, () => json({ detail: { code: "linkedin_pdf_unrecognized" } }, 422));
+    const err = await client.parseLinkedInPdf(pdfBytes).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(UpstreamHttpError);
+    expect((err as UpstreamHttpError).status).toBe(422);
+    fake.reset();
+    fake.on("POST", `${BASE}/linkedin/parse`, () => text(" "));
+    await expect(client.parseLinkedInPdf(pdfBytes)).rejects.toBeInstanceOf(UpstreamMalformedError);
   });
 
   it("bodyless admin POSTs still carry the internal key and no body", async () => {

@@ -9,7 +9,7 @@ import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessi
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { ViolationOverlay } from "@/features/interview-live/proctor/ViolationOverlay";
-import { useLiveState } from "@/features/interview/hooks";
+import { useLiveState, useSession } from "@/features/interview/hooks";
 import type { SessionStatus } from "@/features/interview/types";
 import { StatusPill } from "../../../_components/StatusPill";
 import { RoomCentered, RoomFrame } from "./RoomFrame";
@@ -44,7 +44,8 @@ function RoomSpinner({ label }: { label: string }) {
 
 /** Why a not-yet-enterable session can't be joined, from its prep status. */
 function notReadyNote(status: SessionStatus | undefined): string {
-  if (status === "SCHEDULED") return "We prepare your interviewer ahead of your slot. Come back once it reads Ready.";
+  if (status === "PREP_READY") return "Your interviewer is ready. Live sessions open soon; we'll let you in from here once they do.";
+  if (status === "SCHEDULED") return "We're preparing your interviewer. Come back once it reads Ready.";
   if (status === "PREP_QUEUED") return "Your interviewer is still being prepared. Check back shortly.";
   if (status === "PREP_FAILED") return "Prep for this interview failed. Retry it from the interview's page.";
   return "Come back once your interview reads Ready.";
@@ -146,7 +147,8 @@ function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: Roo
  * - `COMPLETED` / `ABORTED_TECHNICAL` (terminal) → redirect to the report. The redirect is
  *   dispatched from an effect (never during render) per the rules-of-react set-state-in-render
  *   restriction.
- * - `PREP_READY` → mount the provider; the machine starts at `prejoin` as before.
+ * - `PREP_READY` → mount the provider (the machine starts at `prejoin`) once the live interviewer is
+ *   available (`InterviewSession.liveAvailable`); until then it's not-enterable with an "opens soon" note.
  * - `LIVE_IN_PROGRESS` (a refresh/reconnect mid-interview) → MVP: mount the provider the same
  *   way and let the candidate walk back through prejoin → checks → connect. This re-establishes
  *   a live connection but does NOT replay the prior transcript/timeline — a full resume (restoring
@@ -166,10 +168,13 @@ export default function LiveInterview({
   meta?: RoomMeta;
 }) {
   const router = useRouter();
-  const { data, isLoading, isError } = useLiveState(sessionId);
+  const { data, isLoading: liveLoading, isError } = useLiveState(sessionId);
+  // A ready round can only be entered once the live interviewer is available (server-enforced too).
+  const { data: sessionInfo, isLoading: sessionLoading } = useSession(sessionId);
+  const isLoading = liveLoading || sessionLoading;
   const status = data?.status;
   const isTerminal = status === "COMPLETED" || status === "ABORTED_TECHNICAL";
-  const isEnterable = status === "PREP_READY" || status === "LIVE_IN_PROGRESS";
+  const isEnterable = status === "LIVE_IN_PROGRESS" || (status === "PREP_READY" && sessionInfo?.liveAvailable === true);
 
   useEffect(() => {
     if (isTerminal) {

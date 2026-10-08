@@ -1,39 +1,57 @@
 import type { LeetCodeCollectionJob } from "../integrations/leetcode/service.js";
 import { errorMessage } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
-import type { GitHubConnectionRepository, InterviewSessionRepository, LeetCodeConnectionRepository } from "../repositories/pg.js";
-import type { InterviewPrepService } from "../services/interviewPrep.js";
+import type { PlatformConnectionService } from "../integrations/platforms/service.js";
+import type { GitHubConnectionRepository, InterviewSessionRepository, LeetCodeConnectionRepository, PlatformConnectionRepository } from "../repositories/pg.js";
+import type { BlueprintPrepService } from "../services/blueprintPrep.js";
 import type { ProfileService } from "../services/profileService.js";
 
 /**
- * The prep trigger: a configurable lead time before each slot, pick up SCHEDULED sessions due
- * within that window and build their plan. Each session is CLAIMED with a compare-and-set
- * (SCHEDULED → PREP_QUEUED) first, so parallel API replicas never prepare the same session twice.
+ * Blueprint prep reconcile (spec §5.4), every minute. Self-healing, no callbacks:
+ *  1. start: SCHEDULED/PREP_QUEUED sessions with no run (booking's own start may have failed);
+ *  2. collect: sessions with a run, applying finished ones and timing out stuck ones;
+ *  3. refresh (every Nth tick): ready sessions more than the cutoff ahead whose inputs changed.
+ * Starts are claimed per session (`attachRun` only attaches when no run is set), so replicas are safe.
  */
-export class InterviewPrepJob {
+export class BlueprintReconcileJob {
+  private ticks = 0;
+
   constructor(
     private readonly sessions: InterviewSessionRepository,
-    private readonly prep: InterviewPrepService,
-    private readonly leadTimeMinutes: number,
+    private readonly prep: BlueprintPrepService,
+    private readonly opts: { refreshEveryTicks: number; refreshCutoffMinutes: number },
     private readonly log: Logger,
   ) {}
 
-  async prepareDueSessions(): Promise<void> {
-    const cutoff = new Date(Date.now() + this.leadTimeMinutes * 60_000);
-    const due = await this.sessions.findByStatusAndScheduledAtLessThanEqual("SCHEDULED", cutoff);
-    if (due.length === 0) return;
-    this.log.info(`Interview prep: ${due.length} session(s) due within ${this.leadTimeMinutes}-min lead time`);
-    for (const session of due) {
+  async tick(): Promise<void> {
+    this.ticks++;
+    const now = Date.now();
+    const work = await this.sessions.findPrepWork(new Date(now - 60 * 60_000));
+    for (const session of work) {
       try {
-        const claimed = await this.sessions.transitionStatus(session.id, "SCHEDULED", "PREP_QUEUED", { prepError: null });
-        if (!claimed) continue; // another replica (or a manual regenerate) got it first
-        await this.prep.generatePrep(session.id);
+        if (session.prepRunId) {
+          await this.prep.collect(session);
+        } else if (session.status === "SCHEDULED") {
+          const queued = await this.sessions.transitionStatus(session.id, "SCHEDULED", "PREP_QUEUED", { prepErrorCode: null });
+          if (queued) await this.prep.start(queued, "reconcile");
+        } else if (session.status === "PREP_QUEUED") {
+          await this.prep.start(session, "reconcile");
+        }
       } catch (err) {
-        // generatePrep records PREP_FAILED itself; keep going for the rest.
-        this.log.warn(`Interview prep failed for session ${session.id}: ${errorMessage(err)}`);
+        this.log.warn(`Blueprint reconcile failed for session ${session.id}: ${errorMessage(err)}`);
       }
     }
-    this.log.info("Interview prep poll complete");
+    if (this.ticks % this.opts.refreshEveryTicks !== 0) return;
+    const ready = await this.sessions.findRefreshCandidates(new Date(now + this.opts.refreshCutoffMinutes * 60_000));
+    let refreshed = 0;
+    for (const session of ready) {
+      try {
+        if (await this.prep.refreshIfChanged(session)) refreshed++;
+      } catch (err) {
+        this.log.warn(`Blueprint refresh check failed for session ${session.id}: ${errorMessage(err)}`);
+      }
+    }
+    if (refreshed) this.log.info(`Blueprint refresh: ${refreshed} of ${ready.length} ready session(s) re-preparing`);
   }
 }
 
@@ -75,5 +93,23 @@ export class LeetCodeRefreshJob {
       await this.job.refresh(connection); // records its own status and never throws
     }
     this.log.info("Weekly LeetCode refresh complete");
+  }
+}
+
+/** Weekly background refresh of every coding-platform connection (Codeforces, CodeChef, AtCoder, TUF). */
+export class PlatformRefreshJob {
+  constructor(
+    private readonly connections: PlatformConnectionRepository,
+    private readonly platforms: PlatformConnectionService,
+    private readonly log: Logger,
+  ) {}
+
+  async refreshAll(): Promise<void> {
+    const all = await this.connections.findAll();
+    this.log.info(`Weekly coding-platform refresh starting for ${all.length} connection(s)`);
+    for (const connection of all) {
+      await this.platforms.refresh(connection); // records its own status and never throws
+    }
+    this.log.info("Weekly coding-platform refresh complete");
   }
 }

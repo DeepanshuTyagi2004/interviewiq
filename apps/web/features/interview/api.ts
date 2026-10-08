@@ -22,9 +22,9 @@ export function createSession(body: CreateInterviewSessionRequest): Promise<Inte
   return apiFetch<InterviewSession>(INTERVIEW_ENDPOINTS.sessions, { method: "POST", json: body });
 }
 
-/** POST /api/v1/interviews/sessions/{id}/regenerate — re-queue prep (retry after PREP_FAILED). */
-export function regenerateSession(id: string): Promise<InterviewSession> {
-  return apiFetch<InterviewSession>(INTERVIEW_ENDPOINTS.regenerate(id), { method: "POST" });
+/** POST /api/v1/interviews/sessions/{id}/prep/retry — retry blueprint prep after PREP_FAILED (429 when retried too often). */
+export function retryPrep(id: string): Promise<InterviewSession> {
+  return apiFetch<InterviewSession>(INTERVIEW_ENDPOINTS.retryPrep(id), { method: "POST" });
 }
 
 /** POST /api/v1/interviews/sessions/{id}/live — start (or resume) the live interview; mints a LiveKit join token. */

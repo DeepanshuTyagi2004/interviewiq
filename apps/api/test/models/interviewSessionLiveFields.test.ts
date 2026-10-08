@@ -4,9 +4,8 @@ import { SESSION_STATUSES } from "../../src/domain/enums.js";
 import { createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 
 /**
- * Port of InterviewSessionLiveFieldsTest. The JPA entity's live/outcome fields map onto the
- * Drizzle `interview_sessions` table (scalars) + the Mongo `session_outcomes` document (the full
- * outcome JSON, formerly the jsonb `outcome` column), so the round trip goes through both stores.
+ * Port of InterviewSessionLiveFieldsTest. The live fields (and the blueprint prep fields) map onto
+ * the Drizzle `interview_sessions` table and round-trip unchanged.
  */
 
 let env: TestEnv;
@@ -32,7 +31,7 @@ describe("interview session live fields", () => {
     );
   });
 
-  it("live and outcome fields round-trip", async () => {
+  it("live and blueprint prep fields round-trip", async () => {
     const user = await createUser(env);
     const jd = await env.c.repos.jds.insert({ company: "google", role: "software-engineer", level: "sde1", title: "SWE", source: "seed", active: true });
     const s = await env.c.repos.sessions.insert({
@@ -58,7 +57,10 @@ describe("interview session live fields", () => {
       liveScoreFinal: 0.72,
       durationS: 1830,
     });
-    await env.c.repos.outcomes.save(s.id, { session_id: "abc" });
+    await env.c.repos.sessions.update(s.id, {
+      prepRunId: "bpr_1", prepInputHash: "h", blueprintVersion: 3, prepRefreshing: true, preparedAt: now,
+      prepBriefing: { interviewer_name: "Asha", interviewer_style: "calm", format: "45-minute coding interview", duration_mins: 45 },
+    });
 
     const r = (await env.c.repos.sessions.findById(s.id))!;
     expect(r.status).toBe("LIVE_IN_PROGRESS");
@@ -68,6 +70,7 @@ describe("interview session live fields", () => {
     expect(r.livekitRoom).toBe("interview-abc");
     expect(r.liveScoreFinal).toBe(0.72);
     expect(r.durationS).toBe(1830);
-    expect((await env.c.repos.outcomes.findBySessionId(s.id))!.outcome).toEqual({ session_id: "abc" });
+    expect(r).toMatchObject({ prepRunId: "bpr_1", prepInputHash: "h", blueprintVersion: 3, prepRefreshing: true, prepRetryCount: 0 });
+    expect(r.prepBriefing?.interviewer_name).toBe("Asha");
   });
 });

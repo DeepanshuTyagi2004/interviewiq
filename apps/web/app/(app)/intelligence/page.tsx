@@ -9,11 +9,19 @@ import { deepLinkHref, parseDeepLink, type IntelligenceTab } from "@/features/re
 import { AccessControlPanel } from "./_components/AccessControlPanel";
 import { CompaniesTab } from "./_components/research/CompaniesTab";
 import { RunsTab } from "./_components/research/RunsTab";
+import { DiagnosticsTab } from "./_components/DiagnosticsTab";
+import { LiveProfileTab } from "./_components/LiveProfileTab";
+import { ProblemBankTab } from "./_components/ProblemBankTab";
+import { PrepTab } from "./_components/prep/PrepTab";
 
 const TABS: ReadonlyArray<{ value: IntelligenceTab; label: string; Panel: () => ReactNode }> = [
   { value: "companies", label: "Companies", Panel: CompaniesTab },
   { value: "runs", label: "Runs", Panel: RunsTab },
+  { value: "problems", label: "Problem bank", Panel: ProblemBankTab },
+  { value: "prep", label: "Interview prep", Panel: PrepTab },
+  { value: "diagnostics", label: "Diagnostics", Panel: DiagnosticsTab },
   { value: "access", label: "Access", Panel: AccessControlPanel },
+  { value: "live-profile", label: "Live profile calculation", Panel: LiveProfileTab },
 ];
 
 export default function IntelligencePage() {
@@ -40,8 +48,7 @@ function IntelligenceTabs() {
         <p className="iq-eyebrow m-0">Admin</p>
         <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">Interview Intelligence</h1>
         <p className="m-0 mt-1.5 max-w-2xl text-[14px] leading-[1.5] text-muted-foreground">
-          Curate the companies we research, run and debug the research pipeline step by step, and manage who has admin
-          access.
+          Curate companies, debug research, build the problem bank, diagnose how interview prep builds each blueprint, run a live redacted profile calculation, inspect scoring diagnostics, and manage admin access.
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 "use client";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -278,7 +279,7 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                       {timeOf(s.scheduledAt)}
                     </span>
                     <span className="truncate">
-                      {roundLabel(s)} · {s.companyName ?? s.company} {s.level}
+                      {roundLabel(s)} · {s.companyName ?? s.company} {levelLabel(s.level)}
                     </span>
                     <StatusDot state={statusDotState(s.status)} label={sessionPill(s).label} className="shrink-0" />
                   </Link>

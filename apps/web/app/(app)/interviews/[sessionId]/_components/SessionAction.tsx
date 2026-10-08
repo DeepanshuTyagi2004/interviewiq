@@ -1,24 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, RotateCw } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
-import { useRegenerateSession, type InterviewSession } from "@/features/interview";
+import type { InterviewSession } from "@/features/interview";
+import { RetryPrepButton } from "../../_components/RetryPrepButton";
 
 /**
  * The single next step for a session, as the page's primary (brand) button: join or rejoin the
- * room, retry a failed prep, or open the debrief. Nothing while prep is still pending.
+ * room, retry a failed prep, or open the debrief. Nothing while prep is still pending. A ready round
+ * can't be joined until the live interviewer is available (`liveAvailable`), so the button is off.
  */
 export function SessionAction({ session, className }: { session: InterviewSession; className?: string }) {
-  const regenerate = useRegenerateSession();
   const base = `${ROUTES.interviews}/${session.id}`;
   const cls = cn("h-10 px-4 text-[13.5px]", className);
 
   switch (session.status) {
     case "PREP_READY":
+      if (!session.liveAvailable) {
+        return (
+          <Button className={cls} disabled title="Live sessions open soon">
+            Enter interview room
+            <ArrowRight aria-hidden />
+          </Button>
+        );
+      }
+    // falls through
     case "LIVE_IN_PROGRESS":
       return (
         <Button asChild className={cls}>
@@ -29,21 +38,7 @@ export function SessionAction({ session, className }: { session: InterviewSessio
         </Button>
       );
     case "PREP_FAILED":
-      return (
-        <Button
-          className={cls}
-          disabled={regenerate.isPending}
-          onClick={() =>
-            regenerate.mutate(session.id, {
-              onSuccess: () => toast.success("Retrying prep…"),
-              onError: () => toast.error("Couldn't retry prep. Please try again."),
-            })
-          }
-        >
-          <RotateCw aria-hidden data-motion className={cn(regenerate.isPending && "animate-spin")} />
-          Retry prep
-        </Button>
-      );
+      return <RetryPrepButton session={session} className={cls} />;
     case "COMPLETED":
     case "ABORTED_TECHNICAL":
       return (

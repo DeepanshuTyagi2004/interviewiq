@@ -5,7 +5,7 @@ import {
   OUTLINE_PILL,
   type PillLook,
 } from "@/components/observability/status";
-import type { AgentSessionStatus } from "@/features/agent-diagnostics";
+import type { BlueprintRunStatus } from "@/features/blueprints";
 import type { Question, RunStatus } from "@/features/intelligence";
 
 /**
@@ -25,17 +25,12 @@ export const RUN_STATUS_DOT: Record<RunStatus, DotState> = {
   idle: "idle",
 };
 
-/**
- * An agent diagnostics session, as a HUD status dot. Both `running` and `awaiting_input` are a live
- * session (the agent is mid-run, or waiting on the admin's next turn), so both pulse.
- */
-export const SESSION_DOT: Record<AgentSessionStatus, DotState> = {
+/** A blueprint run, as a HUD status dot. Only a running run pulses. */
+export const BLUEPRINT_RUN_DOT: Record<BlueprintRunStatus, DotState> = {
   running: "live",
-  awaiting_input: "live",
   completed: "active",
   failed: "error",
-  abandoned: "idle",
-  aborted: "idle",
+  cancelled: "idle",
 };
 
 /** One JD's brief-generation status (per combination / per stored brief). */

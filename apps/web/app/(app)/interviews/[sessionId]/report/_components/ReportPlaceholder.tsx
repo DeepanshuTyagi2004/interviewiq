@@ -7,14 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/lib/constants/shared";
 import { useSession, type InterviewSession } from "@/features/interview";
-import {
-  bookingHref,
-  companyLabel,
-  formatSlot,
-  isFinished,
-  levelLabel,
-  roundLabel,
-} from "@/features/interview/presentation";
+import { bookingHref, companyLabel, formatSlot, isFinished, levelLabel, roundLabel, roleLabel } from "@/features/interview/presentation";
 import { StatusPill } from "../../../_components/StatusPill";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
@@ -124,7 +117,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
           </div>
           {finished ? (
             <Button asChild className="h-10 px-4 text-[13.5px]">
-              <Link href={bookingHref({ jd: session.jobDescriptionId, round: session.roundType })}>
+              <Link href={session.loopId && !session.jobDescriptionId ? `${ROUTES.loops}/${session.loopId}` : bookingHref({ jd: session.jobDescriptionId ?? undefined, round: session.roundType })}>
                 Practise again
                 <ArrowRight aria-hidden />
               </Link>
@@ -142,7 +135,7 @@ export function ReportPlaceholder({ sessionId }: { sessionId: string }) {
           <dl className="m-0">
             {(
               [
-                ["Role", session.role],
+                ["Role", roleLabel(session.role)],
                 ["Level", levelLabel(session.level)],
                 ...(session.specialization ? [["Focus", session.specialization]] : []),
                 ["Slot", formatSlot(session.scheduledAt)],

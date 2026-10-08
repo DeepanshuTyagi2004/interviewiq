@@ -6,7 +6,7 @@ import { routerErrors, userId, uuidParam, router } from "../http/support.js";
 import { parseCreateSessionRequest } from "../services/interviewSessions.js";
 
 /**
- * Candidate-facing interview booking + prep status (Pipeline 1), plus go-live/resume (live
+ * Candidate-facing interview booking + blueprint prep status, plus go-live/resume (live
  * runtime). Every endpoint is scoped to the authenticated candidate. Mirrors the
  * `interview-sessions` paths in packages/contracts/openapi.yaml.
  */
@@ -39,9 +39,9 @@ export function interviewsRouter(c: Container): Router {
     res.json(await c.sessions.getSession(userId(req), uuidParam(req, "sessionId")));
   });
 
-  /** Re-queue prep (retry after PREP_FAILED, or refresh). */
-  r.post("/sessions/:sessionId/regenerate", async (req, res) => {
-    res.status(202).json(await c.sessions.regenerate(userId(req), uuidParam(req, "sessionId")));
+  /** Retry blueprint prep after PREP_FAILED (3 per rolling hour; 429 `prep_retry_limited`). */
+  r.post("/sessions/:sessionId/prep/retry", async (req, res) => {
+    res.status(202).json(await c.sessions.retryPrep(userId(req), uuidParam(req, "sessionId")));
   });
 
   /** Go live: PREP_READY → LIVE_IN_PROGRESS + a LiveKit token. Resuming returns a fresh token. */

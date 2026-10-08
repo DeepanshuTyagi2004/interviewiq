@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OUTLINE_PILL } from "@/components/observability/status";
-import type { AgentSessionStatus } from "@/features/agent-diagnostics";
+import type { BlueprintRunStatus } from "@/features/blueprints";
 import type { RunStatus } from "@/features/intelligence";
 import {
   BRIEF_STATUS_PILL,
@@ -11,7 +11,7 @@ import {
   MATCH_TIER_META,
   PROVENANCE_META,
   RUN_STATUS_DOT,
-  SESSION_DOT,
+  BLUEPRINT_RUN_DOT,
   lookFor,
 } from "./pills";
 
@@ -60,22 +60,20 @@ describe("run + session status dots", () => {
     expect(RUN_STATUS_DOT[status]).toBe(dot);
   });
 
-  it.each<[AgentSessionStatus, string]>([
+  it.each<[BlueprintRunStatus, string]>([
     ["running", "live"],
-    ["awaiting_input", "live"],
     ["completed", "active"],
     ["failed", "error"],
-    ["abandoned", "idle"],
-    ["aborted", "idle"],
-  ])("maps an agent session that is %s to the %s dot", (status, dot) => {
-    expect(SESSION_DOT[status]).toBe(dot);
+    ["cancelled", "idle"],
+  ])("maps a blueprint run that is %s to the %s dot", (status, dot) => {
+    expect(BLUEPRINT_RUN_DOT[status]).toBe(dot);
   });
 
   it("pulses (live) only for work that is really in flight", () => {
     const liveRuns = Object.entries(RUN_STATUS_DOT).filter(([, d]) => d === "live").map(([s]) => s);
     expect(liveRuns).toEqual(["running"]);
-    const liveSessions = Object.entries(SESSION_DOT).filter(([, d]) => d === "live").map(([s]) => s);
-    expect(liveSessions.sort()).toEqual(["awaiting_input", "running"]);
+    const liveBlueprints = Object.entries(BLUEPRINT_RUN_DOT).filter(([, d]) => d === "live").map(([s]) => s);
+    expect(liveBlueprints).toEqual(["running"]);
   });
 });
 

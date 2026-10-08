@@ -15,8 +15,8 @@ import { useLiveSession } from '@/features/interview-live/session/useLiveSession
 import { useProctor } from '@/features/interview-live/proctor/useProctor'
 import { formatElapsed, type RoomMeta } from './roomMeta'
 
-// The interviewer's persona name isn't available client-side — InterviewPlan (which carries it)
-// is interviewer-only and never sent to the frontend — so a fixed placeholder stands in for it.
+// The room doesn't read the briefing (it's on the session page), so a fixed placeholder stands in
+// for the interviewer's name; the live interviewer phase will pass it in.
 const INTERVIEWER_NAME = 'Interviewer'
 
 /** Time since the candidate entered the room. Writes the DOM directly once a second (no React

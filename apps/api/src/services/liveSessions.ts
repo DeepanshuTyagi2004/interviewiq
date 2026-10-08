@@ -1,9 +1,8 @@
 import type { InterviewSessionRow } from "../db/pg/schema.js";
 import type { SessionStatus } from "../domain/enums.js";
 import type { LiveKitTokenService } from "../integrations/livekit.js";
-import { asDouble, asString, isObject } from "../lib/json.js";
-import type { SessionOutcomeRepository } from "../repositories/mongo.js";
 import type { InterviewSessionRepository } from "../repositories/pg.js";
+import type { BlueprintPrepService } from "./blueprintPrep.js";
 import { InterviewSessionError } from "./interviewSessions.js";
 
 /** Go-live / resume response. url + token are null when the session is not (yet) live. */
@@ -14,22 +13,25 @@ export interface LiveSessionResponse {
   status: SessionStatus;
 }
 
-const TERMINAL: SessionStatus[] = ["COMPLETED", "ABORTED_TECHNICAL"];
-
 /**
  * Go-live + resume for a booked session (live-interview runtime). Minting a token never mutates
- * state on resume — only PREP_READY → LIVE_IN_PROGRESS writes.
+ * state on resume — only PREP_READY → LIVE_IN_PROGRESS writes. Going live is refused while the
+ * live interviewer is unavailable (LIVE_INTERVIEWER_AVAILABLE=false), so no room is ever empty.
  */
 export class LiveSessionService {
   constructor(
     private readonly sessions: InterviewSessionRepository,
-    private readonly outcomes: SessionOutcomeRepository,
     private readonly liveKit: LiveKitTokenService,
+    private readonly prep: BlueprintPrepService,
+    private readonly liveAvailable = false,
   ) {}
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
     const s = await this.requireOwned(candidateId, sessionId);
     if (s.status === "LIVE_IN_PROGRESS") return this.connection(sessionId, candidateId, s.status); // resume
+    if (!this.liveAvailable) {
+      throw InterviewSessionError.conflict("live_unavailable", "live interviews open soon; your interviewer is prepared");
+    }
     if (s.status !== "PREP_READY") {
       throw InterviewSessionError.conflict("session_not_ready", "session must be PREP_READY to go live");
     }
@@ -42,6 +44,8 @@ export class LiveSessionService {
     if (status !== "LIVE_IN_PROGRESS") {
       throw InterviewSessionError.conflict("session_not_ready", "session must be PREP_READY to go live");
     }
+    // The problems of this blueprint are now "seen": later blueprints won't repeat them.
+    if (updated) await this.prep.recordSeen(updated);
     return this.connection(sessionId, candidateId, status);
   }
 
@@ -49,29 +53,6 @@ export class LiveSessionService {
     const s = await this.requireOwned(candidateId, sessionId);
     if (s.status === "LIVE_IN_PROGRESS") return this.connection(sessionId, candidateId, s.status);
     return { livekitUrl: null, token: null, roomName: null, status: s.status };
-  }
-
-  /**
-   * Called by the Python worker (internal, no owner scope) when an interview ends: stores the full
-   * SessionOutcome in MongoDB, promotes a few scalars onto the Postgres row, and flips the session
-   * to its terminal status. Delivery is at-least-once, so an already-terminal session is a no-op.
-   */
-  async recordOutcome(sessionId: string, outcome: unknown): Promise<void> {
-    const s = await this.sessions.findById(sessionId);
-    if (!s) throw InterviewSessionError.notFound();
-    if (TERMINAL.includes(s.status)) return; // duplicate delivery
-
-    const o = isObject(outcome) ? outcome : {};
-    const endedReason = o.ended_reason === undefined || o.ended_reason === null ? null : asString(o.ended_reason, "");
-    // Document first: if the status flip below fails, a retried delivery re-writes the same doc.
-    await this.outcomes.save(sessionId, o);
-    await this.sessions.update(sessionId, {
-      endedReason,
-      ...(o.live_score_final !== undefined && o.live_score_final !== null ? { liveScoreFinal: asDouble(o.live_score_final) } : {}),
-      ...(o.duration_s !== undefined && o.duration_s !== null ? { durationS: Math.round(asDouble(o.duration_s)) } : {}),
-      liveEndedAt: new Date(),
-      status: endedReason === "aborted_technical" ? "ABORTED_TECHNICAL" : "COMPLETED",
-    });
   }
 
   private async requireOwned(candidateId: string, sessionId: string): Promise<InterviewSessionRow> {

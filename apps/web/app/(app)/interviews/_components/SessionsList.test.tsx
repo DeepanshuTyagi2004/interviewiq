@@ -7,7 +7,7 @@ const mockMySessions = vi.fn();
 
 vi.mock("@/features/interview", () => ({
   useMySessions: () => mockMySessions(),
-  useRegenerateSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useRetryPrep: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { SessionsList } from "./SessionsList";
@@ -20,13 +20,15 @@ describe("SessionsList", () => {
     company: "google",
     companyName: "Google",
     role: "Software Engineer",
-    level: "L4",
+    level: "sde2",
     specialization: "Backend",
     roundType: "dsa",
     scheduledAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     timezone: "UTC",
     status: "SCHEDULED",
-    planReady: false,
+    prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
+    briefing: null,
+    liveAvailable: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -36,7 +38,9 @@ describe("SessionsList", () => {
       ...baseSession,
       id: "session-prep-ready",
       status: "PREP_READY",
-      planReady: true,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
+      briefing: null,
+      liveAvailable: true,
     };
 
     mockMySessions.mockReturnValue({
@@ -69,7 +73,9 @@ describe("SessionsList", () => {
     const queuedSession: InterviewSession = {
       ...baseSession,
       status: "PREP_QUEUED",
-      planReady: false,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
+      briefing: null,
+      liveAvailable: true,
     };
 
     mockMySessions.mockReturnValue({
@@ -88,8 +94,9 @@ describe("SessionsList", () => {
     const failedSession: InterviewSession = {
       ...baseSession,
       status: "PREP_FAILED",
-      planReady: false,
-      prepError: "timeout",
+      prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
+      briefing: null,
+      liveAvailable: true,
     };
 
     mockMySessions.mockReturnValue({

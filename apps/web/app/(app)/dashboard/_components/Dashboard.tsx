@@ -40,13 +40,18 @@ export function Dashboard() {
         next.status === "PREP_READY" ? "ready to join" : `booked for ${formatSlot(next.scheduledAt)}`
       }.`
     : ready
-      ? `Your ${ready.jd?.companyName ?? "interview"} track has a round ready to book.`
-      : "Pick a company and role to start practising its real process.";
+      ? `Your ${ready.name} track has a round ready to book.`
+      : "Create your own interview process or choose a suggested role to start practising.";
 
   return (
     <div className="iq-fit mx-auto flex w-full max-w-[1760px] flex-none flex-col lg:min-h-0 lg:flex-1">
       <div className="flex flex-col px-[calc(16*var(--u))] pb-[calc(24*var(--u))] pt-[calc(26*var(--u))] sm:px-[calc(26*var(--u))] lg:h-full lg:min-h-0">
-        <Greeting name={user?.name} summary={summary} roomHref={next ? sessionHref(next) : ready ? `${ROUTES.loops}/${ready.id}` : ROUTES.interviews} />
+        <Greeting
+          name={user?.name}
+          summary={summary}
+          roomHref={next ? sessionHref(next) : ready ? `${ROUTES.loops}/${ready.id}` : ROUTES.interviews}
+          roomLabel={next ? (next.status === "PREP_READY" && next.liveAvailable ? "Enter interview room" : "View your round") : ready ? "Book your next round" : "Book a mock interview"}
+        />
 
         <div className="mt-[calc(30*var(--u))] grid grid-cols-1 gap-[calc(20*var(--u))] md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.73fr)_minmax(0,1fr)] lg:grid-rows-[minmax(min-content,1.1fr)_auto_minmax(0,1fr)]">
           <UpNextCard session={next} className="lg:col-start-1 lg:row-start-1" />

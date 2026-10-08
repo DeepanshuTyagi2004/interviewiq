@@ -6,8 +6,8 @@ import { InterviewSessionError, parseCreateSessionRequest, type CreateSessionReq
 import { createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 
 /**
- * Port of InterviewSessionServiceTest. Real repositories (PGlite) instead of Mockito mocks; the
- * prep trigger on regenerate is observed through the AI-service HTTP stub + BackgroundTasks.
+ * Port of InterviewSessionServiceTest. Real repositories (PGlite) instead of Mockito mocks; blueprint
+ * prep (started at booking and on retry) is observed through the AI-service HTTP stub + BackgroundTasks.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,10 +23,15 @@ beforeAll(async () => {
 });
 afterAll(() => env.close());
 beforeEach(async () => {
+  // Bookings start prep in the background: let any still in flight land before the next test counts calls.
+  await env.c.background.drain();
   env.fetch.reset();
   user = await createUser(env);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(async () => {
+  await env.c.background.drain();
+  vi.restoreAllMocks();
+});
 
 function insertJd(overrides: Partial<JobDescriptionRow> = {}): Promise<JobDescriptionRow> {
   return env.c.repos.jds.insert({
@@ -45,10 +50,10 @@ function insertJd(overrides: Partial<JobDescriptionRow> = {}): Promise<JobDescri
 }
 
 function req(jobDescriptionId: string, overrides: Partial<CreateSessionRequest> = {}): CreateSessionRequest {
-  return { jobDescriptionId, roundType: "dsa", scheduledAt: future(), timezone: "Asia/Kolkata", ...overrides };
+  return { jobDescriptionId, roundType: "dsa", scheduledAt: future(), timezone: "Asia/Kolkata", loopId: null, nodeId: null, ...overrides };
 }
 
-async function existing(candidateId: string, status: SessionStatus, extra: { prepError?: string } = {}) {
+async function existing(candidateId: string, status: SessionStatus, extra: { prepErrorCode?: string; prepRetryCount?: number; prepRetryWindowStart?: Date } = {}) {
   const jd = await insertJd();
   return env.c.repos.sessions.insert({
     candidateId,
@@ -61,7 +66,9 @@ async function existing(candidateId: string, status: SessionStatus, extra: { pre
     scheduledAt: future(),
     timezone: "Asia/Kolkata",
     status,
-    prepError: extra.prepError ?? null,
+    prepErrorCode: extra.prepErrorCode ?? null,
+    prepRetryCount: extra.prepRetryCount ?? 0,
+    prepRetryWindowStart: extra.prepRetryWindowStart ?? null,
   });
 }
 
@@ -79,32 +86,38 @@ async function expectSessionError(p: Promise<unknown>): Promise<InterviewSession
 const sessionsOf = (candidateId: string) => env.c.repos.sessions.findAllByCandidateIdOrderByScheduledAtDesc(candidateId);
 
 describe("InterviewSessionService.createSession", () => {
-  it("happy path: SCHEDULED, copies the JD key, and does not trigger prep", async () => {
+  it("happy path: copies the JD key and queues blueprint prep at booking", async () => {
     const jd = await insertJd();
-    const prepSpy = vi.spyOn(env.c.prep, "generatePrep");
-    const bgSpy = vi.spyOn(env.c.prep, "generateInBackground");
+    env.fetch.on("POST", "http://ai.test/blueprints/runs", { run_id: "bpr_1", status: "running", existing: false });
 
     const resp = await env.c.sessions.createSession(user.id, req(jd.id));
 
-    expect(resp.status).toBe("SCHEDULED");
+    expect(resp.status).toBe("PREP_QUEUED");
     expect(resp.company).toBe("google");
     expect(resp.companyName).toBeNull(); // no companies row for "google"
     expect(resp.level).toBe("sde1");
     expect(resp.specialization).toBe("backend");
     expect(resp.roundType).toBe("dsa");
     expect(resp.timezone).toBe("Asia/Kolkata");
-    expect(resp.planReady).toBe(false);
+    expect(resp.briefing).toBeNull();
+    expect(resp.liveAvailable).toBe(false);
+    expect(resp.prep).toEqual({ step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null });
 
     const saved = await sessionsOf(user.id);
     expect(saved).toHaveLength(1);
     expect(saved[0]!.id).toBe(resp.id);
     expect(saved[0]!.candidateId).toBe(user.id);
     expect(saved[0]!.jobDescriptionId).toBe(jd.id);
-    expect(saved[0]!.status).toBe("SCHEDULED");
+    expect(saved[0]!.status).toBe("PREP_QUEUED");
 
-    expect(prepSpy).not.toHaveBeenCalled();
-    expect(bgSpy).not.toHaveBeenCalled();
-    expect(env.fetch.calls).toHaveLength(0);
+    await env.c.background.drain();
+    const starts = env.fetch.callsTo("http://ai.test/blueprints/runs", "POST");
+    expect(starts).toHaveLength(1);
+    const body = starts[0]!.json as { session: { session_id: string; round_type: string }; trigger: string; input_hash: string };
+    expect(body.session.session_id).toBe(resp.id);
+    expect(body.trigger).toBe("booking");
+    expect(body.input_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect((await env.c.repos.sessions.findById(resp.id))!.prepRunId).toBe("bpr_1");
   });
 
   it("defaults to the first round when the round is omitted", async () => {
@@ -160,7 +173,7 @@ describe("InterviewSessionService.createSession", () => {
   });
 });
 
-describe("InterviewSessionService reads + regenerate", () => {
+describe("InterviewSessionService reads + prep retry", () => {
   it("getSession on a session the caller does not own → 404 session_not_found", async () => {
     const other = await createUser(env);
     const theirs = await existing(other.id, "SCHEDULED");
@@ -172,28 +185,33 @@ describe("InterviewSessionService reads + regenerate", () => {
     }
   });
 
-  it("regenerate moves to PREP_QUEUED, clears prepError, and triggers prep for that session", async () => {
-    const s = await existing(user.id, "PREP_FAILED", { prepError: "prep_generation_failed" });
-    env.fetch.on("POST", "http://ai.test/interview-plans/start", { run_id: "run1", status: "running" });
-    env.fetch.on("GET", "http://ai.test/interview-plans/runs/run1", {
-      status: "completed",
-      plan: { provenance: { planVersion: "v1", inputHash: "sha256:abc" } },
-    });
-    const bgSpy = vi.spyOn(env.c.prep, "generateInBackground");
+  it("retry moves PREP_FAILED to PREP_QUEUED, clears the code and starts a retry run", async () => {
+    const s = await existing(user.id, "PREP_FAILED", { prepErrorCode: "not_enough_problems" });
+    env.fetch.on("POST", "http://ai.test/blueprints/runs", { run_id: "bpr_r", status: "running", existing: false });
 
-    const resp = await env.c.sessions.regenerate(user.id, s.id);
+    const resp = await env.c.sessions.retryPrep(user.id, s.id);
 
     expect(resp.status).toBe("PREP_QUEUED");
-    expect(resp.prepError).toBeNull();
-    expect(bgSpy).toHaveBeenCalledTimes(1);
-    expect(bgSpy).toHaveBeenCalledWith(s.id);
-
-    // The background generation ran against the AI service for this session.
+    expect(resp.prep.errorCode).toBeNull();
     await env.c.background.drain();
-    const starts = env.fetch.callsTo("http://ai.test/interview-plans/start", "POST");
+    const starts = env.fetch.callsTo("http://ai.test/blueprints/runs", "POST");
     expect(starts).toHaveLength(1);
-    expect((starts[0]!.json as { session: { sessionId: string } }).session.sessionId).toBe(s.id);
-    expect((await env.c.repos.sessions.findById(s.id))!.status).toBe("PREP_READY");
+    expect((starts[0]!.json as { trigger: string }).trigger).toBe("retry");
+    const row = (await env.c.repos.sessions.findById(s.id))!;
+    expect(row.prepRunId).toBe("bpr_r");
+    expect(row.prepRetryCount).toBe(1);
+  });
+
+  it("retry is limited per rolling hour (429 prep_retry_limited) and only from PREP_FAILED (409)", async () => {
+    const limited = await existing(user.id, "PREP_FAILED", { prepRetryCount: 3, prepRetryWindowStart: new Date(Date.now() - 10 * 60_000) });
+    await expect(env.c.sessions.retryPrep(user.id, limited.id)).rejects.toMatchObject({ status: 429, code: "prep_retry_limited" });
+    const ready = await existing(user.id, "PREP_READY");
+    await expect(env.c.sessions.retryPrep(user.id, ready.id)).rejects.toMatchObject({ status: 409, code: "prep_not_failed" });
+    // An hour later the window resets.
+    const old = await existing(user.id, "PREP_FAILED", { prepRetryCount: 3, prepRetryWindowStart: new Date(Date.now() - 61 * 60_000) });
+    env.fetch.on("POST", "http://ai.test/blueprints/runs", { run_id: "bpr_o", status: "running", existing: false });
+    expect((await env.c.sessions.retryPrep(user.id, old.id)).status).toBe("PREP_QUEUED");
+    await env.c.background.drain();
   });
 
   it("listSessions maps all of the caller's sessions", async () => {
@@ -203,7 +221,8 @@ describe("InterviewSessionService reads + regenerate", () => {
 
     const { sessions } = await env.c.sessions.listSessions(user.id);
     expect(sessions).toHaveLength(2);
-    expect(sessions.map((s) => s.planReady).sort()).toEqual([false, true]);
+    expect(sessions.map((s) => s.status).sort()).toEqual(["PREP_READY", "SCHEDULED"]);
+    expect(sessions.every((s) => s.liveAvailable === false && s.prep.steps.length === 0)).toBe(true);
   });
 });
 

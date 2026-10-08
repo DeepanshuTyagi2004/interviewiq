@@ -57,6 +57,33 @@
     --brand-hover: 16.3 88.2% 50.2%;
     --brand-foreground: 60 2.6% 7.6%;
 
+    /* The prep-animation cat (interviews/[sessionId]/_components/prep-animation): an illustration
+       palette, so the scenes follow light and dark without raw colours in the components. */
+    --cat-stage: 40 35% 93%;
+    --cat-shadow: 39 29% 86%;
+    --cat-fur: 15 63% 60%;
+    --cat-fur-mid: 17 53% 51%;
+    --cat-fur-dark: 15 51% 47%;
+    --cat-fur-deep: 13 57% 35%;
+    --cat-belly: 26 68% 90%;
+    --cat-pink: 8 74% 77%;
+    --cat-ink: 22 11% 15%;
+    --cat-shine: 0 0% 100%;
+    --cat-line: 22 11% 15%;
+    --cat-paper: 43 100% 99%;
+    --cat-paper-edge: 37 30% 86%;
+    --cat-paper-back: 38 30% 88%;
+    --cat-rule: 37 25% 82%;
+    --cat-rule-strong: 37 21% 76%;
+    --cat-gold: 44 80% 57%;
+    --cat-highlight: 45 89% 71%;
+    --cat-cream: 45 100% 93%;
+    --cat-sky: 195 38% 82%;
+    --cat-wood: 30 38% 62%;
+    --cat-metal: 30 5% 62%;
+    --cat-bubble: 22 11% 15%;
+    --cat-bubble-ink: 0 0% 100%;
+
     /* Data-viz categorical palette — restrained accent hues so multi-series charts stay
        distinguishable. Chrome stays monochrome. */
     --chart-1: 211 100% 45%;
@@ -75,7 +102,7 @@
     --sidebar-ring: 0 0% 10.2%;
     --color-lc-easy: 142 71% 45%;
     --color-lc-medium: 38 92% 50%;
-    --color-lc-hard: 0 72% 51%;
+    --color-lc-hard: 12 86% 52%;
     /* GitHub-style green intensity ramp for the contribution heatmap (bin 0 = bg-muted). */
     --heat-1: 129 56% 76%;
     --heat-2: 136 53% 51%;
@@ -121,6 +148,32 @@
     --brand-hover: 17.1 100% 63.5%;
     --brand-foreground: 60 2.6% 7.6%;
 
+    /* Prep-animation cat: same fur; a dark stage, softer paper, light outlines on the stage. */
+    --cat-stage: 30 6% 12%;
+    --cat-shadow: 30 5% 17%;
+    --cat-fur: 15 63% 60%;
+    --cat-fur-mid: 17 53% 51%;
+    --cat-fur-dark: 15 51% 47%;
+    --cat-fur-deep: 13 57% 35%;
+    --cat-belly: 26 55% 86%;
+    --cat-pink: 8 70% 74%;
+    --cat-ink: 22 11% 15%;
+    --cat-shine: 0 0% 100%;
+    --cat-line: 40 20% 86%;
+    --cat-paper: 40 30% 90%;
+    --cat-paper-edge: 36 14% 64%;
+    --cat-paper-back: 34 8% 26%;
+    --cat-rule: 37 16% 74%;
+    --cat-rule-strong: 37 13% 64%;
+    --cat-gold: 44 76% 56%;
+    --cat-highlight: 45 85% 66%;
+    --cat-cream: 45 70% 88%;
+    --cat-sky: 195 30% 70%;
+    --cat-wood: 30 30% 46%;
+    --cat-metal: 30 4% 56%;
+    --cat-bubble: 40 20% 88%;
+    --cat-bubble-ink: 22 11% 15%;
+
     /* Dark-mode data-viz palette: lighter/desaturated for contrast on near-black. */
     --chart-1: 211 95% 62%;
     --chart-2: 262 75% 70%;
@@ -137,7 +190,7 @@
     --sidebar-ring: 48 14.3% 93.1%;
     --color-lc-easy: 142 65% 55%;
     --color-lc-medium: 38 88% 58%;
-    --color-lc-hard: 0 68% 58%;
+    --color-lc-hard: 12 82% 60%;
     /* GitHub dark heatmap ramp. */
     --heat-1: 150 50% 22%;
     --heat-2: 147 70% 28%;

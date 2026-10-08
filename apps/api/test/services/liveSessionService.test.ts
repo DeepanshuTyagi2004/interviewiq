@@ -7,9 +7,10 @@ import { InterviewSessionError } from "../../src/services/interviewSessions.js";
 import { createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 
 /**
- * Port of LiveSessionServiceTest. Real session repository (PGlite), real outcome repository
- * (in-memory Mongo) and the real LiveKit token minter (config: wss://livekit.test / lk-key) — the
- * minted JWT is decoded instead of stubbing mintCandidateToken.
+ * Port of LiveSessionServiceTest. Real session repository (PGlite) and the real LiveKit token minter
+ * (config: wss://livekit.test / lk-key) — the minted JWT is decoded instead of stubbing
+ * mintCandidateToken. The live interviewer is switched on here (LIVE_INTERVIEWER_AVAILABLE=true);
+ * the default-off gate has its own test.
  */
 
 const LIVEKIT_URL = "wss://livekit.test";
@@ -19,7 +20,7 @@ let user: UserRow;
 let jdId: string;
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ LIVE_INTERVIEWER_AVAILABLE: "true" });
   const jd = await env.c.repos.jds.insert({
     company: "google",
     role: "software-engineer",
@@ -33,6 +34,7 @@ beforeAll(async () => {
 });
 afterAll(() => env.close());
 beforeEach(async () => {
+  env.fetch.reset();
   user = await createUser(env);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -158,68 +160,29 @@ describe("LiveSessionService.getLive", () => {
   });
 });
 
-describe("LiveSessionService.recordOutcome", () => {
-  it("stores the full outcome in Mongo, promotes the scalars, and flips to COMPLETED", async () => {
-    const s = await session("LIVE_IN_PROGRESS");
-    const body = {
-      session_id: s.id,
-      ended_reason: "natural_complete",
-      live_score_final: 0.66,
-      duration_s: 1830.0,
-      per_answer_evidence: [],
-      negative_events: [],
-      arc_completed: true,
-      extensions_granted: 0,
-      derived_topics: [],
-    };
-
-    await env.c.liveSessions.recordOutcome(s.id, body);
-
-    const saved = await row(s.id);
-    expect(saved.status).toBe("COMPLETED");
-    expect(saved.endedReason).toBe("natural_complete");
-    expect(saved.liveScoreFinal).toBe(0.66);
-    expect(saved.durationS).toBe(1830);
-    expect(saved.liveEndedAt).toBeInstanceOf(Date);
-
-    const doc = await env.mongo.sessionOutcomes.findOne({ _id: s.id });
-    expect(doc).not.toBeNull();
-    expect(doc!.outcome).toEqual(body);
-    expect(doc!.outcome).toHaveProperty("session_id", s.id);
-    expect(doc!.receivedAt).toBeInstanceOf(Date);
+describe("LiveSessionService gating and seen problems", () => {
+  it("records the live blueprint's problems as seen for this candidate", async () => {
+    const s = await session("PREP_READY", { blueprintVersion: 2 });
+    env.fetch.on("GET", `http://ai.test/blueprints/sessions/${s.id}?version=2`, {
+      slots: [{ problem: { slug: "two-sum", round_type: "dsa" } }, { problem: { slug: "lru-cache", round_type: "dsa" } }],
+    });
+    await env.c.liveSessions.startLive(user.id, s.id);
+    expect(await env.c.repos.blueprintSeen.slugsFor(user.id)).toEqual(["lru-cache", "two-sum"]);
   });
 
-  it("aborted_technical flips to ABORTED_TECHNICAL", async () => {
-    const s = await session("LIVE_IN_PROGRESS");
-    await env.c.liveSessions.recordOutcome(s.id, { ended_reason: "aborted_technical", live_score_final: 0.0, duration_s: 120.0 });
-    const saved = await row(s.id);
-    expect(saved.status).toBe("ABORTED_TECHNICAL");
-    expect(saved.durationS).toBe(120);
-    expect(saved.liveScoreFinal).toBe(0);
-  });
-
-  it("unknown session → InterviewSessionError (404), nothing stored", async () => {
-    const sid = randomUUID();
-    await expectStatus(env.c.liveSessions.recordOutcome(sid, { ended_reason: "early_weak" }), 404);
-    expect(await env.mongo.sessionOutcomes.findOne({ _id: sid })).toBeNull();
-  });
-
-  it("on an already-completed session is a no-op (at-least-once delivery)", async () => {
-    const originalEndedAt = new Date("2020-01-01T00:00:00Z");
-    const s = await session("COMPLETED", { liveEndedAt: originalEndedAt, endedReason: "natural_complete" });
-    const originalOutcome = { ended_reason: "natural_complete" };
-    await env.c.repos.outcomes.save(s.id, originalOutcome);
-    const update = vi.spyOn(env.c.repos.sessions, "update");
-    const saveOutcome = vi.spyOn(env.c.repos.outcomes, "save");
-
-    await env.c.liveSessions.recordOutcome(s.id, { ended_reason: "aborted_technical" });
-
-    const after = await row(s.id);
-    expect(after.status).toBe("COMPLETED");
-    expect(after.endedReason).toBe("natural_complete");
-    expect(after.liveEndedAt).toEqual(originalEndedAt);
-    expect((await env.mongo.sessionOutcomes.findOne({ _id: s.id }))!.outcome).toEqual(originalOutcome);
-    expect(update).not.toHaveBeenCalled();
-    expect(saveOutcome).not.toHaveBeenCalled();
+  it("is refused while the live interviewer is unavailable (the default)", async () => {
+    const off = await createTestEnv();
+    try {
+      const u = await createUser(off);
+      const jd = await off.c.repos.jds.insert({ company: "google", role: "software-engineer", level: "sde1", title: "SWE", source: "seed", active: true });
+      const s = await off.c.repos.sessions.insert({
+        candidateId: u.id, jobDescriptionId: jd.id, company: "google", role: "software-engineer", level: "sde1",
+        roundType: "dsa", scheduledAt: new Date(Date.now() + 60_000), timezone: "UTC", status: "PREP_READY",
+      });
+      await expect(off.c.liveSessions.startLive(u.id, s.id)).rejects.toMatchObject({ status: 409, code: "live_unavailable" });
+      expect((await off.c.repos.sessions.findById(s.id))!.status).toBe("PREP_READY");
+    } finally {
+      await off.close();
+    }
   });
 });

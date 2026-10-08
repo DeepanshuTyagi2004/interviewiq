@@ -7,13 +7,14 @@ import type { InterviewSession } from "@/features/interview";
 import { isJoinable } from "@/features/interview/presentation";
 import { statusDotState } from "@/app/(app)/interviews/_components/StatusPill";
 import { formatSlot, sessionHref, shortDate } from "./sessions";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
 function statusLabel(session: InterviewSession): string {
   switch (session.status) {
     case "PREP_READY":
-      return "READY TO JOIN";
+      return session.liveAvailable ? "READY TO JOIN" : "READY";
     case "LIVE_IN_PROGRESS":
       return "LIVE NOW";
     case "PREP_QUEUED":
@@ -52,7 +53,7 @@ export function UpNextCard({ session, className }: { session: InterviewSession |
       notch
       glow="br"
       aria-label="Up next"
-      title={session ? `Up next · ${company} ${session.level}` : "Up next"}
+      title={session ? `Up next · ${company} ${levelLabel(session.level)}` : "Up next"}
       meta={
         session ? (
           <StatusDot state={statusDotState(session.status)} label={statusLabel(session)} className="text-white" />
@@ -74,7 +75,7 @@ export function UpNextCard({ session, className }: { session: InterviewSession |
         {session ? (
           <dl className="m-0 flex min-w-0 flex-[1_1_100%] flex-wrap gap-px overflow-hidden rounded-md border border-white/10 bg-white/10">
             <ReadoutCell label="Slot">{formatSlot(session.scheduledAt)}</ReadoutCell>
-            <ReadoutCell label="Level">{session.level}</ReadoutCell>
+            <ReadoutCell label="Level">{levelLabel(session.level)}</ReadoutCell>
             {session.specialization ? <ReadoutCell label="Track">{session.specialization}</ReadoutCell> : null}
           </dl>
         ) : null}

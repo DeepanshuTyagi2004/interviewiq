@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ArrowRight } from "lucide-react";
 import { Count, HudCard, HudEmpty, padCount } from "@/components/hud";
 import { MonoPill } from "@/components/patterns";
@@ -72,7 +73,7 @@ export function RecentInterviews({ sessions, isLoading, isError, className }: Re
                     {ROUND_LABEL.get(s.roundType) ?? s.roundType} · {s.companyName ?? s.company}
                   </span>
                   <span className="mt-0.5 block truncate font-mono text-[length:calc(12*var(--u))] text-faint">
-                    {s.level} · {formatDate(s.scheduledAt)}
+                    {levelLabel(s.level)} · {formatDate(s.scheduledAt)}
                   </span>
                 </span>
                 <MonoPill tone={s.status === "COMPLETED" ? "soft" : "ghost"}>

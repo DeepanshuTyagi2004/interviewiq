@@ -15,11 +15,15 @@ import {
   formatSlot,
   isFinished,
   levelLabel,
+  roleLabel,
   roundLabel,
   sessionSteps,
   type SessionStep,
 } from "@/features/interview/presentation";
 import { StatusPill } from "../../_components/StatusPill";
+import { RetryPrepButton } from "../../_components/RetryPrepButton";
+import { BriefingCard } from "./BriefingCard";
+import { PrepPanel } from "./PrepPanel";
 import { SessionAction } from "./SessionAction";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
@@ -29,11 +33,13 @@ const PAGE = PAGE_SCAFFOLD;
 function statusLine(session: InterviewSession): string {
   switch (session.status) {
     case "SCHEDULED":
-      return `Booked for ${formatSlot(session.scheduledAt)}. We prepare your interviewer ahead of the slot.`;
+      return `Booked for ${formatSlot(session.scheduledAt)}. We're starting to prepare your interviewer.`;
     case "PREP_QUEUED":
       return "Your interviewer is being prepared from your profile and this role. This page updates on its own.";
     case "PREP_READY":
-      return "Your interviewer is ready. Join whenever you're set up.";
+      return session.liveAvailable
+        ? "Your interviewer is ready. Join whenever you're set up."
+        : "Your interviewer is ready. Live sessions open soon.";
     case "PREP_FAILED":
       return "We couldn't prepare this interview. Retry and we'll try again.";
     case "LIVE_IN_PROGRESS":
@@ -124,7 +130,7 @@ function Progress({ session }: { session: InterviewSession }) {
 function Details({ session }: { session: InterviewSession }) {
   const rows: [string, React.ReactNode][] = [
     ["Company", companyLabel(session)],
-    ["Role", session.role],
+    ["Role", roleLabel(session.role)],
     ["Level", levelLabel(session.level)],
     ...(session.specialization ? ([["Focus", session.specialization]] as [string, React.ReactNode][]) : []),
     ["Round", roundLabel(session.roundType)],
@@ -132,22 +138,20 @@ function Details({ session }: { session: InterviewSession }) {
       "Slot",
       <>
         <span className="font-mono tabular-nums">{formatSlot(session.scheduledAt)}</span>
-        <span className="block text-xs text-faint">{formatRelativeTime(session.scheduledAt)}</span>
+        <span className="block text-xs text-faint">
+          {formatRelativeTime(session.scheduledAt)} · <span className="font-mono">{session.timezone}</span>
+        </span>
       </>,
     ],
-    ["Time zone", <span key="tz" className="font-mono">{session.timezone}</span>],
-    ...(session.status === "PREP_FAILED" && session.prepError
-      ? ([["Error code", <span key="err" className="font-mono">{session.prepError}</span>]] as [string, React.ReactNode][])
-      : []),
   ];
 
   return (
     <HudCard title="Details">
-      <dl className="m-0">
+      <dl className="m-0 grid sm:grid-cols-3">
         {rows.map(([label, value]) => (
           <div
             key={label}
-            className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] last:border-b-0 sm:px-5"
+            className="grid min-w-0 content-start grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] sm:grid-cols-1 sm:gap-0.5 sm:px-5 sm:py-2"
           >
             <dt className="text-faint">{label}</dt>
             <dd className="m-0 min-w-0 break-words text-foreground">{value}</dd>
@@ -155,6 +159,36 @@ function Details({ session }: { session: InterviewSession }) {
         ))}
       </dl>
     </HudCard>
+  );
+}
+
+/** A failed prep: what happened in plain words, a retry, and the stable code tucked into details. */
+function PrepFailed({ session }: { session: InterviewSession }) {
+  return (
+    <section aria-labelledby="prep-failed" className="flex min-w-0 flex-col gap-3 rounded-[14px] bg-panel p-4 sm:p-5">
+      <h2 id="prep-failed" className="iq-eyebrow m-0 font-normal">
+        Preparation
+      </h2>
+      <div className="iq-float flex flex-col gap-3 px-4 py-4">
+        <p role="alert" className="m-0 text-[14.5px] text-foreground">
+          We couldn&apos;t prepare this interview.
+        </p>
+        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+          Nothing is lost: retry and we&apos;ll prepare it again. Your slot stays booked.
+        </p>
+        <div>
+          <RetryPrepButton session={session} className="h-9 px-4 text-[13px]" />
+        </div>
+        {session.prep.errorCode ? (
+          <details className="text-[12.5px] text-muted-foreground">
+            <summary className="cursor-pointer select-none">Details</summary>
+            <p className="m-0 mt-1.5">
+              Error code <span className="font-mono text-foreground">{session.prep.errorCode}</span>
+            </p>
+          </details>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -220,7 +254,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <StatusPill status={session.status} />
           {isFinished(session) ? (
             <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
-              <Link href={bookingHref({ jd: session.jobDescriptionId, round: session.roundType })}>Practise again</Link>
+              <Link href={session.loopId && !session.jobDescriptionId ? `${ROUTES.loops}/${session.loopId}` : bookingHref({ jd: session.jobDescriptionId ?? undefined, round: session.roundType })}>Practise again</Link>
             </Button>
           ) : null}
           <SessionAction session={session} />
@@ -228,8 +262,15 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       </div>
 
       <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Progress session={session} />
-        <Details session={session} />
+        <div className="flex min-w-0 flex-col gap-3">
+          {session.status === "SCHEDULED" || session.status === "PREP_QUEUED" ? <PrepPanel session={session} /> : null}
+          {session.status === "PREP_FAILED" ? <PrepFailed session={session} /> : null}
+          <Progress session={session} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-3">
+          <BriefingCard session={session} />
+          <Details session={session} />
+        </div>
       </div>
     </div>
   );

@@ -5,8 +5,9 @@ import { bearer, createUser, createTestEnv, type TestEnv } from "../support/harn
 import { AI, FUTURE_SLOT, seedCompany, seedJd, seedRoleConfig, seedSession } from "./helpers.js";
 
 /**
- * Port of InterviewSessionControllerTest (booking + prep status under /api/v1/interviews). Real
- * InterviewSessionService over PGlite; the AI service is stubbed only for the regenerate path.
+ * Port of InterviewSessionControllerTest (booking + blueprint prep status under /api/v1/interviews).
+ * Real InterviewSessionService over PGlite; the AI service's blueprint routes are stubbed per test
+ * (an unstubbed start just leaves the session PREP_QUEUED for the reconcile job).
  */
 
 let env: TestEnv;
@@ -24,21 +25,21 @@ afterEach(() => env.c.background.drain());
 
 const SESSIONS = "/api/v1/interviews/sessions";
 
-/** The exact key set of InterviewSessionResponse (the Java record, plus loopId/nodeId). */
+/** The exact key set of InterviewSessionResponse. */
 const SESSION_KEYS = [
+  "briefing",
   "candidateId",
   "company",
   "companyName",
   "createdAt",
   "id",
-  "inputHash",
   "jobDescriptionId",
+  "legacyLevel",
   "level",
+  "liveAvailable",
   "loopId",
   "nodeId",
-  "planReady",
-  "planVersion",
-  "prepError",
+  "prep",
   "role",
   "roundType",
   "scheduledAt",
@@ -73,18 +74,17 @@ describe("POST /interviews/sessions", () => {
       specialization: "backend",
       roundType: "dsa", // wire value, not the enum name
       timezone: "Asia/Kolkata",
-      status: "SCHEDULED",
-      planReady: false,
-      planVersion: null,
-      inputHash: null,
-      prepError: null,
+      status: "PREP_QUEUED",
+      briefing: null,
+      liveAvailable: false,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
     });
     expect(new Date(res.body.scheduledAt).toISOString()).toBe(FUTURE_SLOT);
     expect(Number.isNaN(Date.parse(res.body.createdAt))).toBe(false);
     expect(Number.isNaN(Date.parse(res.body.updatedAt))).toBe(false);
 
     const row = await env.c.repos.sessions.findById(res.body.id);
-    expect(row?.status).toBe("SCHEDULED");
+    expect(row?.status).toBe("PREP_QUEUED");
     expect(row?.candidateId).toBe(user.id);
   });
 
@@ -157,7 +157,8 @@ describe("GET /interviews/sessions", () => {
   it("listSessions_returnsList: only the caller's sessions, newest slot first", async () => {
     const user = await createUser(env);
     const other = await createUser(env);
-    const older = await seedSession(env, user.id, jd, { scheduledAt: new Date("2099-01-01T00:00:00Z"), status: "PREP_READY" });
+    const older = await seedSession(env, user.id, jd, { scheduledAt: new Date("2099-01-01T00:00:00Z"), status: "PREP_READY",
+      prepBriefing: { interviewer_name: "Asha Rao", interviewer_style: "Senior engineer · calm", format: "45-minute coding interview with a shared editor", duration_mins: 45 } });
     const newer = await seedSession(env, user.id, jd, { scheduledAt: new Date("2099-06-01T00:00:00Z"), status: "SCHEDULED" });
     await seedSession(env, other.id, jd);
 
@@ -166,8 +167,9 @@ describe("GET /interviews/sessions", () => {
     expect(Object.keys(res.body)).toEqual(["sessions"]);
     expect(res.body.sessions.map((s: { id: string }) => s.id)).toEqual([newer.id, older.id]);
     expect(res.body.sessions[1].status).toBe("PREP_READY");
-    expect(res.body.sessions[1].planReady).toBe(true);
-    expect(res.body.sessions[0].planReady).toBe(false);
+    expect(res.body.sessions[1].briefing).toEqual({ interviewerName: "Asha Rao", interviewerStyle: "Senior engineer · calm",
+      format: "45-minute coding interview with a shared editor", durationMins: 45 });
+    expect(res.body.sessions[0].briefing).toBeNull();
     expect(res.body.sessions[0].companyName).toBe("Google");
     expect(Object.keys(res.body.sessions[0]).sort()).toEqual(SESSION_KEYS);
   });
@@ -191,18 +193,19 @@ describe("GET /interviews/sessions/:sessionId", () => {
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(s.id);
     expect(res.body.status).toBe("PREP_QUEUED");
-    expect(res.body.planReady).toBe(false);
+    expect(res.body.briefing).toBeNull();
     // hard rule: descriptive only
     expect(res.body.score).toBeUndefined();
     expect(res.body.rating).toBeUndefined();
   });
 
-  it("prep plan contents are never exposed; PREP_FAILED surfaces the stable prepError code", async () => {
+  it("blueprint contents are never exposed; PREP_FAILED surfaces the stable error code", async () => {
     const user = await createUser(env);
-    const s = await seedSession(env, user.id, jd, { status: "PREP_FAILED", prepError: "prep_generation_timeout" });
+    const s = await seedSession(env, user.id, jd, { status: "PREP_FAILED", prepErrorCode: "not_enough_problems" });
     const res = await env.http.get(`${SESSIONS}/${s.id}`).set("Authorization", await bearer(env, user));
     expect(res.body.status).toBe("PREP_FAILED");
-    expect(res.body.prepError).toBe("prep_generation_timeout");
+    expect(res.body.prep.errorCode).toBe("not_enough_problems");
+    expect(res.body.blueprint).toBeUndefined();
     expect(res.body.plan).toBeUndefined();
   });
 
@@ -227,49 +230,42 @@ describe("GET /interviews/sessions/:sessionId", () => {
   });
 });
 
-describe("POST /interviews/sessions/:sessionId/regenerate", () => {
-  it("regenerate_returns202: re-queues prep and generates it in the background", async () => {
-    env.fetch.on("POST", `${AI}/interview-plans/start`, { run_id: "plan-1", status: "running" });
-    env.fetch.on("GET", `${AI}/interview-plans/runs/plan-1`, {
-      run_id: "plan-1",
-      status: "completed",
-      plan: { provenance: { planVersion: "v7", inputHash: "hash-1" } },
-    });
+describe("POST /interviews/sessions/:sessionId/prep/retry", () => {
+  it("retries a failed prep (202), starts a retry run and later shows the briefing", async () => {
+    env.fetch.on("POST", `${AI}/blueprints/runs`, { run_id: "bpr_1", status: "running", existing: false });
     const user = await createUser(env);
     const authz = await bearer(env, user);
-    const s = await seedSession(env, user.id, jd, { status: "PREP_FAILED", prepError: "prep_generation_failed" });
+    const s = await seedSession(env, user.id, jd, { status: "PREP_FAILED", prepErrorCode: "llm_unavailable" });
 
-    const res = await env.http.post(`${SESSIONS}/${s.id}/regenerate`).set("Authorization", authz);
+    const res = await env.http.post(`${SESSIONS}/${s.id}/prep/retry`).set("Authorization", authz);
     expect(res.status).toBe(202);
     expect(res.body.status).toBe("PREP_QUEUED");
-    expect(res.body.prepError).toBeNull();
-    expect(res.body.planReady).toBe(false);
-
+    expect(res.body.prep.errorCode).toBeNull();
     await env.c.background.drain();
-    const after = await env.http.get(`${SESSIONS}/${s.id}`).set("Authorization", authz);
-    expect(after.body.status).toBe("PREP_READY");
-    expect(after.body.planReady).toBe(true);
-    expect(after.body.planVersion).toBe("v7");
-    expect(after.body.inputHash).toBe("hash-1");
+    const [start] = env.fetch.callsTo(`${AI}/blueprints/runs`, "POST");
+    expect(start?.json).toMatchObject({ session: { session_id: s.id, candidate_id: user.id, company: "google", round_type: "dsa" }, trigger: "retry" });
 
-    const [start] = env.fetch.callsTo(`${AI}/interview-plans/start`, "POST");
-    expect(start?.json).toMatchObject({ session: { sessionId: s.id, candidateId: user.id, company: "google", roundType: "dsa" } });
+    // While preparing, the session page carries live steps from the run.
+    env.fetch.on("GET", `${AI}/blueprints/runs/bpr_1`, { run_id: "bpr_1", status: "running", stage: "selection",
+      steps: [{ id: "context", state: "done", elapsed_ms: 40 }, { id: "selection", state: "active", elapsed_ms: null }] });
+    const preparing = await env.http.get(`${SESSIONS}/${s.id}`).set("Authorization", authz);
+    expect(preparing.body.prep.step).toBe("selection");
+    expect(preparing.body.prep.steps).toEqual([{ id: "context", state: "done", elapsedMs: 40 }, { id: "selection", state: "active", elapsedMs: null }]);
   });
 
-  it("regenerate on an unknown / foreign session is 404 session_not_found", async () => {
+  it("is 409 prep_not_failed unless the session failed, and 404 for a foreign session", async () => {
     const owner = await createUser(env);
-    const s = await seedSession(env, owner.id, jd);
-    const intruder = await bearer(env, await createUser(env));
-    const foreign = await env.http.post(`${SESSIONS}/${s.id}/regenerate`).set("Authorization", intruder);
+    const s = await seedSession(env, owner.id, jd, { status: "PREP_READY" });
+    const authz = await bearer(env, owner);
+    const notFailed = await env.http.post(`${SESSIONS}/${s.id}/prep/retry`).set("Authorization", authz);
+    expect(notFailed.status).toBe(409);
+    expect(notFailed.body.code).toBe("prep_not_failed");
+    const foreign = await env.http.post(`${SESSIONS}/${s.id}/prep/retry`).set("Authorization", await bearer(env, await createUser(env)));
     expect(foreign.status).toBe(404);
     expect(foreign.body.code).toBe("session_not_found");
-    expect((await env.c.repos.sessions.findById(s.id))?.status).toBe("SCHEDULED");
-
-    const unknown = await env.http.post(`${SESSIONS}/${randomUUID()}/regenerate`).set("Authorization", intruder);
-    expect(unknown.status).toBe(404);
   });
 
   it("requires a JWT", async () => {
-    expect((await env.http.post(`${SESSIONS}/${randomUUID()}/regenerate`)).status).toBe(401);
+    expect((await env.http.post(`${SESSIONS}/${randomUUID()}/prep/retry`)).status).toBe(401);
   });
 });

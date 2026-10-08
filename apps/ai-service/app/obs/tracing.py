@@ -9,7 +9,7 @@ Contract:
     once), so tracing can never break a request.
 
 Usage (sync `with`, safe inside async code — nothing awaits):
-    with obs.span("interview_prep.pipeline", session_id=sid) as sp:
+    with obs.span("blueprint.pipeline", session_id=sid) as sp:
         ...
         sp.update(output={"cached": True})
 """

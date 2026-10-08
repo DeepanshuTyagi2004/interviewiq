@@ -7,6 +7,8 @@ describe("parseDeepLink", () => {
     expect(parseDeepLink(new URLSearchParams("run=abc&span=s1")).tab).toBe("runs");
     expect(parseDeepLink(new URLSearchParams("tab=bogus")).tab).toBe("companies");
     expect(parseDeepLink(new URLSearchParams("tab=access&run=abc")).tab).toBe("access");
+    expect(parseDeepLink(new URLSearchParams("tab=diagnostics&run=abc")).tab).toBe("diagnostics");
+    expect(parseDeepLink(new URLSearchParams("tab=live-profile")).tab).toBe("live-profile");
   });
 });
 
@@ -15,5 +17,7 @@ describe("deepLinkHref", () => {
     const current = new URLSearchParams("tab=runs&run=r1&span=s1");
     expect(deepLinkHref(current, { run: "r2", span: null, company: null })).toBe("?tab=runs&run=r2");
     expect(deepLinkHref(new URLSearchParams(""), { tab: "runs", run: "r1" })).toBe("?tab=runs&run=r1");
+    expect(deepLinkHref(current, { tab: "diagnostics" })).toBe("?tab=diagnostics&run=r1&span=s1");
+    expect(deepLinkHref(new URLSearchParams(""), { tab: "live-profile" })).toBe("?tab=live-profile");
   });
 });

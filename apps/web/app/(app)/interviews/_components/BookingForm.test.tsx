@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { selectOption } from "@/tests/helpers/select-option";
 import type { JdSummary } from "@/features/jobs";
 import type { CreateInterviewSessionRequest } from "@/features/interview";
 
@@ -17,7 +18,7 @@ const SAMPLE_JDS: JdSummary[] = [
     company: "google",
     companyName: "Google",
     role: "Software Engineer",
-    level: "L4",
+    level: "sde2",
     title: "Software Engineer",
     specialization: "Backend",
     dataConfidence: null,
@@ -25,9 +26,14 @@ const SAMPLE_JDS: JdSummary[] = [
   },
 ];
 
-// Mock the jobs hook so the role <select> has a deterministic option to pick.
+// Mock the jobs hook so the role picker has a deterministic option to pick.
 vi.mock("@/features/jobs", () => ({
   useJds: () => ({ data: SAMPLE_JDS, isLoading: false }),
+}));
+
+// No tracks: the role list keeps its catalogue order.
+vi.mock("@/features/loops", () => ({
+  useLoops: () => ({ data: [], isLoading: false }),
 }));
 
 // Mock the interview hook: capture mutate so we can assert the request body it was called with.
@@ -63,9 +69,9 @@ describe("BookingForm", () => {
     render(<BookingForm />);
 
     // "now" is the default mode — no need to toggle it explicitly.
-    await user.selectOptions(
+    await selectOption(
       screen.getByRole("combobox", { name: /job description/i }),
-      "jd-1",
+      "Google · Software Engineer (SDE II)", user,
     );
     await user.click(screen.getByRole("button", { name: /^start now$/i }));
 
@@ -88,7 +94,7 @@ describe("BookingForm", () => {
       const user = userEvent.setup();
       render(<BookingForm initialJobDescriptionId="jd-1" initialRoundType="system-design" />);
 
-      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveValue("jd-1");
+      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveTextContent("Google · Software Engineer (SDE II)");
       expect(screen.getByRole("button", { name: "System Design" })).toHaveAttribute("aria-pressed", "true");
 
       await user.click(screen.getByRole("button", { name: /^start now$/i }));
@@ -101,7 +107,7 @@ describe("BookingForm", () => {
     it("ignores a JD that isn't in the role list", () => {
       render(<BookingForm initialJobDescriptionId="jd-not-mine" />);
 
-      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveValue("");
+      expect(screen.getByRole("combobox", { name: /job description/i })).toHaveTextContent("Select a role");
       expect(screen.getByRole("button", { name: /^start now$/i })).toBeDisabled();
       // No round chip starts out selected either.
       expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);

@@ -1,12 +1,10 @@
 import type { Router } from "express";
-import { randomUUID } from "node:crypto";
 import type { Container } from "../container.js";
-import { DEFAULT_ROUND_TYPE, optionalRoundType } from "../domain/enums.js";
+import { optionalRoundType } from "../domain/enums.js";
 import { InvalidArgumentError } from "../lib/errors.js";
 import { isUpstreamStatus, UpstreamError } from "../lib/http.js";
 import { firstNonBlank, isObject } from "../lib/json.js";
-import { queryInt, queryString, readResume, requiredBody, resumeUpload, routerErrors, stringParam, router } from "../http/support.js";
-import { resolvePlanProfile } from "../services/interviewPrep.js";
+import { queryInt, queryString, readResume, resumeUpload, routerErrors, stringParam, router } from "../http/support.js";
 import { aiServiceUnreachable } from "./catalogue.js";
 
 /*
@@ -40,9 +38,20 @@ export function intelligenceRouter(c: Container): Router {
     res.json(await c.aiService.collectQuestions());
   });
 
+  /** Content generation over the question index (docs/question-bank.md); status via /scrape/status. */
+  r.post("/questions/generate", async (req, res) => {
+    const limit = queryInt(req, "limit", 0);
+    res.json(await c.aiService.generateQuestionContent({ roundType: queryString(req, "roundType"), limit: limit > 0 ? limit : null, force: queryString(req, "force") === "true" }));
+  });
+
+  r.get("/questions/stats", async (_req, res) => {
+    res.json((await c.aiService.questionStats()) ?? { rounds: {}, total: 0 });
+  });
+
   r.get("/questions", async (req, res) => {
     const limit = Math.min(queryInt(req, "limit", 100), 500);
-    const node = await c.aiService.listQuestions(queryString(req, "roundType"), queryString(req, "company"), queryString(req, "difficulty"), limit);
+    const node = await c.aiService.listQuestions(queryString(req, "roundType"), queryString(req, "company"), queryString(req, "difficulty"), limit,
+      { contentStatus: queryString(req, "contentStatus"), topic: queryString(req, "topic"), includeContent: queryString(req, "includeContent") === "true" });
     res.json(node ?? { questions: [], count: 0 });
   });
 
@@ -74,10 +83,11 @@ export function intelligenceRouter(c: Container): Router {
 }
 
 /**
- * Interview-prep (Pipeline 1) test bench: the admin picks a JD (+ optional candidate); we assemble
- * the same request the scheduler sends — with a synthetic session id — and start an instrumented run.
+ * Interview blueprint diagnostics (spec §10), mounted at /api/v1/intelligence/blueprints. Snake-case
+ * passthrough of the AI service's admin routes, plus the bench: the API assembles the same request a
+ * booking would (never attached to a session) from a candidate + JD (or practice loop) + round.
  */
-export function interviewPrepBenchRouter(c: Container): Router {
+export function blueprintAdminRouter(c: Container): Router {
   const r = router();
 
   /** Onboarded candidates (those with a saved profile), sorted by name. `id` is the userId. */
@@ -86,53 +96,71 @@ export function interviewPrepBenchRouter(c: Container): Router {
     const users = new Map((await c.repos.users.findAllById(profiles.map((p) => p.userId))).map((u) => [u.id, u]));
     const options = profiles.map((p) => {
       const u = users.get(p.userId);
-      return {
-        id: p.userId,
-        name: firstNonBlank(u?.name, p.fullName, "Unnamed candidate")!,
-        email: u ? u.email : p.email,
-      };
+      return { id: p.userId, name: firstNonBlank(u?.name, p.fullName, "Unnamed candidate")!, email: u ? u.email : p.email };
     });
     options.sort((a, b) => cmp(a.name.toLowerCase(), b.name.toLowerCase()));
     res.json(options);
   });
 
-  /** Start an instrumented run → `{run_id, status}`. Round defaults to the first round. */
-  r.post("/run", async (req, res) => {
-    const b = isObject(req.body) ? req.body : {};
-    const jobDescriptionId = uuidField(b.jobDescriptionId, "jobDescriptionId");
-    if (!jobDescriptionId) throw new InvalidArgumentError("jobDescriptionId is required");
-    const candidateId = uuidField(b.candidateId, "candidateId");
-    const roundType = optionalRoundType(b.roundType) ?? DEFAULT_ROUND_TYPE;
-
-    const jd = await c.repos.jds.findById(jobDescriptionId);
-    if (!jd) throw new InvalidArgumentError("unknown job description");
-
-    res.json(
-      await c.aiService.startInterviewPrepRun({
-        session: {
-          sessionId: randomUUID(),
-          candidateId: candidateId ?? randomUUID(),
-          company: jd.company,
-          role: jd.role,
-          level: jd.level,
-          specialization: jd.specialization,
-          roundType,
-        },
-        jobDescription: { id: jd.id, title: jd.title, description: jd.description, techStack: jd.techStack },
-        candidateProfile: await resolvePlanProfile(c.candidateProfiles, c.codingSignals, candidateId),
-      }),
-    );
-  });
-
-  r.get("/runs", async (_req, res) => {
-    res.json(await c.aiService.listInterviewPrepRuns());
+  r.get("/runs", async (req, res) => {
+    const q = new URLSearchParams();
+    for (const key of ["status", "company", "round_type", "trigger", "candidate_id", "session_id", "from", "to", "limit", "cursor"]) {
+      const v = queryString(req, key);
+      if (v) q.set(key, v);
+    }
+    res.json(await c.aiService.listBlueprintRuns(q));
   });
 
   r.get("/runs/:runId", async (req, res) => {
-    res.json(await c.aiService.getInterviewPrepRun(stringParam(req, "runId"), queryInt(req, "after", 0)));
+    res.json(await c.aiService.getBlueprintRunDetail(stringParam(req, "runId")));
   });
 
-  r.use(runProxyErrors(c, "prep_bad_request", "no such interview-prep run", "AI service interview-prep run call failed"));
+  /** Bench: `{candidateId, jobDescriptionId | loopId+nodeId, roundType?, options?}` → `{run_id, status}`. */
+  r.post("/bench", async (req, res) => {
+    const b = isObject(req.body) ? req.body : {};
+    const candidateId = uuidField(b.candidateId, "candidateId");
+    if (!candidateId) throw new InvalidArgumentError("candidateId is required");
+    const options = isObject(b.options) ? b.options : {};
+    const request = await c.blueprintPrep.benchRequest({
+      candidateId,
+      jobDescriptionId: uuidField(b.jobDescriptionId, "jobDescriptionId"),
+      loopId: uuidField(b.loopId, "loopId"),
+      nodeId: typeof b.nodeId === "string" && b.nodeId.length <= 64 ? b.nodeId : null,
+      roundType: optionalRoundType(b.roundType),
+      options: {
+        bypass_blueprint_cache: options.bypassBlueprintCache === true,
+        bypass_answer_key_cache: options.bypassAnswerKeyCache === true,
+        ignore_exclusions: options.ignoreExclusions === true,
+      },
+    });
+    res.json(await c.aiService.startBlueprintBench(request));
+  });
+
+  r.post("/runs/:runId/rerun", async (req, res) => {
+    const b = isObject(req.body) ? req.body : {};
+    res.json(await c.aiService.rerunBlueprint(stringParam(req, "runId"), {
+      bypass_blueprint_cache: true,
+      bypass_answer_key_cache: b.bypassAnswerKeyCache === true,
+      ignore_exclusions: b.ignoreExclusions === true,
+    }));
+  });
+
+  r.get("/sessions/:sessionId/versions", async (req, res) => {
+    res.json(await c.aiService.blueprintVersions(stringParam(req, "sessionId")));
+  });
+
+  r.get("/sessions/:sessionId/diff", async (req, res) => {
+    const from = queryInt(req, "from", 0), to = queryInt(req, "to", 0);
+    if (from < 1 || to < 1) throw new InvalidArgumentError("from and to are required versions");
+    res.json(await c.aiService.blueprintDiff(stringParam(req, "sessionId"), from, to));
+  });
+
+  r.get("/answer-keys/:roundType/*slug", async (req, res) => {
+    const slug = req.params.slug;
+    res.json(await c.aiService.blueprintAnswerKeys(stringParam(req, "roundType"), Array.isArray(slug) ? slug.join("/") : String(slug)));
+  });
+
+  r.use(runProxyErrors(c, "blueprint_bad_request", "no such blueprint run", "AI service blueprint call failed"));
   return r;
 }
 
@@ -154,46 +182,6 @@ export function resumeBenchRouter(c: Container): Router {
   });
 
   r.use(runProxyErrors(c, "resume_bad_request", "no such resume-parse run", "AI service resume-run call failed"));
-  return r;
-}
-
-/** Agent Diagnostics: interactive harness around the live-interview brain. */
-export function interviewAgentBenchRouter(c: Container): Router {
-  const r = router();
-
-  r.post("/run", async (req, res) => {
-    res.json(await c.aiService.startAgentRun(requiredBody(req)));
-  });
-
-  /** Submit a candidate turn (or silence/end). */
-  r.post("/runs/:runId/turn", async (req, res) => {
-    res.json(await c.aiService.submitAgentTurn(stringParam(req, "runId"), requiredBody(req)));
-  });
-
-  r.get("/runs/:runId", async (req, res) => {
-    res.json(await c.aiService.getAgentRun(stringParam(req, "runId"), queryInt(req, "after", 0)));
-  });
-
-  r.get("/runs", async (_req, res) => {
-    res.json(await c.aiService.listAgentRuns());
-  });
-
-  /** Force-end a diagnostic session. */
-  r.post("/runs/:runId/end", async (req, res) => {
-    res.json(await c.aiService.endAgentRun(stringParam(req, "runId")));
-  });
-
-  r.use(
-    routerErrors((err) => {
-      if (isUpstreamStatus(err, 404)) return { status: 404, code: "run_not_found", message: "no such diagnostic session" };
-      if (isUpstreamStatus(err, 429)) return { status: 429, code: "sessions_at_capacity", message: "too many active diagnostic sessions" };
-      if (err instanceof UpstreamError) {
-        c.log.warn(`AI service interview-agent call failed: ${err.message}`);
-        return { status: 502, code: "ai_service_unreachable", message: "ai-service unavailable" };
-      }
-      return undefined;
-    }),
-  );
   return r;
 }
 

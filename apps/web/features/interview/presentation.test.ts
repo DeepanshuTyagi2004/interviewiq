@@ -45,7 +45,9 @@ describe("interview presentation helpers", () => {
   });
 
   it("classifies joinable and finished sessions", () => {
-    expect(ALL_STATUSES.filter((status) => isJoinable({ status }))).toEqual(["PREP_READY", "LIVE_IN_PROGRESS"]);
+    expect(ALL_STATUSES.filter((status) => isJoinable({ status, liveAvailable: true }))).toEqual(["PREP_READY", "LIVE_IN_PROGRESS"]);
+    // While the live interviewer is unavailable a ready round can't be joined; a live one still can.
+    expect(ALL_STATUSES.filter((status) => isJoinable({ status, liveAvailable: false }))).toEqual(["LIVE_IN_PROGRESS"]);
     expect(ALL_STATUSES.filter((status) => isFinished({ status }))).toEqual(["COMPLETED", "ABORTED_TECHNICAL"]);
   });
 

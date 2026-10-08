@@ -1,15 +1,18 @@
 "use client";
+import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 import { useState } from "react";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils/cn";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { useJds, type JdSummary } from "@/features/jobs";
+import { useLoops } from "@/features/loops";
 import { useCreateSession, type CreateInterviewSessionRequest, type RoundType } from "@/features/interview";
 import { levelLabel, roundLabel } from "@/features/interview/presentation";
 import { bookingError } from "@/features/loops/errors";
@@ -52,6 +55,11 @@ function isPastSlot(d: Date | undefined, h: number): boolean {
 }
 
 /** "Meesho · SDE I Backend", adding the level only when the title doesn't already say it. */
+/** 0 = one of the candidate's tracks, 1 = a researched role, 2 = a practice template. */
+function rank(jd: JdSummary, trackJdIds: Set<string | null>): number {
+  return trackJdIds.has(jd.id) ? 0 : jd.practiceTemplate ? 2 : 1;
+}
+
 function jdOptionLabel(jd: JdSummary): string {
   const level = levelLabel(jd.level);
   const base = `${jd.companyName} · ${jd.title}`;
@@ -101,18 +109,28 @@ export interface BookingFormProps {
  */
 export function BookingForm({ initialJobDescriptionId, initialRoundType }: BookingFormProps = {}) {
   const { data: jds, isLoading: jdsLoading } = useJds();
+  const loops = useLoops();
   const create = useCreateSession();
 
   const [mode, setMode] = useState<BookingMode>("now");
+  // Hundreds of practice templates would bury the researched roles: they are opt-in in the list.
+  const [withTemplates, setWithTemplates] = useState(Boolean(initialJobDescriptionId));
   const [jobDescriptionId, setJobDescriptionId] = useState(initialJobDescriptionId ?? "");
   const [roundType, setRoundType] = useState<RoundType | null>(initialRoundType ?? null);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [hour, setHour] = useState<number | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
 
+  // Roles in the order a candidate reaches for them: their live tracks, researched roles, practice templates.
+  const trackJdIds = new Set((loops.data ?? []).filter((l) => l.status === "active" && l.jdId).map((l) => l.jdId));
+  const roleOptions = [...(jds ?? [])]
+    .filter((jd) => withTemplates || !jd.practiceTemplate || trackJdIds.has(jd.id) || jd.id === jobDescriptionId)
+    .sort((a, b) => rank(a, trackJdIds) - rank(b, trackJdIds) || a.companyName.localeCompare(b.companyName))
+    .map((jd) => ({ value: jd.id, label: `${trackJdIds.has(jd.id) ? "Your track · " : ""}${jdOptionLabel(jd)}${jd.practiceTemplate ? " · Practice template" : ""}` }));
+
   // Only a JD that's really in the list counts — a stale or foreign `?jd=` is ignored.
   const selectedJd = (jds ?? []).find((jd) => jd.id === jobDescriptionId);
-  const jdId = selectedJd?.id ?? "";
+  const jdId = selectedJd && isEngineeringLevel(selectedJd.level) ? selectedJd.id : "";
 
   const hourValid = hour !== null && !isPastSlot(date, hour);
   const canSubmit =
@@ -128,6 +146,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
   }
 
   function book(scheduledAt: string) {
+    if (!jdId || !isEngineeringLevel(selectedJd?.level)) return;
     // The round is optional: without one the backend assigns it (currently the first round).
     const body: CreateInterviewSessionRequest = {
       jobDescriptionId: jdId,
@@ -200,19 +219,19 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
 
       <label className="flex flex-col gap-2">
         <FieldLabel>Role</FieldLabel>
-        <select
-          aria-label="Job description"
+        <CustomSelect
+          id="booking-job-description"
+          label="Job description"
           className="h-10 w-full rounded-full border border-line-4 bg-card px-4 text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={jdId}
-          onChange={(e) => setJobDescriptionId(e.target.value)}
-        >
-          <option value="">{jdsLoading ? "Loading roles…" : "Select a role"}</option>
-          {(jds ?? []).map((jd) => (
-            <option key={jd.id} value={jd.id}>
-              {jdOptionLabel(jd)}
-            </option>
-          ))}
-        </select>
+          disabled={create.isPending || jdsLoading}
+          onValueChange={setJobDescriptionId}
+          options={[{ value: "", label: jdsLoading ? "Loading roles…" : "Select a role" }, ...roleOptions]}
+        />
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground">
+          <input type="checkbox" className="h-3.5 w-3.5 accent-[hsl(var(--brand))]" checked={withTemplates} onChange={(e) => setWithTemplates(e.target.checked)} />
+          Include practice templates (simulated processes that never count towards readiness)
+        </label>
       </label>
 
       <div className="flex flex-col gap-2">

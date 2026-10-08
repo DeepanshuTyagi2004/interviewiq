@@ -6,7 +6,7 @@ const { useSessionMock } = vi.hoisted(() => ({ useSessionMock: vi.fn() }));
 
 vi.mock("@/features/interview", () => ({
   useSession: useSessionMock,
-  useRegenerateSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useRetryPrep: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { SessionDetail } from "./SessionDetail";
@@ -24,7 +24,9 @@ const base: InterviewSession = {
   scheduledAt: "2026-10-05T10:00:00Z",
   timezone: "Asia/Kolkata",
   status: "SCHEDULED",
-  planReady: false,
+  prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
+  briefing: null,
+  liveAvailable: true,
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",
 };
@@ -57,5 +59,59 @@ describe("SessionDetail progress timeline", () => {
   ] as const)("%s: %i pulsing step dot(s), only for a step that's really running", (status, pulsing) => {
     const progress = renderAt(status);
     expect(progress.querySelectorAll("[data-motion]")).toHaveLength(pulsing);
+  });
+});
+
+function renderSession(overrides: Partial<InterviewSession>) {
+  useSessionMock.mockReturnValue({ data: { ...base, ...overrides }, isLoading: false, isError: false });
+  return render(<SessionDetail sessionId="s1" />);
+}
+
+describe("SessionDetail blueprint prep", () => {
+  it("while preparing: shows friendly live steps, never topics or problems", () => {
+    renderSession({
+      status: "PREP_QUEUED",
+      prep: {
+        step: "selection", refreshing: false, preparedAt: null, errorCode: null,
+        steps: [{ id: "context", state: "done", elapsedMs: 1200 }, { id: "selection", state: "active", elapsedMs: null }],
+      },
+    });
+    const panel = screen.getByRole("region", { name: "Preparing your interviewer" });
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows.map((r) => r.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("Reading the job description")]));
+    expect(within(rows[0]!).getByText("Done")).toHaveClass("sr-only");
+    expect(within(rows[1]!).getByText("Choosing your questions")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("In progress")).toHaveClass("sr-only");
+    expect(within(rows[6]!).getByText("Final checks")).toBeInTheDocument();
+  });
+
+  it("when ready: shows the briefing (interviewer, format, duration) and a disabled join until live opens", () => {
+    renderSession({
+      status: "PREP_READY",
+      liveAvailable: false,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: "2026-10-01T09:00:00Z", errorCode: null },
+      briefing: { interviewerName: "Asha Rao", interviewerStyle: "Senior engineer · calm", format: "45-minute coding interview with a shared editor", durationMins: 45 },
+    });
+    expect(screen.getByText("Asha Rao")).toBeInTheDocument();
+    expect(screen.getByText("45-minute coding interview with a shared editor")).toBeInTheDocument();
+    expect(screen.getByText("45 minutes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Enter interview room/ })).toBeDisabled();
+    expect(screen.getByText(/Live sessions open soon/)).toBeInTheDocument();
+  });
+
+  it("while refreshing: keeps the briefing with an updating note", () => {
+    renderSession({
+      status: "PREP_READY",
+      prep: { step: "playbooks", steps: [], refreshing: true, preparedAt: "2026-10-01T09:00:00Z", errorCode: null },
+      briefing: { interviewerName: "Asha Rao", interviewerStyle: "calm", format: "45-minute coding interview with a shared editor", durationMins: 45 },
+    });
+    expect(screen.getByText("Updating for your latest profile…")).toBeInTheDocument();
+  });
+
+  it("when failed: plain words, a retry and the code in details", () => {
+    renderSession({ status: "PREP_FAILED", prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: "not_enough_problems" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("We couldn't prepare this interview.");
+    expect(screen.getAllByRole("button", { name: /Retry prep/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("not_enough_problems")).toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTERVIEW_POLLING, INTERVIEW_QUERY_KEYS } from "@/lib/constants/interview";
-import { cancelSession, createSession, getLive, getSession, listMySessions, regenerateSession, rescheduleSession } from "./api";
+import { cancelSession, createSession, getLive, getSession, listMySessions, rescheduleSession, retryPrep } from "./api";
 import type {
   CreateInterviewSessionRequest,
   GoLiveResponse,
@@ -10,17 +10,18 @@ import type {
   InterviewSessionListResponse,
 } from "./types";
 
-/** The candidate's sessions. Auto-polls while any session is still preparing (Scheduled/Queued). */
+/** A blueprint is being prepared (first prep or a refresh): worth polling. */
+export function isPreparing(s: Pick<InterviewSession, "status" | "prep">): boolean {
+  return s.status === "SCHEDULED" || s.status === "PREP_QUEUED" || s.prep?.refreshing === true;
+}
+
+/** The candidate's sessions. Auto-polls while any session is still preparing. */
 export function useMySessions() {
   return useQuery<InterviewSessionListResponse>({
     queryKey: INTERVIEW_QUERY_KEYS.sessions,
     queryFn: listMySessions,
-    refetchInterval: (query) => {
-      const preparing = query.state.data?.sessions?.some(
-        (s) => s.status === "SCHEDULED" || s.status === "PREP_QUEUED",
-      );
-      return preparing ? INTERVIEW_POLLING.sessionsIntervalMs : false;
-    },
+    refetchInterval: (query) =>
+      query.state.data?.sessions?.some(isPreparing) ? INTERVIEW_POLLING.sessionsIntervalMs : false,
   });
 }
 
@@ -51,28 +52,26 @@ export function useCancelSession() {
   return useMutation({ mutationFn: (id: string) => cancelSession(id), onSuccess: () => invalidateSessionsAndLoops(queryClient) });
 }
 
-export function useRegenerateSession() {
+/** Retry blueprint prep after PREP_FAILED. A 429 carries "try again in N min" in its message. */
+export function useRetryPrep() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => regenerateSession(id),
-    onSuccess: () => {
+    mutationFn: (id: string) => retryPrep(id),
+    onSuccess: (session) => {
+      queryClient.setQueryData(INTERVIEW_QUERY_KEYS.session(session.id), session);
       void queryClient.invalidateQueries({ queryKey: INTERVIEW_QUERY_KEYS.sessions });
     },
   });
 }
 
-/** A single session, auto-polls while status is SCHEDULED/PREP_QUEUED. */
+/** A single session; polls quickly while its blueprint is being prepared, so the steps move live. */
 export function useSession(id: string) {
   return useQuery<InterviewSession>({
     queryKey: INTERVIEW_QUERY_KEYS.session(id),
     queryFn: () => getSession(id),
     enabled: !!id,
-    refetchInterval: (query) => {
-      const st = query.state.data?.status;
-      return st === "SCHEDULED" || st === "PREP_QUEUED"
-        ? INTERVIEW_POLLING.sessionsIntervalMs
-        : false;
-    },
+    refetchInterval: (query) =>
+      query.state.data && isPreparing(query.state.data) ? INTERVIEW_POLLING.sessionIntervalMs : false,
   });
 }
 

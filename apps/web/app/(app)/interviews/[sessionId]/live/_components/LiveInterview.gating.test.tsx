@@ -4,7 +4,11 @@ import { render, screen } from "@testing-library/react";
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 const useLiveState = vi.fn();
-vi.mock("@/features/interview/hooks", () => ({ useLiveState: (id: string) => useLiveState(id) }));
+const useSessionInfo = vi.fn(() => ({ data: { liveAvailable: true }, isLoading: false }));
+vi.mock("@/features/interview/hooks", () => ({
+  useLiveState: (id: string) => useLiveState(id),
+  useSession: () => useSessionInfo(),
+}));
 // keep the provider real but with an injected inert session
 import type { LiveSession } from "@/features/interview-live/session/types";
 const inert: Partial<LiveSession> = {
@@ -21,6 +25,14 @@ describe("live route gating", () => {
   beforeEach(() => {
     push.mockClear();
     useLiveState.mockReset();
+    useSessionInfo.mockReturnValue({ data: { liveAvailable: true }, isLoading: false });
+  });
+
+  it("keeps a ready session out of the room while the live interviewer is unavailable", () => {
+    useLiveState.mockReturnValue({ data: { status: "PREP_READY" }, isLoading: false });
+    useSessionInfo.mockReturnValue({ data: { liveAvailable: false }, isLoading: false });
+    render(<LiveInterview sessionId="s1" session={inert as LiveSession} />);
+    expect(screen.getByText(/Live sessions open soon/)).toBeInTheDocument();
   });
 
   it("routes to the report for a COMPLETED session", () => {

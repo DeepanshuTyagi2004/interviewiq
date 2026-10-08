@@ -7,5 +7,5 @@ export {
   listMySessions,
   getSession,
   createSession,
-  regenerateSession,
+  retryPrep,
 } from "@/features/interview/api";

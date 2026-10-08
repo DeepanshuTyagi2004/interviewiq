@@ -20,16 +20,17 @@ export function isRoundType(value: unknown): value is RoundType {
   return typeof value === "string" && ROUND_VALUES.has(value);
 }
 
-const LEVEL_LABEL: Record<string, string> = { fresher: "Fresher", sde1: "SDE I", sde2: "SDE II", sde3: "SDE III" };
-
-/** "sde1" → "SDE I"; anything else (already human-readable) passes through. */
-export function levelLabel(level: string): string {
-  return LEVEL_LABEL[level.toLowerCase()] ?? level;
-}
+export { levelLabel } from "@/lib/constants/engineering-levels";
 
 /** The human company name when the API knows it, otherwise the slug. */
 export function companyLabel(session: Pick<InterviewSession, "company" | "companyName">): string {
   return session.companyName ?? session.company;
+}
+
+/** A session's role is a catalogue slug ("software-engineer"); show it as words ("Software engineer"). */
+export function roleLabel(role: string | null | undefined): string {
+  const words = (role ?? "").trim().replace(/[-_]+/g, " ");
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : "—";
 }
 
 export interface StatusMeta {
@@ -65,9 +66,9 @@ export function isFinished(session: Pick<InterviewSession, "status">): boolean {
   return session.status === "COMPLETED" || session.status === "ABORTED_TECHNICAL";
 }
 
-/** The candidate can enter the room now. */
-export function isJoinable(session: Pick<InterviewSession, "status">): boolean {
-  return session.status === "PREP_READY" || session.status === "LIVE_IN_PROGRESS";
+/** The candidate can enter the room now (a ready round needs the live interviewer to be available). */
+export function isJoinable(session: Pick<InterviewSession, "status" | "liveAvailable">): boolean {
+  return (session.status === "PREP_READY" && session.liveAvailable) || session.status === "LIVE_IN_PROGRESS";
 }
 
 const byTime = (s: Pick<InterviewSession, "scheduledAt">) => new Date(s.scheduledAt).getTime();
@@ -141,7 +142,7 @@ export interface SessionStep {
 export function sessionSteps(status: SessionStatus): SessionStep[] {
   const prep: Pick<SessionStep, "state" | "note"> =
     status === "SCHEDULED"
-      ? { state: "upcoming", note: "Starts ahead of your slot" }
+      ? { state: "upcoming", note: "Starts as soon as you book" }
       : status === "PREP_QUEUED"
         ? { state: "current", note: "Preparing now" }
         : status === "PREP_FAILED"

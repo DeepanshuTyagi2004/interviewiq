@@ -24,13 +24,15 @@ export interface GreetingProps {
   name: string | null | undefined;
   /** One line on where things stand, e.g. "Your Meesho DSA round is ready to join." */
   summary: string;
-  /** Where "Enter interview room" goes — the joinable session, else the interviews list. */
+  /** Where the primary action goes — the joinable session, the next round, a track with a round to book, or the interviews list. */
   roomHref: string;
+  /** What the primary action does there (defaults to entering the room). */
+  roomLabel?: string;
   now?: Date;
 }
 
 /** Date eyebrow, time-of-day greeting, status line and the two primary actions. */
-export function Greeting({ name, summary, roomHref, now = new Date() }: GreetingProps) {
+export function Greeting({ name, summary, roomHref, roomLabel = "Enter interview room", now = new Date() }: GreetingProps) {
   const firstName = name?.trim().split(/\s+/)[0];
   const hello = partOfDay(now.getHours());
 
@@ -54,7 +56,7 @@ export function Greeting({ name, summary, roomHref, now = new Date() }: Greeting
           <Link href={ROUTES.jobs}>Browse companies</Link>
         </Button>
         <Button asChild className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]">
-          <Link href={roomHref}>Enter interview room</Link>
+          <Link href={roomHref}>{roomLabel}</Link>
         </Button>
       </div>
     </div>
