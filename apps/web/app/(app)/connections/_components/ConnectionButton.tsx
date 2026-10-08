@@ -18,8 +18,11 @@ const SOURCE_LABELS: Record<SourceKind, string> = {
   GITHUB: "GitHub",
   RESUME: "Resume",
   LEETCODE: "LeetCode",
+  CODEFORCES: "Codeforces",
+  CODECHEF: "CodeChef",
+  ATCODER: "AtCoder",
+  TUF: "takeUforward",
   LINKEDIN: "LinkedIn",
-  X: "X",
 };
 
 /**

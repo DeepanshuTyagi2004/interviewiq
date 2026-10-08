@@ -6,7 +6,10 @@
 
 import { PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 
-export type SourceKind = "GITHUB" | "RESUME" | "LEETCODE" | "LINKEDIN" | "X";
+/** Handle-based coding platforms collected through `/api/v1/connections/platforms/{platform}`. */
+export type CodingPlatformKind = "CODEFORCES" | "CODECHEF" | "ATCODER" | "TUF";
+
+export type SourceKind = "GITHUB" | "RESUME" | "LEETCODE" | CodingPlatformKind | "LINKEDIN";
 
 /** Background-collection lifecycle for sources that sync asynchronously (currently LeetCode). */
 export type SyncStatus = (typeof PROFILE_SYNC_STATUS)[keyof typeof PROFILE_SYNC_STATUS];
@@ -21,8 +24,8 @@ export interface ProfileSource {
   connected: boolean;
   /** ISO timestamp; present only when connected. */
   lastRefreshedAt?: string;
-  /** Background-sync state; present only for async sources (LeetCode). Omitted otherwise. */
-  status?: SyncStatus;
+  /** Sync lifecycle for collectors, or an explicitly reviewed one-time source snapshot. */
+  status?: SyncStatus | "IMPORTED";
 }
 
 export interface NotableItem {
@@ -103,9 +106,30 @@ export interface LeetCodeFragment {
   partial?: boolean;
 }
 
+/**
+ * The fields every coding-platform fragment may carry (platform facts only, never an InterviewIQ
+ * score). Ratings are the platform's own numbers.
+ */
+export interface CodingPlatformFragment {
+  platform: string;
+  handle: string;
+  totalSolved?: number | null;
+  /** Codeforces keeps ratings under `info`; the others at the top level. */
+  info?: { rating: number | null; maxRating: number | null };
+  rating?: number | null;
+  contestsAttended?: number | null;
+  linkedProfiles?: { platform: string; handle: string }[];
+}
+
 export interface ProfileFragments {
   github?: GithubFragment;
   leetcode?: LeetCodeFragment;
+  codeforces?: CodingPlatformFragment;
+  codechef?: CodingPlatformFragment;
+  atcoder?: CodingPlatformFragment;
+  tuf?: CodingPlatformFragment;
+  /** Imported source payload is opaque here; review uses the typed LinkedIn import API. */
+  linkedin?: unknown;
 }
 
 export interface ProvenanceItem {

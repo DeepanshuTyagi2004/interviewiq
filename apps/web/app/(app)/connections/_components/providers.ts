@@ -6,7 +6,7 @@ export interface ProviderMeta {
   /** Two-letter mono mark on the source's ink tile (the design's "GH", "LC", …). */
   code: string;
   description: string;
-  /** GitHub, resume and LeetCode are live; the rest are "coming soon" placeholders. */
+  /** Available sources, including consented imports; this does not imply live synchronization. */
   live: boolean;
 }
 
@@ -33,17 +33,38 @@ export const PROVIDERS: ProviderMeta[] = [
     live: true,
   },
   {
+    source: "TUF",
+    label: "takeUforward",
+    code: "TF",
+    description: "Sheet progress by Basic/Core/Pro and topic. Platforms you linked on TUF connect too.",
+    live: true,
+  },
+  {
+    source: "CODEFORCES",
+    label: "Codeforces",
+    code: "CF",
+    description: "Contest rating history and solved problems by difficulty and tag.",
+    live: true,
+  },
+  {
+    source: "CODECHEF",
+    label: "CodeChef",
+    code: "CC",
+    description: "Rating, stars, contests and problems solved.",
+    live: true,
+  },
+  {
+    source: "ATCODER",
+    label: "AtCoder",
+    code: "AC",
+    description: "Rated contest history and accepted problems.",
+    live: true,
+  },
+  {
     source: "LINKEDIN",
     label: "LinkedIn",
     code: "IN",
-    description: "Professional profile (coming later).",
-    live: false,
-  },
-  {
-    source: "X",
-    label: "X",
-    code: "X",
-    description: "Public handle for link-out (coming later).",
-    live: false,
+    description: "Upload the PDF LinkedIn makes of your profile. Import shows you how.",
+    live: true,
   },
 ];

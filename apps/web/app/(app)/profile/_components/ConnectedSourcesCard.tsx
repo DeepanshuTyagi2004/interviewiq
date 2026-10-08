@@ -6,7 +6,7 @@ import { SourceList } from "@/app/(app)/connections/_components/SourceList";
 import { ProfileCard } from "./ProfileCard";
 
 /** The resume has its own file row on the left, so this card lists the account sources. */
-const SOURCES = ["GITHUB", "LEETCODE", "LINKEDIN", "X"] as const;
+const SOURCES = ["GITHUB", "LEETCODE", "TUF", "CODEFORCES", "CODECHEF", "ATCODER", "LINKEDIN"] as const;
 
 /** "Connected sources": the same live rows as the Connections page, inside one card. */
 export function ConnectedSourcesCard({ profile }: { profile: ProfileResponse }) {

@@ -8,3 +8,6 @@ export { useProfile } from "./hooks/useProfile";
 export { useDisconnectGithub } from "./hooks/useDisconnectGithub";
 export { useConnectLeetCode } from "./hooks/useConnectLeetCode";
 export { useDisconnectLeetCode } from "./hooks/useDisconnectLeetCode";
+export { connectPlatform, disconnectPlatform } from "./api/platformConnections";
+export type { PlatformConnectResponse } from "./api/platformConnections";
+export { useConnectPlatform, useDisconnectPlatform } from "./hooks/usePlatformConnection";

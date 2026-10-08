@@ -8,6 +8,8 @@ export const PROFILE_ENDPOINTS = {
   leetcodeConnection: "/api/v1/connections/leetcode", // POST connect, DELETE disconnect
   githubConnection: "/api/v1/connections/github", // DELETE disconnect
   githubAuthorize: "/api/v1/connections/github/authorize",
+  /** POST {handle} connect, DELETE disconnect; e.g. /api/v1/connections/platforms/CODEFORCES */
+  platformConnection: (platform: string) => `/api/v1/connections/platforms/${platform}`,
 } as const;
 
 export const PROFILE_QUERY_KEYS = {
