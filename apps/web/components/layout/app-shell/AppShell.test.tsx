@@ -12,6 +12,7 @@ vi.mock("@/features/onboarding/hooks", () => ({
   useCandidateProfile: () => ({ data: { fullName: "Aarav Sharma", targetRole: "Meesho SDE I" } }),
 }));
 vi.mock("@/features/jobs", () => ({ useJds: () => ({ data: [], isLoading: false }) }));
+vi.mock("@/features/loops", async (original) => ({ ...(await original<typeof import("@/features/loops")>()), useLoops: () => ({ data: [] }) }));
 vi.mock("@/lib/auth/AuthProvider", () => ({ useAuth: () => ({ logout: vi.fn() }) }));
 vi.mock("@/components/layout/ThemeToggle", () => ({ ThemeToggle: () => null }));
 vi.mock("next/navigation", () => ({
@@ -61,7 +62,7 @@ describe("AppShell", () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /companies/i })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Active · Meesho SDE I")).toBeInTheDocument();
+    expect(screen.getByText("Target · Meesho SDE I")).toBeInTheDocument();
   });
 
   it("toggles with M and closes with Escape", async () => {

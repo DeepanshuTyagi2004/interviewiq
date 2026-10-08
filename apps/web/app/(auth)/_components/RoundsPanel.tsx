@@ -70,7 +70,7 @@ export function RoundsPanel() {
       </div>
       <p className="m-0 max-w-[420px] p-5 text-sm leading-[1.5] text-muted-foreground sm:p-7">
         Meesho · SDE I Backend —{" "}
-        <span className="text-foreground">four rounds, researched from 142 real candidate experiences.</span>
+        <span className="text-foreground">four rounds, researched from candidates’ own accounts of the process.</span>
       </p>
     </aside>
   );
