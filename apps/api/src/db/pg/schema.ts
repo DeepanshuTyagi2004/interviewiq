@@ -16,7 +16,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { ROLES, ROUND_TYPES, SESSION_STATUSES, SYNC_STATUSES } from "../../domain/enums.js";
+import { CODING_PLATFORMS, ROLES, ROUND_TYPES, SESSION_STATUSES, SYNC_STATUSES } from "../../domain/enums.js";
 import type { EnrichmentDocument, EnrichmentBrief } from "../../domain/enrichment.js";
 import type { ProcessGraph } from "../../domain/process.js";
 
@@ -253,29 +253,62 @@ export const leetcodeConnections = pgTable("leetcode_connection", {
 });
 
 /**
- * A booked mock-interview session: prep readiness (Pipeline 1) + live runtime (Pipeline 2).
- * company/role/level/specialization are copied from the JD at booking time. The prep plan itself
- * lives in the AI service; the full live-session outcome JSON lives in MongoDB (`session_outcomes`).
+ * One handle-based coding-platform connection (Codeforces, CodeChef, AtCoder, TUF) per
+ * user and platform. `discoveredFrom` records an automatic connection made from another profile's
+ * linked accounts (e.g. "TUF"); a connection the user made themselves has null.
+ */
+export const platformConnections = pgTable(
+  "platform_connection",
+  {
+    id: id(),
+    userId: uuid("user_id").notNull(),
+    platform: varchar("platform", { length: 16, enum: CODING_PLATFORMS }).notNull(),
+    handle: varchar("handle", { length: 100 }).notNull(),
+    status: varchar("status", { length: 16, enum: SYNC_STATUSES }).notNull(),
+    discoveredFrom: varchar("discovered_from", { length: 16 }),
+    connectedAt: instant("connected_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    lastRefreshedAt: instant("last_refreshed_at"),
+  },
+  (t) => [unique("uq_platform_connection_user_platform").on(t.userId, t.platform)],
+);
+
+/**
+ * A booked mock-interview session: blueprint prep (docs/superpowers/specs/2026-10-07-interview-blueprint-design.md)
+ * + live runtime. company/role/level/specialization are copied from the JD at booking time. The blueprint itself
+ * lives in the AI service; the session keeps its version, fingerprint and the candidate-safe briefing.
  */
 export const interviewSessions = pgTable(
   "interview_sessions",
   {
     id: id(),
     candidateId: uuid("candidate_id").notNull(),
-    jobDescriptionId: uuid("job_description_id").notNull(),
+    jobDescriptionId: uuid("job_description_id"),
     company: varchar("company", { length: 255 }).notNull(),
     role: varchar("role", { length: 255 }).notNull(),
-    level: varchar("level", { length: 16 }).notNull(),
+    level: varchar("level", { length: 64 }).notNull(),
     specialization: varchar("specialization", { length: 32 }),
     roundType: varchar("round_type", { length: 32, enum: ROUND_TYPES }).notNull(),
     /** The chosen slot as an absolute instant; `timezone` records what the user booked in. */
     scheduledAt: instant("scheduled_at").notNull(),
     timezone: varchar("timezone", { length: 64 }).notNull(),
     status: varchar("status", { length: 24, enum: SESSION_STATUSES }).notNull().default("SCHEDULED"),
-    planVersion: varchar("plan_version", { length: 255 }),
-    inputHash: varchar("input_hash", { length: 255 }),
+    /** The active blueprint run in the AI service (first prep, retry or refresh); null when none is running. */
+    prepRunId: varchar("prep_run_id", { length: 64 }),
+    prepRunStartedAt: instant("prep_run_started_at"),
+    /** Input fingerprint of the current blueprint (spec §5.1); a different one triggers a refresh. */
+    prepInputHash: varchar("prep_input_hash", { length: 128 }),
+    blueprintVersion: integer("blueprint_version"),
     /** Stable error code when status == PREP_FAILED. */
-    prepError: varchar("prep_error", { length: 255 }),
+    prepErrorCode: varchar("prep_error_code", { length: 64 }),
+    /** A refresh run is active; the current blueprint stays live until it succeeds. */
+    prepRefreshing: boolean("prep_refreshing").notNull().default(false),
+    prepRetryCount: integer("prep_retry_count").notNull().default(0),
+    prepRetryWindowStart: instant("prep_retry_window_start"),
+    preparedAt: instant("prepared_at"),
+    /** The blueprint's candidate-safe briefing: interviewer, format, duration. Never topics or problems. */
+    prepBriefing: jsonb("prep_briefing").$type<{ interviewer_name: string; interviewer_style: string; format: string; duration_mins: number }>(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     liveStartedAt: instant("live_started_at"),
@@ -287,23 +320,25 @@ export const interviewSessions = pgTable(
     /** The loop (confirmed per-JD process) and graph node this session is a round of; null for ad-hoc bookings. */
     loopId: uuid("loop_id"),
     nodeId: varchar("node_id", { length: 64 }),
+    practicePrep: jsonb("practice_prep").$type<import("../../domain/practice.js").PracticePrepSnapshot>(),
   },
   (t) => [
     index("idx_session_candidate").on(t.candidateId),
-    // Drives the prep poller: due SCHEDULED sessions by slot.
+    // Drives the blueprint reconcile job: sessions by status and slot.
     index("idx_session_status_scheduled").on(t.status, t.scheduledAt),
     index("idx_session_loop").on(t.loopId),
   ],
 );
 
-/** A user's saved custom interview process for one JD (a graph of runnable rounds). */
+/** A user's saved custom process (a graph of runnable rounds), optionally copied from a JD. */
 export const interviewProcesses = pgTable(
   "interview_processes",
   {
     id: id(),
     userId: uuid("user_id").notNull(),
-    jdId: uuid("jd_id").notNull().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+    jdId: uuid("jd_id").references(() => jobDescriptions.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 120 }).notNull(),
+    level: varchar("level", { length: 64 }).notNull().default("custom"),
     graph: jsonb("graph").$type<ProcessGraph>().notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -315,7 +350,7 @@ export const LOOP_KINDS = ["official", "standalone"] as const;
 export const LOOP_STATUSES = ["active", "paused", "abandoned", "completed"] as const;
 
 /**
- * A confirmed process for a JD. `graph` is a snapshot taken at confirm time, so later edits to the
+ * A confirmed process, optionally associated with a JD. `graph` is a snapshot taken at confirm time, so later edits to the
  * saved process never change a running loop. Only `official` loops count toward readiness.
  */
 export const loops = pgTable(
@@ -323,8 +358,10 @@ export const loops = pgTable(
   {
     id: id(),
     userId: uuid("user_id").notNull(),
-    jdId: uuid("jd_id").notNull().references(() => jobDescriptions.id, { onDelete: "cascade" }),
+    jdId: uuid("jd_id").references(() => jobDescriptions.id, { onDelete: "cascade" }),
     processId: uuid("process_id").references(() => interviewProcesses.id, { onDelete: "set null" }),
+    name: varchar("name", { length: 120 }).notNull().default("Custom practice"),
+    level: varchar("level", { length: 64 }).notNull().default("custom"),
     kind: varchar("kind", { length: 16, enum: LOOP_KINDS }).notNull(),
     status: varchar("status", { length: 16, enum: LOOP_STATUSES }).notNull().default("active"),
     graph: jsonb("graph").$type<ProcessGraph>().notNull(),
@@ -361,4 +398,5 @@ export type CompanyRoleConfigRow = typeof companyRoleConfigs.$inferSelect;
 export type JobDescriptionRow = typeof jobDescriptions.$inferSelect;
 export type GitHubConnectionRow = typeof githubConnections.$inferSelect;
 export type LeetCodeConnectionRow = typeof leetcodeConnections.$inferSelect;
+export type PlatformConnectionRow = typeof platformConnections.$inferSelect;
 export type InterviewSessionRow = typeof interviewSessions.$inferSelect;

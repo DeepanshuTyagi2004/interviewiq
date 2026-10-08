@@ -99,8 +99,14 @@ describe("users", () => {
 describe("auth: refresh-token rotation + logout", () => {
   const cookieValue = (setCookie: string[] | undefined) => /refresh_token=([^;]*)/.exec((setCookie ?? []).join(";"))?.[1] ?? "";
 
-  it("no cookie → 401 and the cookie is cleared", async () => {
+  it("no cookie → 204 (signed out, not an error) and no token", async () => {
     const res = await env.http.post("/api/v1/auth/refresh");
+    expect(res.status).toBe(204);
+    expect(res.text).toBe("");
+  });
+
+  it("an empty cookie → 401 and the cookie is cleared", async () => {
+    const res = await env.http.post("/api/v1/auth/refresh").set("Cookie", "refresh_token=");
     expect(res.status).toBe(401);
     expect(String(res.headers["set-cookie"])).toContain("refresh_token=;");
   });

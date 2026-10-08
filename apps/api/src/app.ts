@@ -12,13 +12,17 @@ import { accountRouter } from "./routes/account.js";
 import { adminResearchRouter } from "./routes/research.js";
 import { authRouter } from "./routes/auth.js";
 import { companiesRouter, experiencesRouter, jdsRouter } from "./routes/catalogue.js";
-import { githubConnectionRouter, leetcodeConnectionRouter } from "./routes/connections.js";
-import { intelligenceRouter, interviewAgentBenchRouter, interviewPrepBenchRouter, resumeBenchRouter } from "./routes/intelligence.js";
+import { jdFitRouter } from "./routes/jdFit.js";
+import { githubConnectionRouter, leetcodeConnectionRouter, platformConnectionsRouter } from "./routes/connections.js";
+import { blueprintAdminRouter, intelligenceRouter, resumeBenchRouter } from "./routes/intelligence.js";
 import { internalRouter } from "./routes/internal.js";
 import { interviewsRouter } from "./routes/interviews.js";
 import { loopsRouter, processesRouter, targetsRouter } from "./routes/loops.js";
 import { candidateProfileRouter, usersRouter } from "./routes/users.js";
 import { UnknownUserError } from "./services/profileService.js";
+import { profileScoringRouter } from "./routes/profileScoring.js";
+import { linkedinRouter } from "./routes/linkedin.js";
+import { adminValidationControlsRouter } from "./routes/validationControls.js";
 
 export function createApp(c: Container): express.Express {
   const app = express();
@@ -59,7 +63,7 @@ export function createApp(c: Container): express.Express {
   app.use(cookieParser());
   // Authenticate before parsing bodies (an anonymous malformed body is a 401, like Spring).
   app.use(security(c.jwt));
-  // Session outcomes and agent plans can be large.
+  // Some admin payloads (profile traces, research documents) are large.
   app.use(express.json({ limit: "5mb" }));
 
   // --- routes (all mounted exactly where the Spring controllers were) ---
@@ -69,7 +73,9 @@ export function createApp(c: Container): express.Express {
   app.use(authRouter(c));
 
   const v1 = router();
+  v1.use(profileScoringRouter(c));
   v1.use("/users/me", accountRouter(c));
+  v1.use("/users/me/linkedin", linkedinRouter(c));
   v1.use("/users/me", candidateProfileRouter(c));
   v1.use("/users", usersRouter(c));
   v1.get("/profile/me", async (req, res) => {
@@ -85,20 +91,22 @@ export function createApp(c: Container): express.Express {
   });
   v1.use("/connections/github", githubConnectionRouter(c));
   v1.use("/connections/leetcode", leetcodeConnectionRouter(c));
+  v1.use("/connections/platforms", platformConnectionsRouter(c));
   v1.use("/companies", companiesRouter(c));
   v1.use("/jds", jdsRouter(c));
+  v1.use("/jd-fit", jdFitRouter(c));
   v1.use("/experiences", experiencesRouter(c));
   v1.use("/interviews", interviewsRouter(c));
   v1.use("/loops", loopsRouter(c));
   v1.use("/processes", processesRouter(c));
   v1.use("/targets", targetsRouter(c));
-  v1.use("/intelligence/interview-prep", interviewPrepBenchRouter(c));
-  v1.use("/intelligence/interview-agent", interviewAgentBenchRouter(c));
+  v1.use("/intelligence/blueprints", blueprintAdminRouter(c));
   v1.use("/intelligence/resume", resumeBenchRouter(c));
   v1.use("/intelligence", intelligenceRouter(c));
   v1.use("/admin/companies", adminCompaniesRouter(c));
   v1.use("/admin/users", adminUsersRouter(c));
   v1.use("/admin/research", adminResearchRouter(c));
+  v1.use("/admin/validation-controls", adminValidationControlsRouter(c));
   v1.use("/internal", internalRouter(c));
   app.use("/api/v1", v1);
 

@@ -6,10 +6,12 @@ import { verifyPassword } from "../lib/password.js";
 import type {
   CandidateProfileRepository,
   ProfileFragmentRepository,
-  SessionOutcomeRepository,
+  BlueprintSeenRepository,
   UserPreferencesRepository,
 } from "../repositories/mongo.js";
 import type { GitHubConnectionRepository, InterviewSessionRepository, UserRepository } from "../repositories/pg.js";
+import type { ProfileScoringRepository } from "../repositories/profileScoring.js";
+import type { LinkedInImportRepository } from "../repositories/linkedinImports.js";
 
 export class ConfirmationMismatchError extends Error {}
 export class InvalidPasswordError extends Error {}
@@ -25,8 +27,10 @@ export interface AccountDeletionDeps {
   githubConnections: GitHubConnectionRepository;
   candidateProfiles: CandidateProfileRepository;
   fragments: ProfileFragmentRepository;
-  outcomes: SessionOutcomeRepository;
+  seen: BlueprintSeenRepository;
   preferences: UserPreferencesRepository;
+  profileScoring: ProfileScoringRepository;
+  linkedinImports?: LinkedInImportRepository;
   aiService: AiServiceClient;
   githubOAuth: GitHubOAuthService;
   log: Logger;
@@ -37,7 +41,7 @@ export interface AccountDeletionDeps {
  *
  * Order matters:
  *  1. Checks (typed email, password, no live interview). Nothing is touched if any fails.
- *  2. The AI service (interview plans). A failure aborts BEFORE anything local is deleted.
+ *  2. The AI service (interview blueprints and their runs). A failure aborts BEFORE anything local is deleted.
  *  3. The GitHub grant, best effort.
  *  4. The API's Mongo documents.
  *  5. Postgres in one transaction, user row last.
@@ -61,13 +65,23 @@ export class AccountDeletionService {
     if (sessions.some((s) => s.status === "LIVE_IN_PROGRESS")) throw new InterviewInProgressError();
     const sessionIds = sessions.map((s) => s.id);
 
-    try {
-      for (let i = 0; i < sessionIds.length; i += PURGE_BATCH) {
-        await this.d.aiService.purgeUser(sessionIds.slice(i, i + PURGE_BATCH));
+    if (sessionIds.length === 0) {
+      // No sessions means no blueprints, only possible admin bench runs (keyed by candidate): purge them,
+      // but an AI-service outage must not block deleting an account that never booked an interview.
+      try {
+        await this.d.aiService.purgeUser(userId, []);
+      } catch (err) {
+        this.d.log.warn({ err: errorMessage(err) }, `AI service bench-run purge skipped during account deletion userId=${userId}`);
       }
-    } catch (err) {
-      this.d.log.warn({ err: errorMessage(err) }, `account deletion aborted: AI service purge failed userId=${userId}`);
-      throw new DeletionUnavailableError();
+    } else {
+      try {
+        for (let i = 0; i < sessionIds.length; i += PURGE_BATCH) {
+          await this.d.aiService.purgeUser(userId, sessionIds.slice(i, i + PURGE_BATCH));
+        }
+      } catch (err) {
+        this.d.log.warn({ err: errorMessage(err) }, `account deletion aborted: AI service purge failed userId=${userId}`);
+        throw new DeletionUnavailableError();
+      }
     }
 
     const github = await this.d.githubConnections.findByUserId(userId);
@@ -79,13 +93,24 @@ export class AccountDeletionService {
       }
     }
 
-    await Promise.all([
-      this.d.candidateProfiles.deleteByUserId(userId),
-      this.d.fragments.deleteByUserId(userId),
-      this.d.outcomes.deleteBySessionIds(sessionIds),
-      this.d.preferences.deleteByUserId(userId),
-    ]);
-    await this.d.users.deleteCascade(userId);
+    const eraseLocal = async () => {
+      await Promise.all([
+        this.d.candidateProfiles.deleteByUserId(userId),
+        this.d.fragments.deleteByUserId(userId),
+        this.d.seen.deleteByCandidate(userId),
+        this.d.preferences.deleteByUserId(userId),
+        this.d.profileScoring.deleteByUserId(userId),
+        this.d.linkedinImports?.deleteByUserId(userId),
+      ]);
+      await this.d.users.deleteCascade(userId);
+      // A concurrent local scoring read may have started before the first purge. User row is now absent.
+      await this.d.profileScoring.deleteByUserId(userId);
+      await this.d.linkedinImports?.deleteByUserId(userId);
+      await this.d.fragments.deleteByUserIdAndSource(userId, "LINKEDIN");
+    };
+    // Serialize local deletion with confirm; an in-flight provider read is fenced by epoch removal.
+    if (this.d.linkedinImports) await this.d.linkedinImports.withUserLock(userId, eraseLocal);
+    else await eraseLocal();
     this.d.log.info(`account deleted userId=${userId}`);
     return true;
   }

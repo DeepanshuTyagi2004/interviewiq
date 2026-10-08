@@ -26,9 +26,9 @@ async function seededUser() {
   await env.c.repos.fragments.insert({ userId: user.id, source: "LEETCODE", data: { solved: { total: 412 } }, contentHash: "h1", version: 1, fetchedAt: new Date() });
   const session = await env.c.repos.sessions.insert({
     candidateId: user.id, jobDescriptionId: randomUUID(), company: "meesho", role: "software-engineer", level: "sde1",
-    roundType: "dsa", scheduledAt: new Date(), timezone: "Asia/Kolkata",
+    roundType: "dsa", scheduledAt: new Date(), timezone: "Asia/Kolkata", status: "PREP_READY",
+    prepBriefing: { interviewer_name: "Asha Rao", interviewer_style: "Senior engineer", format: "45-minute coding interview", duration_mins: 45 },
   });
-  await env.c.repos.outcomes.save(session.id, { verdict: "lean_hire" });
   await env.c.preferences.update(user.id, { interview: { pace: "faster" } });
   return { user, session };
 }
@@ -51,8 +51,9 @@ describe("GET /users/me/export", () => {
     expect(res.body.connections.leetcode).toMatchObject({ username: "asha_lc" });
     expect(res.body.profileFragments).toEqual([expect.objectContaining({ source: "LEETCODE", data: { solved: { total: 412 } } })]);
     expect(res.body.interviewSessions).toEqual([expect.objectContaining({ id: session.id, company: "meesho" })]);
-    expect(res.body.sessionOutcomes).toEqual([expect.objectContaining({ sessionId: session.id, outcome: { verdict: "lean_hire" } })]);
-    expect(res.body.notes).toEqual([expect.stringContaining("Interview plans")]);
+    expect(res.body.interviewSessions[0].prepBriefing).toMatchObject({ interviewer_name: "Asha Rao" });
+    expect(res.body).not.toHaveProperty("sessionOutcomes");
+    expect(res.body.notes).toEqual([expect.stringContaining("Interview blueprints")]);
   });
 
   it("never includes secrets", async () => {
@@ -73,7 +74,6 @@ describe("GET /users/me/export", () => {
       connections: { github: null, leetcode: null },
       profileFragments: [],
       interviewSessions: [],
-      sessionOutcomes: [],
     });
   });
 });

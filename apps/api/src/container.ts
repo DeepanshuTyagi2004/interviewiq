@@ -15,15 +15,20 @@ import { OAuthStateService } from "./integrations/github/oauthState.js";
 import { LeetCodeCollector } from "./integrations/leetcode/collector.js";
 import { LeetCodeCollectionJob, LeetCodeService } from "./integrations/leetcode/service.js";
 import { LiveKitTokenService } from "./integrations/livekit.js";
-import { GitHubRefreshJob, InterviewPrepJob, LeetCodeRefreshJob } from "./jobs/jobs.js";
+import { BlueprintReconcileJob, GitHubRefreshJob, LeetCodeRefreshJob, PlatformRefreshJob } from "./jobs/jobs.js";
+import { AtCoderCollector } from "./integrations/platforms/atcoder.js";
+import { CodeChefCollector } from "./integrations/platforms/codechef.js";
+import { CodeforcesCollector } from "./integrations/platforms/codeforces.js";
+import { PlatformConnectionService } from "./integrations/platforms/service.js";
+import { TufCollector } from "./integrations/platforms/tuf.js";
 import { BackgroundTasks } from "./lib/background.js";
 import { TokenCipher } from "./lib/crypto.js";
 import type { FetchLike } from "./lib/http.js";
 import type { Logger } from "./lib/logger.js";
 import {
+  BlueprintSeenRepository,
   CandidateProfileRepository,
   ProfileFragmentRepository,
-  SessionOutcomeRepository,
   UserPreferencesRepository,
 } from "./repositories/mongo.js";
 import {
@@ -36,12 +41,12 @@ import {
   TargetRepository,
   JobDescriptionRepository,
   LeetCodeConnectionRepository,
+  PlatformConnectionRepository,
   UserRepository,
 } from "./repositories/pg.js";
 import { CandidateProfileService } from "./services/candidateProfileService.js";
 import { CatalogueSeeder } from "./services/catalogueSeeder.js";
-import { CodingSignalsProvider } from "./services/codingSignals.js";
-import { InterviewPrepService } from "./services/interviewPrep.js";
+import { BlueprintPrepService } from "./services/blueprintPrep.js";
 import { InterviewSessionService } from "./services/interviewSessions.js";
 import { LoopService } from "./services/loops.js";
 import { LiveSessionService } from "./services/liveSessions.js";
@@ -51,6 +56,14 @@ import { PreferencesService } from "./services/preferencesService.js";
 import { ProfileService } from "./services/profileService.js";
 import { UserService } from "./services/userService.js";
 import { CompanyEnrichmentService } from "./services/companyEnrichment.js";
+import { JdFitService } from "./services/jdFit.js";
+import { ProfileScoringRepository } from "./repositories/profileScoring.js";
+import { ProfileScoringService } from "./services/profileScoring.js";
+import { ProfileScoringJob } from "./jobs/profileScoring.js";
+import { LinkedInImportRepository } from "./repositories/linkedinImports.js";
+import { LinkedInImportService } from "./services/linkedinImport.js";
+import { ValidationControlsRepository } from "./repositories/validationControls.js";
+import { CURRENT_SCORING_CONFIG } from "./domain/profileScoring/config.js";
 
 export interface ContainerDeps {
   config: Config;
@@ -76,14 +89,18 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     jds: new JobDescriptionRepository(db),
     githubConnections: new GitHubConnectionRepository(db),
     leetcodeConnections: new LeetCodeConnectionRepository(db),
+    platformConnections: new PlatformConnectionRepository(db),
     sessions: new InterviewSessionRepository(db),
     processes: new ProcessRepository(db),
     loops: new LoopRepository(db),
     targets: new TargetRepository(db),
     candidateProfiles: new CandidateProfileRepository(mongo),
     fragments: new ProfileFragmentRepository(mongo),
-    outcomes: new SessionOutcomeRepository(mongo),
+    blueprintSeen: new BlueprintSeenRepository(mongo),
     preferences: new UserPreferencesRepository(mongo),
+    profileScoring: new ProfileScoringRepository(mongo),
+    linkedinImports: new LinkedInImportRepository(mongo),
+    validationControls: new ValidationControlsRepository(mongo),
   };
 
   const jwt = new JwtService(config.jwt.secret, config.jwt.accessTokenMinutes);
@@ -100,8 +117,10 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     githubConnections: repos.githubConnections,
     candidateProfiles: repos.candidateProfiles,
     fragments: repos.fragments,
-    outcomes: repos.outcomes,
+    seen: repos.blueprintSeen,
     preferences: repos.preferences,
+    profileScoring: repos.profileScoring,
+    linkedinImports: repos.linkedinImports,
     aiService,
     githubOAuth,
     log,
@@ -109,6 +128,15 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
   const leetcodeCollector = new LeetCodeCollector(config.leetcode.graphqlUrl, repos.fragments, fetchImpl, log);
   const leetcodeJob = new LeetCodeCollectionJob(repos.leetcodeConnections, leetcodeCollector, log);
   const leetcode = new LeetCodeService(repos.leetcodeConnections, repos.fragments, leetcodeCollector, leetcodeJob, background);
+  const p = config.platforms;
+  const platforms = new PlatformConnectionService({
+    connections: repos.platformConnections, fragments: repos.fragments, background, log,
+    collectors: [
+      new CodeforcesCollector(p.codeforcesUrl, fetchImpl), new AtCoderCollector(p.atcoderUrl, p.atcoderProblemsUrl, fetchImpl),
+      new CodeChefCollector(p.codechefUrl, fetchImpl), new TufCollector(p.tufUrl, p.tufApiUrl, fetchImpl),
+    ],
+    leetcode: { connections: repos.leetcodeConnections, connect: (userId, username) => leetcode.connect(userId, username) },
+  });
   const liveKit = new LiveKitTokenService(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret);
 
   const users = new UserService(db, repos.users, config.adminEmails);
@@ -121,7 +149,9 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     repos.leetcodeConnections,
     repos.fragments,
     repos.sessions,
-    repos.outcomes,
+    repos.profileScoring,
+    repos.linkedinImports,
+    repos.platformConnections,
   );
   if (!mailer && config.env === "production") {
     log.warn("ConsoleMailer is active: email verification and password-reset links are written to the logs");
@@ -138,26 +168,48 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     config.frontendUrl,
   );
   const rateLimiters = createAuthRateLimiters({ ...DEFAULT_AUTH_RATE_LIMITS, ...authRateLimits });
-  const candidateProfiles = new CandidateProfileService(repos.candidateProfiles, repos.users, aiService);
-  const codingSignals = new CodingSignalsProvider(repos.fragments);
-  const profiles = new ProfileService(repos.users, repos.githubConnections, repos.leetcodeConnections, repos.fragments, githubCollector);
+  const candidateProfiles = new CandidateProfileService(repos.candidateProfiles, repos.users, aiService,
+    async (userId) => (await repos.profileScoring.settings(userId)).declaredLevel);
+  const linkedin = new LinkedInImportService(repos.linkedinImports, repos.candidateProfiles, repos.fragments, repos.users, aiService, repos.validationControls);
+  const profiles = new ProfileService(repos.users, repos.githubConnections, repos.leetcodeConnections, repos.fragments, githubCollector, repos.platformConnections);
+  const profileScoring = new ProfileScoringService({
+    repo: repos.profileScoring, users: repos.users, profiles: repos.candidateProfiles, fragments: repos.fragments,
+    github: repos.githubConnections, leetcode: repos.leetcodeConnections, platforms: repos.platformConnections, preferences, pseudonymKey: config.jwt.secret,
+    schedulerEnabled: config.profileScoring.schedulerEnabled, aiService, companies: repos.companies,
+    semanticCallsPerBatch: config.profileScoring.semanticCallsPerBatch,
+    ...(config.profileScoring.policy === "v5" ? { config: CURRENT_SCORING_CONFIG } : {}),
+  });
   const enrichment = new CompanyEnrichmentService(db, aiService);
-  const prep = new InterviewPrepService(repos.sessions, repos.jds, candidateProfiles, codingSignals, aiService, background, log, {
-    planPollIntervalMs: config.interviewPrep.planPollIntervalMs,
-    planMaxWaitMs: config.interviewPrep.planMaxWaitMs,
-  }, enrichment);
-  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, prep, enrichment, repos.loops);
+  const jdFit = new JdFitService({
+    jds: repos.jds, companies: repos.companies, profiles: repos.candidateProfiles, fragments: repos.fragments,
+    declaredLevel: async (userId) => (await repos.profileScoring.settings(userId)).declaredLevel, enrichment, aiService,
+  });
+  const blueprintPrep = new BlueprintPrepService({
+    sessions: repos.sessions, jds: repos.jds, loops: repos.loops, users: repos.users, candidateProfiles,
+    fragments: repos.fragments, seen: repos.blueprintSeen, enrichment, aiService, background, log,
+    options: {
+      runTimeoutMinutes: config.blueprint.runTimeoutMinutes,
+      retryLimitPerHour: config.blueprint.retryLimitPerHour,
+      refreshCutoffMinutes: config.blueprint.refreshCutoffMinutes,
+    },
+  });
+  const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, blueprintPrep, enrichment,
+    repos.loops, config.blueprint.liveInterviewerAvailable);
   const loops = new LoopService(
     repos.processes, repos.loops, repos.targets, repos.sessions, repos.jds, repos.companies, enrichment,
     (company, role, level, specialization) => aiService.fetchBrief(company, role, level, specialization),
   );
-  const liveSessions = new LiveSessionService(repos.sessions, repos.outcomes, liveKit);
+  const liveSessions = new LiveSessionService(repos.sessions, liveKit, blueprintPrep, config.blueprint.liveInterviewerAvailable);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
   const jobs = {
-    interviewPrep: new InterviewPrepJob(repos.sessions, prep, config.interviewPrep.leadTimeMinutes, log),
+    profileScoring: new ProfileScoringJob(profileScoring),
+    blueprintReconcile: new BlueprintReconcileJob(repos.sessions, blueprintPrep, {
+      refreshEveryTicks: config.blueprint.refreshEveryTicks, refreshCutoffMinutes: config.blueprint.refreshCutoffMinutes,
+    }, log),
     githubRefresh: new GitHubRefreshJob(repos.githubConnections, profiles, log),
     leetcodeRefresh: new LeetCodeRefreshJob(repos.leetcodeConnections, leetcodeJob, log),
+    platformRefresh: new PlatformRefreshJob(repos.platformConnections, platforms, log),
   };
 
   return {
@@ -171,6 +223,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     aiService,
     githubOAuth,
     leetcode,
+    platforms,
     users,
     preferences,
     accountExport,
@@ -178,10 +231,12 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     passwordAuth,
     rateLimiters,
     candidateProfiles,
-    codingSignals,
     profiles,
-    prep,
+    linkedin,
+    profileScoring,
+    blueprintPrep,
     enrichment,
+    jdFit,
     sessions,
     loops,
     liveSessions,

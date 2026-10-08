@@ -4,10 +4,10 @@ import type {
   CandidateProfileDoc,
   MongoCollections,
   ProfileFragmentDoc,
-  SessionOutcomeDoc,
   UserPreferencesDoc,
 } from "../db/mongo/client.js";
 import type { ProfileSource } from "../domain/enums.js";
+import type { EngineeringLevel } from "../domain/engineeringLevels.js";
 
 /** MongoDB repositories (native driver). */
 
@@ -26,16 +26,43 @@ export class CandidateProfileRepository {
     return this.c.candidateProfiles.find().toArray();
   }
 
+  /** Change only the chosen level. Never create a partial profile or replace other details. */
+  async patchLevel(userId: string, level: EngineeringLevel | null): Promise<void> {
+    const now = new Date();
+    // Keep the level-only contract; a strictly increasing timestamp is also a CAS revision fence.
+    await this.c.candidateProfiles.updateOne({ _id: userId }, [{ $set: { level,
+      updatedAt: { $cond: [{ $gte: ["$updatedAt", now] }, { $add: ["$updatedAt", 1] }, now] } } }], { upsert: false });
+  }
+
   /** Replace the user's profile, preserving its createdAt. */
   async save(doc: Omit<CandidateProfileDoc, "_id" | "createdAt" | "updatedAt"> & { createdAt?: Date }): Promise<CandidateProfileDoc> {
     const now = new Date();
     const { createdAt, ...fields } = doc;
     const saved = await this.c.candidateProfiles.findOneAndUpdate(
       { _id: doc.userId },
-      { $set: { ...fields, updatedAt: now }, $setOnInsert: { createdAt: createdAt ?? now } },
+      { $set: { ...fields, updatedAt: now, revision: randomUUID() }, $setOnInsert: { createdAt: createdAt ?? now } },
       { upsert: true, returnDocument: "after" },
     );
     return saved!;
+  }
+
+  /** Atomic additive import write: no stale preview can overwrite a concurrent human edit. */
+  async compareAndSet(existing: CandidateProfileDoc | null, userId: string, patch: Partial<CandidateProfileDoc>, revision: string): Promise<CandidateProfileDoc | null> {
+    if (!existing) {
+      try {
+        const now = new Date();
+        const doc = { ...patch, _id: userId, userId, createdAt: now, updatedAt: now, revision } as CandidateProfileDoc;
+        await this.c.candidateProfiles.insertOne(doc);
+        return doc;
+      } catch (err) {
+        if ((err as { code?: number }).code === 11000) return null;
+        throw err;
+      }
+    }
+    return this.c.candidateProfiles.findOneAndUpdate(
+      { _id: userId, updatedAt: existing.updatedAt, ...(existing.revision ? { revision: existing.revision } : { revision: { $exists: false } }) },
+      { $set: { ...patch, updatedAt: new Date(), revision } }, { returnDocument: "after" },
+    );
   }
 }
 
@@ -65,28 +92,37 @@ export class ProfileFragmentRepository {
   async deleteByUserIdAndSource(userId: string, source: ProfileSource): Promise<void> {
     await this.c.profileFragments.deleteOne({ userId, source });
   }
+
+  /** Atomic replacement of one source; never touches other providers. */
+  async upsert(userId: string, source: ProfileSource, data: Record<string, unknown>, contentHash: string, fetchedAt: Date): Promise<void> {
+    await this.c.profileFragments.updateOne({ userId, source },
+      { $set: { data, contentHash, fetchedAt }, $inc: { version: 1 }, $setOnInsert: { _id: randomUUID(), userId, source } }, { upsert: true });
+  }
 }
 
-export class SessionOutcomeRepository {
+/** Problems a candidate was given in live interviews; excluded from their later blueprints (spec §7.4). */
+export class BlueprintSeenRepository {
   constructor(private readonly c: MongoCollections) {}
 
-  findBySessionId(sessionId: string): Promise<SessionOutcomeDoc | null> {
-    return this.c.sessionOutcomes.findOne({ _id: sessionId });
+  async slugsFor(candidateId: string): Promise<string[]> {
+    const rows = await this.c.blueprintSeen.find({ candidateId }, { projection: { slug: 1 } }).toArray();
+    return [...new Set(rows.map((r) => r.slug))].sort();
   }
 
-  async deleteBySessionIds(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.c.sessionOutcomes.deleteMany({ _id: { $in: ids } });
+  /** Idempotent: a problem stays seen once, with its first session. */
+  async record(candidateId: string, sessionId: string, problems: { slug: string; roundType: string }[]): Promise<void> {
+    if (problems.length === 0) return;
+    await this.c.blueprintSeen.bulkWrite(problems.map((p) => ({
+      updateOne: {
+        filter: { candidateId, slug: p.slug },
+        update: { $setOnInsert: { _id: randomUUID(), candidateId, slug: p.slug, roundType: p.roundType, sessionId, at: new Date() } },
+        upsert: true,
+      },
+    })));
   }
 
-  findBySessionIds(ids: string[]): Promise<SessionOutcomeDoc[]> {
-    if (ids.length === 0) return Promise.resolve([]);
-    return this.c.sessionOutcomes.find({ _id: { $in: ids } }).toArray();
-  }
-
-  /** Idempotent: a re-delivered outcome overwrites the same document. */
-  async save(sessionId: string, outcome: Record<string, unknown>): Promise<void> {
-    await this.c.sessionOutcomes.replaceOne({ _id: sessionId }, { outcome, receivedAt: new Date() }, { upsert: true });
+  async deleteByCandidate(candidateId: string): Promise<void> {
+    await this.c.blueprintSeen.deleteMany({ candidateId });
   }
 }
 

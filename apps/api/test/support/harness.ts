@@ -40,8 +40,8 @@ export function testConfig(env: Record<string, string> = {}): Config {
     LIVEKIT_API_KEY: "lk-key",
     LIVEKIT_API_SECRET: "lk-secret-lk-secret-lk-secret-lk-secret",
     AI_SERVICE_BASE_URL: "http://ai.test",
-    INTERVIEW_PREP_PLAN_POLL_INTERVAL_MS: "1",
-    INTERVIEW_PREP_PLAN_MAX_WAIT_MS: "2000",
+    // Route/service suites assert the frozen v4 path; v5 is covered by its own domain/service tests.
+    PROFILE_SCORING_POLICY: "v4",
     ...env,
   });
 }

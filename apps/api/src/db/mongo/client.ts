@@ -1,6 +1,9 @@
 import { type Collection, type Db, MongoClient } from "mongodb";
 import type { EducationDto, ExperienceDto, ProjectDto, ResumeLinksDto } from "../../domain/candidateProfile.js";
 import type { ProfileSource } from "../../domain/enums.js";
+import type { LinkedInImportDoc, LinkedInImportLockDoc } from "../../repositories/linkedinImports.js";
+import type { CompanyKnowledgeDoc, ProfileScoreDoc, ProfileScoringJobDoc, ProfileScoringLeaseDoc, ProfileScoringSettingsDoc, SemanticAssessmentDoc } from "../../repositories/profileScoring.js";
+import type { ValidationControlsDoc } from "../../repositories/validationControls.js";
 
 /**
  * Document data in MongoDB (Atlas in production, the local container in dev):
@@ -9,8 +12,8 @@ import type { ProfileSource } from "../../domain/enums.js";
  *                       native arrays instead of the old Postgres jsonb strings
  *   profile_fragments   one per (user, source) — the normalized, hash-versioned Profile Builder
  *                       inputs (GitHub / LeetCode)
- *   session_outcomes    one per interview session (_id = sessionId) — the full SessionOutcome
- *                       JSON the live-interview worker posts at the end
+ *   blueprint_seen      one per (candidate, problem) — problems a candidate was given in a live
+ *                       interview, excluded from their later blueprints (no repeats on retakes)
  *   user_preferences    one per user (_id = userId) — only the settings the user changed; reads
  *                       overlay them on DEFAULT_PREFERENCES (domain/preferences.ts)
  *
@@ -26,9 +29,13 @@ export interface CandidateProfileDoc {
   phone: string | null;
   location: string | null;
   headline: string | null;
+  /** Optional portfolio URL; absent on documents written before portfolio links were supported. */
+  portfolioWebsite?: string | null;
   targetRole: string | null;
   /** Absent on documents written before the Target step stored an id. */
   targetJdId?: string | null;
+  /** Optional for old documents; saved legacy labels are normalized on read only. */
+  level?: string | null;
   education: EducationDto[];
   experience: ExperienceDto[];
   projects: ProjectDto[];
@@ -39,6 +46,8 @@ export interface CandidateProfileDoc {
   resumeParsedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Opaque full-write revision; level-only writes advance updatedAt atomically. */
+  revision?: string;
 }
 
 export interface ProfileFragmentDoc {
@@ -53,11 +62,13 @@ export interface ProfileFragmentDoc {
   fetchedAt: Date;
 }
 
-export interface SessionOutcomeDoc {
+export interface BlueprintSeenDoc {
   _id: string;
-  /** The worker's SessionOutcome, stored verbatim. */
-  outcome: Record<string, unknown>;
-  receivedAt: Date;
+  candidateId: string;
+  slug: string;
+  roundType: string;
+  sessionId: string;
+  at: Date;
 }
 
 export interface UserPreferencesDoc {
@@ -73,21 +84,48 @@ export interface UserPreferencesDoc {
 export interface MongoCollections {
   candidateProfiles: Collection<CandidateProfileDoc>;
   profileFragments: Collection<ProfileFragmentDoc>;
-  sessionOutcomes: Collection<SessionOutcomeDoc>;
+  blueprintSeen: Collection<BlueprintSeenDoc>;
   userPreferences: Collection<UserPreferencesDoc>;
+  profileScoringSettings: Collection<ProfileScoringSettingsDoc>;
+  profileScoreSnapshots: Collection<ProfileScoreDoc>;
+  profileScoringJobs: Collection<ProfileScoringJobDoc>;
+  profileScoringLeases: Collection<ProfileScoringLeaseDoc>;
+  profileScoringSemantic: Collection<SemanticAssessmentDoc>;
+  profileScoringCompanies: Collection<CompanyKnowledgeDoc>;
+  linkedinImports: Collection<LinkedInImportDoc>;
+  linkedinImportLocks: Collection<LinkedInImportLockDoc>;
+  validationControls: Collection<ValidationControlsDoc>;
 }
 
 export function collections(db: Db): MongoCollections {
   return {
     candidateProfiles: db.collection<CandidateProfileDoc>("candidate_profiles"),
     profileFragments: db.collection<ProfileFragmentDoc>("profile_fragments"),
-    sessionOutcomes: db.collection<SessionOutcomeDoc>("session_outcomes"),
+    blueprintSeen: db.collection<BlueprintSeenDoc>("blueprint_seen"),
     userPreferences: db.collection<UserPreferencesDoc>("user_preferences"),
+    profileScoringSettings: db.collection<ProfileScoringSettingsDoc>("profile_scoring_settings"),
+    profileScoreSnapshots: db.collection<ProfileScoreDoc>("profile_score_snapshots"),
+    profileScoringJobs: db.collection<ProfileScoringJobDoc>("profile_scoring_jobs"),
+    profileScoringLeases: db.collection<ProfileScoringLeaseDoc>("profile_scoring_leases"),
+    profileScoringSemantic: db.collection<SemanticAssessmentDoc>("profile_scoring_semantic_assessments"),
+    profileScoringCompanies: db.collection<CompanyKnowledgeDoc>("profile_scoring_company_kb"),
+    linkedinImports: db.collection<LinkedInImportDoc>("linkedin_import_drafts"),
+    linkedinImportLocks: db.collection<LinkedInImportLockDoc>("linkedin_import_locks"),
+    // The fixed singleton _id uses MongoDB's built-in unique _id index; no TTL/user ownership.
+    validationControls: db.collection<ValidationControlsDoc>("validation_controls"),
   };
 }
 
 export async function ensureMongoIndexes(c: MongoCollections): Promise<void> {
   await c.profileFragments.createIndex({ userId: 1, source: 1 }, { unique: true, name: "uq_fragment_user_source" });
+  await c.blueprintSeen.createIndex({ candidateId: 1, slug: 1 }, { unique: true, name: "uq_seen_candidate_slug" });
+  await c.profileScoreSnapshots.createIndex({ userId: 1, "snapshot.calculatedAt": -1 });
+  await c.profileScoreSnapshots.createIndex({ "snapshot.week": 1, "snapshot.calculatedAt": -1 });
+  await c.profileScoringJobs.createIndex({ startedAt: -1 });
+  await c.profileScoringSemantic.createIndex({ userId: 1 });
+  await c.linkedinImports.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  await c.linkedinImports.createIndex({ userId: 1 });
+  await c.linkedinImportLocks.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 }
 
 export async function connectMongo(uri: string, database: string): Promise<{ client: MongoClient; db: Db }> {

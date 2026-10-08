@@ -76,18 +76,20 @@ describe("adopting the Hibernate-created database", () => {
     await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
     const after = await schemaSnapshot();
 
-    // Nothing Hibernate created is removed or altered — except the one intentional relaxation:
-    // 0001_password_auth makes app_user.google_sub nullable (email/password accounts).
-    const expectedCols = before.cols.map((c) => (c.t === "app_user" && c.c === "google_sub" ? { ...c, n: "YES" } : c));
+    // Intentional additive relaxations: password-only users and JD-independent practice sessions.
+    const expectedCols = before.cols.map((c) => ((c.t === "app_user" && c.c === "google_sub") || (c.t === "interview_sessions" && c.c === "job_description_id") ? { ...c, n: "YES" } : c));
     expect(after.cols).toEqual(expect.arrayContaining(expectedCols));
     // Postgres 18 (PGlite) also lists NOT NULLs as constraints; nullability is compared on the columns above.
     const keyCons = (cons: typeof before.cons) => cons.filter((c) => c.ty !== "n");
-    expect(keyCons(after.cons)).toEqual(expect.arrayContaining(keyCons(before.cons)));
+    // 0004 intentionally extends the existing status check to permit cancellation.
+    const expectedCons = keyCons(before.cons).map((c) => c.t === "interview_sessions" && c.ty === "c" && c.def.includes("SCHEDULED")
+      ? { ...c, def: c.def.replace("'ABORTED_TECHNICAL'::character varying]", "'ABORTED_TECHNICAL'::character varying, 'CANCELLED'::character varying]") } : c);
+    expect(keyCons(after.cons)).toEqual(expect.arrayContaining(expectedCons));
     expect(after.idx).toEqual(expect.arrayContaining(before.idx));
 
-    // ...and the additions are exactly password auth, company research and manual enrichment.
+    // ...and the additions are password auth, catalogue enrichment, persisted practice workflows, coding-platform connections and blueprint prep state.
     const added = <T>(xs: T[], base: T[]) => xs.filter((x) => !base.some((b) => JSON.stringify(b) === JSON.stringify(x)));
-    expect(added(after.cols, expectedCols).map((c) => `${c.t}.${c.c} ${c.ty} null=${c.n}`)).toEqual([
+    expect(added(after.cols, expectedCols).map((c) => `${c.t}.${c.c} ${c.ty} null=${c.n}`).sort()).toEqual([
       "app_user.email_verified_at timestamp with time zone null=YES",
       "app_user.password_hash character varying null=YES",
       "auth_token.created_at timestamp with time zone null=NO",
@@ -120,37 +122,99 @@ describe("adopting the Hibernate-created database", () => {
       "company_enrichments.published_revision integer null=YES",
       "company_enrichments.revision integer null=NO",
       "company_enrichments.verified_by uuid null=YES",
+      "interview_processes.created_at timestamp with time zone null=NO",
+      "interview_processes.graph jsonb null=NO",
+      "interview_processes.id uuid null=NO",
+      "interview_processes.jd_id uuid null=YES",
+      "interview_processes.level character varying null=NO",
+      "interview_processes.name character varying null=NO",
+      "interview_processes.updated_at timestamp with time zone null=NO",
+      "interview_processes.user_id uuid null=NO",
+      "interview_sessions.blueprint_version integer null=YES",
+      "interview_sessions.loop_id uuid null=YES",
+      "interview_sessions.node_id character varying null=YES",
+      "interview_sessions.practice_prep jsonb null=YES",
+      "interview_sessions.prep_briefing jsonb null=YES",
+      "interview_sessions.prep_error_code character varying null=YES",
+      "interview_sessions.prep_input_hash character varying null=YES",
+      "interview_sessions.prep_refreshing boolean null=NO",
+      "interview_sessions.prep_retry_count integer null=NO",
+      "interview_sessions.prep_retry_window_start timestamp with time zone null=YES",
+      "interview_sessions.prep_run_id character varying null=YES",
+      "interview_sessions.prep_run_started_at timestamp with time zone null=YES",
+      "interview_sessions.prepared_at timestamp with time zone null=YES",
       "job_descriptions.ctc_max_lpa numeric null=YES",
       "job_descriptions.ctc_min_lpa numeric null=YES",
       "job_descriptions.ctc_source_count integer null=YES",
       "job_descriptions.role_key character varying null=YES",
       "job_descriptions.yoe_max numeric null=YES",
       "job_descriptions.yoe_min numeric null=YES",
+      "loops.confirmed_at timestamp with time zone null=NO",
+      "loops.created_at timestamp with time zone null=NO",
+      "loops.graph jsonb null=NO",
+      "loops.id uuid null=NO",
+      "loops.jd_id uuid null=YES",
+      "loops.kind character varying null=NO",
+      "loops.level character varying null=NO",
+      "loops.name character varying null=NO",
+      "loops.process_id uuid null=YES",
+      "loops.status character varying null=NO",
+      "loops.updated_at timestamp with time zone null=NO",
+      "loops.user_id uuid null=NO",
       "manual_jd_briefs.brief jsonb null=NO",
       "manual_jd_briefs.company_id uuid null=NO",
       "manual_jd_briefs.jd_id uuid null=NO",
       "manual_jd_briefs.role_id uuid null=NO",
+      "platform_connection.connected_at timestamp with time zone null=NO",
+      "platform_connection.discovered_from character varying null=YES",
+      "platform_connection.handle character varying null=NO",
+      "platform_connection.id uuid null=NO",
+      "platform_connection.last_refreshed_at timestamp with time zone null=YES",
+      "platform_connection.platform character varying null=NO",
+      "platform_connection.status character varying null=NO",
+      "platform_connection.user_id uuid null=NO",
+      "targets.created_at timestamp with time zone null=NO",
+      "targets.jd_id uuid null=NO",
+      "targets.user_id uuid null=NO",
     ]);
-    expect(added(keyCons(after.cons), keyCons(before.cons)).map((c) => `${c.t} ${c.def}`)).toEqual([
+    expect(added(keyCons(after.cons), expectedCons).map((c) => `${c.t} ${c.def}`)).toEqual([
       "auth_token FOREIGN KEY (user_id) REFERENCES app_user(id)",
       "auth_token PRIMARY KEY (id)",
       "auth_token UNIQUE (token_hash)",
       "company_enrichments FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE",
       "company_enrichments PRIMARY KEY (company_id)",
+      "interview_processes FOREIGN KEY (jd_id) REFERENCES job_descriptions(id) ON DELETE CASCADE",
+      "interview_processes PRIMARY KEY (id)",
       "job_descriptions UNIQUE (company, role_key)",
+      "loops FOREIGN KEY (jd_id) REFERENCES job_descriptions(id) ON DELETE CASCADE",
+      "loops FOREIGN KEY (process_id) REFERENCES interview_processes(id) ON DELETE SET NULL",
+      "loops PRIMARY KEY (id)",
       "manual_jd_briefs FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE",
       "manual_jd_briefs FOREIGN KEY (jd_id) REFERENCES job_descriptions(id) ON DELETE CASCADE",
       "manual_jd_briefs PRIMARY KEY (jd_id)",
       "manual_jd_briefs UNIQUE (company_id, role_id)",
+      "platform_connection PRIMARY KEY (id)",
+      "platform_connection UNIQUE (user_id, platform)",
+      "targets FOREIGN KEY (jd_id) REFERENCES job_descriptions(id) ON DELETE CASCADE",
+      "targets PRIMARY KEY (user_id, jd_id)",
     ]);
     expect(added(after.idx, before.idx).map((i) => i.i)).toEqual([
       "CREATE INDEX idx_auth_token_user_purpose ON public.auth_token USING btree (user_id, purpose)",
+      "CREATE INDEX idx_loop_user ON public.loops USING btree (user_id)",
+      "CREATE INDEX idx_process_user ON public.interview_processes USING btree (user_id)",
+      "CREATE INDEX idx_session_loop ON public.interview_sessions USING btree (loop_id)",
       "CREATE UNIQUE INDEX auth_token_pkey ON public.auth_token USING btree (id)",
       "CREATE UNIQUE INDEX auth_token_token_hash_unique ON public.auth_token USING btree (token_hash)",
       "CREATE UNIQUE INDEX company_enrichments_pkey ON public.company_enrichments USING btree (company_id)",
+      "CREATE UNIQUE INDEX interview_processes_pkey ON public.interview_processes USING btree (id)",
+      "CREATE UNIQUE INDEX loops_pkey ON public.loops USING btree (id)",
       "CREATE UNIQUE INDEX manual_jd_briefs_pkey ON public.manual_jd_briefs USING btree (jd_id)",
+      "CREATE UNIQUE INDEX platform_connection_pkey ON public.platform_connection USING btree (id)",
+      "CREATE UNIQUE INDEX targets_user_id_jd_id_pk ON public.targets USING btree (user_id, jd_id)",
       "CREATE UNIQUE INDEX uq_jd_company_role_key ON public.job_descriptions USING btree (company, role_key)",
+      "CREATE UNIQUE INDEX uq_loop_live ON public.loops USING btree (user_id, jd_id) WHERE ((status)::text = ANY ((ARRAY['active'::character varying, 'paused'::character varying])::text[]))",
       "CREATE UNIQUE INDEX uq_manual_company_role ON public.manual_jd_briefs USING btree (company_id, role_id)",
+      "CREATE UNIQUE INDEX uq_platform_connection_user_platform ON public.platform_connection USING btree (user_id, platform)",
     ]);
   });
 

@@ -1,4 +1,5 @@
 import { InvalidArgumentError } from "../lib/errors.js";
+import { ENGINEERING_LEVELS } from "./engineeringLevels.js";
 
 /** Coarse authorization role, carried in the access token's `role` claim. */
 export const ROLES = ["USER", "ADMIN"] as const;
@@ -13,13 +14,18 @@ export const SYNC_STATUSES = ["SYNCING", "SYNCED", "FAILED", "DEGRADED"] as cons
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
 
 /** Profile Builder sources. Fragment keys in API responses are the lower-cased names. */
-export const PROFILE_SOURCES = ["GITHUB", "RESUME", "LEETCODE", "LINKEDIN", "X"] as const;
+export const PROFILE_SOURCES = ["GITHUB", "RESUME", "LEETCODE", "CODEFORCES", "CODECHEF", "ATCODER", "HACKEREARTH", "TUF", "ICPC", "COMPETITIVE_PROGRAMMING", "LINKEDIN"] as const;
 export type ProfileSource = (typeof PROFILE_SOURCES)[number];
+
+/** Handle-based coding platforms collected through the shared platform connection (`docs/sources/platform-analyzers.md`). */
+export const CODING_PLATFORMS = ["CODEFORCES", "CODECHEF", "ATCODER", "TUF"] as const;
+export type CodingPlatform = (typeof CODING_PLATFORMS)[number];
 
 /**
  * Interview session lifecycle.
  *
- * Prep:  SCHEDULED → PREP_QUEUED → PREP_READY | PREP_FAILED;  PREP_FAILED → (regenerate) → PREP_QUEUED
+ * Prep:  SCHEDULED → PREP_QUEUED (at booking) → PREP_READY | PREP_FAILED;  PREP_FAILED → (retry) → PREP_QUEUED.
+ *        A ready session can be re-prepared in place (prep_refreshing) when its inputs change.
  * Live:  PREP_READY → LIVE_IN_PROGRESS → COMPLETED | ABORTED_TECHNICAL
  *
  * Deliberately extensible for later debrief stages (not implemented here).
@@ -64,4 +70,4 @@ export function optionalRoundType(raw: unknown): RoundType | null {
 }
 
 /** Interview-experience levels. */
-export const LEVELS = ["fresher", "sde1", "sde2", "sde3"] as const;
+export const LEVELS = ENGINEERING_LEVELS;

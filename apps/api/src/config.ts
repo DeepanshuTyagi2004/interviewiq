@@ -71,21 +71,39 @@ const envSchema = z.object({
   // --- LeetCode Profile Builder ---
   LEETCODE_GRAPHQL_URL: withDefault("https://leetcode.com/graphql"),
 
+  // --- Coding platforms (public profile data; docs/sources/platform-analyzers.md) ---
+  CODEFORCES_URL: withDefault("https://codeforces.com"),
+  ATCODER_URL: withDefault("https://atcoder.jp"),
+  ATCODER_PROBLEMS_URL: withDefault("https://kenkoooo.com/atcoder"),
+  CODECHEF_URL: withDefault("https://www.codechef.com"),
+  TUF_URL: withDefault("https://takeuforward.org"),
+  TUF_API_URL: withDefault("https://backend-go.takeuforward.org"),
+
   // --- interviewiq-ai-service ---
   AI_SERVICE_BASE_URL: withDefault("http://localhost:8000"),
   AI_SERVICE_TIMEOUT_MS: int(120_000),
   /** Shared secret between this API and the AI service (both directions). */
   INTERNAL_API_KEY: required,
 
-  // --- Interview prep (Pipeline 1) trigger ---
+  // --- Schedulers: blueprint prep reconcile + weekly source refreshes ---
   SCHEDULER_ENABLED: bool(true),
-  INTERVIEW_PREP_LEAD_TIME_MINUTES: int(15),
-  INTERVIEW_PREP_POLL_INTERVAL_MS: int(60_000),
-  INTERVIEW_PREP_POLL_INITIAL_DELAY_MS: int(30_000),
-  INTERVIEW_PREP_PLAN_POLL_INTERVAL_MS: int(2_000),
-  INTERVIEW_PREP_PLAN_MAX_WAIT_MS: int(180_000),
+  /** Independent local-only beta profile scoring: startup catch-up, then hourly UTC calendar-week polling. */
+  PROFILE_SCORING_SCHEDULER_ENABLED: bool(true),
+  /** Keep legacy v4 as the safe default; set v5 to activate enhanced CP/internship scoring. */
+  // v5 (AI item assessment, platform-relative CP, open source) is the current policy; v4 only for replay.
+  PROFILE_SCORING_POLICY: z.preprocess(emptyToUndefined, z.enum(["v4", "v5"]).default("v5")),
+  /** v5 only: maximum LLM calls one scoring batch may spend on semantic item assessment. */
+  PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(100_000).default(200)),
+  // --- Interview blueprint prep (docs/superpowers/specs/2026-10-07-interview-blueprint-design.md §5.4) ---
+  BLUEPRINT_RECONCILE_INTERVAL_MS: int(60_000),
+  BLUEPRINT_REFRESH_EVERY_TICKS: int(15),
+  BLUEPRINT_REFRESH_CUTOFF_MINUTES: int(30),
+  BLUEPRINT_RUN_TIMEOUT_MINUTES: int(17), // a little above the AI service's BLUEPRINT_RUN_TIMEOUT_SECONDS (900)
+  BLUEPRINT_RETRY_LIMIT_PER_HOUR: int(3),
+  /** Off until the live interviewer is rebuilt on the blueprint: ready sessions can't be joined. */
+  LIVE_INTERVIEWER_AVAILABLE: bool(false),
 
-  // --- LiveKit (Pipeline 2 live interview) ---
+  // --- LiveKit (live interview rooms) ---
   LIVEKIT_URL: withDefault("ws://localhost:7880"),
   LIVEKIT_API_KEY: required,
   LIVEKIT_API_SECRET: required,
@@ -129,15 +147,21 @@ function toConfig(e: z.infer<typeof envSchema>) {
       tokenKey: e.GITHUB_TOKEN_KEY,
     },
     leetcode: { graphqlUrl: e.LEETCODE_GRAPHQL_URL },
+    platforms: {
+      codeforcesUrl: stripTrailingSlash(e.CODEFORCES_URL), atcoderUrl: stripTrailingSlash(e.ATCODER_URL), atcoderProblemsUrl: stripTrailingSlash(e.ATCODER_PROBLEMS_URL),
+      codechefUrl: stripTrailingSlash(e.CODECHEF_URL), tufUrl: stripTrailingSlash(e.TUF_URL), tufApiUrl: stripTrailingSlash(e.TUF_API_URL),
+    },
     aiService: { baseUrl: stripTrailingSlash(e.AI_SERVICE_BASE_URL), timeoutMs: e.AI_SERVICE_TIMEOUT_MS },
     internalApiKey: e.INTERNAL_API_KEY,
-    interviewPrep: {
-      schedulerEnabled: e.SCHEDULER_ENABLED,
-      leadTimeMinutes: e.INTERVIEW_PREP_LEAD_TIME_MINUTES,
-      pollIntervalMs: e.INTERVIEW_PREP_POLL_INTERVAL_MS,
-      pollInitialDelayMs: e.INTERVIEW_PREP_POLL_INITIAL_DELAY_MS,
-      planPollIntervalMs: e.INTERVIEW_PREP_PLAN_POLL_INTERVAL_MS,
-      planMaxWaitMs: e.INTERVIEW_PREP_PLAN_MAX_WAIT_MS,
+     profileScoring: { schedulerEnabled: e.PROFILE_SCORING_SCHEDULER_ENABLED, policy: e.PROFILE_SCORING_POLICY, semanticCallsPerBatch: e.PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH },
+    schedulerEnabled: e.SCHEDULER_ENABLED,
+    blueprint: {
+      reconcileIntervalMs: e.BLUEPRINT_RECONCILE_INTERVAL_MS,
+      refreshEveryTicks: Math.max(1, e.BLUEPRINT_REFRESH_EVERY_TICKS),
+      refreshCutoffMinutes: e.BLUEPRINT_REFRESH_CUTOFF_MINUTES,
+      runTimeoutMinutes: e.BLUEPRINT_RUN_TIMEOUT_MINUTES,
+      retryLimitPerHour: e.BLUEPRINT_RETRY_LIMIT_PER_HOUR,
+      liveInterviewerAvailable: e.LIVE_INTERVIEWER_AVAILABLE,
     },
     livekit: { url: e.LIVEKIT_URL, apiKey: e.LIVEKIT_API_KEY, apiSecret: e.LIVEKIT_API_SECRET },
   };

@@ -10,6 +10,7 @@ import {
   jobDescriptions,
   leetcodeConnections,
   loops,
+  platformConnections,
   refreshTokens,
   targets,
   users,
@@ -21,11 +22,12 @@ import {
   type InterviewSessionRow,
   type JobDescriptionRow,
   type LeetCodeConnectionRow,
+  type PlatformConnectionRow,
   type LoopRow,
   type TargetRow,
   type UserRow,
 } from "../db/pg/schema.js";
-import type { Role, SessionStatus } from "../domain/enums.js";
+import type { CodingPlatform, Role, SessionStatus } from "../domain/enums.js";
 
 /**
  * Postgres repositories (Drizzle). Method names mirror the Spring Data repositories they replace,
@@ -56,6 +58,7 @@ export class UserRepository {
       await tx.delete(authTokens).where(eq(authTokens.userId, userId));
       await tx.delete(githubConnections).where(eq(githubConnections.userId, userId));
       await tx.delete(leetcodeConnections).where(eq(leetcodeConnections.userId, userId));
+      await tx.delete(platformConnections).where(eq(platformConnections.userId, userId));
       await tx.delete(interviewSessions).where(eq(interviewSessions.candidateId, userId));
       await tx.delete(loops).where(eq(loops.userId, userId));
       await tx.delete(interviewProcesses).where(eq(interviewProcesses.userId, userId));
@@ -367,6 +370,15 @@ export class JobDescriptionRepository {
       .orderBy(asc(jobDescriptions.company), asc(jobDescriptions.level), asc(jobDescriptions.createdAt));
   }
 
+  /** One company's active JDs (the role list and JD fit filter by company far more often than not). */
+  findActiveByCompany(company: string): Promise<JobDescriptionRow[]> {
+    return this.db
+      .select()
+      .from(jobDescriptions)
+      .where(and(eq(jobDescriptions.active, true), sql`lower(${jobDescriptions.company}) = ${company.toLowerCase()}`))
+      .orderBy(asc(jobDescriptions.level), asc(jobDescriptions.createdAt));
+  }
+
   insert(row: Insert<typeof jobDescriptions>): Promise<JobDescriptionRow> {
     return this.db
       .insert(jobDescriptions)
@@ -463,6 +475,55 @@ export class LeetCodeConnectionRepository {
   }
 }
 
+export class PlatformConnectionRepository {
+  constructor(private readonly db: Database) {}
+
+  findAll(): Promise<PlatformConnectionRow[]> {
+    return this.db.select().from(platformConnections);
+  }
+
+  findById(id: string): Promise<PlatformConnectionRow | null> {
+    return this.db.select().from(platformConnections).where(eq(platformConnections.id, id)).then(one);
+  }
+
+  findByUserId(userId: string): Promise<PlatformConnectionRow[]> {
+    return this.db.select().from(platformConnections).where(eq(platformConnections.userId, userId)).orderBy(asc(platformConnections.platform));
+  }
+
+  findByUserAndPlatform(userId: string, platform: CodingPlatform): Promise<PlatformConnectionRow | null> {
+    return this.db.select().from(platformConnections)
+      .where(and(eq(platformConnections.userId, userId), eq(platformConnections.platform, platform))).then(one);
+  }
+
+  /** Create or re-point the user's connection for `platform` at `handle`, back in SYNCING. */
+  upsertSyncing(userId: string, platform: CodingPlatform, handle: string, discoveredFrom: string | null = null): Promise<PlatformConnectionRow> {
+    return this.db
+      .insert(platformConnections)
+      .values({ userId, platform, handle, status: "SYNCING", discoveredFrom })
+      .onConflictDoUpdate({ target: [platformConnections.userId, platformConnections.platform], set: { handle, status: "SYNCING", discoveredFrom, connectedAt: new Date() } })
+      .returning()
+      .then((r) => r[0]!);
+  }
+
+  /** Insert only when the user has no connection for `platform` (automatic discovery never replaces one). */
+  insertIfAbsent(userId: string, platform: CodingPlatform, handle: string, discoveredFrom: string): Promise<PlatformConnectionRow | null> {
+    return this.db
+      .insert(platformConnections)
+      .values({ userId, platform, handle, status: "SYNCING", discoveredFrom })
+      .onConflictDoNothing({ target: [platformConnections.userId, platformConnections.platform] })
+      .returning()
+      .then((r) => r[0] ?? null);
+  }
+
+  async update(id: string, patch: Partial<Pick<PlatformConnectionRow, "status" | "lastRefreshedAt">>): Promise<void> {
+    await this.db.update(platformConnections).set(patch).where(eq(platformConnections.id, id));
+  }
+
+  async deleteByUserAndPlatform(userId: string, platform: CodingPlatform): Promise<void> {
+    await this.db.delete(platformConnections).where(and(eq(platformConnections.userId, userId), eq(platformConnections.platform, platform)));
+  }
+}
+
 export class InterviewSessionRepository {
   constructor(private readonly db: Database) {}
 
@@ -495,7 +556,7 @@ export class InterviewSessionRepository {
       if (await this.slotTaken(tx, candidateId, scheduledAt, slotMinutes, id)) return null;
       const [updated] = await tx
         .update(interviewSessions)
-        .set({ scheduledAt, timezone, status: "SCHEDULED", prepError: null })
+        .set({ scheduledAt, timezone })
         .where(eq(interviewSessions.id, id))
         .returning();
       return updated ?? null;
@@ -548,13 +609,35 @@ export class InterviewSessionRepository {
       .orderBy(desc(interviewSessions.scheduledAt));
   }
 
-  /** Sessions in `status` whose slot is at or before `cutoff` — the prep poller's due-set. */
-  findByStatusAndScheduledAtLessThanEqual(status: SessionStatus, cutoff: Date): Promise<InterviewSessionRow[]> {
+  /**
+   * The blueprint reconcile job's work: sessions with an active prep run, and sessions waiting for
+   * one (SCHEDULED or PREP_QUEUED) whose slot is still ahead (or only just passed).
+   */
+  findPrepWork(slotAfter: Date): Promise<InterviewSessionRow[]> {
     return this.db
       .select()
       .from(interviewSessions)
-      .where(and(eq(interviewSessions.status, status), lte(interviewSessions.scheduledAt, cutoff)))
+      .where(sql`${interviewSessions.prepRunId} is not null or (${interviewSessions.status} in ('SCHEDULED', 'PREP_QUEUED') and ${interviewSessions.scheduledAt} > ${slotAfter})`)
       .orderBy(asc(interviewSessions.scheduledAt));
+  }
+
+  /** Ready sessions far enough ahead to refresh, with no run active. */
+  findRefreshCandidates(slotAfter: Date): Promise<InterviewSessionRow[]> {
+    return this.db
+      .select()
+      .from(interviewSessions)
+      .where(and(eq(interviewSessions.status, "PREP_READY"), gt(interviewSessions.scheduledAt, slotAfter), isNull(interviewSessions.prepRunId)))
+      .orderBy(asc(interviewSessions.scheduledAt));
+  }
+
+  /** The prep-run claim: set the run only if no other run was attached meanwhile. */
+  attachRun(id: string, runId: string, patch: Partial<Insert<typeof interviewSessions>> = {}): Promise<InterviewSessionRow | null> {
+    return this.db
+      .update(interviewSessions)
+      .set({ ...patch, prepRunId: runId, prepRunStartedAt: new Date() })
+      .where(and(eq(interviewSessions.id, id), isNull(interviewSessions.prepRunId)))
+      .returning()
+      .then(one);
   }
 
   update(id: string, patch: Partial<Insert<typeof interviewSessions>>): Promise<InterviewSessionRow | null> {

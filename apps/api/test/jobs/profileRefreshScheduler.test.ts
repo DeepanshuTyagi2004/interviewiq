@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GitHubConnectionRow, LeetCodeConnectionRow } from "../../src/db/pg/schema.js";
+import { GITHUB_GRAPHQL_QUERY } from "../../src/integrations/github/collector.js";
 import { TokenCipher } from "../../src/lib/crypto.js";
 import { json, status, type RecordedCall } from "../support/fakeFetch.js";
 import { createTestEnv, createUser, TEST_TOKEN_KEY, type TestEnv } from "../support/harness.js";
@@ -59,6 +60,8 @@ function stubGitHub(...failing: string[]): void {
 }
 
 const githubCallsFor = (login: string) => env.fetch.callsTo(GITHUB_GRAPHQL, "POST").filter((c) => c.headers.authorization === `Bearer token-${login}`);
+/** The main profile query; READMEs and merged PRs are best-effort follow-up queries in the same refresh. */
+const profileQueriesFor = (login: string) => githubCallsFor(login).filter((c) => (c.json as { query?: string } | null)?.query === GITHUB_GRAPHQL_QUERY);
 const githubFragment = (userId: string) => env.c.repos.fragments.findByUserIdAndSource(userId, "GITHUB");
 const lastRefreshed = async (c: GitHubConnectionRow) => (await env.c.repos.githubConnections.findByUserId(c.userId))!.lastRefreshedAt;
 
@@ -75,7 +78,7 @@ describe("GitHubRefreshJob.refreshAll", () => {
     expect(refresh).toHaveBeenCalledWith(expect.objectContaining({ id: c1.id, githubLogin: "alice" }));
     expect(refresh).toHaveBeenCalledWith(expect.objectContaining({ id: c2.id, githubLogin: "bob" }));
     for (const [c, login] of [[c1, "alice"], [c2, "bob"]] as const) {
-      expect(githubCallsFor(login)).toHaveLength(1);
+      expect(profileQueriesFor(login)).toHaveLength(1);
       expect(await lastRefreshed(c)).toBeInstanceOf(Date);
       expect((await githubFragment(c.userId))!.data.login).toBe(login);
     }

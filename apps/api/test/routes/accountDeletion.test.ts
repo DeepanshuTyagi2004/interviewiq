@@ -42,7 +42,7 @@ async function seed(userId: string, sessionStatus: SessionStatus = "COMPLETED") 
     });
   const a = await session(sessionStatus);
   const b = await session("SCHEDULED");
-  await env.c.repos.outcomes.save(a.id, { verdict: "lean_hire" });
+  await env.c.repos.blueprintSeen.record(userId, a.id, [{ slug: "two-sum", roundType: "dsa" }]);
   await env.c.repos.candidateProfiles.save({
     userId, fullName: "Del", email: null, phone: null, location: null, headline: null, targetRole: null, targetJdId: null,
     education: [], experience: [], projects: [], skills: [], achievements: [],
@@ -68,14 +68,14 @@ async function remaining(userId: string, sessionIds: string[]): Promise<number> 
   const mongo = await Promise.all([
     env.mongo.candidateProfiles.countDocuments({ _id: userId }),
     env.mongo.profileFragments.countDocuments({ userId }),
-    env.mongo.sessionOutcomes.countDocuments({ _id: { $in: sessionIds } }),
+    env.mongo.blueprintSeen.countDocuments({ candidateId: userId }),
     env.mongo.userPreferences.countDocuments({ _id: userId }),
   ]);
   return pg.reduce((n, rows) => n + rows.length, 0) + mongo.reduce((n, c) => n + c, 0);
 }
 
 function stubUpstreams() {
-  env.fetch.on("POST", PURGE, { deleted_plans: 2 });
+  env.fetch.on("POST", PURGE, { deleted_blueprints: 2, deleted_runs: 3 });
   env.fetch.on("DELETE", GH_REVOKE, () => status(204));
 }
 
@@ -97,7 +97,9 @@ describe("DELETE /users/me", () => {
 
     const [purge] = env.fetch.callsTo(PURGE, "POST");
     expect(purge!.headers["x-internal-api-key"]).toBe(TEST_INTERNAL_KEY);
-    expect([...(purge!.json as { session_ids: string[] }).session_ids].sort()).toEqual([...sessionIds].sort());
+    const purged = purge!.json as { candidate_id: string; session_ids: string[] };
+    expect(purged.candidate_id).toBe(user.id);
+    expect([...purged.session_ids].sort()).toEqual([...sessionIds].sort());
 
     const [revoke] = env.fetch.callsTo(GH_REVOKE, "DELETE");
     expect(revoke!.headers.authorization).toBe(`Basic ${Buffer.from("gh-client-id:gh-client-secret").toString("base64")}`);
@@ -160,18 +162,20 @@ describe("DELETE /users/me", () => {
   it("still deletes when revoking the GitHub grant fails", async () => {
     const user = await createUser(env);
     const sessionIds = await seed(user.id);
-    env.fetch.on("POST", PURGE, { deleted_plans: 2 });
+    env.fetch.on("POST", PURGE, { deleted_blueprints: 2, deleted_runs: 3 });
     env.fetch.on("DELETE", GH_REVOKE, () => json({ message: "boom" }, 500));
     const res = await env.http.delete(ME).set("Authorization", await bearer(env, user)).send({ confirmEmail: user.email });
     expect(res.status).toBe(204);
     expect(await remaining(user.id, sessionIds)).toBe(0);
   });
 
-  it("skips the AI service when the user has no sessions", async () => {
+  it("with no sessions, purges bench runs by candidate without letting an AI-service outage block deletion", async () => {
     const user = await createUser(env);
+    // No purge route stubbed: the AI service is unreachable.
     const res = await env.http.delete(ME).set("Authorization", await bearer(env, user)).send({ confirmEmail: user.email });
     expect(res.status).toBe(204);
-    expect(env.fetch.callsTo(PURGE)).toHaveLength(0);
+    const [purge] = env.fetch.callsTo(PURGE, "POST");
+    expect(purge!.json).toEqual({ candidate_id: user.id, session_ids: [] });
     expect(await remaining(user.id, [])).toBe(0);
   });
 
@@ -181,7 +185,7 @@ describe("DELETE /users/me", () => {
     // Simulate a crash after the Mongo step: documents gone, Postgres rows left.
     await env.mongo.candidateProfiles.deleteOne({ _id: user.id });
     await env.mongo.profileFragments.deleteMany({ userId: user.id });
-    await env.mongo.sessionOutcomes.deleteMany({ _id: { $in: sessionIds } });
+    await env.mongo.blueprintSeen.deleteMany({ candidateId: user.id });
     stubUpstreams();
     const res = await env.http.delete(ME).set("Authorization", await bearer(env, user)).send({ confirmEmail: user.email });
     expect(res.status).toBe(204);
