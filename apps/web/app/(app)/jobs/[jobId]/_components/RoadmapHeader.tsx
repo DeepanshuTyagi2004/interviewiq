@@ -4,6 +4,7 @@ import type { JdDetail } from "@/features/jobs";
 import { ROUTES } from "@/lib/constants/shared";
 import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
 import { isLiveJd, levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
+import { levelGapText, MatchPill, type MatchFit } from "@/app/(app)/jobs/_components/MatchPill";
 import { confidenceWord } from "./insights";
 import { isAdminVerifiedProcess } from "./rounds";
 
@@ -33,8 +34,8 @@ export function roadmapMeta(jd: JdDetail, headquarters: string | null | undefine
     headquarters?.trim() || null,
     levelLabel(jd.level),
     jd.specialization ? specializationLabel(jd.specialization) : null,
-    isAdminVerifiedProcess(jd.interviewProcess) ? "Admin-verified process" : confidence ? `Data depth ${confidence}` : "No interview data yet",
-    sourceCount > 0 ? plural(sourceCount, "source") : null,
+    jd.practiceTemplate ? "Practice template" : isAdminVerifiedProcess(jd.interviewProcess) ? "Admin-verified process" : confidence ? `Data depth ${confidence}` : "No interview data yet",
+    !jd.practiceTemplate && sourceCount > 0 ? plural(sourceCount, "source") : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -43,10 +44,13 @@ export function roadmapMeta(jd: JdDetail, headquarters: string | null | undefine
 export interface RoadmapHeaderProps {
   jd: JdDetail;
   headquarters?: string | null;
+  /** The user's match for this JD; omitted while loading or when it failed. */
+  fit?: MatchFit | null;
 }
 
 /** Breadcrumb, company tile, "Company · JD title", the meta line and the readiness meter. */
-export function RoadmapHeader({ jd, headquarters }: RoadmapHeaderProps) {
+export function RoadmapHeader({ jd, headquarters, fit = null }: RoadmapHeaderProps) {
+  const gap = fit ? levelGapText(fit.levelGap, jd.level) : null;
   const crumb = "rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   return (
     <>
@@ -78,9 +82,15 @@ export function RoadmapHeader({ jd, headquarters }: RoadmapHeaderProps) {
               {jd.companyName} · {jd.title}
             </h1>
             <p className="m-0 mt-1 text-[13.5px] leading-[1.5] text-muted-foreground">{roadmapMeta(jd, headquarters)}</p>
+            {fit && fit.score !== null ? (
+              <p className="m-0 mt-2 flex flex-wrap items-center gap-2 text-xs text-faint">
+                <MatchPill fit={fit} />
+                {gap}
+              </p>
+            ) : null}
           </div>
         </div>
-        <ReadinessMeter />
+        {jd.practiceTemplate ? <p className="m-0 text-xs text-faint">Practice only · not counted towards readiness</p> : <ReadinessMeter />}
       </div>
     </>
   );

@@ -34,7 +34,14 @@ describe("CompanyCard", () => {
     expect(screen.getByText("5/5")).toBeInTheDocument();
     expect(container.querySelectorAll('[data-seg="on"]')).toHaveLength(5);
     expect(screen.getByText("2 roles · 1 live")).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 roles researched")).toBeInTheDocument();
+    // "1 of 2 roles researched" would repeat the live count, so it is not shown.
+    expect(screen.queryByText(/roles researched/)).toBeNull();
+  });
+
+  it("says how many roles are researched when that differs from the live count", () => {
+    render(<CompanyCard entry={entryOf([jd("a", "rich", "SDE I Backend"), jd("b", "limited"), jd("c", "none")])} onShowRoles={vi.fn()} />);
+    expect(screen.getByText("3 roles · 1 live")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 roles researched")).toBeInTheDocument();
   });
 
   it("asks to choose a role when several are live", () => {

@@ -18,8 +18,9 @@ export function PublishedDetails({ jd }: { jd: JdDetail }) {
     { label: "Culture", value: company.culture },
     { label: "Benefits", value: company.benefits },
   ].filter((fact) => fact.value.trim()) : [];
+  // A practice template's range is the level's typical one, labelled as such; it never has pay.
   const experience = publishedRange(jd.yoeMin, jd.yoeMax, "years");
-  const compensation = publishedRange(jd.ctcMinLpa, jd.ctcMaxLpa, "LPA");
+  const compensation = jd.practiceTemplate ? null : publishedRange(jd.ctcMinLpa, jd.ctcMaxLpa, "LPA");
   const sources = [...new Set(company?.sourceUrls.map((url) => url.trim()).filter(Boolean) ?? [])];
   if (!facts.length && !sources.length && !experience && !compensation) return null;
 
@@ -29,7 +30,7 @@ export function PublishedDetails({ jd }: { jd: JdDetail }) {
       {sources.length ? <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Company sources</summary><ul className="mb-0 mt-3 space-y-2 pl-4">{sources.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="break-all text-xs underline underline-offset-4">{url}</a></li>)}</ul></details> : null}
     </HudCard> : null}
     {experience || compensation ? <HudCard title="Role details" bodyClassName="space-y-5 p-5 sm:p-6"><dl className="m-0 space-y-5">
-      {experience ? <div><dt className="text-sm text-muted-foreground">Experience</dt><dd className="m-0 mt-2 font-mono text-lg">{experience}</dd></div> : null}
+      {experience ? <div><dt className="text-sm text-muted-foreground">{jd.practiceTemplate ? "Experience · typical for level" : "Experience"}</dt><dd className="m-0 mt-2 font-mono text-lg">{experience}</dd></div> : null}
       {compensation ? <div><dt className="text-sm text-muted-foreground">Annual CTC · ₹ lakh</dt><dd className="m-0 mt-2 font-mono text-lg">{compensation}</dd></div> : null}
     </dl></HudCard> : null}
   </div>;

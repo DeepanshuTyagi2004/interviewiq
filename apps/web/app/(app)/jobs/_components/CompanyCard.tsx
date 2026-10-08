@@ -6,7 +6,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { CompanyTile } from "./CompanyTile";
 import { DepthMeter } from "./DepthMeter";
-import { cardCta, researchedLine, rolesLine, type CompanyEntry } from "./library";
+import { cardCta, researchedCount, researchedLine, rolesLine, type CompanyEntry } from "./library";
 
 export interface CompanyCardProps {
   entry: CompanyEntry;
@@ -54,7 +54,9 @@ function CardAction({ entry, onShowRoles }: CompanyCardProps) {
 /** One company in the library grid: tile, name, role count, status dot, data depth and action. */
 export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
   const headingId = `company-${entry.slug}`;
-  const researched = researchedLine(entry);
+  // "4 of 52 roles researched" only says something new when it differs from "52 roles · 4 live".
+  const researched = entry.live && researchedCount(entry) === entry.liveJds.length ? null : researchedLine(entry);
+  const templatesOnly = entry.jds.length > 0 && entry.jds.every((jd) => jd.practiceTemplate);
   return (
     <HudCard
       as="article"
@@ -64,7 +66,7 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
         "rounded-[14px] border transition-shadow duration-300 ease-iq hover:shadow-lift",
         entry.live ? "border-line-4" : "border-line-2",
       )}
-      bodyClassName="flex min-h-[200px] flex-col gap-3.5 p-5"
+      bodyClassName="flex min-h-[176px] flex-col gap-3.5 p-5"
     >
       <div className="flex items-center gap-3">
         <CompanyTile name={entry.name} live={entry.live} />
@@ -76,13 +78,13 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
         </div>
         <StatusDot
           state={entry.live ? "active" : "idle"}
-          label={entry.live ? "Live" : "Researching"}
+          label={templatesOnly ? "Practice" : entry.live ? "Live" : "Researching"}
           className={cn("flex-none", !entry.live && "text-faint")}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <DepthMeter availability={entry.availability} />
+        {templatesOnly ? <span className="text-xs text-muted-foreground">Practice template</span> : <DepthMeter availability={entry.availability} />}
         {researched ? <p className="m-0 text-xs text-muted-foreground">{researched}</p> : null}
       </div>
 

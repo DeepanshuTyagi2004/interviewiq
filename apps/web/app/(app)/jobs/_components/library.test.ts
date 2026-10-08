@@ -38,6 +38,8 @@ describe("labels", () => {
     expect(levelLabel("fresher")).toBe("Fresher");
     expect(levelLabel("staff")).toBe("Staff");
     expect(levelLabel("intern")).toBe("Intern");
+    expect(levelLabel("distinguished")).toBe("Distinguished");
+    expect(levelLabel(null)).toBe("Unknown");
     expect(levelLabel("lead")).toBe("lead");
   });
 

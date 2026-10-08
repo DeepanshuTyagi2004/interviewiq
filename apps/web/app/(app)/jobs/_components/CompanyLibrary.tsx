@@ -68,7 +68,7 @@ function LibrarySkeleton() {
     >
       <div className={grid}>
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[200px] rounded-[14px]" />
+          <Skeleton key={i} className="h-[176px] rounded-[14px]" />
         ))}
       </div>
       <Skeleton className="h-40 rounded-[14px]" />
@@ -108,30 +108,33 @@ export function CompanyLibrary() {
 
   return (
     <div className={PAGE_SCAFFOLD}>
-      <div className="min-w-0">
-        <p className="iq-eyebrow m-0">Company library</p>
-        <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
-          Companies
-        </h1>
-        <p className="m-0 mt-1.5 max-w-[560px] text-[14px] leading-[1.5] text-muted-foreground">
-          Real interview processes, researched from experiences candidates
-          share. Each page is honest about how much data is behind it.
-        </p>
-      </div>
-
-      {showControls ? (
-        <div className="mt-5 flex flex-wrap items-center gap-2.5">
-          <Input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search companies or roles"
-            aria-label="Search companies or roles"
-            className="h-[42px] min-w-0 flex-[1_1_280px] border-line-3 px-3.5 text-sm md:text-sm"
-          />
-          <StatusSegments value={status} onChange={setStatus} />
+      {/* Title on the left, search and filter on the right of the same row: the grid starts higher. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0">
+          <p className="iq-eyebrow m-0">Company library</p>
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+            Companies
+          </h1>
+          <p className="m-0 mt-1.5 max-w-[560px] text-[14px] leading-[1.5] text-muted-foreground">
+            Real interview processes, researched from experiences candidates
+            share. Each page is honest about how much data is behind it.
+          </p>
         </div>
-      ) : null}
+
+        {showControls ? (
+          <div className="flex w-full flex-wrap items-center gap-2.5 lg:w-[500px] lg:flex-nowrap">
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search companies or roles"
+              aria-label="Search companies or roles"
+              className="h-[42px] min-w-0 flex-[1_1_220px] border-line-3 px-3.5 text-sm md:text-sm"
+            />
+            <StatusSegments value={status} onChange={setStatus} />
+          </div>
+        ) : null}
+      </div>
 
       {isLoading ? (
         <LibrarySkeleton />

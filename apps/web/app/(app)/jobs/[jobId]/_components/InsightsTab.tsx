@@ -40,8 +40,8 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
   const flags = (p?.red_flags ?? []).map((f) => f.trim()).filter(Boolean);
   const difficulty = p?.difficulty_calibration?.trim();
   const publishedCompanyText = jd.companyOverview ? [jd.companyOverview.overview, jd.companyOverview.culture, jd.companyOverview.benefits].filter(Boolean).join("\n\n").trim() : null;
-  const patterns = p?.company_specific_patterns?.trim() === publishedCompanyText ? null : p?.company_specific_patterns?.trim();
-  const sources = groupSources(jd.sources);
+  const patterns = jd.practiceTemplate || p?.company_specific_patterns?.trim() === publishedCompanyText ? null : p?.company_specific_patterns?.trim();
+  const sources = jd.practiceTemplate ? [] : groupSources(jd.sources);
   const sourceCount = sources.reduce((n, s) => n + s.urls.length, 0);
   const description = jd.description?.trim();
   const hasAbout = Boolean(description || jd.techStack.length > 0 || jd.sourceUrl);
@@ -62,18 +62,19 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {jd.practiceTemplate ? <p className="m-0 rounded-xl border border-line-3 p-4 text-sm text-muted-foreground">Practice template · simulated topics and guidance, not company interview research.</p> : null}
       <div className="grid items-start gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
         {leftColumn ? (
           <div className="flex min-w-0 flex-col gap-3">
             {topics.length > 0 ? (
-              <InsightCard eyebrow={isAdminVerifiedProcess(p) ? "Interview topics" : "Most-asked topics"}>
+              <InsightCard eyebrow={jd.practiceTemplate ? "Practice topics" : isAdminVerifiedProcess(p) ? "Interview topics" : "Most-asked topics"}>
                 <ul className="m-0 list-none p-0">
                   {topics.map((t) => (
                     <li key={t.topic} className="flex items-baseline justify-between gap-3 border-b border-line py-2 text-[13.5px] last:border-b-0">
                       <span className="min-w-0">{t.topic}</span>
                       {t.rounds.length > 0 ? (
                         <span className="flex-none font-mono text-[11.5px] tabular-nums text-faint">
-                          <span className="sr-only">Asked in round {t.rounds.join(", ")}</span>
+                           <span className="sr-only">{jd.practiceTemplate ? "Practised" : "Asked"} in round {t.rounds.join(", ")}</span>
                           <span aria-hidden>{t.rounds.map((n) => `R${padCount(n)}`).join(" · ")}</span>
                         </span>
                       ) : null}
@@ -96,7 +97,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
         {middleColumn ? (
           <div className="flex min-w-0 flex-col gap-3">
             {style ? (
-              <InsightCard eyebrow="Interviewer style">
+              <InsightCard eyebrow={jd.practiceTemplate ? "Interviewer guidance" : "Interviewer style"}>
                 <p className="m-0 text-[15px] leading-[1.5]">{style}</p>
               </InsightCard>
             ) : null}
@@ -167,7 +168,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
               ))}
             </ul>
           ) : null}
-          {jd.sourceUrl ? (
+          {jd.sourceUrl && !jd.practiceTemplate ? (
             <a href={jd.sourceUrl} target="_blank" rel="noreferrer" className={cn(linkClass, "self-start text-[13px] underline")}>
               Original posting ↗
             </a>

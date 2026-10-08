@@ -56,7 +56,7 @@ const SUMMARIES = {
 };
 
 const SUMMARY_KEYS = [
-  "company", "companyName", "ctcMaxLpa", "ctcMinLpa", "dataAvailability", "dataConfidence", "id", "level", "role",
+  "company", "companyName", "ctcMaxLpa", "ctcMinLpa", "dataAvailability", "dataConfidence", "id", "legacyLevel", "level", "practiceTemplate", "role",
   "specialization", "techStack", "title", "yoeMax", "yoeMin",
 ];
 
@@ -73,10 +73,12 @@ describe("GET /jds", () => {
 
     expect(res.body[0]).toEqual({
       id: a1.id,
+      practiceTemplate: false,
       company: "acme",
       companyName: "Acme Corp",
       role: "software-engineer",
       level: "sde2",
+      legacyLevel: null,
       title: "SDE 2",
       specialization: null,
       techStack: [],
@@ -89,10 +91,12 @@ describe("GET /jds", () => {
     });
     expect(res.body[1]).toEqual({
       id: m1.id,
+      practiceTemplate: false,
       company: "meesho",
       companyName: "Meesho",
       role: "software-engineer",
       level: "fresher",
+      legacyLevel: null,
       title: "SDE I — Backend",
       specialization: "backend",
       techStack: ["Java", "Go", "Spring Boot"],
@@ -115,7 +119,7 @@ describe("GET /jds", () => {
 
   it.each([
     ["company (case-insensitive)", "?company=MEESHO", () => [m1, m2, m3]],
-    ["level", "?level=Fresher", () => [m1, m2, z1]],
+    ["level", "?level=fresher", () => [m1, m2, z1]],
     ["specialization (null specialization never matches)", "?specialization=BACKEND", () => [m1, z1]],
     ["all three", "?company=meesho&level=fresher&specialization=android", () => [m2]],
     ["an unknown company", "?company=nobody", () => []],
@@ -160,7 +164,9 @@ describe("GET /jds/:id", () => {
     "description",
     "id",
     "interviewProcess",
+    "legacyLevel",
     "level",
+    "practiceTemplate",
     "role",
     "sourceUrl",
     "sources",
@@ -185,10 +191,12 @@ describe("GET /jds/:id", () => {
     expect(Object.keys(res.body).sort()).toEqual(DETAIL_KEYS);
     expect(res.body).toEqual({
       id: m1.id,
+      practiceTemplate: false,
       company: "meesho",
       companyName: "Meesho",
       role: "software-engineer",
       level: "fresher",
+      legacyLevel: null,
       title: "SDE I — Backend",
       specialization: "backend",
       description: "Build backend services.",

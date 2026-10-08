@@ -6,23 +6,24 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Search, X } from "lucide-react";
 import { EmptyState, Panel } from "@/components/patterns";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PAGE_SCAFFOLD } from "@/components/layout/page";
-import { useJds, useJobCompanies } from "@/features/jobs";
+import { useJdFitList, useJds, useJobCompanies } from "@/features/jobs";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { CompanyTile } from "./CompanyTile";
 import { RoleCard } from "./RoleCard";
-import { groupByLevel, levelLabel, plural, specializationLabel, specializationsOf } from "./library";
+import { groupByLevel, isLiveJd, levelLabel, plural, specializationLabel, specializationsOf } from "./library";
 import {
   activeFilterCount, EMPTY_FILTERS, levelsOf, matchesFilters, parseFilters, PAY_STEPS, sortRoles, SORTS,
-  stackCounts, toSearchParams, YOE_STEPS, type RoleFilters, type SortKey,
+   stackCounts, toSearchParams, YOE_STEPS, type RoleFilters,
 } from "./roleFilters";
 
 const chip = "inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const chipOff = "border-line-3 bg-card text-foreground hover:border-faint-2";
 const chipOn = "border-foreground bg-primary text-primary-foreground";
-const select = "h-8 rounded-full border border-line-4 bg-card px-3 text-[13px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+const select = "h-8 w-auto rounded-full border border-line-4 bg-card px-3 text-[13px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const STACK_COLLAPSED = 14;
 
 function toggle(list: string[], value: string): string[] {
@@ -45,12 +46,20 @@ export function CompanyRoles({ slug }: { slug: string }) {
   const sp = useSearchParams();
   const companies = useJobCompanies();
   const jds = useJds({ company: slug });
+  const fit = useJdFitList({ company: slug });
   const [showAllStack, setShowAllStack] = useState(false);
+  const [moreFilters, setMoreFilters] = useState<boolean | null>(null);
 
   const filters = useMemo(() => parseFilters(new URLSearchParams(sp.toString())), [sp]);
   const all = useMemo(() => jds.data ?? [], [jds.data]);
   const company = companies.data?.find((c) => c.slug === slug);
   const name = company?.name ?? all[0]?.companyName ?? slug;
+
+  // Specialization, tech stack, pay and experience tuck behind one toggle (they filled 300px of a laptop screen before the
+  // first role); the experience-level chips stay visible. Open by default only when one of them is already applied.
+  const secondaryActive = filters.specs.length + filters.stack.length + (filters.minPay !== null ? 1 : 0)
+    + (filters.maxYoe !== null ? 1 : 0) + (filters.researchedOnly ? 1 : 0);
+  const showMore = moreFilters ?? secondaryActive > 0;
 
   function update(patch: Partial<RoleFilters>) {
     const qs = toSearchParams({ ...filters, ...patch }).toString();
@@ -60,7 +69,9 @@ export function CompanyRoles({ slug }: { slug: string }) {
   const levels = useMemo(() => levelsOf(all), [all]);
   const specs = useMemo(() => specializationsOf(all), [all]);
   const stacks = useMemo(() => stackCounts(all), [all]);
-  const matched = useMemo(() => sortRoles(all.filter((j) => matchesFilters(j, filters)), filters.sort), [all, filters]);
+  const fitById = useMemo(() => new Map((fit.data?.results ?? []).map((r) => [r.jdId, r])), [fit.data]);
+  const scores = useMemo(() => new Map([...fitById].map(([id, r]) => [id, r.score])), [fitById]);
+  const matched = useMemo(() => sortRoles(all.filter((j) => matchesFilters(j, filters)), filters.sort, scores), [all, filters, scores]);
   const groups = useMemo(() => (filters.sort === "recommended" ? groupByLevel(matched) : [{ level: "all", label: "Matching roles", jds: matched }]), [matched, filters.sort]);
   const active = activeFilterCount(filters);
   const [searchText, setSearchText] = useState(filters.q);
@@ -79,7 +90,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
       </nav>
 
       <div className="mt-4 flex flex-wrap items-center gap-4">
-        <CompanyTile name={name} live size="lg" />
+        <CompanyTile name={name} live={all.some(isLiveJd)} size="lg" />
         <div className="min-w-0">
           <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">Roles at {name}</h1>
           <p className="m-0 mt-1.5 text-sm text-muted-foreground">
@@ -108,16 +119,14 @@ export function CompanyRoles({ slug }: { slug: string }) {
         </label>
         <label className="flex flex-none items-center gap-2 text-[13px] text-muted-foreground">
           Sort
-          <select aria-label="Sort roles" className={select} value={filters.sort} onChange={(e) => update({ sort: e.target.value as SortKey })}>
-            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          <CustomSelect label="Sort roles" className={select} value={filters.sort} options={SORTS} onValueChange={(value) => { const sort = SORTS.find((item) => item.value === value)?.value; if (sort) update({ sort }); }} />
         </label>
       </form>
 
       <div className="mt-4 flex flex-col gap-4 rounded-[14px] border border-line-2 p-4 sm:p-5">
         {levels.length > 1 ? (
           <FilterGroup label="Experience level">
-            {groupByLevel(all.filter((j) => levels.includes(j.level))).map((g) => {
+            {groupByLevel(all.filter((j) => j.level !== null && levels.includes(j.level))).map((g) => {
               const on = filters.levels.includes(g.level);
               return (
                 <button key={g.level} type="button" aria-pressed={on} onClick={() => update({ levels: toggle(filters.levels, g.level) })} className={cn(chip, on ? chipOn : chipOff)}>
@@ -127,7 +136,17 @@ export function CompanyRoles({ slug }: { slug: string }) {
             })}
           </FilterGroup>
         ) : null}
-        {specs.length > 1 ? (
+        <button
+          type="button"
+          aria-expanded={showMore}
+          onClick={() => setMoreFilters(!showMore)}
+          className="-mt-1 inline-flex w-fit items-center gap-1.5 rounded-full text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {showMore ? "Fewer filters" : "More filters"}
+          {!showMore && secondaryActive > 0 ? <span className="rounded-full bg-foreground px-1.5 text-[11px] text-background">{secondaryActive}</span> : null}
+          <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform", showMore && "rotate-180")} />
+        </button>
+        {showMore && specs.length > 1 ? (
           <FilterGroup label="Specialization">
             {specs.map((s) => {
               const on = filters.specs.some((x) => x.toLowerCase() === s.toLowerCase());
@@ -139,7 +158,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
             })}
           </FilterGroup>
         ) : null}
-        {stacks.length > 0 ? (
+        {showMore && stacks.length > 0 ? (
           <FilterGroup label="Tech stack (role must use all selected)">
             {visibleStack.map(({ tech, count }) => {
               const on = filters.stack.some((x) => x.toLowerCase() === tech.toLowerCase());
@@ -157,22 +176,16 @@ export function CompanyRoles({ slug }: { slug: string }) {
             ) : null}
           </FilterGroup>
         ) : null}
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-          <label className="flex flex-col gap-2">
+        <div className={cn("flex flex-wrap items-end gap-x-6 gap-y-3", !showMore && active === 0 && "hidden")}>
+          <label className={cn("flex flex-col gap-2", !showMore && "hidden")}>
             <span className="iq-eyebrow">Minimum pay</span>
-            <select aria-label="Minimum pay" className={select} value={filters.minPay ?? ""} onChange={(e) => update({ minPay: e.target.value === "" ? null : Number(e.target.value) })}>
-              <option value="">Any</option>
-              {PAY_STEPS.map((p) => <option key={p} value={p}>₹{p}+ LPA</option>)}
-            </select>
+            <CustomSelect label="Minimum pay" className={select} value={filters.minPay === null ? "" : String(filters.minPay)} options={[{ value: "", label: "Any" }, ...PAY_STEPS.map((pay) => ({ value: String(pay), label: `₹${pay}+ LPA` }))]} onValueChange={(value) => update({ minPay: value === "" ? null : Number(value) })} />
           </label>
-          <label className="flex flex-col gap-2">
+          <label className={cn("flex flex-col gap-2", !showMore && "hidden")}>
             <span className="iq-eyebrow">Experience asked</span>
-            <select aria-label="Maximum experience" className={select} value={filters.maxYoe ?? ""} onChange={(e) => update({ maxYoe: e.target.value === "" ? null : Number(e.target.value) })}>
-              <option value="">Any</option>
-              {YOE_STEPS.map((y) => <option key={y} value={y}>Up to {y} {y === 1 ? "yr" : "yrs"}</option>)}
-            </select>
+            <CustomSelect label="Maximum experience" className={select} value={filters.maxYoe === null ? "" : String(filters.maxYoe)} options={[{ value: "", label: "Any" }, ...YOE_STEPS.map((years) => ({ value: String(years), label: `Up to ${years} ${years === 1 ? "yr" : "yrs"}` }))]} onValueChange={(value) => update({ maxYoe: value === "" ? null : Number(value) })} />
           </label>
-          <button type="button" aria-pressed={filters.researchedOnly} onClick={() => update({ researchedOnly: !filters.researchedOnly })} className={cn(chip, filters.researchedOnly ? chipOn : chipOff)}>
+          <button type="button" aria-pressed={filters.researchedOnly} onClick={() => update({ researchedOnly: !filters.researchedOnly })} className={cn(chip, filters.researchedOnly ? chipOn : chipOff, !showMore && "hidden")}>
             Researched processes only
           </button>
           {active > 0 ? (
@@ -186,6 +199,14 @@ export function CompanyRoles({ slug }: { slug: string }) {
       <p aria-live="polite" className="m-0 mt-4 text-sm text-muted-foreground">
         {jds.isLoading ? "Loading roles…" : `${plural(matched.length, "role")}${active > 0 ? ` of ${all.length}` : ""}`}
       </p>
+      {fit.data && fit.data.userLevel === null && all.length > 0 ? (
+        <p className="m-0 mt-1 text-[13px] text-faint">
+          <Link href={ROUTES.profile} className="rounded-sm underline-offset-[3px] hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            Set your level
+          </Link>{" "}
+          for a fairer match score.
+        </p>
+      ) : null}
 
       {jds.isLoading ? (
         <div className="mt-3 grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr))]">
@@ -202,7 +223,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
           {groups.map((g) => (
             <Panel key={g.level} eyebrow={`${g.label} · ${plural(g.jds.length, "role")}`}>
               <ul className="m-0 grid list-none gap-2.5 p-0 [grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr))]">
-                {g.jds.map((jd) => <RoleCard key={jd.id} jd={jd} />)}
+                {g.jds.map((jd) => <RoleCard key={jd.id} jd={jd} fit={fitById.get(jd.id) ?? null} fitLoading={fit.isLoading} />)}
               </ul>
             </Panel>
           ))}

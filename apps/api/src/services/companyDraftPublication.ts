@@ -2,6 +2,12 @@ import { z } from "zod";
 import type { companies } from "../db/pg/schema.js";
 import { ApiError } from "../lib/errors.js";
 
+/** Company `sector` values a research draft may publish (JD fit maps the specific ones to domains). */
+export const COMPANY_SECTORS = [
+  "fintech", "e-commerce", "saas", "it-services", "consumer-internet", "enterprise-software",
+  "semiconductors", "telecom", "edtech", "healthtech", "gaming", "logistics", "other",
+] as const;
+
 const text = (max: number) => z.string().trim().min(1).max(max);
 const field = <T extends z.ZodType>(value: T) => z.object({ value: value.nullable() }).optional();
 const count = z.number().int().min(0).max(2_147_483_647);
@@ -29,10 +35,7 @@ const publication = z.object({
     aliases: field(z.array(z.string()).max(10)),
   }),
   profile: z.object({
-    sector: field(z.enum([
-      "fintech", "e-commerce", "saas", "it-services", "consumer-internet", "enterprise-software",
-      "semiconductors", "telecom", "edtech", "healthtech", "gaming", "logistics", "other",
-    ])),
+    sector: field(z.enum(COMPANY_SECTORS)),
     business_model: field(z.enum(["product", "service", "hybrid"])),
     hq: field(text(255)),
     headcount_band: field(text(32)),

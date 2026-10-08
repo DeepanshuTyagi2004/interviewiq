@@ -10,10 +10,13 @@ export type DataAvailability = "rich" | "available" | "limited" | "none";
 
 export type JdSummary = {
   id: string;
+  /** Explicitly simulated practice, absent on older responses. */
+  practiceTemplate?: JobDescriptionDetail["practiceTemplate"];
   company: string;
   companyName: string;
   role: string;
-  level: string;
+  level: JobDescriptionDetail["level"];
+  legacyLevel?: string | null;
   title: string;
   specialization: string | null;
   /** Technologies the role uses; absent on older API responses. */
@@ -68,3 +71,11 @@ export type JobCompany = {
   headquarterLocation: string | null;
   companySize: string | null;
 };
+
+/** JD fit: how closely the user's profile matches one JD (never a hiring decision). Generated from the contract. */
+export type JdFitList = components["schemas"]["JdFitList"];
+export type JdFitResult = components["schemas"]["JdFitResult"];
+export type JdFitBreakdown = components["schemas"]["JdFitBreakdown"];
+export type JdFitPart = components["schemas"]["JdFitPart"];
+export type JdFitEvidence = components["schemas"]["JdFitEvidence"];
+export type JdFitLevelGap = components["schemas"]["JdFitLevelGap"];

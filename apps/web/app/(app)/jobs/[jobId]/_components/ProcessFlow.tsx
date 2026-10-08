@@ -12,6 +12,7 @@ import { useConfirmLoop, useCreateProcess, useJdLoopStatus, useOfficialProcess, 
 import { FlowCanvas } from "@/features/loops/components/FlowCanvas";
 import { ApiFetchError } from "@/lib/api-client/errors";
 import { ROUTES } from "@/lib/constants/shared";
+import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 function errorText(err: unknown, fallback: string): string {
   if (err instanceof ApiFetchError) {
@@ -41,6 +42,7 @@ export function ProcessFlow({ jd }: { jd: JdDetail }) {
   const hasRounds = official.data?.nodes.some((n) => n.kind === "round") ?? false;
 
   function confirmProcess(processId?: string) {
+    if (processId ? !isEngineeringLevel(mine.find((process) => process.id === processId)?.level) : !isEngineeringLevel(jd.level)) return;
     confirm.mutate(
       { jdId: jd.id, processId: processId ?? null },
       {
@@ -51,8 +53,9 @@ export function ProcessFlow({ jd }: { jd: JdDetail }) {
   }
 
   function duplicate() {
+    if (!isEngineeringLevel(jd.level)) return;
     create.mutate(
-      { jdId: jd.id, name: `${jd.companyName} · ${jd.title} (custom)`.slice(0, 120) },
+      { jdId: jd.id, name: `${jd.companyName} · ${jd.title} (custom)`.slice(0, 120), level: jd.level, graph: official.data },
       {
         onSuccess: (p) => router.push(`${ROUTES.processes}/${p.id}`),
         onError: (err) => toast.error(errorText(err, "Couldn't duplicate the process. Please try again.")),
@@ -82,12 +85,12 @@ export function ProcessFlow({ jd }: { jd: JdDetail }) {
             <Link href={`${ROUTES.loops}/${loopId}`}>Open your track</Link>
           </Button>
         ) : (
-          <Button disabled={!hasRounds || confirm.isPending} onClick={() => confirmProcess()}>
+          <Button disabled={!hasRounds || !isEngineeringLevel(jd.level) || confirm.isPending} onClick={() => confirmProcess()}>
             {confirm.isPending ? <Loader2 aria-hidden className="animate-spin" /> : null}
-            Confirm this process
+            {jd.practiceTemplate ? "Start practice track" : "Start suggested track"}
           </Button>
         )}
-        <Button variant="strong" disabled={!hasRounds || create.isPending} onClick={duplicate}>
+        <Button variant="strong" disabled={!hasRounds || !isEngineeringLevel(jd.level) || create.isPending} onClick={duplicate}>
           {create.isPending ? <Loader2 aria-hidden className="animate-spin" /> : <Copy aria-hidden />}
           Duplicate &amp; customise
         </Button>
@@ -101,8 +104,7 @@ export function ProcessFlow({ jd }: { jd: JdDetail }) {
           {targeted ? "Watching" : "Add to targets"}
         </Button>
         <p className="m-0 basis-full text-[12.5px] leading-[1.5] text-muted-foreground">
-          Confirming the suggested process counts towards your readiness for this role. A customised process is standalone
-          practice: fully analysed, but not counted.
+          {jd.practiceTemplate ? "This simulated practice template is not company-official and never counts towards readiness." : "Starting the unedited suggested process counts towards readiness for this role. A customised process is standalone practice: fully analysed, but not counted."}
         </p>
       </HudCard>
 
@@ -116,7 +118,7 @@ export function ProcessFlow({ jd }: { jd: JdDetail }) {
               </div>
               <div className="flex gap-2">
                 <Button asChild variant="strong" size="sm"><Link href={`${ROUTES.processes}/${p.id}`}>Edit</Link></Button>
-                {loopId ? null : <Button size="sm" disabled={confirm.isPending} onClick={() => confirmProcess(p.id)}>Start track</Button>}
+                {loopId ? null : <Button size="sm" disabled={confirm.isPending || !isEngineeringLevel(p.level)} onClick={() => confirmProcess(p.id)}>Start track</Button>}
               </div>
             </div>
           ))}

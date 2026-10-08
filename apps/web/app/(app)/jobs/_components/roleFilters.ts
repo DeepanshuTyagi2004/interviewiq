@@ -5,8 +5,9 @@
  */
 import type { JdSummary } from "@/features/jobs";
 import { isLiveJd, levelLabel } from "./library";
+import { isEngineeringLevel, ENGINEERING_LEVELS } from "@/lib/constants/engineering-levels";
 
-export type SortKey = "recommended" | "pay-desc" | "yoe-asc" | "title";
+export type SortKey = "recommended" | "match" | "pay-desc" | "yoe-asc" | "title";
 
 export interface RoleFilters {
   q: string;
@@ -28,6 +29,7 @@ export const PAY_STEPS = [5, 10, 20, 30, 50, 80];
 export const YOE_STEPS = [1, 2, 3, 5, 8];
 export const SORTS: { value: SortKey; label: string }[] = [
   { value: "recommended", label: "Recommended" },
+  { value: "match", label: "Best match" },
   { value: "pay-desc", label: "Pay: high to low" },
   { value: "yoe-asc", label: "Experience: low to high" },
   { value: "title", label: "Title A–Z" },
@@ -43,7 +45,7 @@ export function parseFilters(sp: URLSearchParams): RoleFilters {
   const sort = sp.get("sort");
   return {
     q: sp.get("q") ?? "",
-    levels: list(sp.get("level")),
+    levels: list(sp.get("level")).filter(isEngineeringLevel),
     specs: list(sp.get("spec")),
     stack: list(sp.get("stack")),
     minPay: intOrNull(sp.get("minPay")),
@@ -78,19 +80,23 @@ export function matchesFilters(jd: JdSummary, f: RoleFilters): boolean {
     const hay = [jd.title, jd.specialization ?? "", levelLabel(jd.level), ...(jd.techStack ?? [])].join(" ").toLowerCase();
     if (!q.split(/\s+/).every((word) => hay.includes(word))) return false;
   }
-  if (f.levels.length && !f.levels.some((l) => same(l, jd.level))) return false;
+  if (f.levels.length && !f.levels.some((l) => jd.level !== null && same(l, jd.level))) return false;
   if (f.specs.length && !(jd.specialization && f.specs.some((s) => same(s, jd.specialization!)))) return false;
   // A role must use every selected technology.
   if (f.stack.length && !f.stack.every((t) => (jd.techStack ?? []).some((x) => same(x, t)))) return false;
+  // Templates have no pay; their experience range is the level's typical one, so it filters normally.
+  if (jd.practiceTemplate && f.minPay !== null) return false;
   if (f.minPay !== null && !((jd.ctcMaxLpa ?? jd.ctcMinLpa ?? -1) >= f.minPay)) return false;
   if (f.maxYoe !== null && !((jd.yoeMin ?? Infinity) <= f.maxYoe)) return false;
   if (f.researchedOnly && !isLiveJd(jd)) return false;
   return true;
 }
 
-export function sortRoles(jds: JdSummary[], sort: SortKey): JdSummary[] {
+/** `scores` (JD id → match score) is only read by the "match" sort; unscored roles go last. */
+export function sortRoles(jds: JdSummary[], sort: SortKey, scores: ReadonlyMap<string, number | null> = new Map()): JdSummary[] {
   const out = [...jds];
-  if (sort === "pay-desc") out.sort((a, b) => (b.ctcMaxLpa ?? -1) - (a.ctcMaxLpa ?? -1) || a.title.localeCompare(b.title));
+  if (sort === "match") out.sort((a, b) => (scores.get(b.id) ?? -1) - (scores.get(a.id) ?? -1) || a.title.localeCompare(b.title));
+  else if (sort === "pay-desc") out.sort((a, b) => (b.practiceTemplate ? -1 : b.ctcMaxLpa ?? -1) - (a.practiceTemplate ? -1 : a.ctcMaxLpa ?? -1) || a.title.localeCompare(b.title));
   else if (sort === "yoe-asc") out.sort((a, b) => (a.yoeMin ?? Infinity) - (b.yoeMin ?? Infinity) || a.title.localeCompare(b.title));
   else if (sort === "title") out.sort((a, b) => a.title.localeCompare(b.title));
   return out;
@@ -110,11 +116,12 @@ export function stackCounts(jds: JdSummary[]): { tech: string; count: number }[]
 }
 
 export function levelsOf(jds: JdSummary[]): string[] {
-  return [...new Set(jds.map((j) => j.level))];
+  return ENGINEERING_LEVELS.filter((level) => jds.some((jd) => jd.level === level));
 }
 
 /** "₹35–60 LPA" / "₹4 LPA" / null when no pay data. */
-export function payText(jd: Pick<JdSummary, "ctcMinLpa" | "ctcMaxLpa">): string | null {
+export function payText(jd: Pick<JdSummary, "ctcMinLpa" | "ctcMaxLpa" | "practiceTemplate">): string | null {
+  if (jd.practiceTemplate) return null;
   const lo = jd.ctcMinLpa ?? null;
   const hi = jd.ctcMaxLpa ?? null;
   const n = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
@@ -123,12 +130,11 @@ export function payText(jd: Pick<JdSummary, "ctcMinLpa" | "ctcMaxLpa">): string 
   return `₹${n(lo)}–${n(hi)} LPA`;
 }
 
-/** "0–2 yrs" / "5+ yrs" / null. */
-export function yoeText(jd: Pick<JdSummary, "yoeMin" | "yoeMax">): string | null {
+/** "0–2 yrs" / "15+ yrs" / null; a practice template's range is labelled "typical for level". */
+export function yoeText(jd: Pick<JdSummary, "yoeMin" | "yoeMax" | "practiceTemplate">): string | null {
   const lo = jd.yoeMin ?? null;
   const hi = jd.yoeMax ?? null;
   if (lo === null && hi === null) return null;
-  if (lo !== null && hi !== null && lo !== hi) return `${lo}–${hi} yrs`;
-  return `${(lo ?? hi)!} yrs`;
+  const range = lo !== null && hi === null && jd.practiceTemplate ? `${lo}+ yrs` : lo !== null && hi !== null && lo !== hi ? `${lo}–${hi} yrs` : `${(lo ?? hi)!} yrs`;
+  return jd.practiceTemplate ? `${range} · typical for level` : range;
 }
-

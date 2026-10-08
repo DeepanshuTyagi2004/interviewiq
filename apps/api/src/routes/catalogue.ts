@@ -1,10 +1,11 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
-import type { CompanyRow } from "../db/pg/schema.js";
 import { isBlank, isObject, items, path, textOrNull, asString } from "../lib/json.js";
 import { UpstreamError } from "../lib/http.js";
 import { queryString, routerErrors, sendError, uuidParam, router } from "../http/support.js";
 import { str } from "../domain/candidateProfile.js";
+import { engineeringLevelView, isEngineeringLevel } from "../domain/engineeringLevels.js";
+import { jdDetailVisible, resolveJdBrief, splitCsv, visibleJds } from "../services/jdCatalogue.js";
 
 /** Supported companies for the JD library. */
 export function companiesRouter(c: Container): Router {
@@ -26,10 +27,6 @@ export function companiesRouter(c: Container): Router {
   return r;
 }
 
-/** A company students must not see: its row exists and is unpublished or archived. */
-const isHidden = (co: CompanyRow) => co.publishedAt === null || co.status === "archived";
-const hiddenSlugs = (rows: CompanyRow[]) => new Set(rows.filter(isHidden).map((co) => co.slug));
-
 /**
  * Student-facing JD library. Lists the postings (shown level-wise); the detail embeds the interview
  * process from the AI-service brief keyed per JD by (company, role, level, specialization).
@@ -40,33 +37,30 @@ export function jdsRouter(c: Container): Router {
   r.get("/", async (req, res) => {
     const company = queryString(req, "company");
     const level = queryString(req, "level");
+    if (level !== null && !isEngineeringLevel(level)) { sendError(res, 400, "invalid_level", "Choose a valid engineering level"); return; }
     const specialization = queryString(req, "specialization");
     const [companies, jds, manualJds] = await Promise.all([
       c.repos.companies.findAll(),
-      c.repos.jds.findAllActiveOrdered(),
+      company === null ? c.repos.jds.findAllActiveOrdered() : c.repos.jds.findActiveByCompany(company),
       c.enrichment.publishedJdIds(),
     ]);
     const names = new Map<string, string>();
     for (const co of companies) if (!names.has(co.slug)) names.set(co.slug, co.name);
-    const hidden = hiddenSlugs(companies);
-    const visible = jds
-      .filter((j) => !hidden.has(j.company))
-      .filter((j) => company === null || eqIgnoreCase(company, j.company))
-      .filter((j) => level === null || eqIgnoreCase(level, j.level))
-      .filter((j) => specialization === null || eqIgnoreCase(specialization, j.specialization));
-    const summaries = visible.some((j) => !manualJds.has(j.id)) ? await c.aiService.listBriefSummaries() : null;
+    const visible = visibleJds(companies, jds, { company, level, specialization });
+    const summaries = visible.some((j) => j.source !== "template" && !manualJds.has(j.id)) ? await c.aiService.listBriefSummaries() : null;
     const confidence = confidenceByKey(summaries);
 
     res.json(
       visible
         .map((j) => {
-          const conf = manualJds.has(j.id) ? "high" : confidence.get(key(j.company, j.role, j.level, j.specialization)) ?? null;
+          const conf = j.source === "template" ? "low" : manualJds.has(j.id) ? "high" : confidence.get(key(j.company, j.role, j.level, j.specialization)) ?? null;
           return {
             id: j.id,
+            practiceTemplate: j.source === "template",
             company: j.company,
             companyName: names.get(j.company) ?? j.company,
             role: j.role,
-            level: j.level,
+            ...engineeringLevelView(j.level),
             title: j.title,
             specialization: j.specialization,
             techStack: splitCsv(j.techStack),
@@ -84,12 +78,11 @@ export function jdsRouter(c: Container): Router {
   r.get("/:id", async (req, res) => {
     const j = await c.repos.jds.findById(uuidParam(req, "id"));
     const company = j ? await c.repos.companies.findBySlug(j.company) : null;
-    if (!j || (!j.active && j.source === "manual") || (company !== null && isHidden(company))) {
+    if (!jdDetailVisible(j, company)) {
       sendError(res, 404, "jd_not_found", "no JD with that id");
       return;
     }
-    const manual = await c.enrichment.briefForJd(j.id);
-    const brief = manual ?? await c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization);
+    const { manual, brief } = await resolveJdBrief(c, j);
     let interviewProcess: unknown = null;
     let conf: string | null = null;
     let sources: string[] = [];
@@ -100,10 +93,11 @@ export function jdsRouter(c: Container): Router {
     }
     res.json({
       id: j.id,
+      practiceTemplate: j.source === "template",
       company: j.company,
       companyName: company?.name ?? j.company,
       role: j.role,
-      level: j.level,
+      ...engineeringLevelView(j.level),
       title: j.title,
       specialization: j.specialization,
       description: j.description,
@@ -113,8 +107,8 @@ export function jdsRouter(c: Container): Router {
       yoeMax: j.yoeMax === null ? null : Number(j.yoeMax),
       ctcMinLpa: j.ctcMinLpa === null ? null : Number(j.ctcMinLpa),
       ctcMaxLpa: j.ctcMaxLpa === null ? null : Number(j.ctcMaxLpa),
-      dataConfidence: conf,
-      dataAvailability: availability(conf),
+      dataConfidence: j.source === "template" ? "low" : conf,
+      dataAvailability: availability(j.source === "template" ? "low" : conf),
       interviewProcess,
       sources,
       ...(manual ? { companyOverview: manual.company_overview } : {}),
@@ -159,9 +153,9 @@ export function experiencesRouter(c: Container): Router {
   r.post("/", async (req, res) => {
     const b = isObject(req.body) ? req.body : null;
     const company = str(b?.company);
-    const level = str(b?.level);
+    const level = b?.level;
     const content = str(b?.content);
-    if (b === null || isBlank(company) || isBlank(level) || isBlank(content)) {
+    if (b === null || isBlank(company) || !isEngineeringLevel(level) || isBlank(content)) {
       sendError(res, 400, "invalid_experience", "company, level and content are required");
       return;
     }
@@ -213,16 +207,4 @@ function availability(confidence: string | null): string {
     default:
       return "none";
   }
-}
-
-function splitCsv(csv: string | null): string[] {
-  if (csv === null || csv.trim() === "") return [];
-  return csv
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s !== "");
-}
-
-function eqIgnoreCase(a: string, b: string | null): boolean {
-  return b !== null && a.toLowerCase() === b.toLowerCase();
 }

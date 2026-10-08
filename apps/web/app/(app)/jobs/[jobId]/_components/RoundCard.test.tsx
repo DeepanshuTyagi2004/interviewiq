@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import type { JdDetail } from "@/features/jobs";
 import { ProcessTab } from "./ProcessTab";
 import { RoundCard } from "./RoundCard";
 import { ReadinessMeter, roadmapMeta } from "./RoadmapHeader";
+
+vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
 
 function renderCard(round: Parameters<typeof RoundCard>[0]["round"], index = 0) {
   return render(
@@ -16,6 +18,7 @@ function renderCard(round: Parameters<typeof RoundCard>[0]["round"], index = 0) 
 function jd(partial: Partial<JdDetail> = {}): JdDetail {
   return {
     id: "jd-1",
+    practiceTemplate: false,
     company: "meesho",
     companyName: "Meesho",
     role: "software-engineer",
@@ -81,6 +84,13 @@ describe("ProcessTab", () => {
     expect(screen.getAllByRole("link", { name: /book this round/i })).toHaveLength(2);
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("labels simulated templates without company evidence or a confidence claim", () => {
+    render(<ProcessTab jd={jd({ practiceTemplate: true, interviewProcess: { rounds: [{ type: "dsa", support_count: 99, source_count_total: 100, provenance: "admin_verified" }] } })} />);
+    expect(screen.getAllByText("Practice template")).toHaveLength(2);
+    expect(screen.queryByText(/Reported in|Admin-verified process|Built from interview experiences/)).not.toBeInTheDocument();
+    expect(roadmapMeta(jd({ practiceTemplate: true, sources: ["fake"] }), null)).toBe("Fresher · Backend · Practice template");
   });
 });
 

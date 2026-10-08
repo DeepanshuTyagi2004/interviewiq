@@ -44,14 +44,15 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
             index={i}
             jdId={jd.id}
             number={round.kind === "info" ? undefined : ++interviewNo}
+            practiceTemplate={jd.practiceTemplate}
           />
         ))}
       </ol>
 
       <div className="mt-4 rounded-[14px] bg-panel px-5 py-[18px]">
-        <p className="m-0 text-sm">{verified ? "Admin-verified process" : "Suggested process"}</p>
+        <p className="m-0 text-sm">{jd.practiceTemplate ? "Practice template" : verified ? "Admin-verified process" : "Suggested process"}</p>
         <p className="m-0 mt-0.5 text-[12.5px] leading-[1.5] text-muted-foreground">
-          {verified ? "Reviewed and published by an InterviewIQ admin using the linked sources. " : confidence === "low" ? "Built from limited shared data, so treat it as a rough guide. " : "Built from interview experiences candidates share. "}
+          {jd.practiceTemplate ? "Simulated practice rounds, not verified company interview research. " : verified ? "Reviewed and published by an InterviewIQ admin using the linked sources. " : confidence === "low" ? "Built from limited shared data, so treat it as a rough guide. " : "Built from interview experiences candidates share. "}
           Duplicate it to add, remove or reorder rounds. A customised process is standalone practice: fully analysed, but
           not counted towards readiness.
         </p>

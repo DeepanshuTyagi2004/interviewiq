@@ -3,25 +3,12 @@
  * what the API returns: the companies list and each JD's `dataAvailability`. No sample numbers.
  */
 import type { DataAvailability, JdSummary, JobCompany } from "@/features/jobs";
+import { ENGINEERING_LEVELS, levelLabel, normalizeLegacyLevel } from "@/lib/constants/engineering-levels";
+export { levelLabel } from "@/lib/constants/engineering-levels";
+const LEVEL_ORDER: readonly string[] = ENGINEERING_LEVELS;
 
-const LEVEL_ORDER = ["intern", "fresher", "sde1", "sde2", "sde3", "staff", "principal"];
-const LEVEL_LABEL: Record<string, string> = {
-  intern: "Intern",
-  staff: "Staff",
-  principal: "Principal",
-  fresher: "Fresher",
-  sde1: "SDE I",
-  sde2: "SDE II",
-  sde3: "SDE III",
-};
-
-/** "sde1" → "SDE I"; unknown levels are shown as given. */
-export function levelLabel(level: string): string {
-  return LEVEL_LABEL[level] ?? level;
-}
-
-function levelRank(level: string): number {
-  const i = LEVEL_ORDER.indexOf(level);
+function levelRank(level: string | null): number {
+  const i = LEVEL_ORDER.indexOf(normalizeLegacyLevel(level) ?? "");
   return i === -1 ? LEVEL_ORDER.length : i;
 }
 
@@ -43,7 +30,7 @@ function rankOf(a: DataAvailability | undefined): number {
 
 /** A role is "live" once its brief has medium or high confidence. */
 export function isLiveJd(jd: JdSummary): boolean {
-  return jd.dataAvailability === "rich" || jd.dataAvailability === "available";
+  return !jd.practiceTemplate && (jd.dataAvailability === "rich" || jd.dataAvailability === "available");
 }
 
 export type Depth = { bars: number; label: string };
@@ -79,7 +66,7 @@ export type CompanyEntry = {
 
 function compareJds(a: JdSummary, b: JdSummary): number {
   return (
-    rankOf(b.dataAvailability) - rankOf(a.dataAvailability) ||
+    rankOf(b.practiceTemplate ? "none" : b.dataAvailability) - rankOf(a.practiceTemplate ? "none" : a.dataAvailability) ||
     levelRank(a.level) - levelRank(b.level) ||
     a.title.localeCompare(b.title)
   );
@@ -109,7 +96,7 @@ export function buildCompanyEntries(
       return {
         slug,
         name,
-        availability: roles[0]?.dataAvailability ?? "none",
+        availability: roles.filter((jd) => !jd.practiceTemplate).sort(compareJds)[0]?.dataAvailability ?? "none",
         live: liveJds.length > 0,
         jds: roles,
         liveJds,
@@ -164,7 +151,7 @@ export type LevelGroup = { level: string; label: string; jds: JdSummary[] };
 /** Roles grouped by experience level (Fresher, SDE I, …), best-researched first within a level. */
 export function groupByLevel(jds: JdSummary[]): LevelGroup[] {
   const map = new Map<string, JdSummary[]>();
-  for (const jd of jds) map.set(jd.level, [...(map.get(jd.level) ?? []), jd]);
+  for (const jd of jds) { const level = jd.level ?? "unknown"; map.set(level, [...(map.get(level) ?? []), jd]); }
   return [...map.entries()]
     .sort(([a], [b]) => levelRank(a) - levelRank(b) || a.localeCompare(b))
     .map(([level, list]) => ({ level, label: levelLabel(level), jds: [...list].sort(compareJds) }));
@@ -186,10 +173,16 @@ export function rolesLine(entry: CompanyEntry): string {
 export function researchedLine(entry: CompanyEntry): string | null {
   const total = entry.jds.length;
   if (total === 0) return null;
-  const researched = entry.jds.filter((jd) => jd.dataAvailability !== "none").length;
+  const researched = researchedCount(entry);
+  if (entry.jds.every((jd) => jd.practiceTemplate)) return "Practice templates · not company research";
   if (total === 1) return researched ? "Interview process researched" : "Not researched yet";
   if (researched === 0) return "Not researched yet";
   return `${researched} of ${total} roles researched`;
+}
+
+/** Roles with any research behind them (a low-confidence brief counts; "live" needs medium or high). */
+export function researchedCount(entry: CompanyEntry): number {
+  return entry.jds.filter((jd) => !jd.practiceTemplate && jd.dataAvailability !== "none").length;
 }
 
 export type CardCta =

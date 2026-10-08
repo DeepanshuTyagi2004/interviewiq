@@ -32,6 +32,7 @@ export interface RoundCardProps {
   jdId: string;
   /** Position among interview rounds only (info rounds are not numbered). */
   number?: number;
+  practiceTemplate?: boolean;
 }
 
 /**
@@ -39,16 +40,16 @@ export interface RoundCardProps {
  * format/difficulty, topic chips and a booking link. Deliberately no locked, cleared or scored
  * state: gating isn't built.
  */
-export function RoundCard({ round, index, jdId, number }: RoundCardProps) {
+export function RoundCard({ round, index, jdId, number, practiceTemplate = false }: RoundCardProps) {
   const info = round.kind === "info";
   const n = number ?? roundNumber(round, index);
   const title = roundTitle(round, index);
   const meta = roundMeta(round);
   const topics = roundTopics(round);
   const mapped = toRoundType(round.type) !== null;
-  const note = info ? "Not an interview round, for information only" : isOnlineAssessment(round.type) ? "Automated test · not run as a mock" : roundEvidence(round);
+  const note = info ? "Not an interview round, for information only" : practiceTemplate ? "Practice template" : isOnlineAssessment(round.type) ? "Automated test · not run as a mock" : roundEvidence(round);
   const cta = mapped ? "Book this round" : "Book a round";
-  const sources = [...new Set(round.source_urls?.map((url) => url.trim()).filter(Boolean) ?? [])];
+  const sources = practiceTemplate ? [] : [...new Set(round.source_urls?.map((url) => url.trim()).filter(Boolean) ?? [])];
   const questions = [...new Set(round.problems?.map((question) => question.trim()).filter(Boolean) ?? [])];
 
   return (

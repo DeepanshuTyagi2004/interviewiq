@@ -5,10 +5,11 @@ import { EmptyState } from "@/components/patterns";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useJd, useJobCompanies } from "@/features/jobs";
+import { useJd, useJdFit, useJobCompanies } from "@/features/jobs";
 import { ApiFetchError } from "@/lib/api-client/errors";
 import { ROUTES } from "@/lib/constants/shared";
 import { InsightsTab } from "./InsightsTab";
+import { MatchTab } from "./MatchTab";
 import { ProcessTab } from "./ProcessTab";
 import { RoadmapHeader } from "./RoadmapHeader";
 import { PublishedDetails } from "./PublishedDetails";
@@ -41,9 +42,10 @@ function RoadmapSkeleton() {
   );
 }
 
-/** `/jobs/[jobId]`: one JD's suggested interview process (Process) and what the brief says (Insights). */
+/** `/jobs/[jobId]`: one JD's suggested interview process (Process), what the brief says (Insights) and the user's match (Your match). */
 export function Roadmap({ jdId }: { jdId: string }) {
   const jd = useJd(jdId);
+  const fit = useJdFit(jdId);
   const companies = useJobCompanies();
 
   if (jd.isLoading) {
@@ -85,7 +87,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
 
   return (
     <div className={page}>
-      <RoadmapHeader jd={data} headquarters={headquarters} />
+      <RoadmapHeader jd={data} headquarters={headquarters} fit={fit.data ?? null} />
       <PublishedDetails jd={data} />
 
       <Tabs defaultValue="process" className="mt-5">
@@ -99,12 +101,18 @@ export function Roadmap({ jdId }: { jdId: string }) {
           <TabsTrigger value="insights" className={tabTrigger}>
             Insights
           </TabsTrigger>
+          <TabsTrigger value="match" className={tabTrigger}>
+            Your match
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="process" className="mt-5">
           <ProcessTab jd={data} />
         </TabsContent>
         <TabsContent value="insights" className="mt-5">
           <InsightsTab jd={data} />
+        </TabsContent>
+        <TabsContent value="match" className="mt-5">
+          <MatchTab fit={fit.data} isLoading={fit.isLoading} isError={fit.isError} onRetry={() => void fit.refetch()} />
         </TabsContent>
       </Tabs>
     </div>

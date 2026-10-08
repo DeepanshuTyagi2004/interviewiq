@@ -6,12 +6,16 @@ import type { components } from "@/lib/api-client/generated/schema";
 import { PublishedDetails, publishedRange } from "./PublishedDetails";
 import { Roadmap } from "./Roadmap";
 
+// These tests exercise published facts and round cards; track actions have their own query lifecycle.
+vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
+
 const hooks = vi.hoisted(() => ({ jd: null as JdDetail | null }));
-vi.mock("@/features/jobs", async (original) => ({ ...(await original<typeof import("@/features/jobs")>()), useJd: () => ({ data: hooks.jd, isLoading: false, isError: false }), useJobCompanies: () => ({ data: [] }) }));
+vi.mock("@/features/jobs", async (original) => ({ ...(await original<typeof import("@/features/jobs")>()), useJd: () => ({ data: hooks.jd, isLoading: false, isError: false }), useJdFit: () => ({ data: undefined, isLoading: false, isError: false, refetch: () => undefined }), useJobCompanies: () => ({ data: [] }) }));
 
 // Candidate API shape: generated DTO, with the exact manual enrichmentBrief round keys.
 const published = {
-  id: "jd-1", company: "example", companyName: "Example", role: "backend", level: "SDE2", title: "Platform engineer", specialization: null,
+  practiceTemplate: false,
+  id: "jd-1", company: "example", companyName: "Example", role: "backend", level: "sde2", title: "Platform engineer", specialization: null,
   description: "Build reliable services", techStack: ["TypeScript"], sourceUrl: null,
   yoeMin: 2, yoeMax: 5, ctcMinLpa: 18, ctcMaxLpa: 26.5, dataConfidence: "high", dataAvailability: "rich",
   companyOverview: { overview: "Company overview from verified sources", culture: "Collaborative teams", benefits: "Learning allowance", sourceUrls: ["https://example.com/about"], verified: true },
@@ -76,5 +80,14 @@ describe("published company and role details", () => {
     expect(publishedRange(null, 4, "years")).toBe("Up to 4 years");
     expect(publishedRange(3, 3, "years")).toBe("3 years");
     expect(publishedRange(null, null, "LPA")).toBeNull();
+  });
+
+  it("never shows template pay, and labels template experience as typical for the level", () => {
+    render(<PublishedDetails jd={{ ...published, practiceTemplate: true }} />);
+    expect(screen.queryByText("Annual CTC · ₹ lakh")).not.toBeInTheDocument();
+    expect(screen.queryByText("Experience")).not.toBeInTheDocument();
+    expect(screen.getByText("Experience · typical for level")).toBeInTheDocument();
+    expect(screen.getByText("2–5 years")).toBeInTheDocument();
+    expect(screen.getByText("Company overview from verified sources")).toBeInTheDocument();
   });
 });
