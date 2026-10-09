@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
+import { ScriptedLiveSession } from "@/features/interview-live/session/ScriptedLiveSession";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import type { LiveSession } from "@/features/interview-live/session/types";
-import { ViolationOverlay } from "@/features/interview-live/proctor/ViolationOverlay";
 import { useLiveState, useSession } from "@/features/interview/hooks";
 import type { SessionStatus } from "@/features/interview/types";
 import { StatusPill } from "../../../_components/StatusPill";
@@ -17,6 +17,7 @@ import { roomEyebrow, type RoomMeta } from "./roomMeta";
 import { PrejoinView } from "./PrejoinView";
 import { ChecksView } from "./ChecksView";
 import { LiveView } from "./LiveView";
+import { FullscreenGate } from "./FullscreenGate";
 import { EndedView } from "./EndedView";
 
 /** Shared full-bleed shell for the loading/redirecting/not-enterable gate states below —
@@ -51,43 +52,35 @@ function notReadyNote(status: SessionStatus | undefined): string {
   return "Come back once your interview reads Ready.";
 }
 
-function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
-  const { state, session } = useLiveSession();
+export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
+  const { state } = useLiveSession();
   const router = useRouter();
 
   switch (state) {
+    // The round runs full screen from its first page: the instructions, the checks and the connecting step wait
+    // for it (the live room has its own return-to-full-screen bar, and the ended page leaves full screen).
     case "prejoin":
       return (
-        <RoomFrame>
-          <PrejoinView meta={meta} />
-        </RoomFrame>
+        <FullscreenGate meta={meta}>
+          <RoomFrame>
+            <PrejoinView meta={meta} />
+          </RoomFrame>
+        </FullscreenGate>
       );
     case "checks":
       return (
-        <RoomFrame>
-          <ChecksView sessionId={sessionId} meta={meta} />
-        </RoomFrame>
+        <FullscreenGate meta={meta}>
+          <RoomFrame>
+            <ChecksView sessionId={sessionId} meta={meta} />
+          </RoomFrame>
+        </FullscreenGate>
       );
-    // live + paused share ONE stable tree so LiveView (and the candidate's in-progress
-    // code/diagram/tab/media state) is NEVER remounted on a pause/resume. Only the `inert`
-    // flag toggles (disables the work area under the overlay) and the overlay renders as a
-    // sibling. useProctor's document listeners inside LiveView keep firing while inert, so
-    // the restore→resume path still works.
     case "live":
-    case "paused":
+    case "reconnecting":
+      // The same tree while the connection is down, so the editor, whiteboard and proctoring keep their state.
       return (
         <RoomFrame variant="live">
-          <div className="relative flex min-h-0 w-full flex-1 flex-col">
-            <div inert={state === "paused"} className="flex min-h-0 w-full flex-1 flex-col">
-              <LiveView sessionId={sessionId} meta={meta} />
-            </div>
-            {state === "paused" && (
-              <ViolationOverlay
-                session={session}
-                onReturn={() => void document.documentElement.requestFullscreen()}
-              />
-            )}
-          </div>
+          <LiveView sessionId={sessionId} meta={meta} reconnecting={state === "reconnecting"} />
         </RoomFrame>
       );
     case "ending":
@@ -95,14 +88,6 @@ function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: Roo
       return (
         <RoomFrame leave={false}>
           <EndedView sessionId={sessionId} meta={meta} />
-        </RoomFrame>
-      );
-    case "reconnecting":
-      return (
-        <RoomFrame leave={false}>
-          <RoomCentered className="items-center text-center">
-            <RoomSpinner label="Reconnecting… hang tight, we're restoring your interview." />
-          </RoomCentered>
         </RoomFrame>
       );
     case "error":
@@ -130,13 +115,28 @@ function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: Roo
     // wired end-to-end today.
     default:
       return (
-        <RoomFrame leave={false}>
-          <RoomCentered className="items-center text-center">
-            <RoomSpinner label={state === "connecting" ? "Connecting to your interviewer…" : `${state}…`} />
-          </RoomCentered>
-        </RoomFrame>
+        <FullscreenGate meta={meta}>
+          <RoomFrame leave={false}>
+            <RoomCentered className="items-center text-center">
+              <RoomSpinner label={state === "connecting" ? "Connecting to your interviewer…" : `${state}…`} />
+            </RoomCentered>
+          </RoomFrame>
+        </FullscreenGate>
       );
   }
+}
+
+/** Local development (`isMockMode()`): the room against the scripted interviewer, with no server gate,
+ * API or LiveKit. */
+export function MockRoom({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
+  const [session] = useState(() => new ScriptedLiveSession());
+  return (
+    <LiveSessionProvider sessionId={sessionId} session={session}>
+      <div className="fixed inset-0 z-50 flex bg-frame">
+        <LiveInterviewInner sessionId={sessionId} meta={meta} />
+      </div>
+    </LiveSessionProvider>
+  );
 }
 
 /** Gates the live route on the server's session status before ever mounting the

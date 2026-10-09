@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
 import { RetryPrepButton } from "../../_components/RetryPrepButton";
+import { RoomLink } from "@/features/interview-live/RoomLink";
 
 /**
  * The single next step for a session, as the page's primary (brand) button: join or rejoin the
@@ -31,10 +32,10 @@ export function SessionAction({ session, className }: { session: InterviewSessio
     case "LIVE_IN_PROGRESS":
       return (
         <Button asChild className={cls}>
-          <Link href={`${base}/live`}>
+          <RoomLink href={`${base}/live`}>
             {session.status === "LIVE_IN_PROGRESS" ? "Rejoin interview room" : "Enter interview room"}
             <ArrowRight aria-hidden />
-          </Link>
+          </RoomLink>
         </Button>
       );
     case "PREP_FAILED":

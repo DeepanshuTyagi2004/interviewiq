@@ -1,79 +1,112 @@
-import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
+import { stampWeb, type AgentMessage, type WebMessage, type WebMessageBody } from '../protocol/messages'
+import type { TranscriptSegment } from './transcript'
+import type { AgentState, BytesKind, ConnState, LiveSession } from './types'
 
 type Cb<T> = (v: T) => void
 
-/** Dev/test double for LiveSession: real getUserMedia, scripted interviewer turns, and echoes the
- * server-side pause/resume gating in response to proctor events — so the whole UI + proctoring flow
- * works with no backend. Swapped for LiveKitLiveSession when sub-projects A/D land. */
+function channel<T>() {
+  const set = new Set<Cb<T>>()
+  return {
+    add(cb: Cb<T>) {
+      set.add(cb)
+      return () => { set.delete(cb) }
+    },
+    emit(v: T) { set.forEach((cb) => cb(v)) },
+  }
+}
+
+/** A controllable fake LiveSession for tests and local development. It records what the room sends
+ * (`sent`, `bytes`) and lets the caller play the agent's side (`emitMessage`, `emitTranscript`, …).
+ * ScriptedLiveSession builds the scripted interviewer on top of it. */
 export class MockLiveSession implements LiveSession {
   connectionState: ConnState = 'idle'
+  readonly sent: WebMessage[] = []
+  readonly bytes: { kind: BytesKind; data: Uint8Array; attributes: Record<string, string> }[] = []
+  micEnabled = true
   private stream: MediaStream | null = null
-  private controlCbs = new Set<Cb<ControlSignal>>()
-  private connCbs = new Set<Cb<ConnState>>()
-  /** Bumped on every connect()/disconnect() so a stale in-flight connect() can detect it was
-   * superseded and bail out instead of resurrecting a disconnected session. */
+  /** Bumped on connect/disconnect so a superseded connect() doesn't resurrect the session. */
   private token = 0
-  private openingTimeout: ReturnType<typeof setTimeout> | null = null
+  private readonly messages = channel<AgentMessage>()
+  private readonly restores = channel<{ data: Uint8Array; attributes: Record<string, string> }>()
+  private readonly transcripts = channel<TranscriptSegment>()
+  private readonly agentStates = channel<AgentState>()
+  private readonly conns = channel<ConnState>()
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async connect(_sessionId: string): Promise<void> {
     const t = ++this.token
     this.setConn('connecting')
-    let stream: MediaStream | null
+    let stream: MediaStream | null = null
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
     } catch {
-      stream = null   // media denied — UI surfaces it; connection still proceeds for the mock
+      stream = null
     }
     if (t !== this.token) {
-      // disconnect() (or a newer connect()) ran while we were awaiting getUserMedia — don't
-      // resurrect the session, just release the stream we just acquired.
       stream?.getTracks().forEach((tr) => tr.stop())
       return
     }
     this.stream = stream
     this.setConn('connected')
-    // scripted opening
-    this.emit({ type: 'interviewer_utterance', text: "Hi — thanks for joining. Let's start when you're ready." })
-    this.emit({ type: 'speaking', who: 'interviewer', speaking: true })
-    this.openingTimeout = setTimeout(() => this.emit({ type: 'speaking', who: 'interviewer', speaking: false }), 300)
+    this.emitAgentState('listening')
   }
 
   async disconnect(): Promise<void> {
     this.token++
-    if (this.openingTimeout !== null) {
-      clearTimeout(this.openingTimeout)
-      this.openingTimeout = null
-    }
     this.stream?.getTracks().forEach((t) => t.stop())
     this.stream = null
-    this.setConn('disconnected')
+    if (this.connectionState !== 'disconnected') this.setConn('disconnected')
   }
 
   getLocalStream() { return this.stream }
 
-  setMicEnabled(on: boolean) { this.stream?.getAudioTracks().forEach((t) => (t.enabled = on)) }
+  setMicEnabled(on: boolean) {
+    this.micEnabled = on
+    this.stream?.getAudioTracks().forEach((t) => (t.enabled = on))
+  }
 
   setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  sendArtifact(_a: ArtifactSnapshot) { /* no-op in mock; real seam POSTs to the agent */ }
-
-  sendProctorEvent(e: ProctorEvent) {
-    // mirror server-side gating: pause the interview on exit/hide, resume on restore/visible
-    if (e.type === 'fullscreen_exit' || e.type === 'tab_hidden') {
-      this.emit({ type: 'pause', reason: e.type })
-      this.emit({ type: 'acknowledge_violation', text: "Let's keep the interview in full screen — I'll wait." })
-    } else if (e.type === 'fullscreen_restored' || e.type === 'tab_visible') {
-      this.emit({ type: 'resume' })
-    }
+  send(body: WebMessageBody): string {
+    const m = stampWeb(body)
+    this.sent.push(m)
+    this.handleSent(m)
+    return m.id
   }
 
-  onControl(cb: Cb<ControlSignal>) { this.controlCbs.add(cb); return () => this.controlCbs.delete(cb) }
+  async sendBytes(kind: BytesKind, data: Uint8Array, attributes: Record<string, string> = {}): Promise<void> {
+    this.bytes.push({ kind, data, attributes })
+    this.handleBytes(kind, data, attributes)
+  }
 
-  onConnectionChange(cb: Cb<ConnState>) { this.connCbs.add(cb); return () => this.connCbs.delete(cb) }
+  onMessage(cb: Cb<AgentMessage>) { return this.messages.add(cb) }
+  onBoardRestore(cb: (data: Uint8Array, attributes: Record<string, string>) => void) {
+    return this.restores.add(({ data, attributes }) => cb(data, attributes))
+  }
+  onTranscript(cb: Cb<TranscriptSegment>) { return this.transcripts.add(cb) }
+  onAgentState(cb: Cb<AgentState>) { return this.agentStates.add(cb) }
+  onConnectionChange(cb: Cb<ConnState>) { return this.conns.add(cb) }
 
-  private emit(c: ControlSignal) { this.controlCbs.forEach((cb) => cb(c)) }
+  // ---------------------------------------------------------------- the agent's side
 
-  private setConn(s: ConnState) { this.connectionState = s; this.connCbs.forEach((cb) => cb(s)) }
+  emitMessage(m: AgentMessage) { this.messages.emit(m) }
+  emitBoardRestore(data: Uint8Array, attributes: Record<string, string> = {}) { this.restores.emit({ data, attributes }) }
+  emitTranscript(s: TranscriptSegment) { this.transcripts.emit(s) }
+  emitAgentState(s: AgentState) { this.agentStates.emit(s) }
+  simulateConnection(s: ConnState) { this.setConn(s) }
+
+  /** The messages of one type the room sent, for assertions. */
+  sentOf<T extends WebMessage['type']>(type: T): Extract<WebMessage, { type: T }>[] {
+    return this.sent.filter((m): m is Extract<WebMessage, { type: T }> => m.type === type)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected handleSent(_m: WebMessage): void {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected handleBytes(_kind: BytesKind, _data: Uint8Array, _attributes: Record<string, string>): void {}
+
+  protected setConn(s: ConnState) {
+    this.connectionState = s
+    this.conns.emit(s)
+  }
 }

@@ -24,6 +24,7 @@ import {
 } from "./calendar";
 import { dateEyebrow } from "./Greeting";
 import { isFinished, sessionHref, sessionPill } from "./sessions";
+import { RoomLink } from "@/features/interview-live/RoomLink";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -298,9 +299,9 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
           variant={joinable ? "default" : "strong"}
           className="h-[calc(46*var(--u))] px-[calc(22*var(--u))] text-[length:calc(16*var(--u))]"
         >
-          <Link href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
+          <RoomLink href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
             {joinable ? "Enter room" : "Book a round"}
-          </Link>
+          </RoomLink>
         </Button>
       </div>
     </HudCard>

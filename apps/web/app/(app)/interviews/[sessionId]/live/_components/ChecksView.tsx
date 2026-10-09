@@ -5,12 +5,27 @@ import { Loader2 } from "lucide-react";
 import { StatusDot, type DotState } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { enterFullscreen } from "@/features/interview-live/proctor/keyboardLock";
+import { requestEntireScreen, useScreenShared } from "@/features/interview-live/proctor/screenShare";
 import { useExternalDisplay } from "@/features/interview-live/proctor/useExternalDisplay";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import { RoomCentered } from "./RoomFrame";
 import { roomEyebrow, type RoomMeta } from "./roomMeta";
 
 type CheckStatus = "checking" | "pass" | "warn" | "fail";
+
+/** The room's layout needs a desktop-width window (spec §10). */
+export const MIN_ROOM_WIDTH = 1024;
+
+function useWideEnough(): boolean {
+  const [wide, setWide] = useState(() => typeof window === "undefined" || window.innerWidth >= MIN_ROOM_WIDTH);
+  useEffect(() => {
+    const onResize = () => setWide(window.innerWidth >= MIN_ROOM_WIDTH);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return wide;
+}
 
 /** Each check state as a status dot + its word. Only a check that's really running pulses. */
 const CHECK_DOT: Record<CheckStatus, { label: string; state: DotState; tone: string }> = {
@@ -25,10 +40,12 @@ function CheckRow({
   label,
   status,
   detail,
+  action,
 }: {
   label: string;
   status: CheckStatus;
   detail: string;
+  action?: React.ReactNode;
 }) {
   const dot = CHECK_DOT[status];
   return (
@@ -39,6 +56,7 @@ function CheckRow({
         <StatusDot state={dot.state} label={dot.label} className={cn("text-[12px] tracking-[0.06em]", dot.tone)} />
       </div>
       <p className="m-0 text-[12.5px] leading-[1.5] text-muted-foreground">{detail}</p>
+      {action ? <div className="pt-1">{action}</div> : null}
     </li>
   );
 }
@@ -56,6 +74,22 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
   const [micStatus, setMicStatus] = useState<CheckStatus>("checking");
   const [camStatus, setCamStatus] = useState<CheckStatus>("checking");
   const [entering, setEntering] = useState(false);
+  const shared = useScreenShared();
+  const [shareError, setShareError] = useState<string | null>(null);
+  const wide = useWideEnough();
+
+  async function shareScreen() {
+    const r = await requestEntireScreen();
+    if (r.ok) setShareError(null);
+    else if (r.reason === "not_entire_screen") setShareError("Share your entire screen, not a window or tab.");
+    else if (r.reason === "unsupported") setShareError("This browser can't share your screen. Use desktop Chrome or Edge.");
+    else setShareError("Screen sharing was blocked. Allow it in your browser and try again.");
+  }
+
+  const shareStatus: CheckStatus = shared ? "pass" : shareError ? "fail" : "warn";
+  const shareDetail = shared
+    ? "Your entire screen is shared. It stays on this device and is never recorded."
+    : shareError ?? "Share your entire screen to continue. It stays on this device and is never recorded.";
 
   useEffect(() => {
     let cancelled = false;
@@ -110,12 +144,12 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
         ? "No extended display detected."
         : "Checking for a connected external display…";
 
-  const ready = micStatus === "pass" && camStatus === "pass";
+  const ready = micStatus === "pass" && camStatus === "pass" && shared && wide;
 
   async function handleEnter() {
     setEntering(true);
     try {
-      await document.documentElement.requestFullscreen();
+      await enterFullscreen();
     } catch {
       setEntering(false);
       return;
@@ -148,8 +182,8 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
           System check
         </h1>
         <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
-          We run a quick check before entering the interview. Entering switches to full screen;
-          leaving it pauses the round.
+          We run a quick check before entering the interview. Entering switches to full screen.
+          Switching tabs, windows or screens is counted, and the interviewer will mention it.
         </p>
       </div>
 
@@ -175,6 +209,23 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
                 ? "Camera detected and accessible."
                 : "No camera detected, or access was denied. Connect a camera and allow access."
           }
+        />
+        <CheckRow
+          label="Entire screen"
+          status={shareStatus}
+          detail={shareDetail}
+          action={
+            shared ? null : (
+              <Button type="button" variant="outline" className="h-8 rounded-full border-line-3 px-3 text-[12.5px]" onClick={() => void shareScreen()}>
+                Share entire screen
+              </Button>
+            )
+          }
+        />
+        <CheckRow
+          label="Window size"
+          status={wide ? "pass" : "fail"}
+          detail={wide ? "Your window is wide enough for the interview room." : "The interview room needs a desktop window at least 1024px wide."}
         />
         <CheckRow label="External display" status={displayStatus} detail={displayDetail} />
       </ul>

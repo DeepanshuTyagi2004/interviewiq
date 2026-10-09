@@ -651,3 +651,9 @@
     display: none !important;
   }
 }
+
+/* Live interview editor: interviewer marks are the brand orange (the room's only accent). */
+.iq-agent-line { background: hsl(var(--brand) / 0.06); }
+.iq-agent-glyph { background: hsl(var(--brand)); width: 3px !important; margin-left: 6px; border-radius: 2px; }
+.iq-agent-highlight { background: hsl(var(--brand) / 0.16); }
+.iq-cand-highlight { background: hsl(var(--foreground) / 0.08); }

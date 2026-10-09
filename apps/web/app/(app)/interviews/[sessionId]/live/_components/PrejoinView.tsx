@@ -18,7 +18,7 @@ const DOS = [
 ];
 
 const DONTS = [
-  "Don't exit full screen or switch tabs — the interview pauses and the switch is logged.",
+  "Don't switch tabs, windows or screens. Every switch is counted, and repeated switches end the round.",
   "Don't use a phone, second monitor, or another person for help.",
   "Don't refresh or close this tab once the interview has started.",
 ];
@@ -101,6 +101,10 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
           <RuleList title="Do" items={DOS} kind="do" />
           <RuleList title="Don't" items={DONTS} kind="dont" />
 
+          <p className="m-0 rounded-[14px] border border-line-2 bg-panel/60 px-[18px] py-3.5 text-[13.5px] leading-[1.55] text-muted-foreground">
+            While you work, the interviewer sees your cursor, what you type and draw, and what you say as you do it. Your answers and code are saved for your debrief; your cursor and keystroke trail are not, only short summaries of them.
+          </p>
+
           <div className="flex items-start gap-3.5 rounded-[14px] border border-line-2 px-[18px] py-4">
             <Checkbox
               id="prejoin-terms"
@@ -109,9 +113,10 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
               className="mt-px h-[22px] w-[22px] rounded-[8px] border-faint-2 shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
             />
             <Label htmlFor="prejoin-terms" className="text-[14px] font-normal leading-[1.5]">
-              I understand the interview runs in full screen, that leaving full
-              screen or switching tabs will pause it, and I agree to the rules
-              above.
+              I understand the interview runs in full screen with my entire
+              screen shared, that the interviewer sees my cursor, typing and
+              drawing, that switching tabs or screens is counted and can end
+              the round, and I agree to the rules above.
             </Label>
           </div>
 
@@ -127,7 +132,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-0">
           <p className="iq-eyebrow m-0">Your camera</p>
           <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-inv">
-            <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+            <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
             {!camOn ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[13px] text-[#c9c8c3]">
                 <VideoOff aria-hidden className="h-5 w-5" />

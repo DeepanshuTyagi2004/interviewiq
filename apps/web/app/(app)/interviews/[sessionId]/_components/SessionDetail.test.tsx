@@ -27,6 +27,7 @@ const base: InterviewSession = {
   prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
   briefing: null,
   liveAvailable: true,
+  endReason: null,
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",
 };

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { HudCard, StatusDot } from "@/components/hud";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
@@ -8,6 +7,7 @@ import { isJoinable } from "@/features/interview/presentation";
 import { statusDotState } from "@/app/(app)/interviews/_components/StatusPill";
 import { formatSlot, sessionHref, shortDate } from "./sessions";
 import { levelLabel } from "@/lib/constants/engineering-levels";
+import { RoomLink } from "@/features/interview-live/RoomLink";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
@@ -79,13 +79,13 @@ export function UpNextCard({ session, className }: { session: InterviewSession |
             {session.specialization ? <ReadoutCell label="Track">{session.specialization}</ReadoutCell> : null}
           </dl>
         ) : null}
-        <Link
+        <RoomLink
           href={session ? sessionHref(session) : ROUTES.jobs}
           className="inline-flex h-[calc(46*var(--u))] items-center gap-[calc(8*var(--u))] rounded-full bg-brand px-[calc(22*var(--u))] text-[length:calc(16*var(--u))] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
         >
           {session ? (joinable ? "Enter room" : "View schedule") : "Browse companies"}
           <ArrowRight aria-hidden className="size-[calc(16*var(--u))]" />
-        </Link>
+        </RoomLink>
       </div>
     </HudCard>
   );

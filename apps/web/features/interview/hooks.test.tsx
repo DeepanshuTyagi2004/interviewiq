@@ -36,6 +36,7 @@ const SAMPLE_SESSION: InterviewSession = {
   prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
   briefing: null,
   liveAvailable: true,
+  endReason: null,
   createdAt: "2026-06-10T10:00:00Z",
   updatedAt: "2026-06-10T10:00:00Z",
 };

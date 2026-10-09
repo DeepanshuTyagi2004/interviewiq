@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { padCount } from "@/components/hud";
 import { ROUTES } from "@/lib/constants/shared";
+import { RoomLink } from "@/features/interview-live/RoomLink";
 
 function partOfDay(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -56,7 +57,7 @@ export function Greeting({ name, summary, roomHref, roomLabel = "Enter interview
           <Link href={ROUTES.jobs}>Browse companies</Link>
         </Button>
         <Button asChild className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]">
-          <Link href={roomHref}>{roomLabel}</Link>
+          <RoomLink href={roomHref}>{roomLabel}</RoomLink>
         </Button>
       </div>
     </div>

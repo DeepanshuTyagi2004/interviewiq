@@ -13,7 +13,15 @@ describe("room display helpers", () => {
   it("builds the room eyebrow from the session, with a plain fallback", () => {
     expect(roomEyebrow(undefined)).toBe("Interview room");
     const meta = roomMetaFrom({ company: "meesho", companyName: "Meesho", level: "sde1", roundType: "dsa" } as InterviewSession);
-    expect(meta).toEqual({ company: "Meesho", level: "SDE I", round: "DSA" });
+    expect(meta).toEqual({ company: "Meesho", level: "SDE I", round: "DSA", interviewer: "Interviewer" });
     expect(roomEyebrow(meta)).toBe("Meesho · SDE I · DSA");
+  });
+
+  it("names the interviewer from the briefing", () => {
+    const meta = roomMetaFrom({
+      company: "meesho", companyName: "Meesho", level: "sde1", roundType: "dsa",
+      briefing: { interviewerName: "Asha", interviewerStyle: "calm", format: "coding", durationMins: 45 },
+    } as InterviewSession);
+    expect(meta?.interviewer).toBe("Asha");
   });
 });

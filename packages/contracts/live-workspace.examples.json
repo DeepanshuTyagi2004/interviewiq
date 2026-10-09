@@ -1,0 +1,316 @@
+{
+  "panel.show_problem": {
+    "v": 1,
+    "id": "a_show",
+    "type": "panel.show_problem",
+    "item_id": "slot-1",
+    "label": "Problem 1",
+    "kind": "problem",
+    "statement": "Given a string s, return the length of the longest substring that contains at most two distinct characters.",
+    "examples": [
+      {
+        "input": "s = \"eceba\"",
+        "output": "3",
+        "explanation": "The substring is \"ece\"."
+      },
+      {
+        "input": "s = \"ccaabbb\"",
+        "output": "5",
+        "explanation": "The substring is \"aabbb\"."
+      }
+    ]
+  },
+  "panel.add_section": {
+    "v": 1,
+    "id": "a_sec",
+    "type": "panel.add_section",
+    "item_id": "slot-1",
+    "section": {
+      "id": "sec-1",
+      "kind": "constraints",
+      "title": "Constraints",
+      "body": "1 <= s.length <= 10^5\ns consists of English letters.",
+      "author": "interviewer"
+    }
+  },
+  "panel.highlight": {
+    "v": 1,
+    "id": "a_hl",
+    "type": "panel.highlight",
+    "item_id": "slot-1",
+    "highlight_id": "hl-1",
+    "quote": "at most two distinct characters",
+    "occurrence": 0,
+    "note": "This is the key condition."
+  },
+  "panel.clear_highlight": {
+    "v": 1,
+    "id": "a_hlc",
+    "type": "panel.clear_highlight",
+    "highlight_id": "hl-1"
+  },
+  "code.comment": {
+    "v": 1,
+    "id": "a_cc",
+    "type": "code.comment",
+    "at": {
+      "line": 4,
+      "expect": "for i in range(len(s)):"
+    },
+    "text": "What happens here when s is empty?",
+    "purpose": "question"
+  },
+  "code.insert": {
+    "v": 1,
+    "id": "a_ci",
+    "type": "code.insert",
+    "at": "top",
+    "text": "print(longest(\"eceba\"))  # expect 3",
+    "purpose": "test_input"
+  },
+  "code.highlight": {
+    "v": 1,
+    "id": "a_ch",
+    "type": "code.highlight",
+    "highlight_id": "ch-1",
+    "start_line": 4,
+    "end_line": 6,
+    "expect": "for i in range(len(s)):",
+    "note": "Walk me through this loop."
+  },
+  "code.clear_highlight": {
+    "v": 1,
+    "id": "a_chc",
+    "type": "code.clear_highlight",
+    "highlight_id": "ch-1"
+  },
+  "board.request_snapshot": {
+    "v": 1,
+    "id": "a_snap",
+    "type": "board.request_snapshot",
+    "request_id": "snap-1"
+  },
+  "board.draw": {
+    "v": 1,
+    "id": "a_draw",
+    "type": "board.draw",
+    "elements": [
+      {
+        "type": "rectangle",
+        "id": "n1",
+        "label": "Client"
+      },
+      {
+        "type": "rectangle",
+        "id": "n2",
+        "label": "Service"
+      },
+      {
+        "type": "arrow",
+        "id": "e1",
+        "from": "n1",
+        "to": "n2",
+        "label": "request"
+      }
+    ]
+  },
+  "workspace.restore": {
+    "v": 1,
+    "id": "a_rest",
+    "type": "workspace.restore",
+    "cards": [
+      {
+        "item_id": "slot-1",
+        "label": "Problem 1",
+        "kind": "problem",
+        "statement": "Given a string s, return the length of the longest substring that contains at most two distinct characters.",
+        "examples": [
+          {
+            "input": "s = \"eceba\"",
+            "output": "3"
+          }
+        ],
+        "sections": [],
+        "highlights": [
+          {
+            "highlight_id": "hl-1",
+            "quote": "two distinct",
+            "occurrence": 0,
+            "author": "candidate"
+          }
+        ]
+      }
+    ],
+    "active_item_id": "slot-1",
+    "code": {
+      "language": "python",
+      "text": "def longest(s):\n    return 0\n"
+    },
+    "board": false
+  },
+  "session.ending": {
+    "v": 1,
+    "id": "a_end",
+    "type": "session.ending",
+    "reason": "completed",
+    "message": "Thanks for your time today. That's the end of the interview."
+  },
+  "ack": {
+    "v": 1,
+    "id": "w_ack",
+    "type": "ack",
+    "ref": "a_cc",
+    "ok": false,
+    "reason": "line_changed"
+  },
+  "panel.section_added": {
+    "v": 1,
+    "id": "w_sec",
+    "type": "panel.section_added",
+    "item_id": "slot-1",
+    "section": {
+      "id": "sec-2",
+      "kind": "note",
+      "title": "Note",
+      "body": "Try a sliding window?",
+      "author": "candidate"
+    }
+  },
+  "panel.highlight_added": {
+    "v": 1,
+    "id": "w_hl",
+    "type": "panel.highlight_added",
+    "item_id": "slot-1",
+    "highlight_id": "hl-2",
+    "quote": "longest substring",
+    "occurrence": 0
+  },
+  "code.highlight_added": {
+    "v": 1,
+    "id": "w_ch",
+    "type": "code.highlight_added",
+    "start_line": 2,
+    "end_line": 3,
+    "text": "    seen = {}\n    left = 0"
+  },
+  "ask.selection": {
+    "v": 1,
+    "id": "w_ask",
+    "type": "ask.selection",
+    "surface": "statement",
+    "quote": "at most two distinct characters",
+    "item_id": "slot-1"
+  },
+  "code.snapshot": {
+    "v": 1,
+    "id": "w_code",
+    "type": "code.snapshot",
+    "version": 3,
+    "language": "python",
+    "text": "def longest(s):\n    return 0\n"
+  },
+  "board.summary": {
+    "v": 1,
+    "id": "w_board",
+    "type": "board.summary",
+    "version": 2,
+    "text": "rectangle \"Client\"\nrectangle \"Service\"\narrow Client → Service"
+  },
+  "proctor.event": {
+    "v": 1,
+    "id": "w_pro",
+    "type": "proctor.event",
+    "kind": "tab_hidden",
+    "weight": 1,
+    "at": 1760000000000,
+    "counts": {
+      "tab_changes": 1,
+      "screen_changes": 0.5,
+      "full_violations": 1
+    }
+  },
+  "workspace.hello": {
+    "v": 1,
+    "id": "w_hello",
+    "type": "workspace.hello",
+    "has_content": false
+  },
+  "session.end_request": {
+    "v": 1,
+    "id": "w_endreq",
+    "type": "session.end_request"
+  },
+  "activity.batch": {
+    "v": 1,
+    "id": "w_activity_1",
+    "type": "activity.batch",
+    "sent_at": 1760000001000,
+    "events": [
+      {
+        "k": "focus",
+        "t": 1760000000100,
+        "s": "code"
+      },
+      {
+        "k": "edit",
+        "t": 1760000000200,
+        "from_line": 3,
+        "to_line": 3,
+        "ins": "for i in range(n):",
+        "removed": 0
+      },
+      {
+        "k": "caret",
+        "t": 1760000000300,
+        "line": 3,
+        "col": 19
+      },
+      {
+        "k": "caret",
+        "t": 1760000000350,
+        "line": 3,
+        "col": 5,
+        "sel": [
+          3,
+          4
+        ],
+        "text": "for i in range(n):"
+      },
+      {
+        "k": "ptr",
+        "t": 1760000000400,
+        "s": "code",
+        "line": 3,
+        "col": 5,
+        "text": "for i in range(n):"
+      },
+      {
+        "k": "ptr",
+        "t": 1760000000500,
+        "s": "board",
+        "x": 120.5,
+        "y": 80,
+        "over": "cache"
+      },
+      {
+        "k": "ptr",
+        "t": 1760000000600,
+        "s": "panel",
+        "quote": "at most two distinct characters"
+      },
+      {
+        "k": "shape",
+        "t": 1760000000700,
+        "op": "add",
+        "id": "abc",
+        "kind": "rectangle",
+        "label": "cache"
+      },
+      {
+        "k": "ptr",
+        "t": 1760000000800,
+        "s": "out"
+      }
+    ]
+  }
+}

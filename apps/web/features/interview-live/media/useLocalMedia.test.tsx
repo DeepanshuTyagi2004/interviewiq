@@ -9,7 +9,8 @@ function fakeSession(): LiveSession {
     // @ts-expect-error MediaStream constructor doesn't accept string array, but we're using it as a test double
     getLocalStream: () => new MediaStream(['audio', 'video']) as unknown as MediaStream,
     setMicEnabled: vi.fn(), setCameraEnabled: vi.fn(),
-    sendArtifact: vi.fn(), sendProctorEvent: vi.fn(), onControl: () => () => {}, onConnectionChange: () => () => {},
+    send: () => 'm1', sendBytes: async () => {}, onMessage: () => () => {}, onBoardRestore: () => () => {},
+    onTranscript: () => () => {}, onAgentState: () => () => {}, onConnectionChange: () => () => {},
   }
 }
 it('toggles mic/cam and calls the session', () => {

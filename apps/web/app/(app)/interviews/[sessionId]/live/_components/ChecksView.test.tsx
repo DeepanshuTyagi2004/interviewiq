@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, act, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -6,20 +6,17 @@ import {
   useLiveSession,
 } from "@/features/interview-live/session/LiveSessionProvider";
 import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
+import { stopScreenShare } from "@/features/interview-live/proctor/screenShare";
 import { ChecksView } from "./ChecksView";
 
-// MockLiveSession.connect() schedules a 300ms setTimeout for a scripted "stop speaking" event.
-// Flushing past it inside act() keeps that update from leaking an "not wrapped in act" warning
-// into whichever test runs next (same rationale as LiveInterview.test.tsx's flushMicrotasks).
 async function flushTimers(ms = 0) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
 }
 
-/** Drives the real LiveSessionProvider machine to `checks` (via the normal START_CHECKS event)
- * and renders ChecksView there, exposing the machine's state for assertions. ChecksView itself
- * doesn't care about routing — this mirrors how LiveInterview renders it for state `checks`. */
+/** Drives the real LiveSessionProvider machine to `checks` and renders ChecksView there, exposing
+ * the machine's state for assertions (mirrors how LiveInterview renders it). */
 function Harness({ sessionId }: { sessionId: string }) {
   const { state, send } = useLiveSession();
   return (
@@ -55,73 +52,82 @@ class FailingMockLiveSession extends MockLiveSession {
   }
 }
 
-describe("ChecksView", () => {
-  it("runs and shows the three system checks", async () => {
-    const session = new MockLiveSession();
-    await renderAtChecks(session);
+function mockEntireScreen(surface = "monitor") {
+  const track = { kind: "video", stop: vi.fn(), getSettings: () => ({ displaySurface: surface }), addEventListener: vi.fn() };
+  Object.assign(navigator.mediaDevices, {
+    getDisplayMedia: vi.fn(async () => ({ getTracks: () => [track], getVideoTracks: () => [track] })),
+  });
+}
 
-    expect(screen.getByText("Microphone")).toBeInTheDocument();
-    expect(screen.getByText("Camera")).toBeInTheDocument();
-    expect(screen.getByText("External display")).toBeInTheDocument();
+afterEach(() => {
+  stopScreenShare();
+  Reflect.deleteProperty(navigator.mediaDevices, "getDisplayMedia");
+});
+
+describe("ChecksView", () => {
+  it("runs and shows the five system checks", async () => {
+    await renderAtChecks(new MockLiveSession());
+    for (const label of ["Microphone", "Camera", "Entire screen", "Window size", "External display"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
   });
 
-  it("shows each check as a readout row: steady OK dots once they pass, nothing pulsing", async () => {
-    const session = new MockLiveSession();
-    await renderAtChecks(session);
-
+  it("shows each check as a readout row: steady OK dots once they pass, the share waiting, nothing pulsing", async () => {
+    await renderAtChecks(new MockLiveSession());
     const list = screen.getByRole("list", { name: /system checks/i });
-    await waitFor(() => expect(within(list).getAllByText("OK")).toHaveLength(3));
+    await waitFor(() => expect(within(list).getAllByText("OK")).toHaveLength(4));
+    expect(within(list).getByText("Warning")).toBeInTheDocument();
     expect(list.querySelector("[data-motion]")).toBeNull();
   });
 
   it("marks denied devices Action needed and keeps the how-to-fix message", async () => {
     const gum = vi.mocked(navigator.mediaDevices.getUserMedia);
     gum.mockRejectedValueOnce(new Error("denied")).mockRejectedValueOnce(new Error("denied"));
-    const session = new MockLiveSession();
-    await renderAtChecks(session);
-
+    await renderAtChecks(new MockLiveSession());
     const list = screen.getByRole("list", { name: /system checks/i });
     await waitFor(() => expect(within(list).getAllByText("Action needed")).toHaveLength(2));
     expect(screen.getByRole("status")).toHaveTextContent(/allow microphone and camera access/i);
     expect(screen.getByRole("button", { name: /enter interview/i })).toBeDisabled();
   });
 
+  it("keeps Enter disabled until the entire screen is shared, and rejects a window share", async () => {
+    const user = await renderAtChecks(new MockLiveSession());
+    const enter = screen.getByRole("button", { name: /enter interview/i });
+    expect(enter).toBeDisabled();
+    mockEntireScreen("window");
+    await user.click(screen.getByRole("button", { name: "Share entire screen" }));
+    expect(screen.getByText(/not a window or tab/i)).toBeInTheDocument();
+    mockEntireScreen();
+    await user.click(screen.getByRole("button", { name: "Share entire screen" }));
+    await waitFor(() => expect(enter).toBeEnabled());
+  });
+
   it("Enter interview requests fullscreen, connects, and drives the machine to live", async () => {
     const session = new MockLiveSession();
     const connectSpy = vi.spyOn(session, "connect");
     const user = await renderAtChecks(session);
+    mockEntireScreen();
+    await user.click(screen.getByRole("button", { name: "Share entire screen" }));
 
-    const enterButton = await screen.findByRole("button", {
-      name: /enter interview/i,
-    });
+    const enterButton = await screen.findByRole("button", { name: /enter interview/i });
     await waitFor(() => expect(enterButton).toBeEnabled());
-
     await user.click(enterButton);
 
     expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
     await waitFor(() => expect(connectSpy).toHaveBeenCalledWith("s1"));
-    await waitFor(() =>
-      expect(screen.getByTestId("fsm-state").textContent).toBe("live"),
-    );
-
-    // let MockLiveSession's scripted 300ms "stop speaking" timeout fire inside act()
-    await flushTimers(350);
+    await waitFor(() => expect(screen.getByTestId("fsm-state").textContent).toBe("live"));
   });
 
   it("Enter interview sends ERROR when connect() rejects", async () => {
-    const session = new FailingMockLiveSession();
-    const user = await renderAtChecks(session);
+    const user = await renderAtChecks(new FailingMockLiveSession());
+    mockEntireScreen();
+    await user.click(screen.getByRole("button", { name: "Share entire screen" }));
 
-    const enterButton = await screen.findByRole("button", {
-      name: /enter interview/i,
-    });
+    const enterButton = await screen.findByRole("button", { name: /enter interview/i });
     await waitFor(() => expect(enterButton).toBeEnabled());
-
     await user.click(enterButton);
 
     expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
-    await waitFor(() =>
-      expect(screen.getByTestId("fsm-state").textContent).toBe("error"),
-    );
+    await waitFor(() => expect(screen.getByTestId("fsm-state").textContent).toBe("error"));
   });
 });

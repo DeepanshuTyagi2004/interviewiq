@@ -12,6 +12,11 @@ describe('CameraTile', () => {
     expect(video).toHaveProperty('muted', true)
   })
 
+  it('shows the candidate their own camera mirrored, like a selfie view', () => {
+    render(<CameraTile stream={null} label="You" />)
+    expect(screen.getByTestId('camera-tile').querySelector('video')).toHaveClass('-scale-x-100')
+  })
+
   it('renders with a null stream without throwing', () => {
     render(<CameraTile stream={null} label="You" />)
     expect(screen.getByText('You')).toBeInTheDocument()

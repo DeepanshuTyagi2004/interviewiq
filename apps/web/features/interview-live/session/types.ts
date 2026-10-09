@@ -1,43 +1,18 @@
 /**
- * LiveSession seam types — the architectural boundary between the frontend UI
- * and the backend live-interview connection (LiveKit + voice pipeline).
- *
- * Two implementations:
- * - MockLiveSession (dev/tests, no backend)
- * - LiveKitLiveSession (stub now; real when backend A/D land)
+ * The LiveSession seam: the boundary between the room UI and the live connection (LiveKit + the
+ * interviewer agent). Implementations: MockLiveSession (a controllable fake, extended by
+ * ScriptedLiveSession for local development) and LiveKitLiveSession.
  */
-
-export type Speaker = 'candidate' | 'interviewer'
+import type { AgentMessage, WebMessageBody } from '../protocol/messages'
+import type { TranscriptSegment } from './transcript'
 
 export type ConnState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
 
-export interface ProctorEvent {
-  type: 'fullscreen_exit' | 'fullscreen_restored' | 'tab_hidden' | 'tab_visible' | 'external_display_detected' | 'overlay_tamper'
-  at: number
-}
+/** From LiveKit Agents' `lk.agent.state` attribute; `absent` while no interviewer is in the room. */
+export type AgentState = 'absent' | 'initializing' | 'listening' | 'thinking' | 'speaking'
 
-export interface ArtifactSnapshot {
-  kind: 'code' | 'diagram'
-  content: string
-  language?: string
-}
-
-export type ControlSignal =
-  | { type: 'interviewer_utterance'; text: string }
-  | { type: 'candidate_utterance'; text: string }
-  | { type: 'speaking'; who: Speaker; speaking: boolean }
-  | { type: 'pause'; reason: string }
-  | { type: 'resume' }
-  | { type: 'acknowledge_violation'; text?: string }
-  | { type: 'ended'; reason: string }
-
-/** One line of the live-interview conversation, attributed to whichever party said it —
- * `system` covers proctoring notices (e.g. acknowledge_violation) so they render distinctly
- * from real interviewer speech instead of being misattributed to the interviewer. */
-export interface TranscriptEntry {
-  speaker: 'interviewer' | 'candidate' | 'system'
-  text: string
-}
+/** Binary payloads the browser sends: a PNG of the whiteboard, or its compressed scene backup. */
+export type BytesKind = 'board.snapshot' | 'board.backup'
 
 export interface LiveSession {
   connect(sessionId: string): Promise<void>
@@ -48,9 +23,14 @@ export interface LiveSession {
   setMicEnabled(on: boolean): void
   setCameraEnabled(on: boolean): void
 
-  sendArtifact(a: ArtifactSnapshot): void
-  sendProctorEvent(e: ProctorEvent): void
+  /** Sends one web → agent workspace message; stamps `v` and `id` and returns the id. */
+  send(body: WebMessageBody): string
+  sendBytes(kind: BytesKind, data: Uint8Array, attributes?: Record<string, string>): Promise<void>
 
-  onControl(cb: (c: ControlSignal) => void): () => void
+  onMessage(cb: (m: AgentMessage) => void): () => void
+  /** The whiteboard scene the agent sends after `workspace.restore` with `board: true`. */
+  onBoardRestore(cb: (data: Uint8Array, attributes: Record<string, string>) => void): () => void
+  onTranscript(cb: (s: TranscriptSegment) => void): () => void
+  onAgentState(cb: (s: AgentState) => void): () => void
   onConnectionChange(cb: (s: ConnState) => void): () => void
 }

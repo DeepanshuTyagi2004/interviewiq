@@ -1,6 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+/** The Window Management additions to `Screen` (`isExtended`, and `change` events) which the DOM lib doesn't type. */
+export type ExtendedScreen = Screen & { isExtended?: boolean } & Partial<Pick<EventTarget, 'addEventListener' | 'removeEventListener'>>
+
 interface ExternalDisplayState {
   extended: boolean | null
   supported: boolean
@@ -10,7 +13,7 @@ export function useExternalDisplay() {
   const [state, setState] = useState<ExternalDisplayState>({ extended: null, supported: false })
 
   useEffect(() => {
-    const scr = window.screen as Screen & { isExtended?: boolean }
+    const scr = window.screen as ExtendedScreen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyWindow = window as any
     const isExtendedKnown = typeof scr.isExtended === 'boolean'
@@ -28,6 +31,12 @@ export function useExternalDisplay() {
       extended: isExtendedKnown ? (scr.isExtended as boolean) : null,
     })
 
+    // A display plugged in (or removed) mid-round fires `change` on the screen; the proctor counts the rising edge.
+    const onChange = () => {
+      if (typeof scr.isExtended === 'boolean') setState((prev) => ({ ...prev, extended: scr.isExtended as boolean }))
+    }
+    scr.addEventListener?.('change', onChange)
+
     if (!isExtendedKnown && hasGetScreenDetails) {
       anyWindow
         .getScreenDetails()
@@ -35,6 +44,7 @@ export function useExternalDisplay() {
         .then((d: any) => setState((prev) => ({ ...prev, extended: (d?.screens?.length ?? 1) > 1 })))
         .catch(() => setState((prev) => ({ ...prev, extended: null })))
     }
+    return () => scr.removeEventListener?.('change', onChange)
   }, [])
 
   return { extended: state.extended, supported: state.supported }

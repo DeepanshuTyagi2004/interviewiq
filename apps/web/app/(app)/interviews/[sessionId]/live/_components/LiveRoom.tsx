@@ -2,7 +2,8 @@
 
 import { HudZoomOff } from "@/components/hud/scope";
 import { useSession } from "@/features/interview";
-import LiveInterview from "./LiveInterview";
+import { isMockMode } from "@/features/interview-live/session/mockMode";
+import LiveInterview, { MockRoom } from "./LiveInterview";
 import { roomMetaFrom } from "./roomMeta";
 
 /**
@@ -12,10 +13,11 @@ import { roomMetaFrom } from "./roomMeta";
  */
 export function LiveRoom({ sessionId }: { sessionId: string }) {
   const { data } = useSession(sessionId);
+  const meta = roomMetaFrom(data);
   return (
     <>
       <HudZoomOff />
-      <LiveInterview sessionId={sessionId} meta={roomMetaFrom(data)} />
+      {isMockMode() ? <MockRoom sessionId={sessionId} meta={meta} /> : <LiveInterview sessionId={sessionId} meta={meta} />}
     </>
   );
 }

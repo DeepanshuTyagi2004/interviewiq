@@ -1,45 +1,50 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ProctorKind } from '../protocol/messages'
+import type { LiveSession } from '../session/types'
+import { EMPTY_LEDGER, MERGE_WINDOW_MS, recordEvent, type Ledger } from './ledger'
+import { isPrompting, useScreenShared } from './screenShare'
+import { useExternalDisplay } from './useExternalDisplay'
 import { useFullscreen } from './useFullscreen'
 import { useVisibility } from './useVisibility'
-import { useExternalDisplay } from './useExternalDisplay'
-import { useLiveSession } from '../session/useLiveSession'
-import type { LiveSession, ProctorEvent } from '../session/types'
 
-interface UseProctorParams {
-  session: LiveSession
-  enabled: boolean
-  onViolation: (e: ProctorEvent) => void
+export const TOAST_MS = 4000
+export const WARNING_TEXT = "Don't change screens while the interview is running."
+
+export interface ProctorState {
+  ledger: Ledger
+  outOfFullscreen: boolean
+  shareStopped: boolean
+  toast: string | null
 }
 
-interface UseProctorResult {
-  violations: number
-  active: boolean
+interface Signals {
+  fullscreen: boolean
+  hidden: boolean
+  blurred: boolean
+  /** null until the browser has said; a display that is already there at that point is a baseline, not an event. */
+  extended: boolean | null
+  shared: boolean
 }
 
-/** Aggregates fullscreen + tab-visibility + window-focus + external-display proctoring signals
- * into ProctorEvents. Emits on actual transitions only (except for the already-violating-on-enable
- * case below), reports each to the session, and notifies the caller. The violation *count* is not
- * tracked here — the live-session state machine is the single source of truth (it increments on
- * PAUSE, which MockLiveSession/LiveKitLiveSession echo back from these very events), so this hook
- * only reads `ctx.violations` rather than duplicating the counter.
- *
- * `window.blur`/`focus` (OS-level focus loss, e.g. Alt-Tab) is folded into a single
- * `awayFromWindow = hidden || windowBlurred` boolean together with document.visibilitychange —
- * a normal tab-switch fires BOTH, so without this dedupe it would count as two violations. */
-export function useProctor({ session, enabled, onViolation }: UseProctorParams): UseProctorResult {
+/** Watches tab visibility, window focus, full screen, a second display and the screen share (spec
+ * §7). One action's signals merge into one weighted ledger entry: the warning toast shows at once,
+ * and the merged event goes to the interviewer when the merge window closes. Never pauses the round. */
+export function useProctor({ session, enabled }: { session: LiveSession; enabled: boolean }): ProctorState {
   const { isFullscreen } = useFullscreen()
   const { hidden } = useVisibility()
   const { extended } = useExternalDisplay()
-  const { ctx } = useLiveSession()
+  const shared = useScreenShared()
+  const [blurred, setBlurred] = useState(false)
+  const [ledger, setLedger] = useState<Ledger>(EMPTY_LEDGER)
+  const [toast, setToast] = useState<string | null>(null)
+  const ledgerRef = useRef(ledger)
+  const prev = useRef<Signals | null>(null)
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
 
-  // OS-level window-focus loss. There's no safe synchronous "is this window currently focused"
-  // read at mount that avoids an SSR/hydration mismatch, and blur is additive to the existing
-  // fullscreen/visibility signals rather than a baseline concern, so this defaults to false.
-  const [windowBlurred, setWindowBlurred] = useState(false)
   useEffect(() => {
-    const onBlur = () => setWindowBlurred(true)
-    const onFocus = () => setWindowBlurred(false)
+    const onBlur = () => { if (!isPrompting()) setBlurred(true) }
+    const onFocus = () => setBlurred(false)
     window.addEventListener('blur', onBlur)
     window.addEventListener('focus', onFocus)
     return () => {
@@ -48,67 +53,57 @@ export function useProctor({ session, enabled, onViolation }: UseProctorParams):
     }
   }, [])
 
-  const awayFromWindow = hidden || windowBlurred
+  useEffect(() => {
+    const pending = timers.current
+    return () => { pending.forEach(clearTimeout); pending.clear() }
+  }, [])
 
-  const prevFullscreen = useRef(isFullscreen)
-  const prevAway = useRef(awayFromWindow)
-  const prevExtended = useRef(extended)
-  const prevEnabled = useRef(enabled)
-  const mounted = useRef(false)
+  const later = useCallback((ms: number, fn: () => void) => {
+    const t = setTimeout(() => { timers.current.delete(t); fn() }, ms)
+    timers.current.add(t)
+  }, [])
+
+  const record = useCallback((kind: ProctorKind) => {
+    const { ledger: next, change } = recordEvent(ledgerRef.current, kind, Date.now())
+    if (change.kind === 'merged') return
+    ledgerRef.current = next
+    setLedger(next)
+    if (change.kind !== 'added') return
+    setToast(WARNING_TEXT)
+    later(TOAST_MS, () => setToast(null))
+    const index = next.entries.length - 1
+    later(MERGE_WINDOW_MS, () => {
+      const l = ledgerRef.current
+      const entry = l.entries[index]
+      if (!entry) return
+      session.send({
+        type: 'proctor.event', kind: entry.kind, weight: entry.weight, at: entry.at,
+        counts: { tab_changes: l.tabChanges, screen_changes: l.screenChanges, full_violations: l.fullViolations },
+      })
+    })
+  }, [later, session])
 
   useEffect(() => {
-    function emit(event: ProctorEvent) {
-      session.sendProctorEvent(event)
-      onViolation(event)
-    }
-
-    if (!mounted.current) {
-      // First run just establishes the baseline for the *transition* logic below — BUT if
-      // proctoring is already enabled and the CURRENT state is already a violation (out of
-      // fullscreen, or away from the window), fire immediately instead of quietly adopting the
-      // bad state as the baseline. Without this, entering `live`/`paused` already out of
-      // fullscreen (or already tabbed away) is a silent client-side bypass (never pauses).
-      mounted.current = true
-      prevFullscreen.current = isFullscreen
-      prevAway.current = awayFromWindow
-      prevExtended.current = extended
-      prevEnabled.current = enabled
-      if (enabled) {
-        if (!isFullscreen) emit({ type: 'fullscreen_exit', at: performance.now() })
-        if (awayFromWindow) emit({ type: 'tab_hidden', at: performance.now() })
-      }
+    if (!enabled) {
+      prev.current = null
       return
     }
+    const now: Signals = { fullscreen: isFullscreen, hidden, blurred, extended, shared }
+    const was = prev.current
+    prev.current = now
+    // On the first run an already-bad state counts, so entering out of full screen isn't a bypass.
+    if ((was === null || was.fullscreen) && !now.fullscreen) record('fullscreen_exit')
+    if ((was === null || !was.hidden) && now.hidden) record('tab_hidden')
+    if ((was === null || !was.blurred) && now.blurred && !now.hidden) record('window_blur')
+    // Only a display that appears after the round began counts: one already connected was warned about at the checks.
+    if (was !== null && was.extended === false && now.extended === true) record('external_display')
+    if (was !== null && was.shared && !now.shared) record('share_stopped')
+  }, [enabled, isFullscreen, hidden, blurred, extended, shared, record])
 
-    // Covers `enabled` flipping false -> true after mount (current callers all pass a constant
-    // `enabled`, but the already-violating-on-enable guarantee should hold generally).
-    if (enabled && !prevEnabled.current) {
-      if (!isFullscreen) emit({ type: 'fullscreen_exit', at: performance.now() })
-      if (awayFromWindow) emit({ type: 'tab_hidden', at: performance.now() })
-    }
-    prevEnabled.current = enabled
-
-    if (isFullscreen !== prevFullscreen.current) {
-      if (enabled) {
-        emit({ type: isFullscreen ? 'fullscreen_restored' : 'fullscreen_exit', at: performance.now() })
-      }
-      prevFullscreen.current = isFullscreen
-    }
-
-    if (awayFromWindow !== prevAway.current) {
-      if (enabled) {
-        emit({ type: awayFromWindow ? 'tab_hidden' : 'tab_visible', at: performance.now() })
-      }
-      prevAway.current = awayFromWindow
-    }
-
-    // External display has no "restored" counterpart in ProctorEvent — only the rising edge
-    // (extended becoming true) is reported, best-effort, where the Window Management API exists.
-    if (extended && !prevExtended.current) {
-      if (enabled) emit({ type: 'external_display_detected', at: performance.now() })
-    }
-    prevExtended.current = extended
-  }, [isFullscreen, awayFromWindow, extended, enabled, session, onViolation])
-
-  return { violations: ctx.violations, active: !isFullscreen || awayFromWindow }
+  return {
+    ledger,
+    outOfFullscreen: enabled && !isFullscreen,
+    shareStopped: enabled && !shared,
+    toast,
+  }
 }

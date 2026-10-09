@@ -13,7 +13,8 @@ vi.mock("@/features/interview/hooks", () => ({
 import type { LiveSession } from "@/features/interview-live/session/types";
 const inert: Partial<LiveSession> = {
   connectionState: "idle", getLocalStream: () => null, setMicEnabled() {}, setCameraEnabled() {},
-  sendArtifact() {}, sendProctorEvent() {}, onControl: () => () => {}, onConnectionChange: () => () => {},
+  send: () => "m1", sendBytes: async () => {}, onMessage: () => () => {}, onBoardRestore: () => () => {},
+  onTranscript: () => () => {}, onAgentState: () => () => {}, onConnectionChange: () => () => {},
   connect: async () => {}, disconnect: async () => {},
 };
 

@@ -960,9 +960,9 @@ paths:
         Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join
         token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for
         the same room without altering session state. Only the owning candidate may
-        call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable
+        call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable to this user
         (`InterviewSession.liveAvailable` is false), and 409 `session_not_ready` unless PREP_READY.
-        Going live marks the blueprint's problems as seen, so later blueprints never repeat them.
+        Going live marks the blueprint's problems as seen, so later blueprints never repeat them, and dispatches the interviewer agent into the room.
       security:
         - bearerAuth: []
       responses:
@@ -1507,6 +1507,65 @@ paths:
           description: Targets.
           content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ResearchTarget" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/interviews/sessions/{sessionId}/live/end:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: endLiveInterviewSession
+      tags: [interview-sessions]
+      summary: End the live round from the candidate's side (the fallback when the interviewer doesn't answer End).
+      description: Idempotent; a round that already ended returns its stored result with alreadyEnded true.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The end result.
+          content: { application/json: { schema: { $ref: "#/components/schemas/CandidateLiveEndResult" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`session_not_live`."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /api/v1/internal/live/sessions/{sessionId}/context:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: getLiveContext
+      tags: [internal-live]
+      summary: The round and a minimal profile for the interviewer worker.
+      security: [{ internalApiKey: [] }]
+      responses:
+        "200":
+          description: The context.
+          content: { application/json: { schema: { $ref: "#/components/schemas/LiveContext" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`session_not_live`."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /api/v1/internal/live/sessions/{sessionId}/end:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: endLiveSessionInternal
+      tags: [internal-live]
+      summary: The interviewer worker ends the live round (idempotent).
+      security: [{ internalApiKey: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LiveEndRequest" } } }
+      responses:
+        "200":
+          description: The end result.
+          content: { application/json: { schema: { $ref: "#/components/schemas/LiveEndResult" } } }
+        "400":
+          description: "`live_end_bad_request`."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`session_not_live`."
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /api/v1/intelligence/blueprints/candidates:
     get:
@@ -2651,6 +2710,7 @@ components:
         - prep
         - briefing
         - liveAvailable
+        - endReason
         - createdAt
         - updatedAt
       properties:
@@ -2696,6 +2756,10 @@ components:
         liveAvailable:
           type: boolean
           description: False until the live interviewer is available; a ready session can't be joined yet.
+        endReason:
+          allOf: [{ $ref: "#/components/schemas/LiveEndReason" }]
+          nullable: true
+          description: How the live round ended; null before it ends.
         loopId:
           type: string
           format: uuid
@@ -2938,6 +3002,64 @@ components:
         state: { type: string, enum: [done, active, pending, failed] }
         elapsedMs: { type: integer, nullable: true }
 
+    LiveEndReason:
+      type: string
+      enum: [completed, ended_by_interviewer, candidate_ended, technical]
+    LiveSummary:
+      type: object
+      properties:
+        tab_changes: { type: integer, minimum: 0 }
+        screen_changes_weighted: { type: number, minimum: 0 }
+        full_violations: { type: integer, minimum: 0 }
+        conduct_incidents: { type: integer, minimum: 0 }
+        ended_at: { type: string }
+        interviewer_note: { type: string }
+    LiveEndRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/LiveEndReason" }
+        live_summary: { $ref: "#/components/schemas/LiveSummary" }
+    LiveEndResult:
+      type: object
+      required: [status, ended_reason, already_ended]
+      properties:
+        status: { $ref: "#/components/schemas/SessionStatus" }
+        ended_reason: { type: string, nullable: true }
+        already_ended: { type: boolean }
+    CandidateLiveEndResult:
+      type: object
+      required: [status, endReason, alreadyEnded]
+      properties:
+        status: { $ref: "#/components/schemas/SessionStatus" }
+        endReason: { type: string, nullable: true }
+        alreadyEnded: { type: boolean }
+    LiveContext:
+      type: object
+      description: What the interviewer worker needs at the start of a live round. No contact details.
+      required: [session_id, candidate_id, first_name, status, round, profile]
+      properties:
+        session_id: { type: string, format: uuid }
+        candidate_id: { type: string, format: uuid }
+        first_name: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/SessionStatus" }
+        round:
+          type: object
+          required: [company, company_name, role, level, round_type, duration_mins]
+          properties:
+            company: { type: string }
+            company_name: { type: string, nullable: true }
+            role: { type: string }
+            level: { type: string }
+            round_type: { $ref: "#/components/schemas/RoundType" }
+            duration_mins: { type: integer }
+        profile:
+          type: object
+          required: [headline, skills, projects]
+          properties:
+            headline: { type: string, nullable: true }
+            skills: { type: array, items: { type: string } }
+            projects: { type: array, items: { type: string } }
     SessionBriefing:
       type: object
       description: The only candidate-visible part of a blueprint. Never topics, problems or difficulty.

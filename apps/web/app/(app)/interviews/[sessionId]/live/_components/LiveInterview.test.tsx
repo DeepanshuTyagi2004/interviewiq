@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
@@ -28,6 +28,14 @@ async function flushMicrotasks() {
 }
 
 describe("LiveInterview / PrejoinView", () => {
+  // The instruction page is only shown full screen (FullscreenGate), so these tests start from there.
+  beforeEach(() => {
+    (document as unknown as { fullscreenElement: Element | null }).fullscreenElement = document.documentElement;
+  });
+  afterEach(() => {
+    (document as unknown as { fullscreenElement: Element | null }).fullscreenElement = null;
+  });
+
   it("shows the prejoin content with dos/don'ts, the AI-interviewer notice, a T&C checkbox, and a camera preview", async () => {
     render(<LiveInterview sessionId="s1" session={new MockLiveSession()} />);
 
@@ -39,6 +47,21 @@ describe("LiveInterview / PrejoinView", () => {
     ).toBeInTheDocument();
     expect(document.querySelector("video")).toBeInTheDocument();
 
+    await flushMicrotasks();
+  });
+
+  it("tells the candidate the interviewer sees their cursor, typing and drawing", async () => {
+    render(<LiveInterview sessionId="s1" session={new MockLiveSession()} />);
+    expect(
+      screen.getByText("While you work, the interviewer sees your cursor, what you type and draw, and what you say as you do it. Your answers and code are saved for your debrief; your cursor and keystroke trail are not, only short summaries of them."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /that the interviewer sees my cursor, typing and drawing/i })).toBeInTheDocument();
+    await flushMicrotasks();
+  });
+
+  it("shows the camera preview mirrored, like a selfie view", async () => {
+    render(<LiveInterview sessionId="s1" session={new MockLiveSession()} />);
+    expect(document.querySelector("video")).toHaveClass("-scale-x-100");
     await flushMicrotasks();
   });
 

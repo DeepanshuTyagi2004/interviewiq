@@ -1,160 +1,138 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, renderHook, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { LiveSessionProvider, useLiveSession } from './LiveSessionProvider'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, render } from '@testing-library/react'
+import { stampAgent } from '../protocol/messages'
+import { END_FALLBACK_MS, LiveSessionProvider, useLiveSession } from './LiveSessionProvider'
 import { MockLiveSession } from './MockLiveSession'
-import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
 
-function Probe() {
-  const { state, ctx } = useLiveSession()
-  return (
-    <div>
-      <span data-testid="state">{state}</span>
-      <span data-testid="violations">{ctx.violations}</span>
-    </div>
-  )
+const api = vi.hoisted(() => ({ endLive: vi.fn(async () => ({ status: 'COMPLETED', endReason: 'candidate_ended', alreadyEnded: false })) }))
+vi.mock('@/features/interview/api', () => api)
+
+type Ctx = ReturnType<typeof useLiveSession>
+function mount(session: MockLiveSession) {
+  const ref: { current: Ctx | null } = { current: null }
+  function Probe() {
+    ref.current = useLiveSession()
+    return null
+  }
+  render(<LiveSessionProvider sessionId="s1" session={session}><Probe /></LiveSessionProvider>)
+  const goLive = () => act(() => {
+    ref.current!.send({ type: 'START_CHECKS' })
+    ref.current!.send({ type: 'CHECKS_PASSED' })
+    ref.current!.send({ type: 'CONNECTED' })
+  })
+  return { ref, goLive }
 }
+
+afterEach(() => { vi.useRealTimers() })
 
 describe('LiveSessionProvider', () => {
-  it('provides machine state, starting at prejoin', async () => {
+  it('collects transcript segments and the agent state', () => {
     const session = new MockLiveSession()
-    render(<LiveSessionProvider sessionId="s1" session={session}><Probe /></LiveSessionProvider>)
-    expect(screen.getByTestId('state').textContent).toBe('prejoin')
-    expect(screen.getByTestId('violations').textContent).toBe('0')
-    // session stays connectable independent of provider render — sanity check the injected double is live
-    await act(async () => { await session.connect('s1') })
-    expect(session.connectionState).toBe('connected')
+    const { ref } = mount(session)
+    act(() => {
+      session.emitTranscript({ id: 'a', speaker: 'interviewer', text: 'Hi', final: false, at: 1 })
+      session.emitTranscript({ id: 'a', speaker: 'interviewer', text: 'Hi there', final: true, at: 2 })
+      session.emitAgentState('speaking')
+      ref.current!.addNote('Tab change logged')
+    })
+    expect(ref.current!.transcript.map((s) => s.text)).toEqual(['Hi there', 'Tab change logged'])
+    expect(ref.current!.agentState).toBe('speaking')
   })
 
-  it('useLiveSession throws outside a provider', () => {
-    expect(() => renderHook(() => useLiveSession())).toThrow('useLiveSession must be used within a LiveSessionProvider')
-  })
-})
-
-/** Bare-bones LiveSession stub whose onControl callback is exposed via `emit`, so a test can push
- * arbitrary ControlSignals straight through the provider's onControl→machine bridge without going
- * through MockLiveSession's scripted behavior (which doesn't cover every signal, e.g. `ended`). */
-class StubLiveSession implements LiveSession {
-  connectionState: ConnState = 'idle'
-  private cb: ((c: ControlSignal) => void) | null = null
-  async connect() { /* no-op */ }
-  async disconnect() { /* no-op */ }
-  getLocalStream() { return null }
-  setMicEnabled() { /* no-op */ }
-  setCameraEnabled() { /* no-op */ }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  sendArtifact(_a: ArtifactSnapshot) { /* no-op */ }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  sendProctorEvent(_e: ProctorEvent) { /* no-op */ }
-  onControl(cb: (c: ControlSignal) => void) { this.cb = cb; return () => { this.cb = null } }
-  onConnectionChange() { return () => { /* no-op */ } }
-  emit(c: ControlSignal) { this.cb?.(c) }
-}
-
-function Bridge() {
-  const { state, ctx, send, transcript } = useLiveSession()
-  return (
-    <div>
-      <span data-testid="state">{state}</span>
-      <span data-testid="violations">{ctx.violations}</span>
-      <span data-testid="pausedReason">{ctx.pausedReason ?? ''}</span>
-      <span data-testid="endedReason">{ctx.endedReason ?? ''}</span>
-      <span data-testid="transcript">{transcript.map((e) => `${e.speaker}:${e.text}`).join('|')}</span>
-      <button onClick={() => send({ type: 'START_CHECKS' })}>start-checks</button>
-      <button onClick={() => send({ type: 'CHECKS_PASSED' })}>checks-passed</button>
-      <button onClick={() => send({ type: 'CONNECTED' })}>connected</button>
-    </div>
-  )
-}
-
-async function renderBridgeAtLive(session: StubLiveSession) {
-  const user = userEvent.setup()
-  render(<LiveSessionProvider sessionId="s1" session={session}><Bridge /></LiveSessionProvider>)
-  await user.click(screen.getByRole('button', { name: 'start-checks' }))
-  await user.click(screen.getByRole('button', { name: 'checks-passed' }))
-  await user.click(screen.getByRole('button', { name: 'connected' }))
-  expect(screen.getByTestId('state').textContent).toBe('live')
-  return user
-}
-
-describe('LiveSessionProvider onControl -> machine bridge', () => {
-  it('pause{reason} moves to paused, increments violations, and records pausedReason', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'pause', reason: 'fullscreen_exit' }))
-
-    expect(screen.getByTestId('state').textContent).toBe('paused')
-    expect(screen.getByTestId('violations').textContent).toBe('1')
-    expect(screen.getByTestId('pausedReason').textContent).toBe('fullscreen_exit')
+  it('ends with the interviewer reason and message on session.ending', () => {
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => session.emitMessage(stampAgent({ type: 'session.ending', reason: 'ended_by_interviewer', message: 'Repeated tab switching.' })))
+    expect(ref.current!.state).toBe('ended')
+    expect(ref.current!.ctx).toEqual({ endedReason: 'ended_by_interviewer', endedMessage: 'Repeated tab switching.' })
   })
 
-  it('resume moves back to live', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'pause', reason: 'tab_hidden' }))
-    act(() => session.emit({ type: 'resume' }))
-
-    expect(screen.getByTestId('state').textContent).toBe('live')
+  it('ends as technical when the connection drops during the round', () => {
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => session.simulateConnection('disconnected'))
+    expect(ref.current!.ctx.endedReason).toBe('technical')
   })
 
-  it('ended{reason} moves to ended and records ctx.endedReason', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'ended', reason: 'candidate_left' }))
-
-    expect(screen.getByTestId('state').textContent).toBe('ended')
-    expect(screen.getByTestId('endedReason').textContent).toBe('candidate_left')
+  it('requestEnd asks the interviewer to end, and ends locally if it never answers', async () => {
+    vi.useFakeTimers()
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    expect(ref.current!.state).toBe('ending')
+    expect(session.sentOf('session.end_request')).toHaveLength(1)
+    await act(async () => { vi.advanceTimersByTime(END_FALLBACK_MS) })
+    expect(ref.current!.state).toBe('ended')
+    expect(ref.current!.ctx.endedReason).toBe('candidate_ended')
+    expect(api.endLive).toHaveBeenCalledWith('s1')
   })
 
-  it('server-pushed ended signal releases media even though LiveView never unmounts (P1/Q6 regression)', async () => {
-    const session = new StubLiveSession()
-    const disconnectSpy = vi.spyOn(session, 'disconnect')
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'ended', reason: 'host_ended' }))
-
-    expect(screen.getByTestId('state').textContent).toBe('ended')
-    expect(disconnectSpy).toHaveBeenCalled()
-    // fullscreenElement is always null in jsdom, so exitFullscreen is a guarded no-op here —
-    // the assertion that matters is that disconnect() (media release) ran on this path.
+  it('gives the interviewer twelve seconds to answer End before ending locally', async () => {
+    vi.useFakeTimers()
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    act(() => { vi.advanceTimersByTime(11_999) })
+    expect(ref.current!.state).toBe('ending')            // the interviewer's own watchdog (8 s) and closing line fit inside this
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(ref.current!.state).toBe('ended')
   })
 
-  it('acknowledge_violation{text} appends a system-speaker transcript entry', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'acknowledge_violation', text: 'Please return to full screen.' }))
-
-    expect(screen.getByTestId('transcript').textContent).toContain('system:Please return to full screen.')
+  it('does not call the API fallback when the interviewer answers End in time', () => {
+    vi.useFakeTimers()
+    api.endLive.mockClear()
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    act(() => session.emitMessage(stampAgent({ type: 'session.ending', reason: 'candidate_ended', message: 'Goodbye.' })))
+    act(() => { vi.advanceTimersByTime(END_FALLBACK_MS) })
+    expect(api.endLive).not.toHaveBeenCalled()
   })
 
-  it('acknowledge_violation with no text falls back to a default system message', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'acknowledge_violation' }))
-
-    expect(screen.getByTestId('transcript').textContent).toContain('system:Please return to full screen.')
+  it('never labels a disconnect after End as technical', async () => {
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    await act(async () => session.simulateConnection('disconnected'))
+    expect(ref.current!.ctx.endedReason).toBe('candidate_ended')
   })
 
-  it('interviewer_utterance{text} appends an interviewer-speaker transcript entry', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
-
-    act(() => session.emit({ type: 'interviewer_utterance', text: "Let's begin." }))
-
-    expect(screen.getByTestId('transcript').textContent).toContain("interviewer:Let's begin.")
+  it('words the ending from the API when the interviewer had already ended the round and its goodbye never arrived', async () => {
+    vi.useFakeTimers()
+    api.endLive.mockResolvedValueOnce({ status: 'COMPLETED', endReason: 'ended_by_interviewer', alreadyEnded: true })
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    await act(async () => { vi.advanceTimersByTime(END_FALLBACK_MS) })
+    expect(ref.current!.state).toBe('ended')
+    expect(ref.current!.ctx.endedReason).toBe('ended_by_interviewer')
   })
 
-  it('candidate_utterance{text} appends a candidate-speaker transcript entry', async () => {
-    const session = new StubLiveSession()
-    await renderBridgeAtLive(session)
+  it('does the same when the room is deleted after End and the interviewer ended it first', async () => {
+    api.endLive.mockResolvedValueOnce({ status: 'COMPLETED', endReason: 'ended_by_interviewer', alreadyEnded: true })
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    await act(async () => session.simulateConnection('disconnected'))
+    expect(ref.current!.ctx.endedReason).toBe('ended_by_interviewer')
+  })
 
-    act(() => session.emit({ type: 'candidate_utterance', text: 'Sure, sounds good.' }))
-
-    expect(screen.getByTestId('transcript').textContent).toContain('candidate:Sure, sounds good.')
+  it('still ends as candidate_ended when the API cannot be reached', async () => {
+    vi.useFakeTimers()
+    api.endLive.mockRejectedValueOnce(new Error('offline'))
+    const session = new MockLiveSession()
+    const { ref, goLive } = mount(session)
+    goLive()
+    act(() => ref.current!.requestEnd())
+    await act(async () => { vi.advanceTimersByTime(END_FALLBACK_MS) })
+    expect(ref.current!.ctx.endedReason).toBe('candidate_ended')
   })
 })

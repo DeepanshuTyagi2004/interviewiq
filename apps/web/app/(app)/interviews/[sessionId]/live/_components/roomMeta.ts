@@ -6,11 +6,18 @@ export interface RoomMeta {
   company: string;
   level: string;
   round: string;
+  /** The persona's name from the briefing, or "Interviewer". */
+  interviewer: string;
 }
 
 export function roomMetaFrom(session: InterviewSession | undefined): RoomMeta | undefined {
   if (!session) return undefined;
-  return { company: companyLabel(session), level: levelLabel(session.level), round: roundLabel(session.roundType) };
+  return {
+    company: companyLabel(session),
+    level: levelLabel(session.level),
+    round: roundLabel(session.roundType),
+    interviewer: session.briefing?.interviewerName ?? "Interviewer",
+  };
 }
 
 /** "MEESHO · SDE I · DSA", or a plain label until the session has loaded. */

@@ -17,6 +17,7 @@ import {
 } from "@/features/interview/presentation";
 import { RetryPrepButton } from "./RetryPrepButton";
 import { StatusPill } from "./StatusPill";
+import { RoomLink } from "@/features/interview-live/RoomLink";
 
 /** The one action a row offers, keyed on status: join, rejoin, retry prep, or open the debrief. */
 function RowAction({ session }: { session: InterviewSession }) {
@@ -26,7 +27,7 @@ function RowAction({ session }: { session: InterviewSession }) {
     case "PREP_READY":
       return session.liveAvailable ? (
         <Button asChild size="sm" className="relative z-10 h-8 px-3.5">
-          <Link href={`${base}/live`}>Join</Link>
+          <RoomLink href={`${base}/live`}>Join</RoomLink>
         </Button>
       ) : (
         <Button size="sm" variant="outline" disabled className="relative z-10 h-8 px-3.5" title="Live sessions open soon">
@@ -36,7 +37,7 @@ function RowAction({ session }: { session: InterviewSession }) {
     case "LIVE_IN_PROGRESS":
       return (
         <Button asChild size="sm" className="relative z-10 h-8 px-3.5">
-          <Link href={`${base}/live`}>Rejoin</Link>
+          <RoomLink href={`${base}/live`}>Rejoin</RoomLink>
         </Button>
       );
     case "PREP_FAILED":

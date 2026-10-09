@@ -655,7 +655,7 @@ export interface paths {
         put?: never;
         /**
          * Start (or resume) the live interview; mints a LiveKit join token.
-         * @description Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for the same room without altering session state. Only the owning candidate may call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable (`InterviewSession.liveAvailable` is false), and 409 `session_not_ready` unless PREP_READY. Going live marks the blueprint's problems as seen, so later blueprints never repeat them.
+         * @description Moves a PREP_READY session to LIVE_IN_PROGRESS and mints a fresh LiveKit join token. Idempotent while already LIVE_IN_PROGRESS — returns a fresh token for the same room without altering session state. Only the owning candidate may call this. Refused with 409 `live_unavailable` while the live interviewer is unavailable to this user (`InterviewSession.liveAvailable` is false), and 409 `session_not_ready` unless PREP_READY. Going live marks the blueprint's problems as seen, so later blueprints never repeat them, and dispatches the interviewer agent into the room.
          *
          */
         post: operations["goLiveInterviewSession"];
@@ -1303,6 +1303,66 @@ export interface paths {
         get: operations["listResearchTargets"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/sessions/{sessionId}/live/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the live round from the candidate's side (the fallback when the interviewer doesn't answer End).
+         * @description Idempotent; a round that already ended returns its stored result with alreadyEnded true.
+         */
+        post: operations["endLiveInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/internal/live/sessions/{sessionId}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /** The round and a minimal profile for the interviewer worker. */
+        get: operations["getLiveContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/internal/live/sessions/{sessionId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The interviewer worker ends the live round (idempotent). */
+        post: operations["endLiveSessionInternal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2264,6 +2324,8 @@ export interface components {
             briefing: components["schemas"]["SessionBriefing"] | null;
             /** @description False until the live interviewer is available; a ready session can't be joined yet. */
             liveAvailable: boolean;
+            /** @description How the live round ended; null before it ends. */
+            endReason: components["schemas"]["LiveEndReason"] | null;
             /**
              * Format: uuid
              * @description The loop this session is a round of; null for ad-hoc bookings.
@@ -2457,6 +2519,52 @@ export interface components {
             /** @enum {string} */
             state: "done" | "active" | "pending" | "failed";
             elapsedMs: number | null;
+        };
+        /** @enum {string} */
+        LiveEndReason: "completed" | "ended_by_interviewer" | "candidate_ended" | "technical";
+        LiveSummary: {
+            tab_changes?: number;
+            screen_changes_weighted?: number;
+            full_violations?: number;
+            conduct_incidents?: number;
+            ended_at?: string;
+            interviewer_note?: string;
+        };
+        LiveEndRequest: {
+            reason: components["schemas"]["LiveEndReason"];
+            live_summary?: components["schemas"]["LiveSummary"];
+        };
+        LiveEndResult: {
+            status: components["schemas"]["SessionStatus"];
+            ended_reason: string | null;
+            already_ended: boolean;
+        };
+        CandidateLiveEndResult: {
+            status: components["schemas"]["SessionStatus"];
+            endReason: string | null;
+            alreadyEnded: boolean;
+        };
+        /** @description What the interviewer worker needs at the start of a live round. No contact details. */
+        LiveContext: {
+            /** Format: uuid */
+            session_id: string;
+            /** Format: uuid */
+            candidate_id: string;
+            first_name: string | null;
+            status: components["schemas"]["SessionStatus"];
+            round: {
+                company: string;
+                company_name: string | null;
+                role: string;
+                level: string;
+                round_type: components["schemas"]["RoundType"];
+                duration_mins: number;
+            };
+            profile: {
+                headline: string | null;
+                skills: string[];
+                projects: string[];
+            };
         };
         /** @description The only candidate-visible part of a blueprint. Never topics, problems or difficulty. */
         SessionBriefing: {
@@ -6271,6 +6379,118 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    endLiveInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The end result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateLiveEndResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `session_not_live`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getLiveContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The context. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveContext"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `session_not_live`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    endLiveSessionInternal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveEndRequest"];
+            };
+        };
+        responses: {
+            /** @description The end result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveEndResult"];
+                };
+            };
+            /** @description `live_end_bad_request`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `session_not_live`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     listBlueprintBenchCandidates: {

@@ -29,6 +29,7 @@ describe("SessionsList", () => {
     prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
     briefing: null,
     liveAvailable: true,
+    endReason: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

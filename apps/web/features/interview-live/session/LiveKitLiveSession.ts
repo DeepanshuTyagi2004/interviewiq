@@ -1,9 +1,24 @@
 import { ConnectionState, Room, RoomEvent, Track } from 'livekit-client'
-import type { RemoteTrack } from 'livekit-client'
+import type { Participant, RemoteTrack } from 'livekit-client'
 import { goLive } from '@/features/interview/api'
-import type { ArtifactSnapshot, ConnState, ControlSignal, LiveSession, ProctorEvent } from './types'
+import { BYTE_TOPICS, WORKSPACE_TOPIC, parseAgentMessage, stampWeb, type AgentMessage, type WebMessageBody } from '../protocol/messages'
+import type { TranscriptSegment } from './transcript'
+import type { AgentState, BytesKind, ConnState, LiveSession } from './types'
 
 type Cb<T> = (v: T) => void
+// The readers' types, taken from the handler signatures so they track the installed SDK.
+type TextStreamReader = Parameters<Parameters<Room['registerTextStreamHandler']>[1]>[0]
+type ByteStreamReader = Parameters<Parameters<Room['registerByteStreamHandler']>[1]>[0]
+
+const TRANSCRIPTION_TOPIC = 'lk.transcription'
+const AGENT_STATE_ATTRIBUTE = 'lk.agent.state'
+/** LiveKit's recommended byte-stream chunk size. */
+const CHUNK = 15_000
+const BYTES_TOPIC: Record<BytesKind, string> = {
+  'board.snapshot': BYTE_TOPICS.boardSnapshot,
+  'board.backup': BYTE_TOPICS.boardBackup,
+}
+const AGENT_STATES = new Set<AgentState>(['initializing', 'listening', 'thinking', 'speaking'])
 
 function mapConnState(s: ConnectionState): ConnState {
   switch (s) {
@@ -14,77 +29,72 @@ function mapConnState(s: ConnectionState): ConnState {
     case ConnectionState.Reconnecting:
     case ConnectionState.SignalReconnecting:
       return 'reconnecting'
-    case ConnectionState.Disconnected:
     default:
       return 'disconnected'
   }
 }
 
-function isControlSignal(v: unknown): v is ControlSignal {
-  return typeof v === 'object' && v !== null && typeof (v as { type?: unknown }).type === 'string'
+function agentStateOf(p: Pick<Participant, 'attributes'>): AgentState {
+  const v = p.attributes?.[AGENT_STATE_ATTRIBUTE] as AgentState | undefined
+  return v && AGENT_STATES.has(v) ? v : 'initializing'
 }
 
-/** Real LiveSession backed by a LiveKit room. Sub-project A scope: connect + data-channel
- * control bridge + artifact/proctor publishing + a local self-view stream. Sub-project D adds
- * candidate mic publish to the room and AI audio-track playback here; STT/TTS themselves live
- * in the ai-service worker, not this client. */
+function concat(chunks: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0))
+  let at = 0
+  for (const c of chunks) {
+    out.set(c, at)
+    at += c.byteLength
+  }
+  return out
+}
+
+/** The real LiveSession: a LiveKit room. Workspace messages travel on the `workspace` text-stream
+ * topic, images and scenes on byte streams; transcripts and the interviewer's state come from
+ * LiveKit Agents (`lk.transcription`, `lk.agent.state`). */
 export class LiveKitLiveSession implements LiveSession {
   connectionState: ConnState = 'idle'
   private room: Room | null = null
   private stream: MediaStream | null = null
-  private controlCbs = new Set<Cb<ControlSignal>>()
-  private connCbs = new Set<Cb<ConnState>>()
   private audioTracks: RemoteTrack[] = []
   private audioEls: HTMLMediaElement[] = []
+  private readonly messageCbs = new Set<Cb<AgentMessage>>()
+  private readonly restoreCbs = new Set<(data: Uint8Array, attributes: Record<string, string>) => void>()
+  private readonly transcriptCbs = new Set<Cb<TranscriptSegment>>()
+  private readonly agentCbs = new Set<Cb<AgentState>>()
+  private readonly connCbs = new Set<Cb<ConnState>>()
 
   async connect(sessionId: string): Promise<void> {
     this.setConn('connecting')
-
-    // Everything that can fail before the room is actually connected — including the goLive
-    // await itself — is wrapped here so ANY failure resets connectionState back to
-    // 'disconnected' (via the notifying setConn) and rethrows, rather than leaving a caller
-    // stuck reading 'connecting' forever after a rejected/failed connect().
     try {
       const { livekitUrl, token } = await goLive(sessionId)
-      if (!livekitUrl || !token) {
-        throw new Error('goLive did not return a livekitUrl/token')
-      }
+      if (!livekitUrl || !token) throw new Error('goLive did not return a livekitUrl/token')
 
       const room = new Room()
-      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-        try {
-          const parsed: unknown = JSON.parse(new TextDecoder().decode(payload))
-          if (isControlSignal(parsed)) this.emit(parsed)
-        } catch {
-          // malformed inbound data — ignore, never throw
-        }
-      })
-      room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
-        this.setConn(mapConnState(state))
+      // Handlers return their promise so a caller (and the tests) can await the whole read.
+      room.registerTextStreamHandler(WORKSPACE_TOPIC, (reader) => this.readWorkspace(reader))
+      room.registerTextStreamHandler(TRANSCRIPTION_TOPIC, (reader, participant) => this.readTranscription(reader, participant.identity))
+      room.registerByteStreamHandler(BYTE_TOPICS.boardRestore, (reader) => this.readRestore(reader))
+      room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => this.setConn(mapConnState(state)))
+      room.on(RoomEvent.ParticipantConnected, (p: Participant) => { if (p.isAgent) this.emitAgent(agentStateOf(p)) })
+      room.on(RoomEvent.ParticipantDisconnected, (p: Participant) => { if (p.isAgent) this.emitAgent('absent') })
+      room.on(RoomEvent.ParticipantAttributesChanged, (_changed: Record<string, string>, p: Participant) => {
+        if (p.isAgent) this.emitAgent(agentStateOf(p))
       })
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
         if (track.kind === Track.Kind.Audio) {
-          const el = track.attach()
           this.audioTracks.push(track)
-          this.audioEls.push(el)
+          this.audioEls.push(track.attach())
         }
       })
       this.room = room
 
       await room.connect(livekitUrl, token)
+      for (const p of room.remoteParticipants.values()) if (p.isAgent) this.emitAgent(agentStateOf(p))
 
-      // Mic publish + autoplay start are best-effort: a denied mic or blocked autoplay must not
-      // fail connect() — captions/data-channel bridge still work without them.
-      try {
-        await room.localParticipant.setMicrophoneEnabled(true)
-      } catch {
-        // mic publish best-effort — candidate may deny permission
-      }
-      try {
-        await room.startAudio()
-      } catch {
-        // autoplay may be blocked until a user gesture — captions still work
-      }
+      // Best-effort: a denied mic or blocked autoplay must not fail connect().
+      try { await room.localParticipant.setMicrophoneEnabled(true) } catch { /* mic denied */ }
+      try { await room.startAudio() } catch { /* autoplay blocked until a gesture */ }
     } catch (err) {
       this.setConn('disconnected')
       throw err
@@ -93,15 +103,11 @@ export class LiveKitLiveSession implements LiveSession {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
     } catch {
-      this.stream = null // media denied — self-view is best-effort only
+      this.stream = null // self-view is best-effort only
     }
 
-    // Only force 'connected' if nothing truer arrived while we were awaiting getUserMedia — a
-    // RoomEvent.ConnectionStateChanged (e.g. a drop to 'disconnected' or a 'reconnecting' blip)
-    // during that window already reflects reality via setConn and must not be clobbered here.
-    if (this.connectionState === 'connecting') {
-      this.setConn('connected')
-    }
+    // Only force 'connected' if nothing truer arrived while getUserMedia was pending.
+    if (this.connectionState === 'connecting') this.setConn('connected')
   }
 
   async disconnect(): Promise<void> {
@@ -124,23 +130,89 @@ export class LiveKitLiveSession implements LiveSession {
 
   setCameraEnabled(on: boolean) { this.stream?.getVideoTracks().forEach((t) => (t.enabled = on)) }
 
-  sendArtifact(a: ArtifactSnapshot) {
-    this.publish({ type: 'artifact', kind: a.kind, content: a.content, language: a.language })
+  send(body: WebMessageBody): string {
+    const m = stampWeb(body)
+    const sending = this.room?.localParticipant.sendText(JSON.stringify(m), { topic: WORKSPACE_TOPIC })
+    void sending?.catch(() => {})
+    return m.id
   }
 
-  sendProctorEvent(e: ProctorEvent) {
-    this.publish({ type: 'proctor', event: e.type })
+  async sendBytes(kind: BytesKind, data: Uint8Array, attributes: Record<string, string> = {}): Promise<void> {
+    const local = this.room?.localParticipant
+    if (!local) return
+    const writer = await local.streamBytes({
+      name: `${kind}-${Date.now()}`,
+      topic: BYTES_TOPIC[kind],
+      attributes,
+      totalSize: data.byteLength,
+      mimeType: kind === 'board.snapshot' ? 'image/png' : 'application/octet-stream',
+    })
+    for (let i = 0; i < data.byteLength; i += CHUNK) await writer.write(data.subarray(i, i + CHUNK))
+    await writer.close()
   }
 
-  onControl(cb: Cb<ControlSignal>) { this.controlCbs.add(cb); return () => this.controlCbs.delete(cb) }
+  onMessage(cb: Cb<AgentMessage>) { this.messageCbs.add(cb); return () => { this.messageCbs.delete(cb) } }
+  onBoardRestore(cb: (data: Uint8Array, attributes: Record<string, string>) => void) {
+    this.restoreCbs.add(cb)
+    return () => { this.restoreCbs.delete(cb) }
+  }
+  onTranscript(cb: Cb<TranscriptSegment>) { this.transcriptCbs.add(cb); return () => { this.transcriptCbs.delete(cb) } }
+  onAgentState(cb: Cb<AgentState>) { this.agentCbs.add(cb); return () => { this.agentCbs.delete(cb) } }
+  onConnectionChange(cb: Cb<ConnState>) { this.connCbs.add(cb); return () => { this.connCbs.delete(cb) } }
 
-  onConnectionChange(cb: Cb<ConnState>) { this.connCbs.add(cb); return () => this.connCbs.delete(cb) }
-
-  private publish(obj: Record<string, unknown>) {
-    this.room?.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(obj)), { reliable: true })
+  private async readWorkspace(reader: TextStreamReader) {
+    let text: string
+    try {
+      text = await reader.readAll()
+    } catch {
+      return // the sender aborted or we reconnected mid-stream
+    }
+    const m = parseAgentMessage(text)
+    if (m) this.messageCbs.forEach((cb) => cb(m))
   }
 
-  private emit(c: ControlSignal) { this.controlCbs.forEach((cb) => cb(c)) }
+  private async readTranscription(reader: TextStreamReader, identity: string) {
+    const attrs = reader.info.attributes ?? {}
+    const id = attrs['lk.segment_id'] ?? reader.info.id
+    const speaker = this.isCandidate(identity, attrs['lk.transcribed_track_id']) ? 'candidate' : 'interviewer'
+    const at = Date.now()
+    let text = ''
+    try {
+      for await (const chunk of reader) {
+        // Chunks may be cumulative or deltas depending on the SDK version; handle both.
+        text = chunk.startsWith(text) ? chunk : text + chunk
+        this.transcriptCbs.forEach((cb) => cb({ id, speaker, text, final: false, at }))
+      }
+    } catch {
+      return
+    }
+    const final = attrs['lk.transcription_final'] === 'true' || speaker === 'interviewer'
+    this.transcriptCbs.forEach((cb) => cb({ id, speaker, text, final, at }))
+  }
 
-  private setConn(s: ConnState) { this.connectionState = s; this.connCbs.forEach((cb) => cb(s)) }
+  private isCandidate(identity: string, trackSid?: string): boolean {
+    const local = this.room?.localParticipant
+    if (!local) return false
+    if (identity === local.identity) return true
+    return !!trackSid && Array.from(local.trackPublications.values()).some((p) => p.trackSid === trackSid)
+  }
+
+  private async readRestore(reader: ByteStreamReader) {
+    let chunks: Uint8Array[]
+    try {
+      chunks = await reader.readAll()
+    } catch {
+      return
+    }
+    const data = concat(chunks)
+    const attributes = reader.info.attributes ?? {}
+    this.restoreCbs.forEach((cb) => cb(data, attributes))
+  }
+
+  private emitAgent(s: AgentState) { this.agentCbs.forEach((cb) => cb(s)) }
+
+  private setConn(s: ConnState) {
+    this.connectionState = s
+    this.connCbs.forEach((cb) => cb(s))
+  }
 }

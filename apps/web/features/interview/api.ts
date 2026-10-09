@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client/client";
 import { INTERVIEW_ENDPOINTS } from "@/lib/constants/interview";
 import type {
+  CandidateLiveEndResult,
   CreateInterviewSessionRequest,
   GoLiveResponse,
   InterviewSession,
@@ -35,6 +36,11 @@ export function goLive(id: string): Promise<GoLiveResponse> {
 /** GET /api/v1/interviews/sessions/{id}/live — current live state (fresh token if LIVE_IN_PROGRESS). */
 export function getLive(id: string): Promise<GoLiveResponse> {
   return apiFetch<GoLiveResponse>(INTERVIEW_ENDPOINTS.live(id));
+}
+
+/** POST /api/v1/interviews/sessions/{id}/live/end — end the live round when the interviewer didn't answer End (idempotent). */
+export function endLive(id: string): Promise<CandidateLiveEndResult> {
+  return apiFetch<CandidateLiveEndResult>(INTERVIEW_ENDPOINTS.liveEnd(id), { method: "POST" });
 }
 
 /** POST /api/v1/interviews/sessions/{id}/reschedule — move a not-yet-started interview (409 session_slot_taken on a clash). */
