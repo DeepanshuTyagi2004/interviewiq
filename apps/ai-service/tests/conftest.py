@@ -13,3 +13,6 @@ os.environ.setdefault("LLM_API_KEY", "g")
 os.environ.setdefault("LLM_MODEL_NAME", "gemma-3-27b-it")
 # The paid Gemini key in a developer's .env must never be used by tests (environment beats .env).
 os.environ["GEMINI_API_KEY"] = ""
+# The live interviewer must never reach paid APIs from tests.
+os.environ["OPENROUTER_API_KEY"] = ""
+os.environ["DEEPGRAM_API_KEY"] = ""

@@ -1,0 +1,21 @@
+Hi, thanks for having me!
+I'm a backend engineer, mostly Java and SQL.
+#wait 25
+Sure, I'm ready for the problem.
+#wait 30
+#at -20 type 1 def pair_sum(nums, target):
+#at -14 type 2     seen = {}
+#at -8 type 3     for i, x in enumerate(nums):
+#at -3 type 4         if target - x in seen:
+So I keep a dictionary of the values I have already seen, and for each number I check whether the complement is in there.
+#wait 20
+#at 1 point code 3     for i, x in enumerate(nums):
+#at 5 point code 2     seen = {}
+This loop goes over the array once, and this dictionary gives constant time lookups, so the whole thing is linear.
+#wait 15
+#at 0 draw rectangle input nums
+#at 3 draw rectangle seen map
+#at 6 draw arrow nums to seen
+Here I am showing the data flow on the board. The input goes through the loop and fills the map.
+#wait 40
+#end

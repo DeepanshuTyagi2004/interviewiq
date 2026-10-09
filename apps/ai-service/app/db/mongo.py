@@ -83,6 +83,10 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     from app.blueprint.store import ensure_blueprint_indexes
     await ensure_blueprint_indexes(db)
 
+    # Live interviews: runs, turns, briefs and evidence (app/interviewer).
+    from app.interviewer.store import ensure_live_indexes
+    await ensure_live_indexes(db)
+
 
 async def ping() -> bool:
     """Health-check helper. Never raises."""

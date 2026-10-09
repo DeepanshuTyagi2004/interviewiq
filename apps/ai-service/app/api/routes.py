@@ -8,7 +8,7 @@
 - POST /resumes/parse                         — internal key; PDF body -> structured JSON (onboarding)
 - POST /profile-scoring/assess                — internal key; bounded feature inferences from minimized evidence
 - POST /profile-scoring/company-context       — internal key; general-knowledge company facts (no score)
-- POST /users/purge                           — internal key; account deletion, drop the user's blueprints and runs
+- POST /users/purge                           — internal key; account deletion, drop the user's blueprints, runs and live interviews
 """
 from __future__ import annotations
 
@@ -236,8 +236,11 @@ class PurgeUserRequest(BaseModel):
 
 @router.post("/users/purge", dependencies=[Depends(require_internal_key)])
 async def purge_user(req: PurgeUserRequest) -> dict:
-    """Account deletion: remove the user's interview blueprints and blueprint runs (bench runs
-    included). Idempotent — purging already-deleted data removes nothing and still succeeds."""
+    """Account deletion: remove the user's interview blueprints, blueprint runs (bench runs
+    included) and live interviews (runs, turns, briefs, evidence). Idempotent — purging already-deleted data removes nothing and still succeeds."""
     from app.blueprint import store
+    from app.interviewer import store as live_store
 
-    return await store.purge(req.candidate_id, req.session_ids)
+    out = await store.purge(req.candidate_id, req.session_ids)
+    out.update(await live_store.purge(req.candidate_id, req.session_ids))
+    return out

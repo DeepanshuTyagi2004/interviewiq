@@ -176,6 +176,25 @@ class Settings(BaseSettings):
     # --- interviewiq-api: source of the JD targets to generate briefs for ---
     api_base_url: str = Field("http://interviewiq-api:8080", alias="API_BASE_URL")
 
+    # --- Live interviewer (Module 03; docs/superpowers/specs/2026-10-08-live-interviewer-design.md §3) ---
+    # Optional for the HTTP service; the interviewer worker checks them at start (app/interviewer/worker.py).
+    livekit_url: str = Field("", alias="LIVEKIT_URL")
+    livekit_api_key: str = Field("", alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str = Field("", alias="LIVEKIT_API_SECRET")
+    deepgram_api_key: str = Field("", alias="DEEPGRAM_API_KEY")
+    openrouter_api_key: str = Field("", alias="OPENROUTER_API_KEY")
+    openrouter_base_url: str = Field("https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL")
+    interviewer_agent_name: str = Field("interviewer", alias="INTERVIEWER_AGENT_NAME")
+    interviewer_talker_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_TALKER_MODEL")
+    # "none" turns reasoning off on the speaking path; anything else is sent as OpenRouter's reasoning effort.
+    interviewer_talker_reasoning: str = Field("none", alias="INTERVIEWER_TALKER_REASONING")
+    interviewer_director_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_DIRECTOR_MODEL")
+    interviewer_director_reasoning: str = Field("medium", alias="INTERVIEWER_DIRECTOR_REASONING")
+    # A Deepgram Aura-2 English voice, matched by hand to the test blueprint's persona for the POC.
+    interviewer_tts_voice: str = Field("aura-2-orion-en", alias="INTERVIEWER_TTS_VOICE")
+    interviewer_talker_timeout_seconds: float = Field(4.0, alias="INTERVIEWER_TALKER_TIMEOUT_SECONDS", gt=0)
+    interviewer_director_timeout_seconds: float = Field(45.0, alias="INTERVIEWER_DIRECTOR_TIMEOUT_SECONDS", gt=0)
+
     # --- Brief generation schedule ---
     scheduler_enabled: bool = Field(True, alias="SCHEDULER_ENABLED")
     brief_refresh_interval_days: int = Field(7, alias="BRIEF_REFRESH_INTERVAL_DAYS")

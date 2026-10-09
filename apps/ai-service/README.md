@@ -286,3 +286,17 @@ in record mode: about 2 each per company in Phase 1.
 9. **Budget check.** Start a `live` run with the LLM cap set to 1 (Set caps right after starting). The run auto-pauses with "budget cap reached". Raise the cap and Resume, and it completes.
 10. On the Companies tab, every researched company reads "Awaiting review". Archive TCS, then start an "all" run: TCS is not included.
 11. As a non-admin student, `/jobs` lists only the published companies. Admin-added companies stay hidden until Phase 2 approval.
+
+## Live interviewer worker (Module 03)
+
+A LiveKit Agents worker that runs a prepared blueprint by voice (spec:
+`docs/superpowers/specs/2026-10-08-live-interviewer-design.md`). It is a separate process:
+
+    pnpm --filter @interviewiq/ai-service dev:interviewer      # = .venv/bin/python -m app.interviewer.worker dev
+
+Needs `LIVEKIT_*`, `DEEPGRAM_API_KEY`, `OPENROUTER_API_KEY`, `MONGODB_URL`, `API_BASE_URL` and `INTERNAL_API_KEY` in
+`.env`. The API dispatches it (agent name `interviewer`) when a candidate goes live.
+
+- Text-only rehearsal, no LiveKit: `.venv/bin/python -m app.interviewer.simulate --session <id> --script <file>`
+- Replay a session's decisions: `.venv/bin/python -m app.interviewer.trace <session_id>`
+- Latency spike: `.venv/bin/python scripts/interviewer_latency_spike.py --session <id>`

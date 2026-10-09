@@ -1,0 +1,16 @@
+Hi, thanks for having me!
+I'm a backend engineer, mostly Java and SQL. I built a split-bill app last year.
+#wait 30
+Sure, I'm ready.
+Can you tell me the constraints?
+I think I'd check every pair first.
+That would be O(n squared). Could I do better with something that remembers what I've seen?
+#code def pair_sum(nums, target):\n    seen = {}\n    return []
+Can you just tell me the answer?
+#wait 600
+#tab
+Sorry, that was a notification.
+Can I have five more minutes?
+#wait 900
+I don't have questions, thanks.
+#end
