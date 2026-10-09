@@ -273,10 +273,19 @@ instructions").
 **End reasons:** `completed`, `ended_by_interviewer`, `candidate_ended`, `technical`.
 
 **Candidate presses End:** a confirm dialog; then the browser sends `session.end_request`; the interviewer says a
-short goodbye and ends with `candidate_ended`. With no `session.ending` within 5 s, the browser calls
-`POST /sessions/:id/live/end` itself and disconnects.
+short goodbye and ends with `candidate_ended`. The interviewer's own watchdog ends the round after 8 s if the
+goodbye never finishes; with no `session.ending` within 12 s the browser calls `POST /sessions/:id/live/end`
+itself and disconnects. An ending already decided (misconduct, a third violation) is never replaced by
+`candidate_ended`: the End press only hurries it. The interviewer's end report is authoritative: if the browser's
+fallback closed the round first (it carries no summary), the report's reason and summary replace it.
 
-**Candidate drops off:** the agent waits 2 minutes for a rejoin, then ends with `technical`.
+**Candidate drops off:** the agent keeps its session when the candidate disconnects (a page refresh is a few
+seconds) and says nothing into the empty room. It waits 2 minutes for a rejoin, then ends with `technical`.
+An absence of 20 s or more counts as one full-weight violation (like leaving the tab) when the candidate returns.
+
+**Joining:** the worker joins the room and listens first, holding the browser's `workspace.hello` until the
+interview has loaded; the browser says hello again whenever the interviewer appears, because the first hello is
+usually sent before the interviewer is in the room.
 
 ### 5.7 Fixed rules (talker and director)
 
@@ -304,28 +313,33 @@ top, as `live-pol1`):
 
 - The browser is the source of truth for all three surfaces; the agent keeps a mirror built from what the browser
   sends.
-- JSON messages on the LiveKit data channel, reliable, topic `workspace`, each with `v` (protocol version), `id` and
-  `type`. Images use LiveKit byte streams.
+- JSON messages on LiveKit **text streams**, topic `workspace` (reliable, ordered, any size), each with `v`
+  (protocol version), `id` and `type`. Images and whiteboard scenes use LiveKit byte streams
+  (`workspace.board.snapshot`, `workspace.board.backup`, `workspace.board.restore`).
+- **The agent sends no workspace instruction before the browser's first `workspace.hello`**, so nothing arrives
+  before the room is ready to apply it.
 - The browser **acknowledges every agent instruction** with `ack {id, ok, reason?}`, so the trace shows whether
   each one applied.
 - **Interviewer marks are always orange** (the platform's only accent) on every surface: highlights, code markers,
   inserted lines and drawings.
 - The transcript (with interim words) and the agent's state (listening, thinking, speaking) come from LiveKit Agents'
   built-in transcription streams and agent-state attribute; no custom messages.
-- **Contract:** `packages/contracts/live-workspace.schema.json` is the source of truth. TypeScript types (web) and
-  Pydantic models (AI service) mirror it, and both sides test against shared example messages in
-  `packages/contracts/live-workspace.examples/`.
+- **Contract:** the Zod module `apps/web/features/interview-live/protocol/messages.ts` is the source;
+  `pnpm --filter @interviewiq/web generate:live-schema` writes `packages/contracts/live-workspace.schema.json` from it
+  (a test fails when the file is stale). The AI service mirrors it in Pydantic, and both sides test against
+  `packages/contracts/live-workspace.examples.json` (one example per message type).
 
 ### 6.2 Messages
 
 | From → to | Type | Payload and behaviour |
 |---|---|---|
-| agent → web | `panel.show_problem` | `{item_id, label, statement, examples[2]}` (§6.3). Opens the panel and flashes its label. |
+| agent → web | `panel.show_problem` | `{item_id, label, statement, examples[2]}` (§6.3). Opens the panel and flashes its label. Every `item_id` and section id on the wire is the slot's kind and position (`core-1`, `reserve-2`), never the blueprint's slot id, which can carry a word such as `harder`. |
 | agent → web | `panel.add_section` | `{item_id, section: {id, kind, title, body}}`, authored by the interviewer. |
 | agent → web | `panel.highlight` | `{item_id, quote, occurrence?, note?}`. Anchored by quoted text; refused if not found. |
 | agent → web | `panel.clear_highlight` | `{highlight_id}` |
 | web → agent | `panel.section_added` | The candidate's own section. |
 | web → agent | `panel.highlight_added` | The candidate's own highlight. |
+| web → agent | `code.highlight_added` | `{start_line, end_line, text}`: lines the candidate highlighted in the editor. |
 | web → agent | `ask.selection` | `{surface: statement / code / board, quote or element summary, item_id?, lines?}`. Pinned as "Asking about: …" above the transcript until the candidate's next question, which it accompanies. |
 | web → agent | `code.snapshot` | `{version, language, text}`, sent 800 ms after typing stops and on a language change. |
 | agent → web | `code.comment` | `{at: "top" or {line, expect}, text, purpose}`. Rendered in the current language's comment syntax. |
@@ -334,7 +348,7 @@ top, as `live-pol1`):
 | web → agent | `board.summary` | `{version, text}`: shapes, labels and arrows (arrow ends resolved to labels), sent when the board settles. |
 | web → agent | `board.backup` | The full scene, compressed, every 10 s while it changes (byte stream). Used for restore. |
 | agent → web | `board.request_snapshot` | The browser answers with a PNG (longest side ≤ 1024 px) over a byte stream. |
-| agent → web | `board.draw` | `{elements: [{type, id, label?, x?, y?, from?, to?}]}`. Converted with Excalidraw's element skeletons; placed beside the candidate's drawing when no position is given. |
+| agent → web | `board.draw` | `{elements: [{type, id, label?, x?, y?, from?, to?}]}`. Converted with Excalidraw's element skeletons. The browser places the whole block in empty space inside the candidate's view (below the toolbar, clear of everything they drew, never over it); `x`/`y` are offsets within the interviewer's own block. If the view has no room it goes beside everything and the board scrolls to it. |
 | web → agent | `proctor.event` | `{kind, weight, at, counts}` (§7). |
 | web → agent | `workspace.hello` | Sent on every join, with what the browser already holds. |
 | agent → web | `workspace.restore` | Panel cards and sections, the latest code, the board backup. Sent after `hello` when the browser is empty. |
@@ -382,6 +396,9 @@ On every join the browser sends `workspace.hello`. If it holds nothing (a refres
 | Screen share stopped | Screen changes | 0.5 |
 
 - Return events (tab visible, full screen restored) don't count.
+- A second display that was already connected when the round began is not a violation (the checks warned about
+  it); only one connected after the round began counts.
+- The live summary's counts are the interviewer's own ledger, not the browser's counters (those restart on refresh).
 - **One action counts once, at its heaviest weight:** events within 1.5 s merge. A tab switch fires tab-hidden,
   window blur and often a full-screen exit; it counts as one tab change.
 - The header shows **Tab changes** as a count and **Screen changes** as a weighted total (e.g. `1.5`).
@@ -423,7 +440,7 @@ tap doesn't count as a violation.
 ### 8.3 Candidate endpoint
 
 - `POST /sessions/:id/live/end` (candidate auth): the browser's fallback when the interviewer doesn't answer an End
-  request within 5 s. Records `candidate_ended`.
+  request within 12 s. Records `candidate_ended` (see §5.6: the interviewer's report replaces it when it arrives).
 
 ### 8.4 Storage and contract
 
@@ -542,7 +559,7 @@ is built and tested against it before the worker exists.
 | Talker call slow or failing | 4 s timeout; OpenRouter falls back to another provider. If that fails: a stalling line ("give me a second") and one retry. 3 consecutive failures → end with `technical`. |
 | Director call failing | The talker keeps the last brief; logged. The conductor's orders still apply. |
 | Deepgram STT/TTS failing | LiveKit's retries; persistent failure → `technical`. |
-| Worker crash | After 10 s without the agent, the browser shows "Interviewer reconnecting…". The API re-dispatches on the browser's resume call; the new worker restores the conductor checkpoint and transcript and continues the current item. |
+| Worker crash | After 10 s without the agent, the browser shows "Interviewer reconnecting…". The API re-dispatches on the browser's resume call; the new worker restores the conductor checkpoint and transcript and continues the current item, numbering new turns after every turn already stored. A worker dispatched into an interview that already finished (its end never reached the API) does not run it again: it repeats the saved ending to the page and the API and frees the room. |
 | Instruction refused by the browser | The `ack` reason goes into the talker's next live state. |
 | Candidate refresh | `workspace.hello` → `workspace.restore` (§6.5). |
 | API end call failing | Retried 3×; the sweep (§8.4) is the backstop. The room is deleted regardless. |
