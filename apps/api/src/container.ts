@@ -14,8 +14,8 @@ import { GitHubOAuthService } from "./integrations/github/oauth.js";
 import { OAuthStateService } from "./integrations/github/oauthState.js";
 import { LeetCodeCollector } from "./integrations/leetcode/collector.js";
 import { LeetCodeCollectionJob, LeetCodeService } from "./integrations/leetcode/service.js";
-import { LiveKitTokenService } from "./integrations/livekit.js";
-import { BlueprintReconcileJob, GitHubRefreshJob, LeetCodeRefreshJob, PlatformRefreshJob } from "./jobs/jobs.js";
+import { LiveKitRoomAdmin, LiveKitTokenService } from "./integrations/livekit.js";
+import { BlueprintReconcileJob, GitHubRefreshJob, LeetCodeRefreshJob, PlatformRefreshJob, LiveSessionSweepJob } from "./jobs/jobs.js";
 import { AtCoderCollector } from "./integrations/platforms/atcoder.js";
 import { CodeChefCollector } from "./integrations/platforms/codechef.js";
 import { CodeforcesCollector } from "./integrations/platforms/codeforces.js";
@@ -49,6 +49,7 @@ import { CatalogueSeeder } from "./services/catalogueSeeder.js";
 import { BlueprintPrepService } from "./services/blueprintPrep.js";
 import { InterviewSessionService } from "./services/interviewSessions.js";
 import { LoopService } from "./services/loops.js";
+import { LiveAvailability } from "./services/liveAvailability.js";
 import { LiveSessionService } from "./services/liveSessions.js";
 import { AccountDeletionService } from "./services/accountDeletion.js";
 import { AccountExportService } from "./services/accountExport.js";
@@ -193,17 +194,20 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
       refreshCutoffMinutes: config.blueprint.refreshCutoffMinutes,
     },
   });
+  const liveAvailability = new LiveAvailability(config.blueprint.liveInterviewerAvailable, config.blueprint.liveInterviewerAllowlist);
   const sessions = new InterviewSessionService(repos.sessions, repos.jds, repos.roleConfigs, repos.companies, blueprintPrep, enrichment,
-    repos.loops, config.blueprint.liveInterviewerAvailable);
+    repos.loops, liveAvailability);
   const loops = new LoopService(
     repos.processes, repos.loops, repos.targets, repos.sessions, repos.jds, repos.companies, enrichment,
     (company, role, level, specialization) => aiService.fetchBrief(company, role, level, specialization),
   );
-  const liveSessions = new LiveSessionService(repos.sessions, liveKit, blueprintPrep, config.blueprint.liveInterviewerAvailable);
+  const liveSessions = new LiveSessionService(repos.sessions, liveKit, blueprintPrep, liveAvailability,
+    new LiveKitRoomAdmin(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret, fetchImpl), repos.companies, log);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
   const jobs = {
     profileScoring: new ProfileScoringJob(profileScoring),
+    liveSweep: new LiveSessionSweepJob(repos.sessions, log),
     blueprintReconcile: new BlueprintReconcileJob(repos.sessions, blueprintPrep, {
       refreshEveryTicks: config.blueprint.refreshEveryTicks, refreshCutoffMinutes: config.blueprint.refreshCutoffMinutes,
     }, log),

@@ -83,6 +83,7 @@ pnpm --filter @interviewiq/api db:migrate    # apply migrations without starting
 pnpm --filter @interviewiq/api migrate:documents [--dry-run] [--overwrite]
 pnpm exec tsx --env-file=.env scripts/dev/seed-fit-personas.ts --apply   # 28 fabricated persona accounts (dev DBs)
 pnpm exec tsx --env-file=.env scripts/dev/audit-fit-personas.ts          # JD-fit audit over persona × JD
+pnpm exec tsx --env-file=.env scripts/dev/user-id.ts <email>                # a user's id (e.g. for LIVE_INTERVIEWER_ALLOWLIST)
 pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts [--list]   # blueprint prep audit: 79 bench runs over
                                                                          # personas × researched JDs × round types, report in .blueprint-audit/
 # then, from apps/ai-service: .venv/bin/python scripts/judge_blueprints.py --since <ISO>   # Gemini judges those runs

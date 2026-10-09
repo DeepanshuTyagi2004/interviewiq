@@ -55,6 +55,38 @@ export class BlueprintReconcileJob {
   }
 }
 
+export const SWEEP_GRACE_MINUTES = 30;
+export const CEILING_FACTOR = 1.5;
+
+/**
+ * Backstop for a worker that died without ending its session (spec §8.4): a session still live past
+ * 1.5x its duration plus 30 minutes is aborted as technical. A running round is never touched.
+ */
+export class LiveSessionSweepJob {
+  constructor(
+    private readonly sessions: InterviewSessionRepository,
+    private readonly log: Logger,
+    private readonly clock: () => number = Date.now,
+  ) {}
+
+  async tick(): Promise<number> {
+    const now = this.clock();
+    let swept = 0;
+    for (const s of await this.sessions.findLiveStartedBefore(new Date(now - SWEEP_GRACE_MINUTES * 60_000))) {
+      const minutes = s.prepBriefing?.duration_mins ?? 60;
+      const deadline = (s.liveStartedAt?.getTime() ?? now) + (CEILING_FACTOR * minutes + SWEEP_GRACE_MINUTES) * 60_000;
+      if (now < deadline) continue;
+      const row = await this.sessions.transitionStatus(s.id, "LIVE_IN_PROGRESS", "ABORTED_TECHNICAL", {
+        liveEndedAt: new Date(now),
+        endedReason: "technical",
+      });
+      if (row) swept++;
+    }
+    if (swept) this.log.info(`Live sweep: aborted ${swept} stuck live session(s)`);
+    return swept;
+  }
+}
+
 /** Weekly background refresh of every GitHub connection. */
 export class GitHubRefreshJob {
   constructor(

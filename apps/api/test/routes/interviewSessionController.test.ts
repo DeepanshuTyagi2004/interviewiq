@@ -32,6 +32,7 @@ const SESSION_KEYS = [
   "company",
   "companyName",
   "createdAt",
+  "endReason",
   "id",
   "jobDescriptionId",
   "legacyLevel",
@@ -267,5 +268,16 @@ describe("POST /interviews/sessions/:sessionId/prep/retry", () => {
 
   it("requires a JWT", async () => {
     expect((await env.http.post(`${SESSIONS}/${randomUUID()}/prep/retry`)).status).toBe(401);
+  });
+});
+
+describe("endReason", () => {
+  it("is null before the round ends and carries how a live round ended", async () => {
+    const user = await createUser(env);
+    const fresh = await seedSession(env, user.id, jd, { status: "SCHEDULED" });
+    const done = await seedSession(env, user.id, jd, { status: "COMPLETED", endedReason: "ended_by_interviewer" });
+    const get = async (id: string) => (await env.http.get(`${SESSIONS}/${id}`).set("Authorization", await bearer(env, user))).body;
+    expect((await get(fresh.id)).endReason).toBeNull();
+    expect((await get(done.id)).endReason).toBe("ended_by_interviewer");
   });
 });

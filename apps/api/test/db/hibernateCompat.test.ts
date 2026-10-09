@@ -87,7 +87,7 @@ describe("adopting the Hibernate-created database", () => {
     expect(keyCons(after.cons)).toEqual(expect.arrayContaining(expectedCons));
     expect(after.idx).toEqual(expect.arrayContaining(before.idx));
 
-    // ...and the additions are password auth, catalogue enrichment, persisted practice workflows, coding-platform connections and blueprint prep state.
+    // ...and the additions are password auth, catalogue enrichment, persisted practice workflows, coding-platform connections, blueprint prep state and the live round's summary.
     const added = <T>(xs: T[], base: T[]) => xs.filter((x) => !base.some((b) => JSON.stringify(b) === JSON.stringify(x)));
     expect(added(after.cols, expectedCols).map((c) => `${c.t}.${c.c} ${c.ty} null=${c.n}`).sort()).toEqual([
       "app_user.email_verified_at timestamp with time zone null=YES",
@@ -131,6 +131,7 @@ describe("adopting the Hibernate-created database", () => {
       "interview_processes.updated_at timestamp with time zone null=NO",
       "interview_processes.user_id uuid null=NO",
       "interview_sessions.blueprint_version integer null=YES",
+      "interview_sessions.live_summary jsonb null=YES",
       "interview_sessions.loop_id uuid null=YES",
       "interview_sessions.node_id character varying null=YES",
       "interview_sessions.practice_prep jsonb null=YES",

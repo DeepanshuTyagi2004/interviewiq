@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import type { Database } from "../db/pg/client.js";
 import {
   authTokens,
@@ -591,6 +591,14 @@ export class InterviewSessionRepository {
     return this.db.select().from(interviewSessions).where(eq(interviewSessions.id, id)).then(one);
   }
 
+  /** Live sessions that went live before `before`: the stuck-session sweep's candidates. */
+  findLiveStartedBefore(before: Date): Promise<InterviewSessionRow[]> {
+    return this.db
+      .select()
+      .from(interviewSessions)
+      .where(and(eq(interviewSessions.status, "LIVE_IN_PROGRESS"), lt(interviewSessions.liveStartedAt, before)));
+  }
+
   /** One session, scoped to its owner — the ownership check. */
   findByIdAndCandidateId(id: string, candidateId: string): Promise<InterviewSessionRow | null> {
     return this.db
@@ -649,6 +657,20 @@ export class InterviewSessionRepository {
    * or null when the session was no longer in `from` — so two API instances polling at once never
    * both prepare the same session.
    */
+  /** Writes the interviewer's own account over a round the candidate's End fallback already closed: that row
+   * carries no live summary, an interviewer's report always does, so the summary being null is the test. */
+  completeLiveEnd(
+    id: string,
+    patch: Pick<Insert<typeof interviewSessions>, "status" | "endedReason" | "liveSummary">,
+  ): Promise<InterviewSessionRow | null> {
+    return this.db
+      .update(interviewSessions)
+      .set(patch)
+      .where(and(eq(interviewSessions.id, id), isNotNull(interviewSessions.liveEndedAt), isNull(interviewSessions.liveSummary)))
+      .returning()
+      .then(one);
+  }
+
   transitionStatus(
     id: string,
     from: SessionStatus,

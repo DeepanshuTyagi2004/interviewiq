@@ -279,6 +279,16 @@ export const platformConnections = pgTable(
  * + live runtime. company/role/level/specialization are copied from the JD at booking time. The blueprint itself
  * lives in the AI service; the session keeps its version, fingerprint and the candidate-safe briefing.
  */
+/** The live round's proctoring and conduct summary, written when it ends (spec §8.2). */
+export interface LiveSummary {
+  tab_changes: number;
+  screen_changes_weighted: number;
+  full_violations: number;
+  conduct_incidents: number;
+  ended_at?: string;
+  interviewer_note?: string;
+}
+
 export const interviewSessions = pgTable(
   "interview_sessions",
   {
@@ -314,6 +324,7 @@ export const interviewSessions = pgTable(
     liveStartedAt: instant("live_started_at"),
     liveEndedAt: instant("live_ended_at"),
     endedReason: varchar("ended_reason", { length: 32 }),
+    liveSummary: jsonb("live_summary").$type<LiveSummary>(),
     livekitRoom: varchar("livekit_room", { length: 255 }),
     liveScoreFinal: doublePrecision("live_score_final"),
     durationS: integer("duration_s"),

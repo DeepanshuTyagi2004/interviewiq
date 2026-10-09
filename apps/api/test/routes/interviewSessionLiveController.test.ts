@@ -3,6 +3,7 @@ import { jwtVerify } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { JobDescriptionRow } from "../../src/db/pg/schema.js";
 import { bearer, createUser, createTestEnv, type TestEnv } from "../support/harness.js";
+import { json } from "../support/fakeFetch.js";
 import { seedCompany, seedJd, seedSession } from "./helpers.js";
 
 /**
@@ -131,5 +132,85 @@ describe("GET /sessions/:id/live (gate / resume)", () => {
     expect(res.status).toBe(404);
     expect(res.body.code).toBe("session_not_found");
     expect((await env.http.get(live(randomUUID()))).status).toBe(401);
+  });
+});
+
+describe("allowlist (LIVE_INTERVIEWER_ALLOWLIST)", () => {
+  it("lets an allowlisted user go live while the global flag is off, and refuses everyone else", async () => {
+    const allowed = await createUser(env);
+    const other = await createUser(env);
+    const gated = await createTestEnv({ LIVE_INTERVIEWER_AVAILABLE: "false", LIVE_INTERVIEWER_ALLOWLIST: allowed.id });
+    try {
+      await seedCompany(gated, "google", "Google");
+      const gatedJd = await seedJd(gated);
+      const mine = await seedSession(gated, allowed.id, gatedJd, { status: "PREP_READY" });
+      const theirs = await seedSession(gated, other.id, gatedJd, { status: "PREP_READY" });
+      const ok = await gated.http.post(live(mine.id)).set("Authorization", await bearer(gated, allowed));
+      expect(ok.status).toBe(200);
+      const refused = await gated.http.post(live(theirs.id)).set("Authorization", await bearer(gated, other));
+      expect(refused.status).toBe(409);
+      expect(refused.body.code).toBe("live_unavailable");
+      const list = await gated.http.get("/api/v1/interviews/sessions").set("Authorization", await bearer(gated, allowed));
+      expect(list.body.sessions.find((s: { id: string }) => s.id === mine.id).liveAvailable).toBe(true);
+    } finally {
+      await gated.close();
+    }
+  });
+});
+
+describe("agent dispatch", () => {
+  it("dispatches the interviewer at go-live, and a failed dispatch still lets the candidate in", async () => {
+    env.fetch.reset();
+    env.fetch.on("POST", /CreateDispatch$/, () => json({ code: "internal" }, 500));
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "PREP_READY" });
+    const res = await env.http.post(live(s.id)).set("Authorization", await bearer(env, user));
+    expect(res.status).toBe(200);
+    expect(env.fetch.callsTo(/CreateDispatch/)).toHaveLength(1);
+    expect(env.fetch.callsTo(/CreateDispatch/)[0]!.json).toMatchObject({ room: `interview-${s.id}`, agent_name: "interviewer" });
+  });
+
+  it("re-dispatches on resume only when the room has no interviewer and enough time has passed", async () => {
+    env.fetch.reset();
+    env.fetch.on("POST", /CreateDispatch$/, {});
+    env.fetch.on("POST", /ListParticipants$/, { participants: [] });
+    const user = await createUser(env);
+    const fresh = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date() });
+    await env.http.get(live(fresh.id)).set("Authorization", await bearer(env, user));
+    expect(env.fetch.callsTo(/ListParticipants/)).toHaveLength(0);          // just went live: give the interviewer time to join
+
+    const old = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(Date.now() - 120_000) });
+    await env.http.get(live(old.id)).set("Authorization", await bearer(env, user));
+    expect(env.fetch.callsTo(/CreateDispatch/)).toHaveLength(1);
+    await env.http.get(live(old.id)).set("Authorization", await bearer(env, user));
+    expect(env.fetch.callsTo(/CreateDispatch/)).toHaveLength(1);            // the last dispatch was under 30 s ago
+
+    env.fetch.reset();
+    env.fetch.on("POST", /ListParticipants$/, { participants: [{ identity: "agent-1", kind: "AGENT" }] });
+    const healthy = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(Date.now() - 120_000) });
+    await env.http.get(live(healthy.id)).set("Authorization", await bearer(env, user));
+    expect(env.fetch.callsTo(/CreateDispatch/)).toHaveLength(0);            // an interviewer is already there
+  });
+});
+
+describe("POST /sessions/:id/live/end (candidate fallback)", () => {
+  it("ends the candidate's live round and is idempotent", async () => {
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date() });
+    const path = `${live(s.id)}/end`;
+    const first = await env.http.post(path).set("Authorization", await bearer(env, user));
+    expect(first.body).toEqual({ status: "COMPLETED", endReason: "candidate_ended", alreadyEnded: false });
+    const again = await env.http.post(path).set("Authorization", await bearer(env, user));
+    expect(again.body).toEqual({ status: "COMPLETED", endReason: "candidate_ended", alreadyEnded: true });
+    const other = await createUser(env);
+    expect((await env.http.post(path).set("Authorization", await bearer(env, other))).status).toBe(404);
+  });
+
+  it("does not overwrite an interviewer's ending: the fallback arriving late is a quiet no-op", async () => {
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "COMPLETED", endedReason: "ended_by_interviewer" });
+    const res = await env.http.post(`${live(s.id)}/end`).set("Authorization", await bearer(env, user));
+    expect(res.body).toEqual({ status: "COMPLETED", endReason: "ended_by_interviewer", alreadyEnded: true });
+    expect((await env.c.repos.sessions.findById(s.id))!.endedReason).toBe("ended_by_interviewer");
   });
 });

@@ -1,9 +1,35 @@
-import type { InterviewSessionRow } from "../db/pg/schema.js";
+import { z } from "zod";
+import type { InterviewSessionRow, LiveSummary } from "../db/pg/schema.js";
 import type { SessionStatus } from "../domain/enums.js";
-import type { LiveKitTokenService } from "../integrations/livekit.js";
+import type { AgentRooms, LiveKitTokenService } from "../integrations/livekit.js";
+import { errorMessage } from "../lib/errors.js";
+import type { Logger } from "../lib/logger.js";
+import type { CompanyRepository } from "../repositories/pg.js";
 import type { InterviewSessionRepository } from "../repositories/pg.js";
 import type { BlueprintPrepService } from "./blueprintPrep.js";
 import { InterviewSessionError } from "./interviewSessions.js";
+import { LiveAvailability } from "./liveAvailability.js";
+
+const END_REASONS = ["completed", "ended_by_interviewer", "candidate_ended", "technical"] as const;
+export type LiveEndReason = (typeof END_REASONS)[number];
+
+/** The interviewer worker's end request (spec §8.2). */
+export const LiveEndBody = z.object({
+  reason: z.enum(END_REASONS),
+  live_summary: z
+    .object({
+      tab_changes: z.number().int().min(0).default(0),
+      screen_changes_weighted: z.number().min(0).default(0),
+      full_violations: z.number().int().min(0).default(0),
+      conduct_incidents: z.number().int().min(0).default(0),
+      ended_at: z.string().max(64).optional(),
+      interviewer_note: z.string().max(2000).optional(),
+    })
+    .default({ tab_changes: 0, screen_changes_weighted: 0, full_violations: 0, conduct_incidents: 0 }),
+});
+
+/** No re-dispatch until the interviewer had this long to join after go-live (or after the last dispatch). */
+export const REDISPATCH_AFTER_MS = 30_000;
 
 /** Go-live / resume response. url + token are null when the session is not (yet) live. */
 export interface LiveSessionResponse {
@@ -19,17 +45,25 @@ export interface LiveSessionResponse {
  * live interviewer is unavailable (LIVE_INTERVIEWER_AVAILABLE=false), so no room is ever empty.
  */
 export class LiveSessionService {
+  private readonly lastDispatch = new Map<string, number>();
+
   constructor(
     private readonly sessions: InterviewSessionRepository,
     private readonly liveKit: LiveKitTokenService,
     private readonly prep: BlueprintPrepService,
-    private readonly liveAvailable = false,
+    private readonly live: LiveAvailability = new LiveAvailability(false),
+    private readonly rooms: AgentRooms | null = null,
+    private readonly companies: CompanyRepository | null = null,
+    private readonly log: Logger | null = null,
   ) {}
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
     const s = await this.requireOwned(candidateId, sessionId);
-    if (s.status === "LIVE_IN_PROGRESS") return this.connection(sessionId, candidateId, s.status); // resume
-    if (!this.liveAvailable) {
+    if (s.status === "LIVE_IN_PROGRESS") {
+      await this.ensureAgent(s); // resume
+      return this.connection(sessionId, candidateId, s.status);
+    }
+    if (!this.live.isAvailableFor(candidateId)) {
       throw InterviewSessionError.conflict("live_unavailable", "live interviews open soon; your interviewer is prepared");
     }
     if (s.status !== "PREP_READY") {
@@ -46,13 +80,105 @@ export class LiveSessionService {
     }
     // The problems of this blueprint are now "seen": later blueprints won't repeat them.
     if (updated) await this.prep.recordSeen(updated);
+    if (updated) await this.dispatch(sessionId);
     return this.connection(sessionId, candidateId, status);
   }
 
   async getLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
     const s = await this.requireOwned(candidateId, sessionId);
-    if (s.status === "LIVE_IN_PROGRESS") return this.connection(sessionId, candidateId, s.status);
+    if (s.status === "LIVE_IN_PROGRESS") {
+      await this.ensureAgent(s);
+      return this.connection(sessionId, candidateId, s.status);
+    }
     return { livekitUrl: null, token: null, roomName: null, status: s.status };
+  }
+
+  /** The round and a minimal profile for the interviewer worker; only while the session is live. */
+  async context(sessionId: string) {
+    const s = await this.sessions.findById(sessionId);
+    if (!s) throw InterviewSessionError.notFound();
+    if (s.status !== "LIVE_IN_PROGRESS") throw InterviewSessionError.conflict("session_not_live", "the session is not live");
+    const [{ firstName, profile }, company] = await Promise.all([this.prep.liveContext(s), this.companies?.findBySlug(s.company) ?? null]);
+    return {
+      session_id: s.id,
+      candidate_id: s.candidateId,
+      first_name: firstName,
+      status: s.status,
+      round: {
+        company: s.company,
+        company_name: company?.name ?? null,
+        role: s.role,
+        level: s.level,
+        round_type: s.roundType,
+        duration_mins: s.prepBriefing?.duration_mins ?? 60,
+      },
+      profile,
+    };
+  }
+
+  /** The interviewer worker ends the round (idempotent). */
+  async endFromInterviewer(sessionId: string, reason: LiveEndReason, summary: LiveSummary) {
+    const s = await this.sessions.findById(sessionId);
+    if (!s) throw InterviewSessionError.notFound();
+    if ((s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL") && s.liveEndedAt && s.liveSummary == null) {
+      // The candidate's End fallback closed the round before the interviewer's own report arrived. Its reason and
+      // summary are the record (a misconduct ending must not be laundered into "the candidate ended it").
+      const to: SessionStatus = reason === "technical" ? "ABORTED_TECHNICAL" : "COMPLETED";
+      const fixed = await this.sessions.completeLiveEnd(s.id, { status: to, endedReason: reason, liveSummary: summary });
+      if (fixed) return { status: fixed.status, ended_reason: fixed.endedReason, already_ended: true };
+    }
+    const r = await this.end(s, reason, summary);
+    return { status: r.status, ended_reason: r.endedReason, already_ended: r.alreadyEnded };
+  }
+
+  /** The candidate ends the round: the fallback when the interviewer doesn't answer End. */
+  async endFromCandidate(candidateId: string, sessionId: string) {
+    const r = await this.end(await this.requireOwned(candidateId, sessionId), "candidate_ended", null);
+    return { status: r.status, endReason: r.endedReason, alreadyEnded: r.alreadyEnded };
+  }
+
+  private async end(s: InterviewSessionRow, reason: LiveEndReason, summary: LiveSummary | null) {
+    if (s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL") {
+      return { status: s.status, endedReason: s.endedReason, alreadyEnded: true };
+    }
+    if (s.status !== "LIVE_IN_PROGRESS") throw InterviewSessionError.conflict("session_not_live", "the session is not live");
+    const now = new Date();
+    const to: SessionStatus = reason === "technical" ? "ABORTED_TECHNICAL" : "COMPLETED";
+    const updated = await this.sessions.transitionStatus(s.id, "LIVE_IN_PROGRESS", to, {
+      liveEndedAt: now,
+      endedReason: reason,
+      liveSummary: summary,
+      durationS: s.liveStartedAt ? Math.round((now.getTime() - s.liveStartedAt.getTime()) / 1000) : null,
+    });
+    if (!updated) {
+      // Lost a race with another ender: report what won.
+      const latest = (await this.sessions.findById(s.id))!;
+      return { status: latest.status, endedReason: latest.endedReason, alreadyEnded: true };
+    }
+    return { status: to, endedReason: reason, alreadyEnded: false };
+  }
+
+  private async dispatch(sessionId: string): Promise<void> {
+    if (!this.rooms) return;
+    this.lastDispatch.set(sessionId, Date.now());
+    try {
+      await this.rooms.dispatchAgent(sessionId);
+    } catch (err) {
+      // The candidate still gets a token and enters; the next resume checks the room and dispatches again.
+      this.log?.warn(`interviewer dispatch failed for session ${sessionId}: ${errorMessage(err)}`);
+    }
+  }
+
+  /** On resume: dispatch again when the room has no interviewer (the worker crashed), never twice in 30 s. */
+  private async ensureAgent(s: InterviewSessionRow): Promise<void> {
+    if (!this.rooms) return;
+    const since = Math.max(s.liveStartedAt?.getTime() ?? 0, this.lastDispatch.get(s.id) ?? 0);
+    if (Date.now() - since < REDISPATCH_AFTER_MS) return;
+    try {
+      if (!(await this.rooms.hasAgent(s.id))) await this.dispatch(s.id);
+    } catch (err) {
+      this.log?.warn(`interviewer presence check failed for session ${s.id}: ${errorMessage(err)}`);
+    }
   }
 
   private async requireOwned(candidateId: string, sessionId: string): Promise<InterviewSessionRow> {

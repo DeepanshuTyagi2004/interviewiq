@@ -176,6 +176,22 @@ export function profileProjection(p: CandidateProfileResponse | null, fragments:
 export class BlueprintPrepService {
   constructor(private readonly d: BlueprintPrepDeps) {}
 
+  /** What the live interviewer needs about the candidate (spec §8.2): a first name and the profile's skills,
+   *  headline and project names. No contact details. */
+  async liveContext(session: InterviewSessionRow): Promise<{ firstName: string | null; profile: { headline: string | null; skills: string[]; projects: string[] } }> {
+    const [profile, fragmentRows, user] = await Promise.all([
+      this.d.candidateProfiles.getProfile(session.candidateId),
+      this.d.fragments.findByUserId(session.candidateId),
+      this.d.users.findById(session.candidateId),
+    ]);
+    const fragments = new Map(fragmentRows.filter((f) => isObject(f.data)).map((f) => [f.source as string, f.data]));
+    const p = profileProjection(profile, fragments);
+    return {
+      firstName: user?.name?.trim().split(/\s+/)[0] || null,
+      profile: { headline: p.headline, skills: p.skills, projects: p.projects.map((x) => x.name) },
+    };
+  }
+
   // ---------------------------------------------------------------- inputs
 
   /** The run request for a session (or a bench run when `session.id` is null-like via `bench`). */

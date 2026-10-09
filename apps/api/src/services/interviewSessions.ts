@@ -1,3 +1,4 @@
+import { LiveAvailability } from "./liveAvailability.js";
 import type { InterviewSessionRow, LoopRow } from "../db/pg/schema.js";
 import { DEFAULT_ROUND_TYPE, optionalRoundType, type RoundType, type SessionStatus } from "../domain/enums.js";
 import { ApiError } from "../lib/errors.js";
@@ -70,6 +71,8 @@ export interface InterviewSessionResponse {
   briefing: BriefingView | null;
   /** False until the live interviewer is available: a ready session can't be joined yet. */
   liveAvailable: boolean;
+  /** How the live round ended (completed, ended_by_interviewer, candidate_ended, technical); null before it ends. */
+  endReason: string | null;
   loopId: string | null;
   nodeId: string | null;
   createdAt: Date;
@@ -106,6 +109,7 @@ export function toSessionResponse(
       ? (b ? { interviewerName: b.interviewer_name, interviewerStyle: b.interviewer_style, format: b.format, durationMins: b.duration_mins } : null)
       : null,
     liveAvailable: extra.liveAvailable ?? false,
+    endReason: s.endedReason ?? null,
     loopId: s.loopId,
     nodeId: s.nodeId,
     createdAt: s.createdAt,
@@ -178,7 +182,7 @@ export class InterviewSessionService {
     private readonly prep: BlueprintPrepService,
     private readonly enrichment?: CompanyEnrichmentService,
     private readonly loops?: LoopRepository,
-    private readonly liveAvailable = false,
+    private readonly live: LiveAvailability = new LiveAvailability(false),
   ) {}
 
   async createSession(candidateId: string, req: CreateSessionRequest): Promise<InterviewSessionResponse> {
@@ -283,7 +287,7 @@ export class InterviewSessionService {
   async listSessions(candidateId: string): Promise<{ sessions: InterviewSessionResponse[] }> {
     const rows = await this.sessions.findAllByCandidateIdOrderByScheduledAtDesc(candidateId);
     const names = await this.companyNames(rows.map((r) => r.company));
-    return { sessions: rows.map((r) => toSessionResponse(r, names.get(r.company) ?? (r.company === "custom-practice" ? "Custom practice" : null), { liveAvailable: this.liveAvailable })) };
+    return { sessions: rows.map((r) => toSessionResponse(r, names.get(r.company) ?? (r.company === "custom-practice" ? "Custom practice" : null), { liveAvailable: this.live.isAvailableFor(candidateId) })) };
   }
 
   /** One session, with live prep steps while a blueprint run is active. */
@@ -307,7 +311,7 @@ export class InterviewSessionService {
   private async toResponse(s: InterviewSessionRow, live: { step: string | null; steps: PrepStep[] } | null = null): Promise<InterviewSessionResponse> {
     const company = await this.companies.findBySlug(s.company);
     return toSessionResponse(s, company?.name ?? (s.company === "custom-practice" ? "Custom practice" : null),
-      { liveAvailable: this.liveAvailable, live });
+      { liveAvailable: this.live.isAvailableFor(s.candidateId), live });
   }
 
   private async companyNames(slugs: string[]): Promise<Map<string, string>> {

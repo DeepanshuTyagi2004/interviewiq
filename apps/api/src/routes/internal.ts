@@ -1,7 +1,9 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
 import { requireInternalKey } from "../http/security.js";
-import { router } from "../http/support.js";
+import { routerErrors, router, uuidParam } from "../http/support.js";
+import { InvalidArgumentError } from "../lib/errors.js";
+import { LiveEndBody } from "../services/liveSessions.js";
 
 /**
  * Service-to-service endpoints (AI service / live-interview worker → API). Not JWT-authed; guarded
@@ -43,6 +45,24 @@ export function internalRouter(c: Container): Router {
     const rows = await c.repos.companies.findActive();
     res.json(rows.map((co) => ({ id: co.id, name: co.name, slug: co.slug, website: co.website, aliases: co.aliases })));
   });
+
+  /** The live interviewer worker: the round and a minimal profile at the start (spec §8.2). */
+  r.get("/live/sessions/:sessionId/context", async (req, res) => {
+    res.json(await c.liveSessions.context(uuidParam(req, "sessionId")));
+  });
+
+  /** The live interviewer worker ends the round (idempotent). */
+  r.post("/live/sessions/:sessionId/end", async (req, res) => {
+    const parsed = LiveEndBody.safeParse(req.body);
+    if (!parsed.success) throw new InvalidArgumentError(parsed.error.issues[0]?.message ?? "invalid body");
+    res.json(await c.liveSessions.endFromInterviewer(uuidParam(req, "sessionId"), parsed.data.reason, parsed.data.live_summary));
+  });
+
+  r.use(
+    routerErrors((err) =>
+      err instanceof InvalidArgumentError ? { status: 400, code: "live_end_bad_request", message: err.message } : undefined,
+    ),
+  );
 
   return r;
 }
