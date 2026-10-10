@@ -1,0 +1,21 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:07] INTERVIEWER (opening): Hi, I'm Gaurav Chauhan, Senior Engineer here at Salescode. How's your day going so far?
+    [tools=next_item; decision=greet <- Opening of the interview, greeting phase.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1126ms wall=1.6s]
+[00:07]   (room layout -> talk)
+<<READY 00:07>>
+[00:07] CANDIDATE: Hi Gaurav, doing well, thanks. A bit nervous but excited.
+[00:22] INTERVIEWER: That's a natural feeling, and honestly a good sign. I noticed you've been leading the Experience Portal team at Salescode.ai, that sounds like a fast-paced environment. How's that been?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=571ms wall=0.7s]
+<<READY 00:22>>
+[00:22] CANDIDATE: It's been busy but good. I'm learning a lot on the micro frontend side.
+[00:48] INTERVIEWER: Nice, it's good to hear you're getting hands-on with that. Let's go ahead and start the round. Here's how it'll run: a short framing, a quick introduction from you, one coding problem, and time at the end for your questions. To begin, please give me a short introduction of your background.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=821ms wall=0.9s]
+<<READY 00:48>>
+[00:48] CANDIDATE: I'm a final year CS student at Bennett University. Besides the internship, I built Relay, a project that lets me control my laptop from my phone over WebSockets through a small relay server I wrote.
+[01:12] INTERVIEWER: Nice, that's a good blend of networking and practical automation. Quick follow-up before we dive in — what made you pick WebSockets for Relay over, say, polling?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=784ms wall=0.9s]
+<<READY 01:12>>
+[01:12] CANDIDATE: A small desktop agent on the laptop, a thin phone client, and the relay in between. Both connect out and upgrade to a WebSocket, so the relay forwards commands to the agent and results back.
+[01:32] INTERVIEWER: Good, that's a clean architecture. Let's move into the core part of the round then.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=551ms wall=0.6s]
+<<READY 01:32>>

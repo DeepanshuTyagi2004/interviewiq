@@ -1,0 +1,68 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:06] INTERVIEWER (opening): Hi, I'm Gaurav Chauhan, senior engineer here. How's your day going so far?
+    [tools=next_item; decision=greet_and_move_on <- greeting phase, candidate silent; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1513ms wall=2.3s]
+[00:06]   (room layout -> talk)
+<<READY 00:06>>
+[00:06] CANDIDATE: Hi, I'm doing well, thank you.
+[00:19] INTERVIEWER: Good to hear. I saw you've been leading the Experience Portal team at Salescode — sounds like a fast-paced setup. What keeps you busiest there?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1093ms wall=1.8s]
+<<READY 00:19>>
+[00:19] CANDIDATE: Sounds good, ready when you are.
+[00:38] INTERVIEWER: Great, let's get started then. This round will run about thirty minutes — a short intro from you, one coding problem, and then time for your questions at the end. To begin, give me a quick walkthrough of your background.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=839ms wall=1.5s]
+<<READY 00:38>>
+[00:38] CANDIDATE: Sure. I'm a final year CS student at Bennett University. I interned on a micro frontend dashboard in TypeScript and React, and I built a project called Relay that controls my laptop from my phone.
+[00:58] INTERVIEWER: Thanks, that's a clear picture. Let me put the problem on your screen now.
+    [tools=next_item,show_problem; item=framing; model=deepseek/deepseek-v4.1-flash first_token=684ms wall=1.7s]
+<<READY 00:58>>
+[00:58] CANDIDATE: It uses a WebSocket between the phone, a relay server and a small desktop agent, so commands are pushed as they arrive.
+[01:20] INTERVIEWER: Relay sounds interesting — pushing commands over a socket instead of polling is a sensible choice. Before we go deeper into that, let's get the coding problem in front of you.
+    [tools=show_problem; item=framing; model=deepseek/deepseek-v4.1-flash first_token=2073ms wall=3.8s]
+<<READY 01:20>>
+[01:20] CANDIDATE: The laptop is behind NAT so both sides connect outbound to the relay. I also do graphs and dynamic programming on LeetCode.
+[01:38] INTERVIEWER: Nice, we'll come back to Relay in a bit. Let me put the problem up on your screen first.
+    [tools=show_problem; item=framing; model=deepseek/deepseek-v4.1-flash first_token=1771ms wall=2.5s]
+<<READY 01:38>>
+[01:38] CANDIDATE: Yes, I restate the problem, ask about edge cases, and work an example before coding.
+[01:57] INTERVIEWER: Good discipline, that's exactly what I want to see. Have a look at your screen now — the problem's there. Take your time reading it, and tell me when you have a plan.
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=666ms wall=0.8s]
+<<READY 01:57>>
+[01:57]   (candidate's code v1: 6 lines)
+<<READY 01:57>>
+[01:57] CANDIDATE: I'd sum every positive day to day difference. Prices are non-negative and an empty array gives zero. It is a single pass, so linear time and constant space.
+[02:19] INTERVIEWER: That reads correct to me. Walk me through why summing only the upward day-to-day moves gives the maximum, rather than the total rise from start to end.
+    [orders=move_on; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=1055ms wall=1.5s]
+<<READY 02:19>>
+[02:19] CANDIDATE: For a strictly decreasing list nothing is added so it returns zero, and a single price also returns zero.
+[02:39] INTERVIEWER: Agreed on both. Now, the why — I want the reasoning, not just the behaviour. Why does adding every up-day give the same total as buying low and selling high repeatedly?
+    [item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=881ms wall=1.3s]
+<<READY 02:39>>
+[02:39] CANDIDATE: With at most two transactions I'd use dynamic programming with four states, still one pass.
+[02:58] INTERVIEWER: That's a different problem — we're still on the current one. So come back to my question: why does summing the upward moves give the maximum profit here?
+    [item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=1803ms wall=2.3s]
+<<READY 02:58>>
+[02:58] CANDIDATE: Thank you.
+[03:17] INTERVIEWER: Let me make that concrete. Take prices two, six, nine. Summing up-days gives four plus three, seven. Does one buy at two and sell at nine also give seven? And what does that tell you about why the two methods agree?
+    [item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=1715ms wall=2.4s]
+<<READY 03:17>>
+[03:17] CANDIDATE: Sure, I'm ready.
+[03:27] INTERVIEWER: Have a go at tracing it out loud — two, six, nine — and tell me what you find.
+    [item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=691ms wall=1.0s]
+<<READY 03:27>>
+[03:27] CANDIDATE: I'd restate it, ask about constraints, and think about the brute force first.
+[03:44] INTERVIEWER: We seem to have drifted a bit. Still on the current problem: run me through the two, six, nine example and tell me whether the two totals match.
+    [item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=712ms wall=0.9s]
+<<READY 03:44>>
+[03:44] CANDIDATE: I would use a stack to keep indices of increasing heights, and compute the area when a bar is popped.
+[04:10] INTERVIEWER: Okay, let's reset for a second — that's a different problem entirely. I'll give you a small nudge: think of the total climb from the first price to the last, and compare it with the sum of the up-days. Start with two, six, nine.
+    [GUARD-BLOCKED(name_or_topic): We're on the stock profit one, and it's already on your screen.; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=1574ms wall=2.0s]
+<<READY 04:10>>
+[04:10] CANDIDATE: It's linear time because each bar is pushed and popped once, and linear space for the stack.
+[04:47] INTERVIEWER: I think we're stuck on something else now. Let's take the nudge directly: total climb from two to nine is seven, and the up-days are four plus three, also seven. Since every dip is a buy and every rise a sell, the two always match — that's the intuition I was after. Your code looks right, so try running it on two, six, nine and on a strictly falling list like five, four, three, and tell me what it prints.
+    [orders=move_on; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=735ms wall=4.5s]
+<<READY 04:47>>
+[04:47] CANDIDATE: Thanks.
+[05:03] INTERVIEWER: We've spent a fair bit on this one, and I have another problem I'd like to get to. Before that, quickly — what's the time and space complexity of what you wrote, and why?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1092ms wall=1.7s]
+[05:03]   (room layout -> work)
+<<READY 05:03>>

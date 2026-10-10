@@ -1,0 +1,98 @@
+== text session: salescode sde1 dsa round, 45 min, interviewer Deepak Yadav, run bpr_e97f7cc2dd454f318b56
+[00:08] INTERVIEWER (opening): Hi, I'm Deepak Yadav, senior engineer here. Thanks for joining the mock interview today. How are you doing?
+    [tools=next_item; decision=greet and move on <- Greeting phase, candidate silent.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1137ms wall=1.7s]
+[00:08]   (room layout -> talk)
+<<READY 00:08>>
+[00:08] CANDIDATE: Hi, I'm doing well thank you. A little nervous but excited.
+[00:19] INTERVIEWER: Before we start, let me set the context, then I'd like a short intro from you.
+    [GUARD-BLOCKED(screen_claim): That's completely fine, nerves usually settle once we get into the problem.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=621ms wall=0.8s]
+[00:32] INTERVIEWER (proactive): I see you built Relay, a real-time Mac automation agent using WebSockets and the Claude API. That sounds like a fun blend of dev-ops and AI. How did you get into that one?
+    [orders=open_item; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=640ms wall=0.8s]
+<<READY 00:32>>
+[00:32] CANDIDATE: I'm a final year CS student at Bennett University. Last year I interned on a micro frontend dashboard in TypeScript and React, and I built Relay, which lets me control my laptop from my phone.
+[00:56] INTERVIEWER: Nice, and you mentioned Relay lets you control your laptop from your phone. What was the trickiest part of getting that to work reliably?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=585ms wall=0.8s]
+<<READY 00:56>>
+[00:56] CANDIDATE: On the portal I built the shell that loads other teams' remotes with Module Federation and wrote the shared login and token refresh.
+[01:14] INTERVIEWER: That's good experience for a first role. How did you handle token refresh so multiple remotes didn't all trigger it at once?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=640ms wall=0.8s]
+<<READY 01:14>>
+[01:14] CANDIDATE: The shell holds one in-flight refresh promise that every remote's fetch waits on, so concurrent 401s trigger a single refresh.
+[01:30] INTERVIEWER: That's a clean approach. Alright, let me lay out how this round runs, and then we'll get into it.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=633ms wall=0.9s]
+[01:36] INTERVIEWER (proactive): First though, tell me a bit about your background and one project you're proud of.
+    [orders=open_item; tools=next_item; GUARD-BLOCKED(screen_claim): We'll spend most of the time on a couple of coding problems you'll see on your s; item=framing; model=deepseek/deepseek-v4.1-flash first_token=560ms wall=0.9s]
+<<READY 01:36>>
+[01:36] CANDIDATE: Relay's trickiest part was reconnects, the agent retries with backoff and the phone shows a reconnecting state. I'm ready for the coding part whenever you are.
+[02:05] INTERVIEWER: Good, thanks. So we've got about forty-five minutes: one coding problem, maybe a second depending on how the first goes, then a short chat about your projects and fundamentals, and some time at the end for your questions. Think aloud as you go and ask me anything.
+    [tools=next_item; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=560ms wall=0.9s]
+[02:10] INTERVIEWER (proactive): Alright, let's begin with the first problem. It's on your screen now.
+    [orders=open_item; tools=show_problem; decision=move_on_and_show_problem <- Candidate intro complete; conductor said coding problem is next; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=632ms wall=1.2s]
+[02:10]   (problem on screen: Problem 1; statement: A tech firm is organizing a series of internal training sessions for its new hires. Each session is identified by an integer from 0 to n‑1. Some sessions require knowledge from earlier sessions, so a session can only be held after all its prerequisite sessions have been completed. Given the total number of sessions and a list of prerequisite pairs, return an order in which the sessions can be sche)
+<<READY 02:10>>
+[02:10]   ... 20s of silence
+<<READY 02:30>>
+<<READY 02:30>>
+[02:30] CANDIDATE: So I return any order where each session comes after its prerequisites, empty list if there's a cycle. The pairs are course then prerequisite, right? I'll model a directed graph and do a topological sort with in-degrees and a queue, linear in sessions plus pairs. Brute force would rescan for ready sessions each time, which is quadratic.
+[03:04] INTERVIEWER: Yes, that's right, each pair is the course followed by its prerequisite. That's the clean approach. So go ahead and write it up, and think aloud as you go.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=620ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (22 s): | - -2.0–21.5s pointer on “prerequisite pairs” in the problem (23.5 s) | Since they last spoke (42 s): no typing or drawing.]
+[03:04]   (room layout -> work)
+<<READY 03:04>>
+[03:04]   (candidate's code v1: 18 lines)
+<<READY 03:04>>
+<<READY 03:04>>
+<<READY 03:04>>
+<<READY 03:04>>
+<<READY 03:04>>
+<<READY 03:04>>
+[03:04] CANDIDATE: Writing it: adjacency list from prerequisite to course, in-degrees, a deque seeded with the zero in-degree sessions, the loop, and a length check at the end for cycles. Time and space are O of n plus p.
+[03:31] INTERVIEWER: Looks like you've got the full solution there. Walk me through a small example so I can see the ordering come out right — say four sessions with a couple of prerequisite pairs.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=649ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (14 s): | - -2.0–13.8s pointer on “prerequisite pairs” in the problem (15.8 s) | - +4.6s typed line 1 (1 edit): `from collections import deque` | - +11.6s typed line 4 (1 edit): `graph = [[] for _ in range(n)]` | Since they last ]
+<<READY 03:31>>
+[03:31] CANDIDATE: Four sessions, two needs one, three needs two, zero is free. In-degrees: zero 0, one 0, two 1, three 1. Queue starts with zero and one. Zero goes, then one, which frees two, then two frees three. Order is zero, one, two, three.
+[04:00] INTERVIEWER: The trace checks out, and the length check at the end correctly catches cycles. Now, why is it safe to schedule a node as soon as its indegree hits zero?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=613ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (16 s): | - -2.0–16.2s pointer on “prerequisite pairs” in the problem (18.2 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 04:00>>
+[04:00] CANDIDATE: A cycle: zero needs one and one needs zero. Both have in-degree one, nothing is queued, the order is empty and the length check fails so I return an empty list. No prerequisites means everyone is queued and I return zero to n minus one.
+[04:30] INTERVIEWER: That covers the cycle case too, good. One more question before we move on: if I asked for the lexicographically smallest valid order, which data structure would you swap in?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=640ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–16.9s pointer on “prerequisite pairs” in the problem (18.9 s) | Since they last spoke (10 s): no typing or drawing.]
+<<READY 04:30>>
+[04:30] CANDIDATE: A min-heap instead of the plain queue, so I always pop the smallest ready session. That makes it O of n plus p times log n.
+[04:50] INTERVIEWER: Right, a min-heap instead of the deque. Good answers here. Let's move on to the second problem, and I'll put it on your screen.
+    [tools=next_item,show_problem; item=core-2; model=deepseek/deepseek-v4.1-flash first_token=627ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–9.6s pointer on “prerequisite pairs” in the problem (11.6 s) | Since they last spoke (10 s): no typing or drawing.]
+[04:50]   (problem on screen: Problem 2; statement: A courier service must deliver a sequence of parcels from a depot to a destination over exactly D days. The i‑th parcel weighs weights[i] kilograms. On each day the driver loads parcels in the given order onto a van; the total weight loaded that day cannot exceed the van's capacity. Find the smallest integer capacity that guarantees all parcels are delivered within D days.)
+<<READY 04:50>>
+[04:50]   ... 25s of silence
+<<READY 05:15>>
+<<READY 05:15>>
+[05:15] CANDIDATE: So the parcels must go in order, each day's load can't exceed the capacity, and I need the smallest capacity that finishes within D days. The capacity is at least the heaviest parcel and at most the total weight. Feasibility is monotonic, if a capacity works then any bigger one works, so I can binary search the capacity and check each candidate with a greedy pass counting days.
+[05:48] INTERVIEWER: That's exactly the shape of it. Go ahead and write it up, thinking aloud as you go.
+    [item=core-2; model=deepseek/deepseek-v4.1-flash first_token=654ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (26 s): | - -2.0–25.8s pointer on “capacity” in the problem (27.8 s) | Since they last spoke (33 s): no typing or drawing.]
+<<READY 05:48>>
+[05:48]   (candidate's code v2: 17 lines)
+<<READY 05:48>>
+<<READY 05:48>>
+<<READY 05:48>>
+<<READY 05:48>>
+<<READY 05:48>>
+[05:48] CANDIDATE: Writing the feasibility check first, a greedy pass counting days, then the binary search between the heaviest parcel and the total. Time is O of n log of total weight, space constant.
+[06:14] INTERVIEWER: I see the code taking shape. One thing to be careful about in that feasibility check — what happens when a single parcel exactly fills the capacity, so the running load equals the cap?
+    [item=core-2; model=deepseek/deepseek-v4.1-flash first_token=613ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–11.9s pointer on “capacity” in the problem (13.9 s) | - +5.6s typed line 2 (1 edit): `def needed(cap):` | Since they last spoke (5 s): no typing or drawing.]
+<<READY 06:14>>
+[06:14] CANDIDATE: If the load plus the next weight equals the capacity it still fits, my check is greater than cap, not greater or equal, so a load exactly at the capacity stays on the same day. Only when it would exceed the cap do I start a new day.
+[06:49] INTERVIEWER: Right, and your current code uses a strict greater-than, so that case is handled. Now walk me through it with a small input — weights two, three, two, one and D equals two — and tell me what capacity you land on.
+    [item=core-2; model=deepseek/deepseek-v4.1-flash first_token=659ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (18 s): | - -2.0–18.1s pointer on “capacity” in the problem (20.1 s) | Since they last spoke (12 s): typed line 3 (1 edit).]
+<<READY 06:49>>
+[06:49] CANDIDATE: Trace: weights one to ten and five days. Heaviest is ten, total fifty-five. Low ten, high fifty-five, mid thirty-two needs two days, fine, so high becomes thirty-two, and so on down to fifteen, which needs exactly five days. So fifteen is the answer.
+[07:25] INTERVIEWER: I asked for weights two, three, two, one with D equals two, but let's stay with yours. On that trace, when the load is exactly at capacity do you start a new day or not? Check your own condition again and tell me what fifteen gives day by day.
+    [item=core-2; model=deepseek/deepseek-v4.1-flash first_token=650ms wall=1.0s; activity=## Activity (what they did while speaking, and since) | While speaking (16 s): | - -2.0–16.2s pointer on “capacity” in the problem (18.2 s) | Since they last spoke (15 s): no typing or drawing.]
+<<READY 07:25>>
+[07:25] CANDIDATE: Sorry, your example: weights two, three, two, one, D equals two. Heaviest is three, total eight. Low three, high eight, mid five: days are two plus three is five, then two plus one is three, so two days, feasible, high five. Mid four: two, then three would make five over four so new day, three, then two would make five so new day, that's three days, not feasible, low five. Answer five.
+[08:09] INTERVIEWER: That's correct — capacity five gives loads of five and three across two days, and four overshoots. You've got the exact-fill boundary right too. Last thing: what edge case would you test first to be sure the simulation is correct?
+    [item=core-2; model=deepseek/deepseek-v4.1-flash first_token=658ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (27 s): | - -2.0–27.3s pointer on “capacity” in the problem (29.3 s) | Since they last spoke (17 s): no typing or drawing.]
+<<READY 08:09>>
+[08:09] CANDIDATE: For fifteen on one to ten: one to five is fifteen on day one, six plus seven is thirteen on day two, eight is day three, nine is day four, ten is day five. Exactly five days, and the load of fifteen exactly at capacity stayed on the first day, as my condition says.
+[08:44] INTERVIEWER: Good, that confirms the boundary on a concrete case. We're out of time for this one, so let me give you one more problem — a step up in difficulty. Putting it on your screen now.
+    [tools=next_item,show_problem; item=reserve-harder; model=deepseek/deepseek-v4.1-flash first_token=868ms wall=1.2s; activity=## Activity (what they did while speaking, and since) | While speaking (20 s): | - -2.0–20.4s pointer on “capacity” in the problem (22.4 s) | Since they last spoke (14 s): no typing or drawing.]
+[08:44]   (problem on screen: Problem 3; statement: A delivery drone operates over a rectangular grid of city blocks. Each block has an elevation value. The drone can move to any of the four orthogonal neighboring blocks (north, south, east, west) but only if the destination block is strictly higher in elevation than its current block. Given the elevation grid, determine the maximum number of blocks the drone can visit in a strictly increasing sequ)
+<<READY 08:44>>

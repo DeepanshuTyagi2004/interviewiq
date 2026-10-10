@@ -1,0 +1,19 @@
+== text session: accenture fresher dsa round, 45 min, interviewer Nandini Rao, run bpr_557389d7088d4409a10c
+[00:08] INTERVIEWER (opening): Hi, I'm Nandini Rao, and I'll be your interviewer today for this software engineering role. How are you doing?
+    [tools=next_item; decision=improvised <- Greeting phase, candidate silent; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=774ms wall=1.2s]
+[00:08]   (room layout -> talk)
+<<READY 00:08>>
+[00:08] CANDIDATE: Hi ma'am, good morning. Umm, I'm good, a little nervous honestly. First time doing a proper mock like this.
+[00:29] INTERVIEWER: That's completely fine, nerves are normal in a first interview. I saw you got your Hisaab app live on the Play Store — that must have been exciting to see real users on it.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=588ms wall=0.7s]
+[00:35] INTERVIEWER (proactive): How did that feel, putting something out there and watching people actually use it?
+    [orders=open_item; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=560ms wall=0.9s]
+<<READY 00:35>>
+[00:35] CANDIDATE: It's going good, I woke up early and revised arrays and hashmaps a bit. Umm, nothing much otherwise.
+[01:08] INTERVIEWER: Nice, a bit of revision before the interview is a good habit. Well, let's get into it then — this round is mainly problem solving, so I'll give you a couple of coding problems to work through, and we'll also talk about your background and projects. Feel free to think aloud as you go. To start, could you give me a short introduction of your background?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1151ms wall=1.5s]
+<<READY 01:08>>
+[01:08] CANDIDATE: So, I'm from Noida, doing my B.Tech in CS from JIIT, final year. I got into Android because in second year my friend showed me a small app he made and I wanted to build something people actually keep on their phone. Then I did a Dunzo internship, Android.
+[01:40] INTERVIEWER: That's a nice path — that instinct to build something people actually keep is a good one. You interned at Dunzo in Android, right? What did you work on there?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1437ms wall=1.7s]
+<<READY 01:40>>

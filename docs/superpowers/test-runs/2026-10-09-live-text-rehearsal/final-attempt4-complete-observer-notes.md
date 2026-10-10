@@ -1,0 +1,10 @@
+# Final round, attempt 4 — all fixes.
+- 02:27 (pre-fix) 'I'm putting it on your screen now' while show_problem was refused (labels lagging at framing though problem_allowed was true). Fixed afterwards: show_problem runs the plan through the leftover background parts.
+- 05:30 good hint size: a model of nodes/edges (one small step) and a guiding question ('which session is safe to schedule first?') after my wrong approach was tested with a counterexample.
+- 07:55 'Let me look at your code.' with look_at_board (refused: board empty) — fixed after: the tool is only offered when the board has content; the refusal says to read the code from the state.
+- 09:44 the next_item guard fired live: the talker asked a follow-up AND called next_item; the plan refused and stayed on core-1 (no silent swap this time).
+- 10:33 a blocked sentence ('one more problem before we get to your questions') left its dangling sibling ('Same flow: read it, tell me your approach before coding'): the plan refused next_item (the 'one more problem' wording was not recognised as leaving). Fixed after: 'one more problem' counts as leaving; 'before we ...' is not a questions invitation.
+- 10:50 problem 2 (Asteroid Collision as delivery drones, medium) shown with the extra-problem rule. Found: the director had SKIPPED the deep dive (skip was allowed on it), which is why slack was large: fixed after (deep_dive is protected like the questions and the wrap-up).
+- 13:17/14:01 'Let me look at what you wrote' / 'Let me read your code carefully' (announce-then-act pattern for code review, the second time with a code_highlight tool call): real interviewers read silently and then comment; these are filler announcements.
+- 15:10 both problems done by 15 min; deep dive started at 15:10 in the talk layout with a resume-probe question (Module Federation architecture), 15 of 30 min used so far. (Why the extra problem was added at 10:37 when slack computed as 263 s (< 360) remains unexplained; to check.)
+- 18:36 handled my mismatched answer gracefully ('I think I misheard — that's Relay, not the portal. Back to the failing remote...').

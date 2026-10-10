@@ -1,0 +1,84 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:07] INTERVIEWER (opening): Hi, I'm Gaurav Chauhan, Senior Engineer here at Salescode. How's your day going so far?
+    [tools=next_item; decision=greeting <- Greeting phase, candidate hasn't spoken yet, conductor says I may move on.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1183ms wall=1.5s]
+[00:07]   (room layout -> talk)
+<<READY 00:07>>
+[00:07] CANDIDATE: Hi Gaurav, doing well, thanks. A little nervous but excited.
+[00:21] INTERVIEWER: That's fair, nerves are normal. I see you've been leading the Experience Portal team at Salescode — sounds like a fast-paced place to be.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1417ms wall=2.9s]
+<<READY 00:21>>
+[00:21] CANDIDATE: Yes, it keeps me busy but I enjoy it.
+[00:41] INTERVIEWER: Good to hear. Let me tell you how this round will run — a short intro from you, then one coding problem, and some time at the end for your questions. So, to start us off, walk me through your background briefly.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=635ms wall=1.4s]
+<<READY 00:41>>
+[00:41] CANDIDATE: Sure. I'm a final year CS student at Bennett University. Last year I interned on a micro frontend dashboard in TypeScript and React, and recently built Relay, a project that controls my laptop from my phone over WebSockets.
+[01:06] INTERVIEWER: Nice — micro frontends and a WebSocket-based remote control both sound like hands-on work. What was your specific role on the dashboard intern project?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=577ms wall=0.9s]
+<<READY 01:06>>
+[01:06] CANDIDATE: I owned the shell app and the shared auth module. I set up Module Federation so the other teams' remotes loaded into the shell, and I wrote the shared login and token refresh used by all of them.
+[01:23] INTERVIEWER: That's solid ownership.
+    [tools=next_item; GUARD-BLOCKED(screen_claim): Let me move us into the coding problem now — I'll put it on your screen.; item=framing; model=deepseek/deepseek-v4.1-flash first_token=577ms wall=0.8s]
+[01:35] INTERVIEWER (proactive): Quick one before we move on — when the token refresh fails in your shared auth module, what does the shell do? Just the flow in a line or two.
+    [orders=open_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=704ms wall=1.0s]
+<<READY 01:35>>
+[01:35] CANDIDATE: The shell retries the refresh once, and if that fails it clears the session and redirects to login, and each remote gets an event so it can stop its pending requests.
+[02:09] INTERVIEWER: Good — a retry, then a clean logout and an event for remotes to bail out of in-flight requests. That's a well-thought-out flow, thanks for the detail. Now let's get into the coding portion. I'll give you a problem, and I'd like you to restate it, ask any clarifying questions, and think aloud as you go.
+    [tools=next_item; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=571ms wall=0.8s]
+[02:13] INTERVIEWER (proactive): Let me put the problem on your screen.
+    [orders=open_item; tools=show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=631ms wall=0.7s]
+[02:13]   (problem on screen: Problem 1; statement: Chef runs a spice shop and wants to maximize his earnings by buying and selling a particular spice over a series of days. On day *i* the price of the spice is given by the array `prices[i]`. Chef can perform as many buy‑sell transactions as he likes, but he can hold at most one unit of the spice at any time – he must sell before buying again. Determine the maximum total profit Chef can achieve.)
+<<READY 02:13>>
+[02:13]   (candidate's code v1: 6 lines)
+<<READY 02:13>>
+<<READY 02:13>>
+[02:13] CANDIDATE: So I need the maximum total profit with unlimited buy-sell pairs, one unit at a time. Can prices be zero, and can the array be empty? I'll add every day-to-day rise, which equals buying at each valley and selling at each peak. I wrote it: loop from day one, add the difference when today beats yesterday. It's linear time and constant space.
+[02:44] INTERVIEWER: That's on your screen now. Go ahead and walk me through your reasoning as you work on it.
+    [tools=show_problem; decision=show_problem <- Candidate restated the problem, asked clarifications, and stated the greedy approach; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=577ms wall=1.0s; activity=## Activity (what they did while speaking, and since) | While speaking (23 s): | - -2.0–23.5s pointer on “buy-sell transactions as he likes” in the problem (25.5 s) | Since they last spoke (24 s): no typing or drawing.]
+[02:44]   (room layout -> work)
+<<READY 02:44>>
+[02:44] CANDIDATE: Yes, but my questions: can the prices be zero, and can the array be empty? And I think I already described the approach, the sum of positive day to day differences.
+[03:15] INTERVIEWER: Zero prices are allowed, and an empty array just gives zero profit. Now let's walk your code — run it on the example on your screen, seven, one, five, three, six, four. What does your function return, and does it match the expected answer?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1672ms wall=1.8s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–11.5s pointer on “buy-sell transactions as he likes” in the problem (13.5 s) | Since they last spoke (6 s): no typing or drawing.]
+<<READY 03:15>>
+[03:15] CANDIDATE: It adds four from one to five and three from three to six, so seven, which matches. A decreasing list returns zero and a single price also returns zero.
+[03:37] INTERVIEWER: Right, seven it is. Now tell me why that greedy works — why is it safe to just grab every upward move instead of planning transactions ahead?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=642ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (11 s): | - -2.0–10.8s pointer on “buy-sell transactions as he likes” in the problem (12.8 s) | Since they last spoke (16 s): no typing or drawing.]
+<<READY 03:37>>
+[03:37] CANDIDATE: Because any low-to-high trade is just the sum of the daily rises in between, so taking every rise separately is never worse, and with no limit or cost on trades I never have to skip one.
+[04:04] INTERVIEWER: That's the crux — a long trade decomposes into daily jumps, so treating each one separately can't hurt. Nicely reasoned. We're good on this one, and I have another problem for you.
+    [tools=next_item; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=690ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (13 s): | - -2.0–13.5s pointer on “buy-sell transactions as he likes” in the problem (15.5 s) | Since they last spoke (9 s): no typing or drawing.]
+[04:05] INTERVIEWER (proactive): 
+    [orders=open_item; tools=next_item(REFUSED: this problem has not been shown to the candidate yet: call show_problem now, do not skip i),show_problem; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=Nonems wall=0.8s]
+[04:05]   (problem on screen: Problem 2; statement: A tech firm is organizing a series of internal training sessions for its new hires. Each session is identified by an integer from 0 to n‑1. Some sessions require knowledge from earlier sessions, so a session can only be held after all its prerequisite sessions have been completed. Given the total number of sessions and a list of prerequisite pairs, return an order in which the sessions can be sche)
+<<READY 04:05>>
+<<READY 04:05>>
+[04:05] CANDIDATE: Okay, this is a scheduling problem on a directed graph. Sessions are nodes and each prerequisite pair is an edge, and I need a valid order, which is a topological sort. If there's a cycle there's no valid order. Can I assume there may be several valid orders and any is fine, and what should I return if there's a cycle?
+[04:39] INTERVIEWER: Good — and yes, any valid order is fine; if there's a cycle, return an empty array. Let me put it up on your screen.
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=937ms wall=1.8s; activity=## Activity (what they did while speaking, and since) | While speaking (23 s): | - says “this is” at +0.4s → “prerequisite pairs” in the problem (the pointer had rested there) | - -2.0–23.1s pointer on “prerequisite pairs” in the problem (25.1 s) | Since they last spoke (12 s): no typing or drawing.]
+<<READY 04:39>>
+[04:39]   (candidate's code v2: 18 lines)
+<<READY 04:39>>
+[04:39] CANDIDATE: I'll use Kahn's algorithm. Build the adjacency list and in-degrees, start a queue with all zero in-degree sessions, pop one at a time, add it to the order and decrement its neighbours, pushing any that reach zero. If the order has fewer than n sessions at the end there was a cycle, so I return an empty array. Time is O of V plus E and space is O of V plus E.
+[05:22] INTERVIEWER: I see the code is up and you've already written it — you moved fast there. Before I dig in, tell me: on an empty prerequisite list, what order does your function return, and is that acceptable?
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=907ms wall=1.2s; activity=## Activity (what they did while speaking, and since) | While speaking (28 s): | - -2.0–27.7s pointer on “prerequisite pairs” in the problem (29.7 s) | Since they last spoke (9 s): no typing or drawing.]
+<<READY 05:22>>
+[05:22] CANDIDATE: With no prerequisites every session has in-degree zero, so they all go in the queue and I return them in index order, zero to n minus one. That's valid since any order works.
+[05:48] INTERVIEWER: Right, that's a valid order. Now walk me through the cycle case — say session one depends on zero, and zero depends on one. Trace your function and tell me what comes back.
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=890ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–12.3s pointer on “prerequisite pairs” in the problem (14.3 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 05:48>>
+[05:48] CANDIDATE: Both sessions have in-degree one, so nothing starts in the queue, the loop never runs, the order stays empty, and since zero is not equal to n I return an empty array, which signals the cycle.
+[06:17] INTERVIEWER: Right. Let me make you trace the actual code line by line for that case — walk me through what the queue holds at the start, what order ends up as, and what the return statement does.
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=866ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (13 s): | - -2.0–13.5s pointer on “prerequisite pairs” in the problem (15.5 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 06:17>>
+[06:17] CANDIDATE: The queue is empty at the start, order is an empty list, and the final check length of order equals n fails, so it returns an empty list.
+[06:36] INTERVIEWER: That matches. And on the no-prerequisite example, does that same final return line give you what you said earlier?
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=713ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–10.4s pointer on “prerequisite pairs” in the problem (12.4 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 06:36>>
+[06:36] CANDIDATE: Yes, there the order has all n sessions, so the length check passes and it returns the full list in index order, same as I said.
+[07:02] INTERVIEWER: Good, both traces hold up. That solves it cleanly. Now I'd like to switch gears — can you walk me through the architecture decisions you made for the micro-frontend Experience Portal, especially the use of Module Federation?
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=1342ms wall=1.5s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–9.6s pointer on “prerequisite pairs” in the problem (11.6 s) | Since they last spoke (6 s): no typing or drawing.]
+<<READY 07:02>>
+[07:02] CANDIDATE: We split the portal into a shell and remotes owned by different teams, loaded with Module Federation so each could deploy independently. The hardest part was shared dependencies: two remotes pulling different React versions broke hooks, so we pinned singletons for React and the router.
+[07:33] INTERVIEWER: That's the classic failure mode — shared React as a singleton is essential once hooks cross the boundary. In your setup, how did you actually pin it so the versions agreed at runtime?
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=915ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–16.9s pointer on “prerequisite pairs” in the problem (18.9 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 07:33>>

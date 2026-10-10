@@ -1,0 +1,52 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:07] INTERVIEWER (opening): Hi, I’m Gaurav Chauhan, Senior Engineer at Salescode. How’s your day going so far?
+    [tools=next_item; decision=greeting then next_item <- greeting phase, candidate silent, conductor says I may move on; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1623ms wall=2.0s]
+[00:07]   (room layout -> talk)
+<<READY 00:07>>
+[00:07] CANDIDATE: Hi Gaurav, I'm good thank you, a little nervous.
+[00:22] INTERVIEWER: That's completely normal, and honestly a good sign that you care. Before we get into things, tell me a bit about what kind of work you've been doing lately.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=962ms wall=1.1s]
+<<READY 00:22>>
+[00:22] CANDIDATE: I'm a final year CS student at Bennett University. I interned last year on a micro frontend dashboard in TypeScript and React, and recently built a side project called Relay that controls my laptop from my phone over WebSockets.
+[00:47] INTERVIEWER: That's a nice mix, TypeScript and React on one side, and sockets on the other. We'll come back to Relay in a bit.
+    [tools=next_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=877ms wall=1.0s]
+<<READY 00:47>>
+[00:47] CANDIDATE: Sure, sounds good.
+[01:08] INTERVIEWER: So here's how the next thirty minutes will go. One coding problem first, then a short chat about your projects and some fundamentals, and I'll keep time at the end for your questions. Think aloud as you go and ask me anything you're unsure about. Let's get started.
+    [tools=next_item; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=574ms wall=0.9s]
+<<READY 01:08>>
+[01:08] CANDIDATE: Okay, I'm ready, let's start the problem.
+[01:15] INTERVIEWER: Let me put it up on your screen now.
+    [tools=next_item,show_problem; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=699ms wall=0.8s]
+<<READY 01:15>>
+[01:15]   ... 8s of silence
+<<READY 01:23>>
+[01:23] CANDIDATE: Sorry, I don't see the problem yet.
+[01:32] INTERVIEWER: Apologies, my mistake. Let me put it up properly this time.
+    [tools=next_item,show_problem; decision=next_item + show_problem <- Intro done, candidate ready; director brief asked to close intro and present core-1.; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1598ms wall=2.1s]
+[01:32]   (problem on screen: Problem 1; statement: Chef runs a spice shop and wants to maximize his earnings by buying and selling a particular spice over a series of days. On day *i* the price of the spice is given by the array `prices[i]`. Chef can perform as many buy‑sell transactions as he likes, but he can hold at most one unit of the spice at any time – he must sell before buying again. Determine the maximum total profit Chef can achieve.)
+<<READY 01:32>>
+[01:32]   (candidate's code v1: 6 lines)
+<<READY 01:32>>
+<<READY 01:32>>
+[01:32] CANDIDATE: So I need the maximum total profit with unlimited buy-sell pairs, one unit at a time. I'll add every day-to-day rise, which equals buying at each valley and selling at each peak. I've written it: loop from day one and add the difference when today beats yesterday. It's linear time with constant space. For seven, one, five, three, six, four it adds four and three for seven, and an empty or single-day array returns zero.
+[02:14] INTERVIEWER: Before we go further, can you walk me through that same algorithm once more, step by step, on seven one five three six four? I want to hear how you arrive at seven.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=676ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (28 s): | - -2.0–28.5s pointer on “buy-sell transactions as he likes” in the problem (30.5 s) | Since they last spoke (4 s): no typing or drawing.]
+[02:14]   (room layout -> work)
+<<READY 02:14>>
+[02:14] CANDIDATE: Sure: day two, one is lower than seven, nothing. Day three, five beats one, add four. Day four, three is lower, nothing. Day five, six beats three, add three. Day six, four is lower, nothing. Total seven.
+[02:44] INTERVIEWER: That matches what the code does. One thing I want to check, why is it safe to just add up these separate rises instead of hunting for single big buy-sell pairs? What's the justification for that being optimal?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=776ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (14 s): | - -2.0–13.8s pointer on “buy-sell transactions as he likes” in the problem (15.8 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 02:44>>
+[02:44] CANDIDATE: Because any buy-sell transaction from a low to a high is just the sum of the day-to-day rises between them. So taking every rise individually gives at least as much as any set of bigger trades, and I never need to skip a rise because there's no cost and no limit on trades.
+[03:13] INTERVIEWER: Good, that's the right argument. Now, how does your solution behave on a strictly decreasing list, say five four three two one?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=659ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (20 s): | - -2.0–20.0s pointer on “buy-sell transactions as he likes” in the problem (22.0 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 03:13>>
+[03:13] CANDIDATE: Nothing is ever higher than the previous day, so nothing is added and it returns zero.
+[03:28] INTERVIEWER: Right, no transaction is ever worth making there. Let's move on, I promised you a chat about Relay next.
+    [tools=next_item; item=reserve-harder; model=deepseek/deepseek-v4.1-flash first_token=686ms wall=1.0s; activity=## Activity (what they did while speaking, and since) | While speaking (6 s): | - -2.0–5.8s pointer on “buy-sell transactions as he likes” in the problem (7.8 s) | Since they last spoke (7 s): no typing or drawing.]
+<<READY 03:28>>
+[03:28] CANDIDATE: Sure, happy to talk about Relay.
+[03:39] INTERVIEWER: Can you walk me through the architecture decisions you made for the micro-frontend Experience Portal, especially the use of Module Federation?
+    [item=reserve-harder; model=deepseek/deepseek-v4.1-flash first_token=596ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (2 s): | - -2.0–1.9s pointer on “buy-sell transactions as he likes” in the problem (3.9 s) | Since they last spoke (6 s): no typing or drawing.]
+<<READY 03:39>>

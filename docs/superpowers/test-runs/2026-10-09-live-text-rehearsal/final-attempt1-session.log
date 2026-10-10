@@ -1,0 +1,90 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Vikram Sethi, run bpr_0d430c27d66546e9b46f
+[00:07] INTERVIEWER (opening): Hi, I'm Vikram Sethi — good to meet you. How are you doing today?
+    [tools=next_item; decision=greeting, then next_item <- Greeting phase, may move on.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=2072ms wall=2.3s]
+[00:07]   (room layout -> talk)
+<<READY 00:07>>
+[00:07] CANDIDATE: Hi Vikram, I'm doing well, thank you. A bit nervous, to be honest.
+[00:24] INTERVIEWER: That's completely normal, don't worry about it. I see you've been building the Experience Portal at Salescode — that sounds like a pretty high-impact project to work on.
+    [tools=next_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=1346ms wall=1.5s]
+[00:57] INTERVIEWER (proactive): Nervousness is fine — this is a mock, so think of it as a practice ground. Let me quickly set the shape of the round: I'll give you one coding problem where I want you to think aloud, then we'll chat a bit about your projects and some fundamentals, and I'll keep time at the end for your questions. Feel free to ask anything as we go. So, to start — tell me a little about your background, and what you're working on right now.
+    [orders=open_item; tools=next_item(REFUSED: not yet: you are in framing and the candidate has had 0 of 1 exchanges: ask 1 more real qu); decision=explained round structure, asked for background/intro <- framing phase, conductor ordered opening and intro question; item=framing; model=deepseek/deepseek-v4.1-flash first_token=806ms wall=1.7s]
+<<READY 00:57>>
+[00:57] CANDIDATE: Sure. I'm a final year computer science student at Bennett University. Last year I interned on a micro frontend dashboard, mostly TypeScript and React, and in my own time I built a project called Relay that lets me control my laptop from my phone.
+[01:25] INTERVIEWER: Nice, both of those sound interesting. On Relay — controlling your laptop from your phone, was that something on the same network, or over the internet?
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=580ms wall=0.7s]
+<<READY 01:25>>
+[01:25] CANDIDATE: Over the internet. The laptop runs a small agent and the phone is a thin client, and both connect out to a relay server I host, so it works even when the laptop is behind a home router.
+[01:55] INTERVIEWER: That's a neat architecture — going through a relay server so you don't need port forwarding. Did you think about how the phone and laptop authenticate with the relay, or was that not a concern for a personal project?
+    [orders=move_on; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=678ms wall=1.0s]
+<<READY 01:55>>
+[01:55] CANDIDATE: It uses WebSockets. First an HTTP request to log in, then both sides upgrade the connection, so the server can push commands to the agent as soon as they arrive.
+[02:17] INTERVIEWER: Good — that makes sense for pushing commands down. Let's switch gears now. Take a moment to read it, then think aloud as you go.
+    [tools=next_item(REFUSED: not yet: the conversation before the coding has had 4 of 5 exchanges: ask about their back); GUARD-BLOCKED(screen_claim): I'm putting one coding problem on your screen for you, and it's the main part of; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=584ms wall=0.9s]
+[02:31] INTERVIEWER (proactive): Before we get there, one quick thing on the Relay project — you mentioned holding the connection open. How did you handle it if the connection dropped, say the phone went to sleep or the network blipped?
+    [orders=open_item; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=558ms wall=1.6s]
+<<READY 02:31>>
+[02:31] CANDIDATE: Sorry, I mixed up your earlier question about authentication. For reconnects, the agent retries with a short backoff and the phone shows a reconnecting state. The part I haven't handled is a command that was in flight when the socket dropped, it's just lost right now.
+[03:07] INTERVIEWER: That's a fair, honest answer — knowing what you haven't handled is as useful as what you have. Alright, let's get to the coding problem. It's on your screen now — take a read and then tell me in your own words what it's asking.
+    [tools=next_item,show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=856ms wall=1.2s]
+[03:07]   (problem on screen: Problem 1; statement: A tech firm is organizing a series of internal training sessions for its new hires. Each session is identified by an integer from 0 to n‑1. Some sessions require knowledge from earlier sessions, so a session can only be held after all its prerequisite sessions have been completed. Given the total number of sessions and a list of prerequisite pairs, return an order in which the sessions can be sche)
+<<READY 03:07>>
+[03:07]   ... 20s of silence
+<<READY 03:27>>
+<<READY 03:27>>
+[03:27] CANDIDATE: Okay. So there are n sessions numbered zero to n minus one, and some pairs say one session must come before another. I need to return any order that respects all of them. Can I assume the pairs are valid indices, and what should I return if it's impossible, for example if there's a cycle?
+[04:07] INTERVIEWER: Yes, assume the indices are valid. And for the impossible case — if there's no valid order, you return an empty array. Good, so you've already spotted the cycle concern. One more thing worth clarifying before you start: if there are no prerequisites at all, what would you return?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=587ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (21 s): | - -2.0–20.8s pointer on “prerequisite pairs” in the problem (22.8 s) | Since they last spoke (36 s): no typing or drawing.]
+[04:07]   (room layout -> work)
+<<READY 04:07>>
+[04:07] CANDIDATE: If there are no prerequisites then any order works, so I'd just return zero to n minus one.
+[04:22] INTERVIEWER: Right, that's acceptable. And what's the largest input we need to stay within — did you want the constraints?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=635ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (7 s): | - -2.0–6.5s pointer on “prerequisite pairs” in the problem (8.5 s) | Since they last spoke (17 s): no typing or drawing.]
+<<READY 04:22>>
+[04:22] CANDIDATE: Yes please, what are the constraints on n and the number of pairs? That decides whether something quadratic is acceptable.
+[04:32] INTERVIEWER: 
+    [tools=reveal; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=Nonems wall=1.3s; activity=## Activity (what they did while speaking, and since) | While speaking (7 s): | - -2.0–7.3s pointer on “prerequisite pairs” in the problem (9.3 s) | Since they last spoke (6 s): no typing or drawing.]
+[04:32]   (panel.add_section: {"type": "panel.add_section", "item_id": "core-1", "section": {"id": "constraints-core-1", "kind": "constraints", "title": "Constraints", "body": "1 <= numCourses <= 2000\n0 <= prerequisites.length <= numCourses * (numCourses - 1)\nprerequisites[i].length == 2)
+<<READY 04:32>>
+[04:32]   ... 6s of silence
+<<READY 04:38>>
+[04:38] CANDIDATE: Okay, I see the constraints appear. n is up to two thousand, so even quadratic would pass, but I'd rather do it linear in nodes plus edges.
+[05:06] INTERVIEWER: Those are on your screen now. So you've said you'd rather keep it linear — before you write anything, talk me through the model: what are the nodes, what's an edge, and how would you decide which session is safe to schedule next?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=896ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–10.0s pointer on “prerequisite pairs” in the problem (12.0 s) | Since they last spoke (6 s): no typing or drawing.]
+<<READY 05:06>>
+[05:06]   ... 15s of silence
+<<READY 05:21>>
+[05:21] CANDIDATE: Each session is a node, and each prerequisite pair is a directed edge from the prerequisite to the session that needs it. A session is safe to schedule when all its prerequisites have already been scheduled. I'm not completely sure how to track that efficiently, maybe I could keep a count of unmet prerequisites for every session?
+[05:57] INTERVIEWER: That's the right instinct — a count per session of how many prerequisites are still unmet. So what does that count start at, and what happens to it when you schedule one of its prerequisites?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=755ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (22 s): | - -2.0–21.5s pointer on “prerequisite pairs” in the problem (23.5 s) | Since they last spoke (30 s): no typing or drawing.]
+<<READY 05:57>>
+[05:57] CANDIDATE: It starts at the number of prerequisites that session has, the in-degree. When I schedule a session I go through the sessions that depend on it and subtract one from each count, and when a count reaches zero that session becomes available. So I also need an adjacency list from each session to the ones that depend on it.
+[06:34] INTERVIEWER: Good — so you'd need the graph stored both ways, which is natural. Now, once a session becomes available, how do you keep track of it so you don't have to rescan all the sessions each time?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=657ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (22 s): | - -2.0–22.3s pointer on “prerequisite pairs” in the problem (24.3 s) | Since they last spoke (12 s): no typing or drawing.]
+<<READY 06:34>>
+[06:34] CANDIDATE: I'd keep a queue of the sessions whose count is zero. I pop one, append it to the order, decrement its dependents, and push any that reach zero. At the end, if the order has fewer than n sessions there was a cycle.
+[07:06] INTERVIEWER: That's a clean plan. Go ahead and write it — I'll be watching. And when you're done, be ready to tell me why the queue can be seeded with all the zero-count sessions at once rather than just one.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=638ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (16 s): | - -2.0–16.2s pointer on “prerequisite pairs” in the problem (18.2 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 07:06>>
+[07:06]   (candidate's code v1: 18 lines)
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+<<READY 07:06>>
+[07:06] CANDIDATE: Okay, I'll write it in Python with a deque. First the adjacency list and the in-degree array, filled from the pairs, then the queue seeded with every zero in-degree session, then the main loop as I described. I'll talk through the loop once it's typed.
+[07:25] INTERVIEWER: 
+    [decision=acknowledge_move_on <- Candidate described full Kahn's approach and intends to code; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=Nonems wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–16.9s pointer on “prerequisite pairs” in the problem (18.9 s) | - +3.6s typed line 1 (1 edit): `from collections import deque` | - +9.6s typed line 3 (1 edit): `def find_order(n, prerequisites):` | - +15.6s typed]
+[07:26] INTERVIEWER (proactive): 
+    [orders=open_item; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=617ms wall=0.6s]
+<<READY 07:26>>
+[07:26]   ... 25s of silence
+<<READY 07:51>>
+[07:51] CANDIDATE: Done. Seeding the queue with all zero in-degree sessions is fine because none of them depend on anything, so any of them can go first, and the order among them doesn't matter.
+[08:04] INTERVIEWER: 
+    [item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=671ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–11.9s pointer on “prerequisite pairs” in the problem (13.9 s) | Since they last spoke (25 s): no typing or drawing.]
+<<READY 08:04>>

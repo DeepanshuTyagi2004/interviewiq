@@ -1,0 +1,106 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:07] INTERVIEWER (opening): Hi, I'm Gaurav Chauhan. Good to meet you — how's your day going so far?
+    [tools=next_item; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1109ms wall=1.3s]
+[00:07]   (room layout -> talk)
+<<READY 00:07>>
+[00:07] CANDIDATE: Hi Gaurav, doing well, thanks. A bit nervous but excited.
+[00:23] INTERVIEWER: That's a natural feeling to have, and it's totally fine. I see you've been working at Salescode.ai and graduated from Bennett University this year — that's a busy start, how's that been?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=519ms wall=0.7s]
+<<READY 00:23>>
+[00:23] CANDIDATE: It's been busy but good. I'm learning a lot on the micro frontend side.
+[00:39] INTERVIEWER: That's nice to hear. Well, let's get started then — I'll frame how the round runs, and then I'd like a short intro from you.
+    [tools=next_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=544ms wall=1.3s]
+[00:58] INTERVIEWER (proactive): So this round has three parts: one coding problem, a short chat about your projects and fundamentals, and then time for your questions. Please think aloud as you solve, and ask me anything whenever you're unclear. Now, tell me a bit about your background and what you're working on now.
+    [orders=open_item; tools=next_item(REFUSED: not yet: you are in framing and the candidate has had 0 of 1 exchanges: ask 1 more real qu); decision=framing <- Framing done; candidate gave short intro signals. Conductor asked to open framing and ask for a short introduction.; item=framing; model=deepseek/deepseek-v4.1-flash first_token=525ms wall=1.0s]
+<<READY 00:58>>
+[00:58] CANDIDATE: I'm a final year CS student at Bennett University. Besides the internship, I built Relay, a project that lets me control my laptop from my phone over WebSockets through a small relay server I wrote.
+[01:23] INTERVIEWER: Got it. What does Relay actually do under the hood — what runs on the laptop, what runs on the phone, and what's the relay server's role?
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=710ms wall=1.0s]
+<<READY 01:23>>
+[01:23] CANDIDATE: A small desktop agent runs on the laptop and the phone app is a thin client. Both connect out to my relay server, authenticate over HTTP and upgrade to a WebSocket, and the relay forwards commands from the phone to the agent and results back.
+[01:48] INTERVIEWER: Makes sense. Why route through a relay server instead of connecting the phone directly to the laptop?
+    [decision=opened candidate_intro with project probe <- Framing done; candidate gave intro and project description.; item=framing; model=deepseek/deepseek-v4.1-flash first_token=569ms wall=1.0s]
+<<READY 01:48>>
+[01:48] CANDIDATE: The laptop is behind NAT, so the phone can't reach it directly. With a relay both sides only connect outbound, so it works on any network without port forwarding.
+[02:01] INTERVIEWER: Fair reasoning.
+    [orders=move_on; tools=next_item,show_problem; GUARD-BLOCKED(screen_claim): Right, let's move on to the coding problem — I'll put it up on your screen now.; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=571ms wall=0.8s]
+[02:01]   (problem on screen: Problem 1; statement: Chef runs a spice shop and wants to maximize his earnings by buying and selling a particular spice over a series of days. On day *i* the price of the spice is given by the array `prices[i]`. Chef can perform as many buy‑sell transactions as he likes, but he can hold at most one unit of the spice at any time – he must sell before buying again. Determine the maximum total profit Chef can achieve.)
+<<READY 02:01>>
+[02:01]   (candidate's code v1: 6 lines)
+<<READY 02:01>>
+<<READY 02:01>>
+[02:01] CANDIDATE: I see the problem. Unlimited buy-sell pairs, one unit at a time, maximise profit. Can prices be zero and can the array be empty? My approach is to add every day-to-day rise, since buying at each valley and selling at each peak equals that sum. I wrote it: loop from day one, add the difference when today beats yesterday. Linear time, constant space.
+[02:32] INTERVIEWER: That's a clear explanation — thanks. Let's move to the coding problem; it's on your screen.
+    [tools=show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1066ms wall=1.2s; activity=## Activity (what they did while speaking, and since) | While speaking (24 s): | - -2.0–23.8s pointer on “buy-sell transactions as he likes” in the problem (25.8 s)]
+[02:32]   (room layout -> work)
+<<READY 02:32>>
+[02:32] CANDIDATE: Right, it's up. Can the prices be zero, and can the array be empty?
+[02:45] INTERVIEWER: Yes, prices can be zero, and the array may be empty — in that case just return zero.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=631ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (5 s): | - -2.0–5.0s pointer on “buy-sell transactions as he likes” in the problem (7.0 s) | Since they last spoke (5 s): no typing or drawing.]
+<<READY 02:45>>
+[02:45] CANDIDATE: Good. My solution is already written: adding every positive day-to-day difference. On seven, one, five, three, six, four it adds four and three, so seven.
+[03:06] INTERVIEWER: Nice, that matches what I'd expect. Walk me through it on this input: 7, 1, 5, 3, 6, 4 — what does profit look like after each day?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=595ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (9 s): | - -2.0–9.2s pointer on “buy-sell transactions as he likes” in the problem (11.2 s) | Since they last spoke (6 s): no typing or drawing.]
+<<READY 03:06>>
+[03:06] CANDIDATE: Day one nothing, day two zero, day three four, day four still four, day five seven, day six still seven.
+[03:27] INTERVIEWER: Give me a second. There. Correct. And what does it return for 7, 6, 4, 3, 1, and for a single-element array?
+    [fillers=1; HEDGED; item=core-1; model=z-ai/glm-5.3-flash first_token=4411ms wall=4.6s; activity=## Activity (what they did while speaking, and since) | While speaking (7 s): | - -2.0–7.3s pointer on “buy-sell transactions as he likes” in the problem (9.3 s) | Since they last spoke (9 s): no typing or drawing.]
+[03:27]   (page shows: interviewer is taking a moment)
+<<READY 03:27>>
+[03:27] CANDIDATE: Because any low-to-high trade is the sum of the daily rises in between, so taking each rise separately is never worse and there's no limit or cost on trades.
+[03:52] INTERVIEWER: Right, and that reasoning is sound. But I still want the two traces — what does your code return for 7, 6, 4, 3, 1, and for a single-element array like just 5?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=653ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (11 s): | - -2.0–10.8s pointer on “buy-sell transactions as he likes” in the problem (12.8 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 03:52>>
+[03:52] CANDIDATE: For 7, 6, 4, 3, 1 nothing is ever higher than the day before so it returns zero, and for a single element the loop range is empty so it also returns zero.
+[04:16] INTERVIEWER: Both correct. Let's move on to your projects — can you walk me through the architecture decisions you made for the micro-frontend Experience Portal, especially the use of Module Federation?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=650ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–12.3s pointer on “buy-sell transactions as he likes” in the problem (14.3 s) | Since they last spoke (11 s): no typing or drawing.]
+[04:26] INTERVIEWER (proactive): Take your time — whenever you're ready, start with what the Portal had to do and why you went with micro-frontends at all.
+    [orders=open_item; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=734ms wall=0.9s]
+[04:26]   (room layout -> talk)
+<<READY 04:26>>
+[04:26] CANDIDATE: We split the portal into a shell and remotes owned by different teams, loaded with Module Federation so each could deploy independently. The hardest part was shared dependencies, because two remotes pulling different React versions broke hooks, so we pinned singletons for React and the router.
+[04:57] INTERVIEWER: That's the crux — shared singletons. Say a shared library like the router needs a version bump; how do you roll that out without breaking one of the remotes that hasn't updated yet?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=882ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–17.3s pointer on “buy-sell transactions as he likes” in the problem (19.3 s) | Since they last spoke (20 s): no typing or drawing.]
+<<READY 04:57>>
+[04:57] CANDIDATE: We'd use a compatible version range for the shared router so remotes on the older patch still resolve to the same singleton, and for a breaking bump we'd ship a shim in the shell and migrate remotes team by team over a release or two.
+[05:27] INTERVIEWER: That's a sensible migration path. Two more angles. First, if one remote fails to load or throws at runtime, how does the shell keep the rest of the portal usable?
+    [decision=probe_deeper <- deep_dive, 3rd exchange done; director asked to probe failure isolation then routing, keep time for candidate_questions; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=614ms wall=1.2s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–16.9s pointer on “buy-sell transactions as he likes” in the problem (18.9 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 05:27>>
+[05:27] CANDIDATE: Honestly I'd add a runtime check in the shell that logs which remote loaded which version, so mismatches show up in monitoring before users hit them.
+[05:50] INTERVIEWER: Monitoring's useful, but say the chunk simply fails to load at runtime — what does the user actually see, and how do you stop one dead remote from taking down the whole page?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=557ms wall=1.4s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–9.6s pointer on “buy-sell transactions as he likes” in the problem (11.6 s) | Since they last spoke (10 s): no typing or drawing.]
+<<READY 05:50>>
+[05:50] CANDIDATE: Each remote is wrapped in an error boundary with a lazy load, so a failed chunk shows a small fallback panel with a retry button and the rest of the shell keeps working.
+[06:19] INTERVIEWER: That's the right shape. Last one on this, then I'll hand it to you — in the Relay project you used SQLite alongside the Claude API. How did you model the data, and how did you keep things consistent across devices?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=568ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (12 s): | - -2.0–12.3s pointer on “buy-sell transactions as he likes” in the problem (14.3 s) | Since they last spoke (11 s): no typing or drawing.]
+<<READY 06:19>>
+[06:19] CANDIDATE: For routing the shell owns the top level routes and each remote owns its sub routes, mounted lazily, so a remote can't break navigation outside its own area.
+[06:45] INTERVIEWER: Good — routing ownership per remote is a clean boundary. On Relay now: how did you model the data in SQLite, and how did you keep it consistent across devices with the Claude API in the picture?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=592ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–10.4s pointer on “buy-sell transactions as he likes” in the problem (12.4 s) | Since they last spoke (14 s): no typing or drawing.]
+<<READY 06:45>>
+[06:45] CANDIDATE: SQLite lives only on the laptop agent and stores the command history with ids and results. The Claude API turns a natural language instruction into commands on the agent. The phone asks the relay for history, so there's one writer per record and no real sync problem.
+[07:16] INTERVIEWER: So the phone is a reader and the laptop is the single writer. What happens to a command in flight — say the laptop goes offline mid-command, what does the phone see?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=795ms wall=1.0s; activity=## Activity (what they did while speaking, and since) | While speaking (18 s): | - -2.0–17.7s pointer on “buy-sell transactions as he likes” in the problem (19.7 s) | Since they last spoke (13 s): no typing or drawing.]
+<<READY 07:16>>
+[07:16] CANDIDATE: Right now the phone just gets an error if the socket drops, but a command already accepted by the relay is lost. I'd add a queue with command ids on the relay and have the agent skip ids it already ran, so a retry is safe.
+[07:47] INTERVIEWER: Good — idempotent retry with command ids is the right instinct. Let me switch to some fundamentals, then we'll get to your questions. In Java, why must equals() and hashCode() be overridden together?
+    [item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=685ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–17.3s pointer on “buy-sell transactions as he likes” in the problem (19.3 s) | Since they last spoke (11 s): no typing or drawing.]
+[08:02] INTERVIEWER (proactive): Let's park that one and come back to it. Actually, let's do your questions now — thanks for your time today through this. What would you like to ask me about the team, the work, or how we operate?
+    [orders=open_item; item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=707ms wall=0.9s]
+<<READY 08:02>>
+[08:02] CANDIDATE: On fundamentals, a left join keeps every left row and fills right columns with nulls when there is no match, an inner join keeps only matching rows.
+[08:24] INTERVIEWER: Right on both joins. Now the floor is yours — what would you like to ask about the team, the work, or how things run day to day?
+    [item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=593ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–10.0s pointer on “buy-sell transactions as he likes” in the problem (12.0 s) | Since they last spoke (27 s): no typing or drawing.]
+<<READY 08:24>>
+[08:24] CANDIDATE: I'm curious how the team handles releases and on-call, and what you'd expect a new grad to be shipping in their first few months.
+[08:59] INTERVIEWER: Happy to answer that. Releases are generally on a regular cadence, with smaller changes shipping more often behind flags, and on-call is a rotation shared across the team with a blameless postmortem culture when something goes wrong. For a new grad, the first few months are usually small, well-scoped features with review support, then owning a component end to end once you're comfortable with the codebase.
+    [item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=626ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (9 s): | - -2.0–8.8s pointer on “buy-sell transactions as he likes” in the problem (10.8 s) | Since they last spoke (9 s): no typing or drawing.]
+<<READY 08:59>>
+[08:59] CANDIDATE: That helps a lot, thank you. That's all from me, thanks for your time Gaurav.
+[09:10] INTERVIEWER: Thanks, that's good to hear. I'll move us on then.
+    [tools=next_item; item=wrap_up; model=deepseek/deepseek-v4.1-flash first_token=738ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (5 s): | - -2.0–5.4s pointer on “buy-sell transactions as he likes” in the problem (7.4 s) | Since they last spoke (23 s): no typing or drawing.]
+[09:20] INTERVIEWER (proactive): Thanks for your time today, Deepanshu. We'll share the interview feedback on the platform shortly, and you'll see the next steps there. Have a good day!
+    [orders=closing; tools=next_item; decision=closing <- wrap_up phase; candidate asked about releases, on-call and new-grad scope, then said that's all.; item=wrap_up; model=deepseek/deepseek-v4.1-flash first_token=577ms wall=1.1s]
+[09:20]   (session.ending completed: Thanks for your time today. We’ll share the interview feedback on the platform shortly, and you’ll see the next steps there. Have a good day!)
+== finished at 09:20: ended=completed failures=0
+<<DONE>>

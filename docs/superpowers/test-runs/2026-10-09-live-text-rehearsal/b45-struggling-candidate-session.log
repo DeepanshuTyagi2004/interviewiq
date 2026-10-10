@@ -1,0 +1,144 @@
+== text session: salescode sde1 dsa round, 45 min, interviewer Deepak Yadav, run bpr_e97f7cc2dd454f318b56
+[00:10] INTERVIEWER (opening): Hi, I'm Deepak Yadav, Senior Engineer here at Salescode. How are you doing today, and am I right in thinking this is Deepanshu?
+    [tools=next_item; decision=greet_and_confirm_name <- Start of interview, greeting phase, candidate has not spoken yet.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1261ms wall=1.8s]
+[00:10]   (room layout -> talk)
+<<READY 00:10>>
+[00:10] CANDIDATE: Hi, I'm doing well, thank you. A bit nervous.
+[00:29] INTERVIEWER: Totally normal, everyone feels that way at the start. Honestly, I saw you built Relay — a real-time Mac automation agent with WebSockets and the Claude API. That sounds like a genuinely fun mix of things to work on.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=651ms wall=0.7s]
+[00:45] INTERVIEWER (proactive): I also noticed the Experience Portal you worked on at Salescode.ai used Module Federation to cut release cycles by around sixty-five percent — that's a strong thing to pull off in your first year. What was your exact role in that?
+    [orders=open_item; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=565ms wall=0.8s]
+<<READY 00:45>>
+[00:45] CANDIDATE: It's been fine. Revising some problems and finishing my final year project.
+[01:13] INTERVIEWER: Fair enough — that last stretch of college is always packed. Bennett, right? Must feel good to be graduating this year while already working full-stack. Anyway, let's get going — I'll take you through a couple of coding problems, and we'll also talk about your projects and some fundamentals along the way. To start, give me a short introduction to your background.
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=514ms wall=0.9s]
+<<READY 01:13>>
+[01:13] CANDIDATE: I'm a final year CS student at Bennett University. I interned on a micro frontend dashboard in TypeScript and React, and I built Relay, which lets me control my laptop from my phone.
+[01:29] INTERVIEWER: Nice and crisp, thanks.
+    [tools=next_item; GUARD-BLOCKED(screen_claim): Let me put the first problem up on your screen — take a moment to read it, and t; item=framing; model=deepseek/deepseek-v4.1-flash first_token=575ms wall=0.8s]
+[01:55] INTERVIEWER (proactive): Good. So here's how the next forty-five minutes look: one or two coding problems depending on how the first one goes, then some time on your projects and fundamentals, and a few minutes at the end for your questions. Please think aloud as you work — I care about your reasoning as much as the final code — and ask me anything if something's unclear. Let's get started.
+    [orders=open_item; tools=next_item(REFUSED: not yet: you are in framing and the candidate has had 0 of 1 exchanges: ask 1 more real qu); item=framing; model=deepseek/deepseek-v4.1-flash first_token=664ms wall=1.2s]
+[02:08] INTERVIEWER (proactive): Before we start coding, tell me a bit more about Relay. When you say you control your laptop from your phone, what actually happens on the laptop side when a command comes in?
+    [orders=open_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=554ms wall=1.4s]
+<<READY 02:08>>
+[02:08] CANDIDATE: On the portal I worked on the shell that loads other teams' remotes with Module Federation and the shared login and token refresh.
+[02:33] INTERVIEWER: Okay, good — but let me pull you back to Relay for a second since that's the one I'm curious about. When a command arrives from your phone, what happens on the laptop side? Walk me through the flow.
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=573ms wall=0.8s]
+<<READY 02:33>>
+[02:33] CANDIDATE: A small agent on the laptop keeps a WebSocket open to my relay server. A command arrives as JSON, the agent runs it, like opening a project or running a build, and sends the result back.
+[03:03] INTERVIEWER: Got it, so the agent is basically a long-running process executing commands and streaming results back. Since we've got a few minutes on projects, tell me — how did you authenticate that WebSocket connection? You don't want some random phone driving your laptop.
+    [orders=move_on; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=591ms wall=0.8s]
+<<READY 03:03>>
+[03:03]   ... 5s of silence
+<<READY 03:08>>
+[03:08] CANDIDATE: I think I'm ready for the coding part whenever you are.
+[03:18] INTERVIEWER: Alright, let's do it. I'm putting the first problem on your screen now.
+    [tools=next_item,show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=586ms wall=0.8s]
+[03:18]   (problem on screen: Problem 1; statement: A tech firm is organizing a series of internal training sessions for its new hires. Each session is identified by an integer from 0 to n‑1. Some sessions require knowledge from earlier sessions, so a session can only be held after all its prerequisite sessions have been completed. Given the total number of sessions and a list of prerequisite pairs, return an order in which the sessions can be sche)
+<<READY 03:18>>
+[03:18]   ... 35s of silence
+<<READY 03:53>>
+[03:53] CANDIDATE: Um, okay. So I have to put the sessions in an order where each one comes after the ones it needs. I'm not sure what to return if there's a problem, though.
+[04:15] INTERVIEWER: That's the right read. If no valid order exists — say there's a cycle in the dependencies — you return an empty array.
+    [tools=show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=647ms wall=0.8s]
+[04:15]   (room layout -> work)
+<<READY 04:15>>
+[04:15]   ... 60s of silence
+<<READY 05:15>>
+[05:15] CANDIDATE: I'm trying to think. Maybe I could just sort the sessions by how many prerequisites they have? Fewest first.
+[05:36] INTERVIEWER: Hmm, sorting by count won't respect which sessions actually depend on which. Try this: model the sessions as a graph. Do you recall how to identify nodes that have no prerequisites at all?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=624ms wall=0.8s]
+<<READY 05:36>>
+[05:36]   ... 40s of silence
+<<READY 06:16>>
+[06:16] CANDIDATE: Hmm, I'm not sure that works. If two sessions both have one prerequisite I don't know which comes first. Honestly I'm a bit lost.
+[06:41] INTERVIEWER: That's fine, take a breath. Let's make it concrete: draw the sessions as nodes, and a prerequisite as a directed edge. Which nodes have nothing pointing into them — and what does that tell you about whether they can go first?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=614ms wall=0.9s]
+<<READY 06:41>>
+[06:41]   ... 45s of silence
+<<READY 07:26>>
+[07:26] CANDIDATE: The nodes with nothing pointing into them... I guess they have no prerequisites, so they can go first? And then I remove them? I'm not sure how to keep track of it in code.
+[07:56] INTERVIEWER: Right, nodes with no incoming edges can go first. Now the question is tracking it — if you removed one of those nodes, what changes for the nodes that depended on it, and how would you know when another one becomes ready?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=751ms wall=1.1s]
+<<READY 07:56>>
+[07:56]   ... 50s of silence
+<<READY 08:46>>
+[08:46] CANDIDATE: Maybe a list of the ones I've done? And I loop over all sessions again and again checking if their prerequisites are in the done list?
+[09:14] INTERVIEWER: Let's go one level lower and forget the done list for a moment. For each session, list which sessions must come before it. If you knew that list, and you already scheduled some of them, how would you know a session has nothing left blocking it?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=692ms wall=0.9s]
+<<READY 09:14>>
+[09:14]   ... 40s of silence
+<<READY 09:54>>
+[09:54] CANDIDATE: A count of how many are still blocking it? Like a number for each session, and when it's zero it's ready. But then I don't know how to update the numbers when I schedule something.
+[10:22] INTERVIEWER: That's exactly it — a count per session. You've got a ready session now; when you take it off your list, which sessions' counts change, and what do you do when one of those hits zero?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=673ms wall=0.9s]
+<<READY 10:22>>
+[10:22]   ... 60s of silence
+<<READY 11:22>>
+[11:22] CANDIDATE: I'm sorry, I'm running out of ideas. I know there's a name for this algorithm but I can't remember it. Could I get another hint?
+[11:55] INTERVIEWER: No name needed — you're closer than you think. When you schedule a session, only the sessions that depended on it change: decrease each of those counts by one. And the moment any count drops to zero, that session just became ready — push it onto your ready list. Can you say that whole loop back to me in words?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=636ms wall=0.9s]
+<<READY 11:55>>
+[11:55]   ... 30s of silence
+[12:22] INTERVIEWER (proactive): Give it a try — just describe the loop in words, no code yet. What's the very first thing you do, and then what do you repeat?
+    [orders=converge; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=932ms wall=1.0s]
+<<READY 12:25>>
+[12:25] CANDIDATE: Okay. So I pick a ready session, add it to my answer, then for every session that needed it I subtract one, and if that reaches zero I add it to the ready list. I keep going until the ready list is empty. I think that's it.
+[12:52] INTERVIEWER: That's right. And how do you catch the cycle case — the one where you return an empty array?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1103ms wall=1.2s]
+<<READY 12:52>>
+[12:52]   (candidate's code v1: 13 lines)
+<<READY 12:52>>
+[12:52]   ... 70s of silence
+<<READY 14:02>>
+[14:02] CANDIDATE: Sorry, I started writing it but I haven't worked out how to find the sessions that depend on x. I'm stuck on that part.
+[14:28] INTERVIEWER: You've got your counts already. The edges are the pairs — for one of those pairs, which is the prerequisite and which is the session that depends on it? If you build a reverse list alongside the counts, that's the piece you're missing.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=644ms wall=0.8s]
+<<READY 14:28>>
+[14:28]   ... 25s of silence
+[14:58] INTERVIEWER (proactive): Seems like we have to move on — you did get the key mechanic right, the per-session counts dropping to zero and feeding the ready list. Let's leave the code there and shift to your projects.
+    [orders=move_on; tools=next_item; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=643ms wall=1.0s]
+[15:09] INTERVIEWER (proactive): Let me jump to your projects then. Can you walk me through how you architected the Next.js host shell and coordinated the Vite React micro-frontends in the Experience Portal?
+    [orders=open_item; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=660ms wall=0.8s]
+[15:09]   (room layout -> talk)
+<<READY 15:09>>
+[15:09] CANDIDATE: I see, so a list for each prerequisite pointing to the sessions that need it. I can't quite finish writing it in the time though.
+[15:34] INTERVIEWER: That's the missing piece exactly. Let's leave it there and move to your projects — can you walk me through how you architected the Next.js host shell and coordinated the Vite React micro-frontends in the Experience Portal?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=576ms wall=0.7s]
+<<READY 15:34>>
+[15:34] CANDIDATE: The portal has a Next.js host shell, and each team's React app is a remote built with Vite and loaded at runtime with Module Federation, so they deploy independently. The shell owns routing, login and a shared fetch wrapper.
+[15:53] INTERVIEWER: Good — independent deploys are the whole point there.
+    [GUARD-BLOCKED(name_or_topic): When a remote ships a breaking change, how does the shell avoid breaking the oth; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=530ms wall=0.7s]
+[16:03] INTERVIEWER (proactive): Which part gave you the most trouble — the shared routing, or keeping the auth token and session consistent between the shell and the remotes?
+    [orders=open_item; item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=554ms wall=0.7s]
+<<READY 16:03>>
+[16:03] CANDIDATE: The hardest part was shared dependencies, two remotes pulling different React versions broke hooks, so we pinned React and the router as singletons.
+[16:25] INTERVIEWER: Ah, that's the classic Module Federation trap. And inside Relay, you used SQLite as the persistence layer — how did you model the command history and keep it consistent across multiple devices?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=537ms wall=0.7s]
+<<READY 16:25>>
+[16:25] CANDIDATE: In SQLite each command has an id, a status and the result. The Claude API turns an instruction into commands on the agent, and the phone reads history through the relay, so there's one writer per record.
+[16:49] INTERVIEWER: Two devices fire a command at the same moment — what does the laptop agent do, and who wins in the history?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=608ms wall=0.7s]
+<<READY 16:49>>
+[16:49] CANDIDATE: If the laptop goes offline mid command the phone just gets an error. I'd add a queue with command ids on the relay and have the agent skip ids it already ran.
+[17:18] INTERVIEWER: So the id is your idempotency key — the agent checks whether it's already executed that command before running it again. One more: when the two devices disagree about the state of the same record, how does the phone decide whose version to trust?
+    [item=deep_dive; model=deepseek/deepseek-v4.1-flash first_token=589ms wall=0.9s]
+<<READY 17:18>>
+[17:18] CANDIDATE: Right now the laptop agent is the only writer, so its version wins and the phone just refreshes. If I had two writers I'd use a version number on each record and reject updates with an older version.
+[17:54] INTERVIEWER: That's last-write-wins with a version check — sensible starting point for a single writer today. Let's leave projects there and turn it over to you. Thanks for walking me through Relay; the independent-deploys reasoning and the singleton pinning were concrete and well put. What would you like to ask about the team or the work?
+    [tools=next_item; decision=probe_deeper then next_item <- Deep_dive finished after two concrete project answers plus multi-device consistency follow-up; allowed to move on.; item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=569ms wall=1.7s]
+<<READY 17:54>>
+[17:54] CANDIDATE: On fundamentals, a left join keeps every row from the left table and fills the right side with nulls when there's no match, an inner join only keeps matching rows.
+[18:13] INTERVIEWER: That's the right distinction. What would you like to ask me about the team or the work here?
+    [item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=576ms wall=0.6s]
+<<READY 18:13>>
+[18:13] CANDIDATE: Thanks. What should I focus on to get better at problems like the one I struggled with?
+[18:41] INTERVIEWER: Honestly, the mechanic you had, the counts and the ready queue, was the right instinct — what you were missing was building the reverse adjacency list up front before the traversal. Practise separating graph building from graph traversal, and always check for cycles before you claim an order exists. Does that make sense?
+    [item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=837ms wall=1.2s]
+<<READY 18:41>>
+[18:41] CANDIDATE: That's really useful. No more questions from me, thank you so much for your time, Deepak.
+[18:57] INTERVIEWER: Thanks for your time. We'll share the feedback on the platform shortly, and you'll see the next steps there. Have a good day!
+    [tools=next_item; decision=improvised <- Candidate asked a final development question, then had no more questions.; item=wrap_up; model=deepseek/deepseek-v4.1-flash first_token=734ms wall=1.1s]
+[18:57]   (session.ending completed: Thanks for your time. We’ll share the feedback on the platform shortly, and you’ll see the next steps there. Have a good day!)
+== finished at 18:57: ended=completed failures=0
+<<DONE>>

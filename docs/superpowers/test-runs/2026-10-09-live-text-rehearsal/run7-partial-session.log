@@ -1,0 +1,21 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:05] INTERVIEWER (opening): Hi, I’m Gaurav Chauhan. How’s your day going so far?
+    [tools=next_item; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1696ms wall=1.8s]
+[00:05]   (room layout -> talk)
+<<READY 00:05>>
+[00:05] CANDIDATE: Hi Gaurav, I'm good thanks. A bit nervous but excited to be here.
+[00:37] INTERVIEWER: That’s completely normal, and honestly a good sign. Let’s keep it relaxed and conversational. To set the context, this round will run for about thirty minutes. I’ll ask you to walk me through your background briefly, then we’ll work through a data-structures and algorithms problem together, and I’ll leave a few minutes at the end for your questions. So, to start, tell me a little about yourself and your background.
+    [tools=next_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=633ms wall=1.4s]
+<<READY 00:37>>
+[00:37] CANDIDATE: Pretty good. Just been revising graph problems this week.
+[00:50] INTERVIEWER: Nice, dedication shows. So let’s start with you. Tell me a little about your background and what you’re currently working on.
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=651ms wall=0.8s]
+<<READY 00:50>>
+[00:50] CANDIDATE: I'm a final year CS student at Bennett University. I interned last year on a micro frontend dashboard in TypeScript and React, and I built a side project called Relay that controls my laptop from my phone over WebSockets.
+[01:13] INTERVIEWER: That’s a nice mix — frontend plus some real networking. What’s the trickiest part you had to solve in Relay?
+    [item=framing; model=deepseek/deepseek-v4.1-flash first_token=703ms wall=1.1s]
+<<READY 01:13>>
+[01:13] CANDIDATE: Reconnects, mostly. If the phone or laptop drops, the relay has to know whether a command ran. I added command ids and the agent stores the results, so a retried command returns the stored result instead of running twice.
+[01:39] INTERVIEWER: Nice — idempotency via command ids, that’s the right instinct. Alright, let’s get into a coding problem. Take a look and ask me anything before you start.
+    [orders=move_on; GUARD-BLOCKED(name_or_topic): It’s on your screen now: an array of daily stock prices, unlimited buy and sell,; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=646ms wall=0.9s]
+<<READY 01:39>>

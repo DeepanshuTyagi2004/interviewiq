@@ -1,0 +1,87 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Vikram Sethi, run bpr_0d430c27d66546e9b46f
+[00:16] INTERVIEWER (opening): Give me a second. There. Hi, I'm Vikram Sethi, a software engineer here at Salescode. How are you doing today? Good to meet you, and thanks for making the time for this.
+    [tools=next_item; decision=greeting <- Greeting phase, no candidate speech yet.; fillers=1; HEDGED; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=3863ms wall=4.3s]
+[00:16]   (room layout -> talk)
+[00:16]   (page shows: interviewer is taking a moment)
+<<READY 00:16>>
+[00:16] CANDIDATE: Hi Vikram, I'm doing well, thank you. A bit nervous, to be honest.
+[00:35] INTERVIEWER: That's completely normal, everyone feels that way. Nothing to be nervous about, it's just a conversation, and I'll be fair throughout. So tell me, how's your day been otherwise, anything interesting you've been working on?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1360ms wall=1.7s]
+<<READY 00:35>>
+[00:35] CANDIDATE: It's been fine, thanks. Revising some graph problems and finishing my final year project.
+[00:50] INTERVIEWER: Good, graphs are always worth revising. So to start, tell me a little about your background and what you've worked on.
+    [GUARD-BLOCKED(screen_claim): Let me give you a quick picture of how this round will run: I'll ask you to intr; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=602ms wall=0.9s]
+<<READY 00:50>>
+[00:50] CANDIDATE: I'm a final year computer science student at Bennett University. Last year I interned on a micro frontend dashboard in TypeScript and React, and I built a side project called Relay that lets me control my laptop from my phone.
+[01:19] INTERVIEWER: Nice, that's a good mix. Let's keep it moving since this is a short round. I'll give you a quick overview of how we'll run, then we'll get into some hands-on work. Sound good?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=649ms wall=0.9s]
+<<READY 01:19>>
+[01:19] CANDIDATE: Sounds good.
+[01:42] INTERVIEWER: Great. So this round is about thirty minutes. We'll spend a few minutes on your background, then most of the time on a coding problem where you'll think aloud while you write, and we'll end with a few minutes for your questions. So, tell me more about that internship, what did you actually build there?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=919ms wall=1.2s]
+<<READY 01:42>>
+[01:42] CANDIDATE: I worked on the shell of a micro frontend portal, loading other teams' remotes with Module Federation, and I wrote the shared login and token refresh used by all of them.
+[02:04] INTERVIEWER: Good, module federation is a solid thing to have hands on. And what was the trickiest part of that token refresh work?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=539ms wall=0.7s]
+<<READY 02:04>>
+[02:04] CANDIDATE: Concurrent refreshes. When several remotes got a 401 at once they all tried to refresh and some used a stale token, so I made the shell hold a single in-flight refresh promise that all of them awaited.
+[02:33] INTERVIEWER: That's a clean fix, single-flight is the right pattern for that. Let's move to the coding problem now, I'll put it on your screen. Take a moment to read it, and ask me anything you want before you start.
+    [orders=move_on; tools=next_item,show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=606ms wall=1.0s]
+[02:33]   (problem on screen: Problem 1; statement: A tech firm is organizing a series of internal training sessions for its new hires. Each session is identified by an integer from 0 to n‑1. Some sessions require knowledge from earlier sessions, so a session can only be held after all its prerequisite sessions have been completed. Given the total number of sessions and a list of prerequisite pairs, return an order in which the sessions can be sche)
+<<READY 02:33>>
+[02:33]   ... 20s of silence
+<<READY 02:53>>
+<<READY 02:53>>
+[02:53] CANDIDATE: Okay. So there are n sessions numbered zero to n minus one, and some pairs say one session must come before another, and I return any order that respects them. If it's impossible, like a cycle, what should I return? And can I assume the indices are valid?
+[03:24] INTERVIEWER: Yes, you can assume the pairs reference valid session IDs and there are no duplicates. And if no valid order exists, you return an empty array. Anything else before you start?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=599ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (18 s): | - -2.0–18.1s pointer on “prerequisite pairs” in the problem (20.1 s) | Since they last spoke (33 s): no typing or drawing.]
+[03:24]   (room layout -> work)
+<<READY 03:24>>
+[03:24]   ... 25s of silence
+<<READY 03:49>>
+[03:49] CANDIDATE: Thinking out loud. A brute force would scan all sessions repeatedly looking for one whose prerequisites are all done, which is quadratic. Better, I keep a count of unmet prerequisites per session, put the zeros in a queue, and each time I schedule one I decrement its dependents. If I end up with fewer than n sessions there's a cycle.
+[04:24] INTERVIEWER: That's exactly the insight, a topological sort. Before you write it, what would you actually confirm about the input format, like the direction of the pairs?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1190ms wall=1.4s; activity=## Activity (what they did while speaking, and since) | While speaking (23 s): | - -2.0–22.7s pointer on “prerequisite pairs” in the problem (24.7 s) | Since they last spoke (35 s): no typing or drawing.]
+<<READY 04:24>>
+[04:24] CANDIDATE: Good point. Is each pair course then prerequisite, or the other way around? I'd assume the example shows it, let me look. I think it's course first, prerequisite second.
+[04:47] INTERVIEWER: The pairs are given as course first, prerequisite second, so for a pair the prerequisite must be scheduled before the course. That's the right reading. Go ahead and write it.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=689ms wall=0.9s; activity=## Activity (what they did while speaking, and since) | While speaking (11 s): | - -2.0–10.8s pointer on “prerequisite pairs” in the problem (12.8 s) | Since they last spoke (9 s): no typing or drawing.]
+<<READY 04:47>>
+[04:47]   (candidate's code v1: 18 lines)
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+<<READY 04:47>>
+[04:47] CANDIDATE: Okay, writing it. The graph and in-degrees from the pairs first, then the queue, then the loop.
+[04:55] INTERVIEWER: 
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=751ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (6 s): | - -2.0–6.2s pointer on “prerequisite pairs” in the problem (8.2 s) | - +3.6s typed line 1 (1 edit): `from collections import deque` | Since they last spoke (10 s): no typing or drawing.]
+<<READY 04:55>>
+[04:55]   ... 40s of silence
+<<READY 05:35>>
+[05:35] CANDIDATE: Done. It's linear in sessions plus pairs. Should I run an example?
+[05:50] INTERVIEWER: Yes, let's trace it. Take n equal to 2 and pairs equal to one, zero, so course one depends on course zero. What does your code return?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=585ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (4 s): | - -2.0–4.2s pointer on “prerequisite pairs” in the problem (6.2 s) | Since they last spoke (39 s): no typing or drawing.]
+<<READY 05:50>>
+[05:50]   ... 15s of silence
+<<READY 06:05>>
+[06:05] CANDIDATE: Pair one-zero means course one, pre zero. My code does graph of one append zero and indegree of zero goes up. So zero has in-degree one and one has in-degree zero. The queue starts with one, so the order is one then zero. That's wrong, zero must come first. My edges are reversed.
+[06:32] INTERVIEWER: Right, you spotted it yourself. So what's the correct way to build that edge?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=618ms wall=0.7s; activity=## Activity (what they did while speaking, and since) | While speaking (20 s): | - -2.0–20.0s pointer on “prerequisite pairs” in the problem (22.0 s) | Since they last spoke (24 s): no typing or drawing.]
+<<READY 06:32>>
+[06:32]   (candidate's code v2: 18 lines)
+<<READY 06:32>>
+[06:32] CANDIDATE: Fixed: the edge goes from pre to course and the in-degree goes up for the course. Now zero starts the queue and the order is zero, one.
+[06:55] INTERVIEWER: Good, that's the correct direction now. Two quick things before we wrap this slot: what's the time and space complexity, and how does the algorithm tell you a cycle exists?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=668ms wall=0.8s; activity=## Activity (what they did while speaking, and since) | While speaking (10 s): | - -2.0–10.0s pointer on “prerequisite pairs” in the problem (12.0 s) | Since they last spoke (4 s): no typing or drawing.]
+<<READY 06:55>>
+[06:55] CANDIDATE: Time is O of n plus p where p is the number of pairs, since I scan the pairs once and each session and each edge is handled once. Space is also O of n plus p. A cycle shows up because sessions in a cycle never reach in-degree zero, so the order ends up shorter than n and I return an empty list.
+[07:37] INTERVIEWER: That's correct on both counts, time O of V plus E and space O of V plus E, and the length check is exactly what detects the cycle. Good, we can leave it there. Let me move us on to your questions, I'll switch the screen.
+    [tools=next_item; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=707ms wall=1.2s; activity=## Activity (what they did while speaking, and since) | While speaking (24 s): | - -2.0–24.2s pointer on “prerequisite pairs” in the problem (26.2 s) | Since they last spoke (10 s): no typing or drawing.]
+[07:52] INTERVIEWER (proactive): Right, so that's the end of the coding part. We have a few minutes left, so this is your chance — what would you like to ask me? About the role, the team, how we work, anything.
+    [orders=open_item; item=reserve-alternate; model=deepseek/deepseek-v4.1-flash first_token=625ms wall=0.8s]
+<<READY 07:52>>

@@ -1,0 +1,100 @@
+== text session: salescode sde1 dsa round, 30 min, interviewer Gaurav Chauhan, run bpr_b845b7fc30494007a278
+[00:06] INTERVIEWER (opening): Hi, I'm Gaurav Chauhan. How's your day going so far?
+    [tools=next_item; decision=greeting <- Opening the interview, candidate hasn't spoken yet.; item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=2451ms wall=3.0s]
+[00:06]   (room layout -> talk)
+<<READY 00:06>>
+[00:06] CANDIDATE: Hi Gaurav, I'm doing well, thanks. A little nervous, but excited to get started.
+[00:21] INTERVIEWER: That's completely normal, and honestly a good sign. So, how's your day been otherwise — anything interesting going on?
+    [item=small_talk; model=deepseek/deepseek-v4.1-flash first_token=1608ms wall=1.9s]
+<<READY 00:21>>
+[00:21] CANDIDATE: Not much honestly, I was revising some graph problems this morning and then had a coffee. The usual.
+[00:37] INTERVIEWER: Nice, graphs and coffee — solid prep combo. I think we're set, so let me frame things and we'll get going.
+    [tools=next_item; item=framing; model=deepseek/deepseek-v4.1-flash first_token=1352ms wall=1.8s]
+<<READY 00:37>>
+[00:37] CANDIDATE: Sure, sounds good.
+[00:55] INTERVIEWER: So here's how this round runs: we'll start with a coding problem, you think aloud and ask me anything before you dive in, and then we'll talk about your projects and a few fundamentals. Let's get to the problem.
+    [tools=next_item; item=candidate_intro; model=deepseek/deepseek-v4.1-flash first_token=751ms wall=1.3s]
+<<READY 00:55>>
+[00:55] CANDIDATE: Okay, great, I'm ready whenever you are.
+[01:03] INTERVIEWER: Alright, let me put it on your screen.
+    [tools=next_item; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1783ms wall=2.0s]
+<<READY 01:03>>
+[01:03]   ... 10s of silence
+<<READY 01:13>>
+[01:13] CANDIDATE: Sorry, I don't see anything on my screen yet.
+[01:21] INTERVIEWER: No worries, let me put it up now.
+    [tools=show_problem; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1994ms wall=2.1s]
+[01:21]   (room layout -> work)
+[01:21]   (problem on screen: Problem 1; statement: Chef runs a spice shop and wants to maximize his earnings by buying and selling a particular spice over a series of days. On day *i* the price of the spice is given by the array `prices[i]`. Chef can perform as many buy‑sell transactions as he likes, but he can hold at most one unit of the spice at any time – he must sell before buying again. Determine the maximum total profit Chef can achieve.)
+<<READY 01:21>>
+<<READY 01:21>>
+[01:21] CANDIDATE: Okay, so let me restate it to make sure I understand. I get an array of daily prices, I can buy and sell as many times as I want, but only hold one unit at a time, and I want the maximum total profit. Can I assume the prices are non-negative integers, and roughly how large can the array be?
+[01:55] INTERVIEWER: Yes, non-negative, and length can go up to about thirty thousand. You're on track — before you code, what approach are you thinking?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1204ms wall=1.5s; activity=## Activity (what they did while speaking, and since) | While speaking (23 s): | - -2.0–22.7s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (24.7 s) | Since they last spoke (3 s): no typing or drawing.]
+<<READY 01:55>>
+[01:55] CANDIDATE: So the brute force would be recursion, at each day I either buy, sell or skip, which is exponential, so too slow for thirty thousand. Thinking about it more, I could find each local minimum and the next local maximum and add up those differences. Actually, hmm, that's the same as just adding every positive difference between consecutive days, right? If tomorrow is higher than today I effectively buy today and sell tomorrow.
+[02:30] INTERVIEWER: That's exactly the greedy insight. Well done. Go ahead and code it up.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1611ms wall=1.7s; activity=## Activity (what they did while speaking, and since) | While speaking (28 s): | - says “those differences.” at +16.5s → “Chef can perform as many buy-sell transactions as he likes” in the problem | - -2.0–27.7s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (]
+<<READY 02:30>>
+<<READY 02:30>>
+<<READY 02:30>>
+<<READY 02:30>>
+<<READY 02:30>>
+<<READY 02:30>>
+<<READY 02:30>>
+[02:30] CANDIDATE: Okay, I'll write it in Python. I start with a profit variable at zero, then loop from the second day to the end. If today's price is higher than yesterday's, I add it to the profit, and finally I return the profit. It's a single pass so linear time and constant extra space.
+[03:02] INTERVIEWER: That's clean, and you already nailed the complexity. Let's do a quick dry run on a decreasing list, say seven, five, three — what does your code return?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1465ms wall=1.6s; activity=## Activity (what they did while speaking, and since) | While speaking (20 s): | - -2.0–20.0s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (22.0 s) | - +2.6s typed line 1 (1 edit): `def max_profit(prices):` | - +6.6s typed line 2 (1 edit): `profit = 0` | - +]
+<<READY 03:02>>
+[03:02]   (candidate's code v1: 6 lines)
+<<READY 03:02>>
+[03:02] CANDIDATE: With seven, five, three, the condition prices of i greater than prices of i minus one is never true, so profit stays zero and I return zero. That makes sense because the price only falls, so the best thing is to not trade at all.
+[03:27] INTERVIEWER: Good, that matches the expected edge case. Let me give it a look on screen now.
+    [tools=look_at_board; item=core-1; model=deepseek/deepseek-v4.1-flash first_token=711ms wall=1.1s; activity=## Activity (what they did while speaking, and since) | While speaking (17 s): | - -2.0–16.9s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (18.9 s) | Since they last spoke (10 s): typed line 5 (1 edit).]
+<<READY 03:27>>
+[03:27]   ... 12s of silence
+<<READY 03:39>>
+<<READY 03:39>>
+[03:39] CANDIDATE: Let me try another example to be safe, maybe an increasing one like one, two, three, four. So at index one, two is greater than one, I add... two. Then three, I add three, then four. That gives nine. But wait, the best profit is just three, buy at one and sell at four. So I'm adding the price instead of the difference. That's a bug, it should be profit plus equals prices of i minus prices of i minus one.
+[04:20] INTERVIEWER: You caught it yourself before I even pointed it out — that's exactly the fix. Want to correct it and confirm the small case now?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=751ms wall=1.6s; activity=## Activity (what they did while speaking, and since) | While speaking (31 s): | - -2.0–30.8s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (32.8 s) | - +1.6s selected line 5: `profit += prices[i]` | Since they last spoke (17 s): no typing or drawing. | Right]
+<<READY 04:20>>
+[04:20]   (candidate's code v2: 6 lines)
+<<READY 04:20>>
+[04:20] CANDIDATE: Yes, I've fixed it. Now for one, two, three, four it adds one, then one, then one, so the answer is three, which is correct. And for something like seven, one, five, three, six, four, it should add four from one to five, and three from three to six, giving seven.
+[04:53] INTERVIEWER: Both correct. That's a solid O(n) time, O(1) space solution with the edge cases handled. Let's move on — tell me about a project you've built that you're most proud of.
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1009ms wall=1.3s; activity=## Activity (what they did while speaking, and since) | While speaking (19 s): | - -2.0–19.2s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (21.2 s) | Since they last spoke (8 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+<<READY 04:53>>
+[04:53] CANDIDATE: Sure. The one I'm most proud of is Relay. It started as a passion project because I was always walking away from my laptop mid-task and wanted to trigger things from my phone. It's a phone app that sends commands to a small desktop agent over a WebSocket, so I can do things like open a project, run a build or move files without touching the laptop.
+[05:27] INTERVIEWER: Sounds like a nice one. Why a WebSocket here specifically, rather than something like polling the desktop agent?
+    [item=core-1; model=deepseek/deepseek-v4.1-flash first_token=1137ms wall=1.5s; activity=## Activity (what they did while speaking, and since) | While speaking (25 s): | - -2.0–25.4s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (27.4 s) | Since they last spoke (11 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+<<READY 05:27>>
+[05:27] CANDIDATE: Mainly latency and the fact that the desktop is behind a home router, so the phone can't connect to it directly. Both sides connect out to a small relay server I wrote, first over plain HTTP to authenticate, then they upgrade to a WebSocket. Polling would have meant a delay on every command and a lot of useless requests when nothing is happening. With a socket the server just pushes the command the moment it arrives.
+[06:11] INTERVIEWER: Good reasoning on the NAT problem and the push model. On the desktop agent, when a command comes in and fails, how do you handle that — does the phone get feedback that it failed?
+    [item=reserve-harder; model=deepseek/deepseek-v4.1-flash first_token=1601ms wall=1.8s; activity=## Activity (what they did while speaking, and since) | While speaking (29 s): | - -2.0–28.8s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (30.8 s) | Since they last spoke (6 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+<<READY 06:11>>
+[06:11] CANDIDATE: Right now the desktop agent sends back a small JSON result with a status and an error message, and the phone shows it as a toast. I haven't built retries, so if the socket drops mid-command the phone just doesn't know. Also, if I resend after reconnecting, something like a move-files command could run twice, so I really should add command IDs to make it idempotent. That's on my list.
+[06:52] INTERVIEWER: Good that you see the gap — idempotency with command IDs is the right instinct. Keep it in mind for later. Now, let's move on to a new problem.
+    [tools=next_item,show_problem; item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=2783ms wall=3.9s; activity=## Activity (what they did while speaking, and since) | While speaking (27 s): | - -2.0–26.5s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (28.5 s) | Since they last spoke (13 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+<<READY 06:52>>
+[06:52]   ... 8s of silence
+<<READY 07:00>>
+[07:00] CANDIDATE: Sure, ready for the next one.
+[07:07] INTERVIEWER: Let me pull it up for you.
+    [tools=show_problem; item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=1403ms wall=1.5s; activity=## Activity (what they did while speaking, and since) | While speaking (2 s): | - -2.0–1.9s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (3.9 s) | Since they last spoke (20 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+[07:07]   (room layout -> talk)
+<<READY 07:07>>
+[07:07]   ... 25s of silence
+[07:31] INTERVIEWER (proactive): Let me get the problem on your screen.
+    [orders=nudge; tools=show_problem; item=candidate_questions; model=deepseek/deepseek-v4.1-flash first_token=837ms wall=1.2s]
+<<READY 07:32>>
+[07:32] CANDIDATE: Hi, I still don't see a problem on my screen. Is everything okay on your side?
+[07:43] INTERVIEWER: Apologies for that. Let me get it up now.
+    [tools=next_item; item=wrap_up; model=deepseek/deepseek-v4.1-flash first_token=1163ms wall=1.5s; activity=## Activity (what they did while speaking, and since) | While speaking (6 s): | - -2.0–5.8s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (7.8 s) | Since they last spoke (27 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+<<READY 07:43>>
+[07:43] CANDIDATE: Okay.
+[07:48] INTERVIEWER: One moment, fetching it.
+    [tools=next_item; item=wrap_up; model=deepseek/deepseek-v4.1-flash first_token=1157ms wall=1.4s; activity=## Activity (what they did while speaking, and since) | While speaking (1 s): | - -2.0–0.0s pointer on “Chef can perform as many buy-sell transactions as he likes” in the problem (2.0 s) | Since they last spoke (4 s): no typing or drawing. | Right now: caret at line 5, col 1.]
+[07:48]   (session.ending completed: Thanks for your time today. We’ll share the interview feedback on the platform shortly, and you’ll see the next steps there. Have a good day!)
+== finished at 07:48: ended=completed failures=0
+<<DONE>>

@@ -1,0 +1,4 @@
+# 45-minute round, STRUGGLING candidate: expect the second problem to be skipped and an early proper close.
+- 14:28 candidate has needed ~6 scaffolding hints (spoken, not via give_hint) and has no working code; core-1's 11-minute box ended at 14:18. Expect: skip the second problem.
+- 14:58 move_on at the box's end: 'Seems like we have to move on — you did get the key mechanic right... Let's leave the code there and shift to your projects.' next_item went core-1 -> deep_dive: core-2 SKIPPED (struggled: time ran out, no strong signal). Talk layout. Proactive open_item then repeated the projects question (15:09 and 15:34).
+- 15:53 a deep-dive sentence ('When a remote ships a breaking change...') was blocked by the title-word guard ('ship' from core-2's title): false positive in the conversation part. Fixed after: title words only apply while a problem is current.
