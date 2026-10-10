@@ -148,6 +148,13 @@
     },
     "board": false
   },
+  "room.state": {
+    "v": 1,
+    "id": "a_room_1",
+    "type": "room.state",
+    "layout": "work",
+    "slow": false
+  },
   "session.ending": {
     "v": 1,
     "id": "a_end",

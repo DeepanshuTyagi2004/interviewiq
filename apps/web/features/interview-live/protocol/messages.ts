@@ -99,11 +99,16 @@ export const WorkspaceRestore = z.object({
   code: z.object({ language: CodeLanguage, text: z.string().max(100000) }).nullable(),
   board: z.boolean(),
 })
+/** What the room should look like: `talk` is the conversation full width (greetings, resume and profile questions,
+ * the closing), `work` is the conversation beside the problem and editor. `slow` says the interviewer is taking
+ * longer than usual to answer. The agent sends the whole state on every change and again after a `workspace.hello`. */
+export const RoomLayout = z.enum(['talk', 'work'])
+export const RoomState = z.object({ ...header, type: z.literal('room.state'), layout: RoomLayout, slow: z.boolean() })
 export const SessionEnding = z.object({ ...header, type: z.literal('session.ending'), reason: EndReason, message: z.string().max(1000) })
 
 export const AgentMessage = z.discriminatedUnion('type', [
   ShowProblem, AddSection, PanelHighlight, PanelClearHighlight, CodeComment, CodeInsert, CodeHighlight,
-  CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, SessionEnding,
+  CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding,
 ])
 
 // ---------------------------------------------------------------- web → agent

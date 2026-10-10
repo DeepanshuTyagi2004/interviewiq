@@ -1,11 +1,16 @@
 /**
  * The canned interview ScriptedLiveSession plays (local development and tests). A made-up demo
- * problem, not one from the bank. It exercises every workspace message the real interviewer uses.
+ * problem, not one from the bank. It exercises every workspace message the real interviewer uses,
+ * including `room.state`: the room is a conversation (`talk`) until the problem is shown (`work`),
+ * and a conversation again for the closing.
  */
 import type { AgentMessageBody, WebMessage } from '../protocol/messages'
 import type { AgentState } from './types'
 
 export type Step = { after: number } & ({ say: string } | { message: AgentMessageBody } | { state: AgentState } | { disconnect: true })
+
+/** A `room.state` step: the room's layout and whether the interviewer is slow to answer. */
+const room = (after: number, layout: 'talk' | 'work', slow = false): Step => ({ after, message: { type: 'room.state', layout, slow } })
 
 export const DEMO_ITEM = 'demo-1'
 const STATEMENT =
@@ -13,9 +18,13 @@ const STATEMENT =
   'There is exactly one answer for every input.'
 
 export const OPENING: Step[] = [
+  room(0, 'talk'),
   { after: 600, say: "Hi, I'm Asha. Thanks for joining today. This is a mock coding round, so think out loud and ask me anything that's unclear." },
+  room(300, 'talk', true), // the interviewer is slow to answer for a moment...
+  room(1500, 'talk'), // ...then catches up
+  room(700, 'work'), // the problem is about to appear: make room for it (the problem keeps its time, 3.1 s in)
   {
-    after: 2500,
+    after: 0,
     message: {
       type: 'panel.show_problem', item_id: DEMO_ITEM, label: 'Problem 1', kind: 'problem', statement: STATEMENT,
       examples: [
@@ -86,6 +95,7 @@ export function proctorReply(event: Extract<WebMessage, { type: 'proctor.event' 
 }
 
 export const GOODBYE: Step[] = [
+  room(0, 'talk'), // the closing is a conversation again
   { after: 500, say: 'Thanks for your time today. Take care.' },
   { after: 300, message: { type: 'session.ending', reason: 'candidate_ended', message: 'You ended the interview.' } },
   { after: 300, disconnect: true },

@@ -1,13 +1,15 @@
-import { newMessageId, stampAgent, type WebMessage } from '../protocol/messages'
+import { newMessageId, stampAgent, type AgentMessageBody, type WebMessage } from '../protocol/messages'
 import { MockLiveSession } from './MockLiveSession'
 import { GOODBYE, OPENING, askReply, proctorReply, type Step } from './script'
 
 /** A scripted interviewer over MockLiveSession: it waits for the room's `workspace.hello` (as the real
- * agent does), plays OPENING, and reacts to Ask selections, proctoring events and End. `speed` scales
+ * agent does), plays OPENING, and reacts to Ask selections, proctoring events and End. It keeps the last
+ * `room.state` it sent and repeats it after any later hello, as the real agent does. `speed` scales
  * every delay (1 = real time, 0 = immediately, for tests). */
 export class ScriptedLiveSession extends MockLiveSession {
   private readonly timers = new Set<ReturnType<typeof setTimeout>>()
   private started = false
+  private roomState: Extract<AgentMessageBody, { type: 'room.state' }> = { type: 'room.state', layout: 'talk', slow: false }
 
   constructor(private readonly options: { speed?: number } = {}) {
     super()
@@ -25,6 +27,8 @@ export class ScriptedLiveSession extends MockLiveSession {
         if (!this.started) {
           this.started = true
           this.play(OPENING)
+        } else {
+          this.emitMessage(stampAgent(this.roomState))
         }
         break
       case 'ask.selection':
@@ -58,9 +62,14 @@ export class ScriptedLiveSession extends MockLiveSession {
 
   private run(step: Step) {
     if ('say' in step) this.say(step.say)
-    else if ('message' in step) this.emitMessage(stampAgent(step.message))
+    else if ('message' in step) this.sendMessage(step.message)
     else if ('state' in step) this.emitAgentState(step.state)
     else void this.disconnect()
+  }
+
+  private sendMessage(body: AgentMessageBody) {
+    if (body.type === 'room.state') this.roomState = body // remembered, to repeat after a later hello
+    this.emitMessage(stampAgent(body))
   }
 
   private say(text: string) {

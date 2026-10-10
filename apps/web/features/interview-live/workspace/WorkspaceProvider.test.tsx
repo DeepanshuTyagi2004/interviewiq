@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, render, renderHook, waitFor } from '@testing-library/react'
 import { stampAgent, type AgentMessageBody } from '../protocol/messages'
 import { MockLiveSession } from '../session/MockLiveSession'
-import { WorkspaceProvider, useWorkspace, type BoardApi, type CodeApi } from './WorkspaceProvider'
+import { WorkspaceProvider, useRoomState, useWorkspace, type BoardApi, type CodeApi, type RoomView } from './WorkspaceProvider'
 
 type Ws = ReturnType<typeof useWorkspace>
 const STATEMENT = 'Return the longest substring with at most two distinct characters.'
@@ -134,5 +134,70 @@ describe('WorkspaceProvider', () => {
     expect(ref.current!.ask).not.toBeNull()
     act(() => session.emitTranscript({ id: 'c', speaker: 'candidate', text: 'What does this mean?', final: true, at: Date.now() + 2 }))
     expect(ref.current!.ask).toBeNull()
+  })
+})
+
+describe('WorkspaceProvider room state', () => {
+  const STATE = (layout: 'talk' | 'work', slow = false): AgentMessageBody => ({ type: 'room.state', layout, slow })
+
+  function mountRoom() {
+    const session = new MockLiveSession()
+    const ref: { current: RoomView | null } = { current: null }
+    const ws: { current: Ws | null } = { current: null }
+    let renders = 0
+    function Probe() {
+      ref.current = useRoomState()
+      ws.current = useWorkspace()
+      renders += 1
+      return null
+    }
+    render(<WorkspaceProvider session={session}><Probe /></WorkspaceProvider>)
+    const agent = async (body: AgentMessageBody) => {
+      const m = stampAgent(body)
+      await act(async () => { session.emitMessage(m) })
+      return m.id
+    }
+    return { session, ref, ws, agent, renders: () => renders }
+  }
+
+  it('is a plain conversation outside a provider and before the interviewer says anything', () => {
+    const outside = renderHook(() => useRoomState())
+    expect(outside.result.current).toEqual({ layout: 'talk', slow: false })
+    const { ref } = mountRoom()
+    expect(ref.current).toEqual({ layout: 'talk', slow: false })
+  })
+
+  it('follows the interviewer: layout and slow are replaced by each message, and each is acknowledged', async () => {
+    const { session, ref, agent } = mountRoom()
+    const first = await agent(STATE('work'))
+    expect(ref.current).toEqual({ layout: 'work', slow: false })
+    const second = await agent(STATE('work', true))
+    expect(ref.current).toEqual({ layout: 'work', slow: true })
+    await agent(STATE('talk'))
+    expect(ref.current).toEqual({ layout: 'talk', slow: false })
+    expect(session.sentOf('ack').find((a) => a.ref === first)).toMatchObject({ ok: true })
+    expect(session.sentOf('ack').find((a) => a.ref === second)).toMatchObject({ ok: true })
+  })
+
+  it('takes a repeated state (sent again after a hello) without changing anything', async () => {
+    const { ref, agent, renders } = mountRoom()
+    await agent(STATE('work', true))
+    const before = ref.current
+    const rendersBefore = renders()
+    await agent(STATE('work', true))
+    expect(ref.current).toBe(before)
+    expect(renders()).toBe(rendersBefore) // no re-render for a message that changes nothing
+  })
+
+  it('leaves the problems and the editor alone', async () => {
+    const { ws, agent } = mountRoom()
+    const code: CodeApi = { apply: vi.fn(() => ({ ok: true as const })), restore: vi.fn(), hasContent: () => true }
+    act(() => ws.current!.registerCode(code))
+    await agent(SHOW)
+    await agent(STATE('work'))
+    await agent(STATE('talk', true))
+    expect(ws.current!.panel.cards.map((c) => c.label)).toEqual(['Problem 1'])
+    expect(code.apply).not.toHaveBeenCalled()
+    expect(code.restore).not.toHaveBeenCalled()
   })
 })

@@ -1,19 +1,23 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { TranscriptSegment } from '../session/transcript'
 
 /** The conversation as chat bubbles: the interviewer on the left, the candidate on the right, interim
- * words dimmed until final, room notices as centred mono chips. Follows the newest line. */
-export function TranscriptBubbles({ segments, interviewerName }: { segments: TranscriptSegment[]; interviewerName: string }) {
+ * words dimmed until final, room notices as centred mono chips. Follows the newest line.
+ * `comfortable` sets the type a little larger, for when the conversation has the room to itself. */
+export function TranscriptBubbles({ segments, interviewerName, comfortable = false }: { segments: TranscriptSegment[]; interviewerName: string; comfortable?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const last = segments[segments.length - 1]
 
   // DOM write, not state: scrolling to the newest line doesn't belong in component state.
-  useEffect(() => {
+  const scrollToEnd = useCallback(() => {
     const el = ref.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [segments.length, last?.text])
+  }, [])
+  useEffect(() => {
+    scrollToEnd()
+  }, [scrollToEnd, segments.length, last?.text, comfortable])
 
   return (
     <div
@@ -21,7 +25,11 @@ export function TranscriptBubbles({ segments, interviewerName }: { segments: Tra
       role="log"
       aria-label="Conversation transcript"
       tabIndex={0}
-      className="flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto py-2 text-[13.5px] leading-[1.5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      onTransitionEnd={scrollToEnd} // the type size animates with the room's layout change; once it settles the text has re-wrapped
+      className={cn(
+        'flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto py-2 transition-[font-size,line-height] duration-500 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring motion-reduce:transition-none',
+        comfortable ? 'text-[15.5px] leading-[1.55]' : 'text-[13.5px] leading-[1.5]',
+      )}
     >
       {segments.length === 0 ? (
         <p className="m-auto text-center text-[13px] text-faint">The conversation will appear here.</p>

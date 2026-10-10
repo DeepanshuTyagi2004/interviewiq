@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MockLiveSession } from '../session/MockLiveSession'
 import type { TranscriptSegment } from '../session/transcript'
@@ -26,6 +26,26 @@ describe('TranscriptBubbles', () => {
     expect(screen.getByText('You')).toBeInTheDocument()
     expect(screen.getByText('Yes, I')).toHaveAttribute('data-final', 'false')
     expect(screen.getByRole('note')).toHaveTextContent('Tab change logged')
+  })
+})
+
+describe('TranscriptBubbles size', () => {
+  it('sets the type larger when the conversation has the room to itself', () => {
+    const { rerender } = render(<TranscriptBubbles segments={[seg('a', 'interviewer', 'Hi.')]} interviewerName="Asha" />)
+    const log = screen.getByRole('log')
+    expect(log).toHaveClass('text-[13.5px]')
+    rerender(<TranscriptBubbles segments={[seg('a', 'interviewer', 'Hi.')]} interviewerName="Asha" comfortable />)
+    expect(log).toHaveClass('text-[15.5px]')
+    expect(log).not.toHaveClass('text-[13.5px]')
+  })
+
+  it('looks at the newest line again when the size change settles, since the text has re-wrapped', () => {
+    render(<TranscriptBubbles segments={[seg('a', 'interviewer', 'Hi.')]} interviewerName="Asha" />)
+    const log = screen.getByRole('log')
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, value: 640 })
+    log.scrollTop = 0
+    fireEvent.transitionEnd(log)
+    expect(log.scrollTop).toBe(640)
   })
 })
 

@@ -162,6 +162,17 @@ class WorkspaceRestore(_Msg):
     board: bool
 
 
+RoomLayout = Literal["talk", "work"]
+
+
+class RoomState(_Msg):
+    """The room's layout (`talk`: the conversation full width, `work`: beside the problem and editor) and whether the
+    interviewer is slow to answer. Sent whole on every change and again after a `workspace.hello`."""
+    type: Literal["room.state"]
+    layout: RoomLayout
+    slow: bool
+
+
 class SessionEnding(_Msg):
     type: Literal["session.ending"]
     reason: EndReason
@@ -169,7 +180,7 @@ class SessionEnding(_Msg):
 
 
 _AGENT_MODELS = (ShowProblem, AddSection, PanelHighlight, PanelClearHighlight, CodeComment, CodeInsert, CodeHighlight,
-                 CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, SessionEnding)
+                 CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding)
 AgentMessage = Annotated[Union[_AGENT_MODELS], Field(discriminator="type")]
 
 # ---------------------------------------------------------------- web → agent

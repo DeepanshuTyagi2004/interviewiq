@@ -2,7 +2,8 @@
 /**
  * The shared workspace (spec §6). Routes the interviewer's instructions to the panel state and to the
  * editor/whiteboard adapters they register, acknowledges each one, and sends the candidate's own
- * notes, highlights and Ask selections. Also holds the room's layout state (surface, expansion).
+ * notes, highlights and Ask selections. Also holds the room's layout state (surface, expansion) and the
+ * interviewer's `room.state` (conversation full width or beside the work area, and the "slow" flag).
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { newMessageId, type AgentMessage, type AgentMessageOf, type CodeLanguage } from '../protocol/messages'
@@ -24,6 +25,12 @@ export interface BoardApi {
   restore(data: Uint8Array, attributes: Record<string, string>): Promise<void>
   hasContent(): boolean
 }
+
+/** What the room looks like, as the interviewer last said: `talk` is the conversation full width, `work` is the
+ * conversation beside the problem and editor; `slow` means the interviewer is taking longer than usual to answer. */
+export type RoomView = Pick<AgentMessageOf<'room.state'>, 'layout' | 'slow'>
+/** Until the first `room.state` arrives (and outside a provider) the room is a plain conversation. */
+export const DEFAULT_ROOM_VIEW: RoomView = { layout: 'talk', slow: false }
 
 export type Surface = 'code' | 'board'
 /** Which half of the right side fills it: the problem panel, the work area, or neither. */
@@ -58,6 +65,8 @@ interface WorkspaceCtx {
 }
 
 const Ctx = createContext<WorkspaceCtx | null>(null)
+// Its own context, so a layout change doesn't re-render everything that only reads the workspace state.
+const RoomCtx = createContext<RoomView>(DEFAULT_ROOM_VIEW)
 
 export function WorkspaceProvider({ session, children }: { session: LiveSession; children: React.ReactNode }) {
   const [panel, setPanel] = useState<PanelState>(EMPTY_PANEL)
@@ -73,6 +82,7 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
   const [boardAttention, setBoardAttention] = useState(false)
   const [expanded, setExpanded] = useState<Expanded>('none')
   const [panelFull, setPanelFull] = useState(false)
+  const [room, setRoom] = useState<RoomView>(DEFAULT_ROOM_VIEW)
 
   const applyPanel = useCallback((a: PanelAction) => {
     panelRef.current = panelReducer(panelRef.current, a)
@@ -133,6 +143,10 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
           if (code.current) code.current.restore(m.code)
           else pendingCode.current = m.code // the editor loads after the room; it takes this when it registers
         }
+        return { ok: true }
+      case 'room.state':
+        // The interviewer sends the whole state each time, so it replaces the old one (same values: nothing changes).
+        setRoom((r) => (r.layout === m.layout && r.slow === m.slow ? r : { layout: m.layout, slow: m.slow }))
         return { ok: true }
       case 'session.ending':
         return null // LiveSessionProvider ends the round
@@ -212,11 +226,21 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
     surface, setSurface, boardAttention, expanded, setExpanded, panelFull, setPanelFull,
   }), [panel, selectCard, clearFlash, addNote, addHighlight, ask, askAbout, clearAsk, registerCode, registerBoard, surface, setSurface, boardAttention, expanded, panelFull])
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={value}>
+      <RoomCtx.Provider value={room}>{children}</RoomCtx.Provider>
+    </Ctx.Provider>
+  )
 }
 
 export function useWorkspace(): WorkspaceCtx {
   const v = useContext(Ctx)
   if (!v) throw new Error('useWorkspace must be used within a WorkspaceProvider')
   return v
+}
+
+/** The room's layout and slow flag. Safe anywhere: with no provider, or before the interviewer has sent one,
+ * it is `{ layout: 'talk', slow: false }`. */
+export function useRoomState(): RoomView {
+  return useContext(RoomCtx)
 }

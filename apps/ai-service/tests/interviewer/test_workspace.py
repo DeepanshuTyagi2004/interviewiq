@@ -212,3 +212,32 @@ def test_messages_that_cannot_be_parsed_are_counted_and_never_forwarded():
 
     bridge, got = asyncio.run(go())
     assert bridge.dropped == 2 and got == ["workspace.hello"]
+
+
+def test_the_latest_room_state_is_sent_again_on_every_hello_so_a_refreshed_page_gets_the_right_layout():
+    async def go():
+        room, bridge, _ = make()
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")
+        await settle()
+        await bridge.send({"type": "room.state", "layout": "work", "slow": False})
+        await bridge.send({"type": "room.state", "layout": "talk", "slow": True})
+        room.local_participant.texts.clear()
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": True})), "cand")
+        await settle()
+        return room
+
+    room = asyncio.run(go())
+    states = [m for _, m in room.local_participant.texts if m["type"] == "room.state"]
+    assert len(states) == 1 and states[0]["layout"] == "talk" and states[0]["slow"] is True
+
+
+def test_a_state_queued_before_the_first_hello_is_not_sent_twice():
+    async def go():
+        room, bridge, _ = make()
+        await bridge.send({"type": "room.state", "layout": "talk", "slow": False})
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")
+        await settle()
+        return room
+
+    room = asyncio.run(go())
+    assert [m["type"] for _, m in room.local_participant.texts].count("room.state") == 1

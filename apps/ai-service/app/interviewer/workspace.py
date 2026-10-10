@@ -32,6 +32,7 @@ class WorkspaceBridge:
         self.code: dict[str, Any] | None = None
         self.board_summary = ""
         self.board_backup: tuple[bytes, dict[str, str]] | None = None
+        self.room_state: dict[str, Any] | None = None   # the latest `room.state`, sent again after every hello
         self.acks: dict[str, dict[str, Any]] = {}
         self._snapshots: dict[str, asyncio.Future] = {}
         self._tasks: set[asyncio.Task] = set()
@@ -92,6 +93,8 @@ class WorkspaceBridge:
             # cards (a fresh room) restoring too would show every problem twice.
             if not queued and not m.has_content and self.cards:
                 await self._restore()
+            if self.room_state is not None and not any(q["type"] == "room.state" for q in queued):
+                await self._send_text(self.room_state)    # a refreshed page needs the layout too
             self._said_hello.set()
         elif m.type == "ack":
             self.acks[m.ref] = {"ok": m.ok, "reason": m.reason}
@@ -132,7 +135,9 @@ class WorkspaceBridge:
 
     def _mirror(self, m: dict[str, Any]) -> None:
         t = m["type"]
-        if t == "panel.show_problem":
+        if t == "room.state":
+            self.room_state = m
+        elif t == "panel.show_problem":
             card = self.cards.get(m["item_id"], {"sections": [], "highlights": []})
             self.cards[m["item_id"]] = {**card, **{k: m[k] for k in ("item_id", "label", "kind", "statement", "examples")}}
             self.active_item = m["item_id"]
