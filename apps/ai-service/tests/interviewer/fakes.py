@@ -16,16 +16,22 @@ def say(*sentences: str, tools: tuple[tuple[str, dict], ...] = ()) -> list[Strea
 
 class FakeChat:
     """`turns` is consumed one per stream() call; an entry may be a list of events, an Exception to raise
-    before the first event, or "hang" to never produce one."""
+    before the first event, "hang" to never produce one, or ("delay", seconds, events) to produce them after a wait."""
 
-    def __init__(self, turns: list[Any] | None = None, briefs: list[Any] | None = None) -> None:
+    def __init__(self, turns: list[Any] | None = None, briefs: list[Any] | None = None, model: str = "fake") -> None:
+        self.model = model
         self.turns = list(turns or [])
         self.briefs = list(briefs or [])
         self.calls: list[list[dict]] = []
+        self.tools_seen: list[list[str]] = []
 
     async def stream(self, messages, tools=None, max_tokens=400):
         self.calls.append(messages)
+        self.tools_seen.append([t["function"]["name"] for t in tools or []])
         turn = self.turns.pop(0) if self.turns else [StreamEvent("done")]
+        if isinstance(turn, tuple) and turn[0] == "delay":
+            await asyncio.sleep(turn[1])
+            turn = turn[2]
         if turn == "hang":
             await asyncio.sleep(3600)
         if isinstance(turn, Exception):

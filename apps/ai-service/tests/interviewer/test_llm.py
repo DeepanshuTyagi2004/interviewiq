@@ -5,7 +5,9 @@ import json
 import httpx
 import pytest
 
-from app.interviewer.llm import PROVIDER_ROUTING, LLMUnavailable, OpenRouterChat, reasoning_param
+from app.interviewer.llm import PROVIDER_ROUTING, FailoverChat, LLMUnavailable, OpenRouterChat, fallback_chat, reasoning_param
+from app.config import Settings
+from tests.interviewer.fakes import FakeChat
 
 
 def _sse(*chunks: dict) -> bytes:
@@ -85,3 +87,25 @@ def test_reasoning_settings():
     assert reasoning_param("none") == {"enabled": False}
     assert reasoning_param("") == {"enabled": False}
     assert reasoning_param("Medium") == {"effort": "medium"}
+
+
+def test_the_director_falls_over_to_the_fallback_model_when_the_first_is_unavailable():
+    primary = FakeChat(briefs=[LLMUnavailable("down")], model="primary")
+    backup = FakeChat(briefs=[{"goal": "from the backup"}], model="fallback")
+    data, _ = asyncio.run(FailoverChat(primary, backup).json([], "brief", {}))
+    assert data == {"goal": "from the backup"} and len(backup.calls) == 1
+
+
+def test_a_healthy_first_model_never_touches_the_fallback_and_without_one_the_failure_surfaces():
+    primary, backup = FakeChat(briefs=[{"goal": "ok"}]), FakeChat(briefs=[{"goal": "unused"}])
+    assert asyncio.run(FailoverChat(primary, backup).json([], "brief", {}))[0] == {"goal": "ok"} and backup.calls == []
+    with pytest.raises(LLMUnavailable):
+        asyncio.run(FailoverChat(FakeChat(briefs=[LLMUnavailable("down")]), None).json([], "brief", {}))
+
+
+def test_the_fallback_is_glm_flash_on_openrouter_with_reasoning_kept_minimal_because_that_model_cannot_turn_it_off():
+    settings = Settings(_env_file=None, OPENROUTER_API_KEY="k")
+    chat = fallback_chat(settings)
+    assert chat.model == "z-ai/glm-5.3-flash" and chat.reasoning == "minimal"
+    assert reasoning_param(chat.reasoning) == {"effort": "minimal"}
+    assert fallback_chat(Settings(_env_file=None, OPENROUTER_API_KEY="k", INTERVIEWER_FALLBACK_MODEL="")) is None

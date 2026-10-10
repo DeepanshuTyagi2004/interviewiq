@@ -113,6 +113,45 @@ class OpenRouterChat:
         await self._client.close()
 
 
+class FailoverChat:
+    """The director's chat: the primary model, then the fallback model when the primary is unavailable. Only
+    `json` fails over (the talker races its fallback instead, see talker.py)."""
+
+    def __init__(self, primary, fallback) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    @property
+    def model(self) -> str | None:
+        return getattr(self.primary, "model", None)
+
+    async def json(self, messages, schema_name, schema, max_tokens: int = 3000):
+        try:
+            return await self.primary.json(messages, schema_name, schema, max_tokens)
+        except LLMUnavailable:
+            if self.fallback is None:
+                raise
+            return await self.fallback.json(messages, schema_name, schema, max_tokens)
+
+    def stream(self, *args, **kwargs):
+        return self.primary.stream(*args, **kwargs)
+
+    async def aclose(self) -> None:
+        await self.primary.aclose()
+        if self.fallback is not None:
+            await self.fallback.aclose()
+
+
+def fallback_chat(settings, http_client: httpx.AsyncClient | None = None, *, reasoning: str | None = None,
+                  timeout_s: float = 30.0) -> OpenRouterChat | None:
+    if not settings.interviewer_fallback_model:
+        return None
+    return OpenRouterChat(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base_url,
+                          model=settings.interviewer_fallback_model,
+                          reasoning=settings.interviewer_fallback_reasoning if reasoning is None else reasoning,
+                          timeout_s=timeout_s, http_client=http_client)
+
+
 def talker_chat(settings, http_client: httpx.AsyncClient | None = None) -> OpenRouterChat:
     return OpenRouterChat(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base_url,
                           model=settings.interviewer_talker_model, reasoning=settings.interviewer_talker_reasoning,
@@ -123,3 +162,11 @@ def director_chat(settings, http_client: httpx.AsyncClient | None = None) -> Ope
     return OpenRouterChat(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base_url,
                           model=settings.interviewer_director_model, reasoning=settings.interviewer_director_reasoning,
                           timeout_s=settings.interviewer_director_timeout_seconds, http_client=http_client)
+
+
+def build_chats(settings, http_client: httpx.AsyncClient | None = None):
+    """The talker, the talker's fallback (raced against it when it is slow; None if turned off) and the director, which
+    fails over to its own copy of the fallback model. The worker and the simulator both use this."""
+    director = FailoverChat(director_chat(settings, http_client), fallback_chat(
+        settings, http_client, reasoning=settings.interviewer_director_reasoning, timeout_s=settings.interviewer_director_timeout_seconds))
+    return talker_chat(settings, http_client), fallback_chat(settings, http_client), director

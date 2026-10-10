@@ -190,9 +190,21 @@ class Settings(BaseSettings):
     interviewer_talker_reasoning: str = Field("none", alias="INTERVIEWER_TALKER_REASONING")
     interviewer_director_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_DIRECTOR_MODEL")
     interviewer_director_reasoning: str = Field("medium", alias="INTERVIEWER_DIRECTOR_REASONING")
-    # A Deepgram Aura-2 English voice, matched by hand to the test blueprint's persona for the POC.
-    interviewer_tts_voice: str = Field("aura-2-orion-en", alias="INTERVIEWER_TTS_VOICE")
-    interviewer_talker_timeout_seconds: float = Field(4.0, alias="INTERVIEWER_TALKER_TIMEOUT_SECONDS", gt=0)
+    # The model raced against a slow talker model and used by the director when its own fails; "" turns it off.
+    # GLM 5.3 flash cannot turn reasoning off, so it is kept to the lightest effort.
+    interviewer_fallback_model: str = Field("z-ai/glm-5.3-flash", alias="INTERVIEWER_FALLBACK_MODEL")
+    interviewer_fallback_reasoning: str = Field("minimal", alias="INTERVIEWER_FALLBACK_REASONING")
+    # Deepgram Aura-2 voices (English-only; none has an Indian accent): "aura-2-orpheus-en" (male, professional, clear) and
+    # "aura-2-athena-en" (female, calm, professional). A woman interviewer gets the female voice. The Indian-accented
+    # Flux voices ("flux-naveen-en", "flux-priya-en", "flux-meena-en") still work if named here.
+    interviewer_tts_voice: str = Field("aura-2-orpheus-en", alias="INTERVIEWER_TTS_VOICE")
+    # Candidates' speech is personal data: Deepgram's model-improvement programme is opted out of (speech-to-text and voice).
+    deepgram_mip_opt_out: bool = Field(True, alias="DEEPGRAM_MIP_OPT_OUT")
+    interviewer_female_tts_voice: str = Field("aura-2-athena-en", alias="INTERVIEWER_FEMALE_TTS_VOICE")
+    # How long the talker model gets to start answering before the fallback is raced against it, and how long
+    # the interviewer keeps trying (saying short fillers meanwhile) before giving up on a reply.
+    interviewer_talker_timeout_seconds: float = Field(3.0, alias="INTERVIEWER_TALKER_TIMEOUT_SECONDS", gt=0)
+    interviewer_talker_deadline_seconds: float = Field(32.0, alias="INTERVIEWER_TALKER_DEADLINE_SECONDS", gt=0)
     interviewer_director_timeout_seconds: float = Field(45.0, alias="INTERVIEWER_DIRECTOR_TIMEOUT_SECONDS", gt=0)
 
     # --- Brief generation schedule ---
