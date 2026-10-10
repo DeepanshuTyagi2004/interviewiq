@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { EnrichmentDocument } from "../../src/domain/enrichment.js";
+import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
 import { seedPracticeProfiles } from "../../scripts/seed-practice-profiles.js";
 import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 import { AI, FUTURE_SLOT, seedJd, seedSession } from "./helpers.js";
@@ -85,7 +86,8 @@ describe("verified manual company enrichment", () => {
     const session = (await env.c.repos.sessions.findById(booking.body.id))!;
     // The blueprint is grounded in the published round, not in AI research.
     const request = await env.c.blueprintPrep.assemble(session, "booking");
-    expect(request.round).toMatchObject({ type: "system-design", duration_mins: 60, problems: ["Design a cache"], format: "Discuss trade-offs", source: "brief" });
+    // The published round is 60 minutes (the real round); the mock the AI service prepares is always 45.
+    expect(request.round).toMatchObject({ type: "system-design", duration_mins: MOCK_ROUND_MINUTES, problems: ["Design a cache"], format: "Discuss trade-offs", source: "brief" });
     expect(request.company_brief?.company_specific_patterns).toContain("Builds useful tools");
     const listed = await env.http.get(`/api/v1/jds?company=${slug}`).set("Authorization", student);
     expect(listed.body).toEqual([expect.objectContaining({ id: jdId, dataConfidence: "high", dataAvailability: "rich" })]);
@@ -102,7 +104,7 @@ describe("verified manual company enrichment", () => {
     const fresh = await env.c.blueprintPrep.assemble(session, "booking");
     env.fetch.on("POST", `${AI}/blueprints/runs`, { run_id: "bpr_manual", status: "running", existing: false });
     env.fetch.on("GET", `${AI}/blueprints/runs/bpr_manual`, { status: "completed", input_hash: fresh.input_hash, blueprint_version: 1,
-      briefing: { interviewer_name: "Asha Rao", interviewer_style: "Staff engineer", format: "60-minute system design discussion with a shared whiteboard", duration_mins: 60 } });
+      briefing: { interviewer_name: "Asha Rao", interviewer_style: "Staff engineer", format: "45-minute system design discussion with a shared whiteboard", duration_mins: 45 } });
     await env.c.repos.sessions.update(session.id, { prepRunId: null });
     await env.c.blueprintPrep.start((await env.c.repos.sessions.findById(session.id))!, "reconcile");
     expect((env.fetch.callsTo(`${AI}/blueprints/runs`, "POST")[0]!.json as { round: { problems: string[] } }).round.problems).toEqual(["Design a cache"]);

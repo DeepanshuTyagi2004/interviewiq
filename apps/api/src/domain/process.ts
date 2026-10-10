@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "../lib/errors.js";
 import { ROUND_TYPES } from "./enums.js";
+import { MOCK_ROUND_MINUTES } from "./liveRound.js";
 
 /**
  * An interview process as a graph. `round` nodes are runnable by the AI interviewer and take part
@@ -23,6 +24,7 @@ const roundNode = z.object({
   kind: z.literal("round"),
   type: z.enum(ROUND_TYPES),
   name: text(120).min(1),
+  // Old clients still send their own length; parseProcessGraph overwrites it with MOCK_ROUND_MINUTES.
   durationMinutes: z.number().int().min(5).max(240),
   difficulty: z.enum(["easy", "medium", "hard"]),
   topics: z.array(text(80).min(1)).max(20),
@@ -87,7 +89,8 @@ export function parseProcessGraph(input: unknown): ProcessGraph {
   }
   if (hasCycle(rounds.map((n) => n.id), g.edges)) invalid("Rounds cannot form a loop; each round must come before the next");
   if (!isConnected(rounds.map((n) => n.id), g.edges)) invalid("Every round must be connected to the rest of the process");
-  return g;
+  // Every mock round has the same length, so a saved or edited process can never hold another one.
+  return { ...g, nodes: g.nodes.map((n) => (n.kind === "round" ? { ...n, durationMinutes: MOCK_ROUND_MINUTES } : n)) };
 }
 
 function hasCycle(ids: string[], edges: ProcessGraph["edges"]): boolean {
@@ -176,7 +179,7 @@ export function linearGraph(rounds: {
     }
     nodes.push({
       id, kind: "round", type: r.type as RoundNode["type"], name: r.name.slice(0, 120),
-      durationMinutes: Math.min(240, Math.max(5, Math.round(r.durationMinutes ?? 45))), difficulty: diff(r.difficulty),
+      durationMinutes: Math.min(240, Math.max(5, Math.round(r.durationMinutes ?? MOCK_ROUND_MINUTES))), difficulty: diff(r.difficulty),
       topics: r.topics.slice(0, 20).map((t) => t.slice(0, 80)).filter(Boolean), position: { x: col * 280, y: 0 },
       ...(r.instructions ? { instructions: r.instructions.slice(0, 4000) } : {}),
     });

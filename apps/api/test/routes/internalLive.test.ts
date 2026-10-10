@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { JobDescriptionRow } from "../../src/db/pg/schema.js";
+import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
 import { bearer, createTestEnv, createUser, TEST_INTERNAL_KEY, type TestEnv } from "../support/harness.js";
 import { seedCompany, seedJd, seedSession } from "./helpers.js";
 
@@ -19,17 +20,25 @@ describe("internal live endpoints", () => {
   it("gives the worker the round and a minimal profile, only while live", async () => {
     const user = await createUser(env, { name: "Asha Rao" });
     const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(),
-      prepBriefing: { interviewer_name: "Siddharth", interviewer_style: "warm", format: "coding", duration_mins: 45 } });
+      prepBriefing: { interviewer_name: "Siddharth", interviewer_style: "warm", format: "coding", duration_mins: 50 } }); // the briefing's own length, not the 45-minute default
     const res = await env.http.get(ctx(s.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ session_id: s.id, candidate_id: user.id, first_name: "Asha", status: "LIVE_IN_PROGRESS",
-      round: { company: "google", company_name: "Google", round_type: "dsa", duration_mins: 45 } });
+      round: { company: "google", company_name: "Google", round_type: "dsa", duration_mins: 50 } });
     expect(res.body.profile).toEqual({ headline: null, skills: [], projects: [] }); // a user with no profile yet
     expect(JSON.stringify(res.body)).not.toContain("@");
 
     const ready = await seedSession(env, user.id, jd, { status: "PREP_READY" });
     expect((await env.http.get(ctx(ready.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY)).body.code).toBe("session_not_live");
     expect((await env.http.get(ctx(s.id))).status).toBe(401);
+  });
+
+  it("falls back to the 45-minute mock-round length when the session has no briefing", async () => {
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date() });
+    const res = await env.http.get(ctx(s.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
+    expect(MOCK_ROUND_MINUTES).toBe(45);
+    expect(res.body.round.duration_mins).toBe(MOCK_ROUND_MINUTES);
   });
 
   it("ends a live round once, storing the reason, duration and summary", async () => {

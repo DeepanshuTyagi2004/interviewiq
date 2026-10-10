@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { InterviewSessionRow, JobDescriptionRow, UserRow } from "../../src/db/pg/schema.js";
+import type { InterviewSessionRow, JobDescriptionRow, LoopRow, UserRow } from "../../src/db/pg/schema.js";
+import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
 import { fingerprint, profileProjection, resolveRound } from "../../src/services/blueprintPrep.js";
 import { createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 import { AI, seedJd, seedSession } from "../routes/helpers.js";
@@ -69,9 +70,28 @@ describe("inputs", () => {
       { id: "r2", type: "dsa", kind: "interview", name: "Coding", duration_minutes: 50, topics: ["graphs"], problems: ["Two Sum"], difficulty: "hard", format: "two problems" },
     ] } };
     const session = { roundType: "dsa", practicePrep: null, nodeId: null } as unknown as InterviewSessionRow;
-    expect(resolveRound(session, brief, null)).toEqual({ type: "dsa", name: "Coding", duration_mins: 50, format: "two problems",
+    // The researched 50 minutes describes the real round; the mock is always 45.
+    expect(resolveRound(session, brief, null)).toEqual({ type: "dsa", name: "Coding", duration_mins: MOCK_ROUND_MINUTES, format: "two problems",
       topics: ["graphs"], problems: ["Two Sum"], difficulty: "hard", source: "brief" });
     expect(resolveRound({ ...session, roundType: "lld" } as InterviewSessionRow, brief, null)).toBeNull();
+  });
+
+  it("always asks for a 45-minute mock round, whatever length was stored or researched", () => {
+    expect(MOCK_ROUND_MINUTES).toBe(45);
+    const base = { roundType: "dsa", practicePrep: null, nodeId: null } as unknown as InterviewSessionRow;
+    const brief = { final_experience: { rounds: [{ id: "r1", type: "dsa", kind: "interview", name: "Coding", duration_minutes: 90 }] } };
+    // brief match
+    expect(resolveRound(base, brief, null)!.duration_mins).toBe(MOCK_ROUND_MINUTES);
+    // brief round with no researched length
+    expect(resolveRound(base, { final_experience: { rounds: [{ id: "r1", type: "dsa", kind: "interview" }] } }, null)!.duration_mins).toBe(MOCK_ROUND_MINUTES);
+    // practice snapshot
+    const practice = { ...base, practicePrep: { companyBrief: { final_experience: { rounds: [{ type: "dsa", name: "Coding", duration_minutes: 60 }] } } } } as unknown as InterviewSessionRow;
+    expect(resolveRound(practice, null, null)!.duration_mins).toBe(MOCK_ROUND_MINUTES);
+    // loop node saved before the change, still holding 60 minutes
+    const node = { id: "n1", kind: "round", type: "dsa", name: "Coding", durationMinutes: 60, difficulty: "medium", topics: [], position: { x: 0, y: 0 } };
+    const loop = { graph: { nodes: [node], edges: [] } } as unknown as LoopRow;
+    const booked = { ...base, nodeId: "n1" } as InterviewSessionRow;
+    expect(resolveRound(booked, null, loop)!.duration_mins).toBe(MOCK_ROUND_MINUTES);
   });
 });
 

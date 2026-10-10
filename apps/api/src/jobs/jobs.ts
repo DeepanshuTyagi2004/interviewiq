@@ -1,3 +1,4 @@
+import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
 import type { LeetCodeCollectionJob } from "../integrations/leetcode/service.js";
 import { errorMessage } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
@@ -73,7 +74,7 @@ export class LiveSessionSweepJob {
     const now = this.clock();
     let swept = 0;
     for (const s of await this.sessions.findLiveStartedBefore(new Date(now - SWEEP_GRACE_MINUTES * 60_000))) {
-      const minutes = s.prepBriefing?.duration_mins ?? 60;
+      const minutes = s.prepBriefing?.duration_mins ?? MOCK_ROUND_MINUTES;
       const deadline = (s.liveStartedAt?.getTime() ?? now) + (CEILING_FACTOR * minutes + SWEEP_GRACE_MINUTES) * 60_000;
       if (now < deadline) continue;
       const row = await this.sessions.transitionStatus(s.id, "LIVE_IN_PROGRESS", "ABORTED_TECHNICAL", {

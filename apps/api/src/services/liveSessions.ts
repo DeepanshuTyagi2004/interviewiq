@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { InterviewSessionRow, LiveSummary } from "../db/pg/schema.js";
 import type { SessionStatus } from "../domain/enums.js";
+import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
 import type { AgentRooms, LiveKitTokenService } from "../integrations/livekit.js";
 import { errorMessage } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
@@ -110,7 +111,7 @@ export class LiveSessionService {
         role: s.role,
         level: s.level,
         round_type: s.roundType,
-        duration_mins: s.prepBriefing?.duration_mins ?? 60,
+        duration_mins: s.prepBriefing?.duration_mins ?? MOCK_ROUND_MINUTES,
       },
       profile,
     };

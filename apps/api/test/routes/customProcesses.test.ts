@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { jobDescriptions, manualJdBriefs } from "../../src/db/pg/schema.js";
 import { enrichmentBrief, type EnrichmentRole } from "../../src/domain/enrichment.js";
+import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
 import type { ProcessGraph } from "../../src/domain/process.js";
 import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 
 const round = (id: string, topics: string[], instructions: string) => ({
-  id, kind: "round" as const, type: "dsa" as const, name: id, durationMinutes: 55,
+  id, kind: "round" as const, type: "dsa" as const, name: id, durationMinutes: MOCK_ROUND_MINUTES,
   difficulty: "hard" as const, topics, instructions, position: { x: 0, y: 0 },
 });
 const graph: ProcessGraph = {
@@ -40,6 +41,7 @@ describe("persisted custom practice processes", () => {
     expect(minimal.status).toBe(201);
     expect(minimal.body.jd).toBeNull();
     expect(minimal.body.graph.nodes[0].type).toBe("dsa");
+    expect(minimal.body.graph.nodes[0].durationMinutes).toBe(MOCK_ROUND_MINUTES); // the default round is a mock round
     const made = await create();
     expect(made.status).toBe(201);
     expect(made.body.level).toBe("staff");
@@ -73,13 +75,13 @@ describe("persisted custom practice processes", () => {
     expect(body.job_description.id).toBe(loopId);
     expect(body.job_description.title).toBe("My graph practice");
     expect(body.session).toMatchObject({ company: s.company, role: s.role, level: s.level, specialization: s.specialization });
-    expect(body.round).toMatchObject({ type: "dsa", topics: ["Graph traversal", "Dijkstra"], difficulty: "hard", duration_mins: 55,
+    expect(body.round).toMatchObject({ type: "dsa", topics: ["Graph traversal", "Dijkstra"], difficulty: "hard", duration_mins: MOCK_ROUND_MINUTES,
       format: graph.nodes[0]!.instructions, source: "practice" });
     expect(body.company_brief?.company_specific_patterns).toContain("no company endorsement");
     expect(env.fetch.callsTo(/\/briefs\//)).toHaveLength(0);
     env.fetch.on("POST", "http://ai.test/blueprints/runs", { run_id: "bpr_custom", status: "running", existing: false });
     env.fetch.on("GET", "http://ai.test/blueprints/runs/bpr_custom", { status: "completed", input_hash: body.input_hash, blueprint_version: 1,
-      briefing: { interviewer_name: "Asha", interviewer_style: "calm", format: "55-minute coding interview with a shared editor", duration_mins: 55 } });
+      briefing: { interviewer_name: "Asha", interviewer_style: "calm", format: "45-minute coding interview with a shared editor", duration_mins: 45 } });
     await env.c.repos.sessions.update(s.id, { prepRunId: null });
     await env.c.blueprintPrep.start((await env.c.repos.sessions.findById(s.id))!, "reconcile");
     await env.c.blueprintPrep.collect((await env.c.repos.sessions.findById(s.id))!);
@@ -122,7 +124,7 @@ describe("persisted custom practice processes", () => {
     const jd = await env.c.repos.jds.insert({ company: company.slug, role: "software-engineer", level: "sde1", title: source === "template" ? "[Practice template] SDE I" : "SDE I", source, active: true, description: "Simulated if marked template" });
     const role: EnrichmentRole = { id: randomUUID(), title: jd.title, role: jd.role, level: "sde1", specialization: null,
       description: jd.description ?? "", techStack: [], yoeMin: null, yoeMax: null, ctcMinLpa: null, ctcMaxLpa: null,
-      sourceUrls: [], verified: source !== "template", rounds: [{ id: randomUUID(), name: "Coding", type: "dsa", durationMinutes: 45,
+      sourceUrls: [], verified: source !== "template", rounds: [{ id: randomUUID(), name: "Coding", type: "dsa", durationMinutes: 60,
         difficulty: "medium", topics: ["Arrays"], questions: [], guidance: "Discuss trade-offs", sourceUrls: [], verified: source !== "template" }] };
     const brief = enrichmentBrief(company.slug, role, { overview: "Overview", culture: "", benefits: "", sourceUrls: [], verified: source !== "template" }, 1, new Date());
     if (source === "template") {
@@ -149,6 +151,26 @@ describe("persisted custom practice processes", () => {
     const booked = await book(linked.body.id, copied.body.graph.nodes[0].id);
     expect(booked.status).toBe(201);
     expect(booked.body.level).toBe("staff");
+  });
+
+  it("makes every mock round 45 minutes: saved, suggested and booked, whatever the client or the research says", async () => {
+    // An old client still sends 55 minutes; it is saved as 45.
+    expect(MOCK_ROUND_MINUTES).toBe(45);
+    const stale = { ...graph, nodes: graph.nodes.map((n) => (n.kind === "round" ? { ...n, durationMinutes: 55 } : n)) };
+    const made = await create({ name: "Old client", level: "sde1", graph: stale });
+    expect(made.status).toBe(201);
+    const lengths = (g: ProcessGraph) => g.nodes.filter((n) => n.kind === "round").map((n) => (n as { durationMinutes: number }).durationMinutes);
+    expect(lengths(made.body.graph)).toEqual([MOCK_ROUND_MINUTES, MOCK_ROUND_MINUTES]);
+    const edited = await api("put", `processes/${made.body.id}`).send({ graph: stale });
+    expect(lengths(edited.body.graph)).toEqual([MOCK_ROUND_MINUTES, MOCK_ROUND_MINUTES]);
+    // A JD's suggested process is built from the researched round (60 minutes) but shown and saved as 45.
+    const jd = await withBrief("manual");
+    const official = await api("get", `processes/official/${jd.id}`);
+    expect(lengths(official.body.graph)).toEqual([MOCK_ROUND_MINUTES]);
+    const copied = await create({ name: "Copied", level: "sde1", jdId: jd.id });
+    expect(lengths(copied.body.graph)).toEqual([MOCK_ROUND_MINUTES]);
+    const loop = await api("post", "loops").send({ jdId: jd.id });
+    expect(lengths(loop.body.graph)).toEqual([MOCK_ROUND_MINUTES]);
   });
 
   it("marks simulated templates in list/detail/brief and always excludes them from readiness", async () => {

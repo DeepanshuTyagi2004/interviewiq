@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../src/lib/errors.js";
-import { linearGraph, nodeStates, parseProcessGraph, progressOf, type ProcessGraph } from "../../src/domain/process.js";
+import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
+import { linearGraph, nodeStates, parseProcessGraph, progressOf, roundNodes, type ProcessGraph } from "../../src/domain/process.js";
 
 const pos = { x: 0, y: 0 };
-const round = (id: string, type = "dsa") => ({ id, kind: "round" as const, type, name: id, durationMinutes: 45, difficulty: "medium" as const, topics: [], position: pos });
+const round = (id: string, type = "dsa") => ({ id, kind: "round" as const, type, name: id, durationMinutes: 50, difficulty: "medium" as const, topics: [], position: pos }); // 50 is deliberately not the mock length
 const info = (id: string) => ({ id, kind: "info" as const, name: id, note: "", position: pos });
 const g = (nodes: unknown[], edges: [string, string][]) => ({ nodes, edges: edges.map(([source, target]) => ({ source, target })) });
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ApiError ? e.code : "other"; } return null; };
@@ -24,6 +25,16 @@ describe("parseProcessGraph", () => {
     expect(code(() => parseProcessGraph(g([round("a"), round("b")], [])))).toBe("invalid_process");
     expect(code(() => parseProcessGraph(g([round("a")], [["a", "a"]])))).toBe("invalid_process");
     expect(code(() => parseProcessGraph(g([round("a"), round("b")], [["a", "b"], ["a", "b"]])))).toBe("invalid_process");
+  });
+
+  it("normalises every round's length to the one mock-round length, even if an old client sends another", () => {
+    const long = { ...round("b"), durationMinutes: 60 };
+    const short = { ...round("c"), durationMinutes: 5 };
+    const parsed = parseProcessGraph(g([round("a"), long, short, info("oa")], [["a", "b"], ["b", "c"]]));
+    expect(roundNodes(parsed).map((n) => n.durationMinutes)).toEqual([MOCK_ROUND_MINUTES, MOCK_ROUND_MINUTES, MOCK_ROUND_MINUTES]);
+    expect(MOCK_ROUND_MINUTES).toBe(45);
+    // info steps have no length and come back untouched
+    expect(parsed.nodes.find((n) => n.id === "oa")).toEqual(info("oa"));
   });
 
   it("never lets an info step carry an edge", () => {
@@ -80,5 +91,10 @@ describe("linearGraph", () => {
     expect(graph.nodes.map((n) => `${n.kind}:${n.id}`)).toEqual(["info:oa", "round:r1", "info:r2", "round:r3"]);
     expect(graph.edges).toEqual([{ source: "r1", target: "r3" }]);
     expect(code(() => parseProcessGraph(graph))).toBeNull();
+  });
+
+  it("gives a round with no length the mock-round length", () => {
+    const graph = linearGraph([{ id: "r1", name: "Coding", type: "dsa", durationMinutes: null, difficulty: "medium", topics: [] }]);
+    expect(roundNodes(graph)[0]!.durationMinutes).toBe(MOCK_ROUND_MINUTES);
   });
 });

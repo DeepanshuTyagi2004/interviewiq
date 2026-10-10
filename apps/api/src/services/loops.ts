@@ -1,4 +1,5 @@
 import type { InterviewProcessRow, JobDescriptionRow, LoopRow } from "../db/pg/schema.js";
+import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
 import { linearGraph, nodeStates, parseProcessGraph, progressOf, type ProcessGraph } from "../domain/process.js";
 import { ApiError } from "../lib/errors.js";
 import { isObject } from "../lib/json.js";
@@ -38,7 +39,6 @@ export type FetchBrief = (company: string, role: string, level: string, speciali
 
 const csv = (v: string | null) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
 /** The brief's ordered rounds, current (`final_experience`) or legacy (`consolidated_process`). */
@@ -94,7 +94,7 @@ export class LoopService {
       name: str(r.name) ?? `Round ${i + 1}`,
       type: str(r.type),
       kind: str(r.kind),
-      durationMinutes: num(r.duration_minutes),
+      durationMinutes: MOCK_ROUND_MINUTES, // the researched length is the real round's; a mock is always this long
       difficulty: str(r.difficulty),
       topics: strings(r.topics ?? r.dominant_topics),
       note: str(r.format) ?? undefined,
@@ -145,7 +145,7 @@ export class LoopService {
       throw conflict("process_limit", `You can save up to ${MAX_PROCESSES_PER_USER} processes`);
     }
     const graph = body.graph === undefined ? parseProcessGraph(jd ? await this.officialGraph(jd.id) : linearGraph([
-      { id: "round-1", name: "Coding interview", type: "dsa", durationMinutes: 45, difficulty: "medium", topics: [] },
+      { id: "round-1", name: "Coding interview", type: "dsa", durationMinutes: MOCK_ROUND_MINUTES, difficulty: "medium", topics: [] },
     ])) : parseProcessGraph(body.graph);
     const row = await this.processes.insert({ userId, jdId: jd?.id ?? null, name: this.cleanName(body.name), level: this.cleanLevel(body.level === undefined ? normalizeLegacyLevel(jd?.level) : body.level), graph });
     return this.processView(row, jd ? (await this.jdBriefs([jd.id])).get(jd.id) : undefined);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { InterviewSessionRow, LoopRow } from "../db/pg/schema.js";
 import type { CandidateProfileResponse } from "../domain/candidateProfile.js";
 import type { RoundType } from "../domain/enums.js";
+import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
 import { practiceSnapshot } from "../domain/practice.js";
 import { roundNodes } from "../domain/process.js";
 import type { AiServiceClient } from "../integrations/aiService/client.js";
@@ -87,7 +88,7 @@ export function resolveRound(session: InterviewSessionRow, brief: unknown, loop:
   const fromBrief = (r: unknown, source: BlueprintRound["source"]): BlueprintRound => ({
     type: session.roundType,
     name: textOrNull(path(r, "name")),
-    duration_mins: typeof path(r, "duration_minutes") === "number" ? (path(r, "duration_minutes") as number) : null,
+    duration_mins: MOCK_ROUND_MINUTES, // the researched length describes the real round, not the mock
     format: textOrNull(path(r, "format")),
     topics: strings(path(r, "topics")),
     problems: strings(path(r, "problems")),
@@ -102,7 +103,7 @@ export function resolveRound(session: InterviewSessionRow, brief: unknown, loop:
   const sameId = node ? briefRounds.find((r) => path(r, "id") === node.id) : undefined;
   if (node) {
     return {
-      type: node.type, name: node.name, duration_mins: node.durationMinutes, format: node.instructions ?? textOrNull(path(sameId, "format")),
+      type: node.type, name: node.name, duration_mins: MOCK_ROUND_MINUTES, format: node.instructions ?? textOrNull(path(sameId, "format")),
       topics: node.topics, problems: sameId ? strings(path(sameId, "problems")) : [], difficulty: node.difficulty, source: "brief",
     };
   }
