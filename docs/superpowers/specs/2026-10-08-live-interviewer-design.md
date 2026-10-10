@@ -596,3 +596,29 @@ is built and tested against it before the worker exists.
 - **API:** the allowlist, dispatch and re-dispatch, the internal context and end endpoints (transitions,
   idempotency), the candidate end endpoint, the sweep.
 - **End to end:** the human takes the Salescode round.
+
+## Update 2026-10-09: after the first real round
+
+The first human round ended after four minutes when the talker model stalled for over a minute (a provider slowed to ~10 s to first token) and three failed replies ended it as `technical`. What changed:
+
+- **A slow model never means silence.** If the talker model has not produced a token after 3 s, a fallback model (`z-ai/glm-5.3-flash`, `INTERVIEWER_FALLBACK_MODEL`, reasoning `minimal` because it cannot be turned off) is raced against it; whichever speaks first wins. The director fails over to the same model. A turn gives up after 32 s.
+- **Staged fillers** (`fillers.py`): while the wait grows the interviewer says a different short line per stage ("Give me a second." → "Just a little more." → "Sorry about the wait." → an apology), and opens the real answer with "There." after a short wait or "Sorry for the delay." after a long one. Wordings rotate so one line is never repeated back to back.
+- **Failure policy:** a failed reply is asked for again after 4 s and answers the same candidate turn. The silence check-in is never queued while a reply is owed. The round ends as `technical` only after three failed replies *and* 90 s of failing.
+- **`room.state` message** (agent → web, `{layout: talk | work, slow}`, replayed after every `workspace.hello`): the room is the conversation full width until the interviewer moves onto a coding, low-level design or system design problem (`layout_for` in `plan.py`: culture and behavioural questions stay `talk`), then morphs to the 20 / 80 workspace, and widens again for the candidate's questions and the closing. `slow: true` shows a calm "taking a moment" line.
+- **Voice (changed 2026-10-10):** Deepgram Aura-2 (`aura-2-orpheus-en` male, `aura-2-athena-en` female; `INTERVIEWER_TTS_VOICE` / `INTERVIEWER_FEMALE_TTS_VOICE`). The first live round used the Indian-accented Flux voices (`flux-naveen-en`, `flux-priya-en`, `flux-meena-en`) and sounded south Indian; Deepgram has no voice tagged north Indian and Aura-2 has no Indian accent at all (American, British, Australian, Filipino), so this trades the accent for a clear, fluent English voice. A woman interviewer gets the female voice and a man the male one: the persona has no gender field, so `voices.persona_gender` reads its `gender` if present, otherwise judges from the name in the fixed interviewer pool. Needs `livekit-plugins-deepgram` 1.8.5. Candidate speech and the interviewer's text are kept out of Deepgram's model-improvement programme (`DEEPGRAM_MIP_OPT_OUT`). Speech recognition is `nova-3` with `en-IN`; a turn ends after 1.0 s of silence (LiveKit's 0.5 s cut candidates off mid-thought).
+- **Prompts (drafts):** vary acknowledgements and don't re-ask; speak like an engineer in an Indian tech company; the director judges over several answers, not one thin one; a time-up order first acknowledges what the candidate just said.
+
+
+## Update 2026-10-09 (later): 30-minute rounds and conversation structure
+
+- **Every mock interview is 45 minutes** (`MOCK_ROUND_MINUTES`; it was 30 for a few hours): the API, web and AI service all use the one length; researched real-round lengths are display-only.
+- **The conductor owns the structure:** `deep_dive` is a plan item; at least 5 exchanges happen before the problem; `next_item` is guarded (`can_advance`); `problem_allowed()` decides when problem tools are offered and when a problem may be announced; `open_item` orders make sure each new part is opened with a question or the problem; the `closing` order ends the round after the wrap-up; a reserve problem is added when a quick solve leaves slack (`plan_extra_problem`).
+- **Run-level safety nets:** an empty reply to a conversational answer is retried; a turn whose whole text was blocked is regenerated with the reason; a declared move-on without `next_item` still moves the plan; non-urgent orders wait for 12 s of interviewer silence.
+- A text-to-text rehearsal harness (`apps/ai-service/scripts/interviewer_text_session.py`) and its findings are in `docs/superpowers/test-runs/2026-10-09-live-text-rehearsal/`.
+
+
+## Update 2026-10-09 (evening): 45 minutes, two problems, the second only if the first went well
+
+- Every DSA blueprint has two core problems (plus reserves); the arc at 45 minutes is 1 + 2 + 1 + 2 opening, about 11 minutes per problem and a 12-minute projects-and-fundamentals deep dive, 4 minutes of questions, 1 of wrap-up.
+- The conductor decides the second problem when the first ends (`will_skip_next_problem`): skipped if the candidate struggled (the director's `problem_signal` of `struggling`, two ladder hints, or the problem's time ran out without a `strong` signal) or if fewer than 8 minutes of the round are left for it. A skipped problem sets `no_more_problems`, so no extra reserve problem is added either, and the round goes on to the deep dive, the questions and the closing. A strong candidate gets the second problem, sized to the time that is left.
+- The talker's state says "you will NOT give another problem, wrap the coding up kindly" or "another problem follows"; the framing says one or two problems depending on how the first goes.
