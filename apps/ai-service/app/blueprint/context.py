@@ -12,7 +12,9 @@ from app.blueprint.trace import StageError
 from app.blueprint.vocabulary import family
 from app.models.engineering_levels import Level, normalize_legacy_level
 
-DEFAULT_DURATION = {"dsa": 45, "online-assessment": 60, "system-design": 60, "lld": 60, "behavioural": 45, "hiring-manager": 45}
+# Every mock interview round is 45 minutes. The API always sends this length; it is also what a request that names none gets.
+MOCK_ROUND_MINUTES = 45
+DEFAULT_DURATION = {t: MOCK_ROUND_MINUTES for t in ("dsa", "online-assessment", "system-design", "lld", "behavioural", "hiring-manager")}
 
 # Candidate-safe format wording for the briefing: never the brief's own format text (it can name topics).
 FORMAT_LABEL = {

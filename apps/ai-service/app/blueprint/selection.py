@@ -331,11 +331,11 @@ def _behavioural(c: "Candidate") -> bool:
 
 
 def coding_cores(ctx: Context) -> int:
-    """Coding problems a DSA round asks: one in a short round (35 minutes or less) or at a hard target (a real
-    senior round is one hard problem with follow-ups), two otherwise. Online assessments keep two."""
+    """Coding problems a DSA round asks: always two, which is what a real round has. The second is given only when the first went
+    well (the live interviewer skips it for a candidate who struggled and ends early). Online assessments are not filtered."""
     if ctx.family != "dsa" or ctx.round_type == "online-assessment":
         return 0
-    return 1 if ctx.duration_mins <= 35 or ctx.difficulty_target == "hard" or ctx.extra_part else 2
+    return 2
 
 
 def behavioural_cores(ctx: Context) -> int:

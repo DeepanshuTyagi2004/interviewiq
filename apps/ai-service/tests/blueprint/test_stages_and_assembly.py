@@ -126,3 +126,14 @@ def test_interviewer_names_vary_by_session_and_are_reproducible():
     assert ST.name_options("session-1") == ST.name_options("session-1")
     assert len({tuple(ST.name_options(f"s{i}")) for i in range(10)}) > 1
     assert len(set(ST.name_options("x"))) == 4
+
+
+def test_a_round_with_no_stated_length_is_forty_five_minutes_whatever_its_type():
+    from app.blueprint.context import MOCK_ROUND_MINUTES
+
+    assert MOCK_ROUND_MINUTES == 45
+    for round_type in ("dsa", "online-assessment", "system-design", "lld", "behavioural", "hiring-manager"):
+        ctx = build_context(request(round_type, round={"type": round_type, "duration_mins": None}))
+        assert ctx.duration_mins == 45
+        arc, _, _ = ST.plan_arc(ctx, 1)
+        assert sum(a.timebox_mins for a in arc) == 45

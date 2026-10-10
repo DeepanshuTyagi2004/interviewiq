@@ -303,18 +303,15 @@ def test_placeholders_in_spoken_lines_are_scrubbed_without_a_repair_round():
     assert "candidate's OWN past example" in prompt and "no placeholders" in prompt
 
 
-def test_short_or_hard_coding_rounds_ask_one_problem():
+def test_every_dsa_round_asks_two_problems_whatever_its_length_or_difficulty():
     pool = [dsa_doc(f"p{i}", tags=(t,), difficulty=d) for i, (t, d) in enumerate(
         [("Array", "medium"), ("Graph", "medium"), ("Tree", "hard"), ("String", "hard"), ("Dynamic Programming", "hard"), ("Heap", "medium")])]
     def ids(**rnd):
         ctx = build_context(request(round={"type": "dsa", "topics": [], "problems": [], **rnd}))
         return [p.slot_id for p in S.select(ctx, pool, W, "seed")[0]], ctx
-    short, ctx = ids(duration_mins=30, difficulty="medium")
-    assert short == ["core-1", "reserve-harder", "reserve-alternate"] and S.coding_cores(ctx) == 1
-    hard, _ = ids(duration_mins=60, difficulty="hard")
-    assert "core-2" not in hard
-    normal, _ = ids(duration_mins=45, difficulty="medium")
-    assert normal[:2] == ["core-1", "core-2"]
+    for rnd in ({"duration_mins": 30, "difficulty": "medium"}, {"duration_mins": 60, "difficulty": "hard"}, {"duration_mins": 45, "difficulty": "medium"}):
+        picked, ctx = ids(**rnd)
+        assert picked[:2] == ["core-1", "core-2"] and S.coding_cores(ctx) == 2, rnd
     oa = build_context(request("online-assessment", round={"type": "online-assessment", "duration_mins": 30, "topics": []}))
     assert S.coding_cores(oa) == 0
 
@@ -323,8 +320,8 @@ def test_rounds_with_non_problem_parts_get_round_questions_and_time_for_them():
     cred = {"type": "dsa", "name": "DSA and puzzles", "topics": ["Data structures", "Puzzles"], "problems": [],
             "difficulty": "medium", "duration_mins": 60}
     ctx = build_context(request(round=cred))
-    assert ctx.extra_part and S.coding_cores(ctx) == 1
-    arc, per_slot, deep = ST.plan_arc(ctx, 1)
+    assert ctx.extra_part and S.coding_cores(ctx) == 2           # the projects and fundamentals come on top of two problems
+    arc, per_slot, deep = ST.plan_arc(ctx, 2)
     assert deep >= per_slot - 1 and deep > 0                 # the puzzles get their own share of the core
     assert not build_context(request(round={"type": "dsa", "name": "Coding round", "topics": ["Graphs"], "problems": []})).extra_part
     assert not build_context(request("online-assessment", round={"type": "online-assessment", "topics": ["SQL"], "problems": []})).extra_part
