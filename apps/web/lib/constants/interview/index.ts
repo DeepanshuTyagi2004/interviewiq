@@ -5,6 +5,9 @@ type RoundType = components["schemas"]["RoundType"];
 
 const SESSIONS = "/api/v1/interviews/sessions";
 
+/** Every mock interview round is exactly this long, whatever the real company round lasts. Mirrors the API's `MOCK_ROUND_MINUTES`. */
+export const MOCK_ROUND_MINUTES = 45;
+
 export const INTERVIEW_ENDPOINTS = {
   sessions: SESSIONS,
   session: (id: string) => `${SESSIONS}/${id}`,

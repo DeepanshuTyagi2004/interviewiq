@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
 import { cn } from "@/lib/utils/cn";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 
 const ROUNDS = [
-  { n: "01", title: "Online Assessment", meta: "Coding · 90 min · medium" },
-  { n: "02", title: "Problem Solving", meta: "Live coding · 60 min · medium–hard" },
-  { n: "03", title: "System Design", meta: "Whiteboard · 60 min · hard" },
-  { n: "04", title: "Hiring Manager", meta: "Behavioural · 45 min" },
+  { n: "01", title: "Online Assessment", meta: `Coding · ${MOCK_ROUND_MINUTES} min · medium` },
+  { n: "02", title: "Problem Solving", meta: `Live coding · ${MOCK_ROUND_MINUTES} min · medium–hard` },
+  { n: "03", title: "System Design", meta: `Whiteboard · ${MOCK_ROUND_MINUTES} min · hard` },
+  { n: "04", title: "Hiring Manager", meta: `Behavioural · ${MOCK_ROUND_MINUTES} min` },
 ];
 const ROTATE_MS = 2200;
 

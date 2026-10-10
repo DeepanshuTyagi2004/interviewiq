@@ -1,11 +1,12 @@
 import type { NodePreset } from "@/features/loops/presets";
+import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
 
 /** Render only this node; never snapshot the palette's scrolling/composited DOM. */
 export function createNodeDragPreview(node: NodePreset): HTMLElement {
   const title = document.createElement("span");
   title.textContent = node.label;
   const details = document.createElement("span");
-  details.textContent = node.kind === "round" ? `${node.type} · ${node.durationMinutes} min` : "Reference only";
+  details.textContent = node.kind === "round" ? `${node.type} · ${MOCK_ROUND_MINUTES} min` : "Reference only";
   const canvas = document.createElement("canvas");
   canvas.width = 240;
   canvas.height = 80;

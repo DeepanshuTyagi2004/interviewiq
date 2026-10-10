@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
 import { filterNodePresets, NODE_CATEGORIES, NODE_PRESETS, ROUND_PRESETS } from "./presets";
 
 describe("node preset catalogue", () => {
+  it("makes every mock round 45 minutes", () => {
+    expect(MOCK_ROUND_MINUTES).toBe(45);
+  });
+
   it("covers specialist roles with more than 80 runnable and 10 reference steps", () => {
     expect(ROUND_PRESETS.length).toBeGreaterThan(80);
     expect(NODE_PRESETS.filter((preset) => preset.kind === "info").length).toBeGreaterThanOrEqual(10);
@@ -30,8 +35,8 @@ describe("node preset catalogue", () => {
       }
       if (preset.kind === "round") {
         expect(["dsa", "system-design", "lld", "behavioural", "hiring-manager"]).toContain(preset.type);
-        expect(preset.durationMinutes).toBeGreaterThanOrEqual(5);
-        expect(preset.durationMinutes).toBeLessThanOrEqual(240);
+        // Every mock round has the same length; presets never carry their own.
+        expect(preset.durationMinutes).toBe(MOCK_ROUND_MINUTES);
       } else {
         expect(preset.note.length).toBeLessThanOrEqual(1000);
         expect(preset.note.trim()).not.toBe("");
@@ -43,22 +48,22 @@ describe("node preset catalogue", () => {
     expect(ROUND_PRESETS).toEqual(NODE_PRESETS.filter((preset) => preset.kind === "round"));
   });
 
-  it("preserves all fourteen original IDs, labels and round defaults in order", () => {
+  it("preserves all fourteen original IDs, labels and difficulty defaults in order, all with the one mock-round length", () => {
     const expected = [
-      ["coding", "Coding & algorithms", "dsa", 60, "medium", ["Arrays", "Trees", "Dynamic programming"]],
-      ["architecture", "System architecture", "system-design", 60, "hard", ["Scalability", "Storage", "Trade-offs"]],
-      ["object-design", "Object-oriented design", "lld", 60, "medium", ["Object-oriented design", "Extensibility"]],
-      ["behavioural", "Behavioural & ownership", "behavioural", 45, "medium", ["Ownership", "Collaboration"]],
-      ["project", "Project deep-dive", "hiring-manager", 45, "medium", ["Project deep-dive", "Technical decisions"]],
-      ["frontend", "Frontend system design", "system-design", 60, "medium", ["Component architecture", "State management", "Accessibility"]],
-      ["browser", "Browser & JavaScript", "lld", 45, "medium", ["Event loop", "DOM", "Rendering performance"]],
-      ["backend-api", "Backend & API design", "system-design", 60, "medium", ["API contracts", "Authentication", "Reliability"]],
-      ["sql-data", "SQL & data modelling", "dsa", 45, "medium", ["SQL", "Joins", "Indexes", "Data modelling"]],
-      ["ml-ai", "ML & AI systems", "system-design", 60, "hard", ["Model evaluation", "Inference", "Data pipelines"]],
-      ["debugging", "Debugging & troubleshooting", "lld", 45, "medium", ["Root cause analysis", "Observability", "Regression diagnosis"]],
-      ["devops", "DevOps & cloud", "system-design", 60, "medium", ["CI/CD", "Cloud infrastructure", "Incident response"]],
-      ["machine-coding", "Machine coding", "lld", 90, "hard", ["Implementation", "Testing", "Maintainability"]],
-      ["leadership", "Technical leadership", "hiring-manager", 45, "hard", ["Mentoring", "Roadmap prioritisation", "Stakeholder alignment"]],
+      ["coding", "Coding & algorithms", "dsa", MOCK_ROUND_MINUTES, "medium", ["Arrays", "Trees", "Dynamic programming"]],
+      ["architecture", "System architecture", "system-design", MOCK_ROUND_MINUTES, "hard", ["Scalability", "Storage", "Trade-offs"]],
+      ["object-design", "Object-oriented design", "lld", MOCK_ROUND_MINUTES, "medium", ["Object-oriented design", "Extensibility"]],
+      ["behavioural", "Behavioural & ownership", "behavioural", MOCK_ROUND_MINUTES, "medium", ["Ownership", "Collaboration"]],
+      ["project", "Project deep-dive", "hiring-manager", MOCK_ROUND_MINUTES, "medium", ["Project deep-dive", "Technical decisions"]],
+      ["frontend", "Frontend system design", "system-design", MOCK_ROUND_MINUTES, "medium", ["Component architecture", "State management", "Accessibility"]],
+      ["browser", "Browser & JavaScript", "lld", MOCK_ROUND_MINUTES, "medium", ["Event loop", "DOM", "Rendering performance"]],
+      ["backend-api", "Backend & API design", "system-design", MOCK_ROUND_MINUTES, "medium", ["API contracts", "Authentication", "Reliability"]],
+      ["sql-data", "SQL & data modelling", "dsa", MOCK_ROUND_MINUTES, "medium", ["SQL", "Joins", "Indexes", "Data modelling"]],
+      ["ml-ai", "ML & AI systems", "system-design", MOCK_ROUND_MINUTES, "hard", ["Model evaluation", "Inference", "Data pipelines"]],
+      ["debugging", "Debugging & troubleshooting", "lld", MOCK_ROUND_MINUTES, "medium", ["Root cause analysis", "Observability", "Regression diagnosis"]],
+      ["devops", "DevOps & cloud", "system-design", MOCK_ROUND_MINUTES, "medium", ["CI/CD", "Cloud infrastructure", "Incident response"]],
+      ["machine-coding", "Machine coding", "lld", MOCK_ROUND_MINUTES, "hard", ["Implementation", "Testing", "Maintainability"]],
+      ["leadership", "Technical leadership", "hiring-manager", MOCK_ROUND_MINUTES, "hard", ["Mentoring", "Roadmap prioritisation", "Stakeholder alignment"]],
     ];
     expect(ROUND_PRESETS.slice(0, 14).map((preset) => [
       preset.id, preset.label, preset.type, preset.durationMinutes, preset.difficulty, preset.topics,

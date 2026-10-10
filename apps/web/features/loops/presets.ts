@@ -1,4 +1,5 @@
 import type { RoundType } from "@/features/interview";
+import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
 import type { RoundNode } from "./types";
 
 type PresetDetails = {
@@ -49,10 +50,11 @@ const roles: Record<string, string> = {
 /** Each exercise is a starting point, rather than a claim about a company's hiring process. */
 function round(
   id: string, label: string, category: string, type: RoundType, topics: string[], exercise: string,
-  keywords: string[] = [], difficulty: RoundNode["difficulty"] = "medium", durationMinutes = 45,
+  keywords: string[] = [], difficulty: RoundNode["difficulty"] = "medium",
 ): Extract<NodePreset, { kind: "round" }> {
   return {
-    id, label, category, kind: "round", type, topics, keywords, difficulty, durationMinutes,
+    // Every mock round has the same length, so presets don't pick one.
+    id, label, category, kind: "round", type, topics, keywords, difficulty, durationMinutes: MOCK_ROUND_MINUTES,
     description: exercise,
     instructions: `Practise as a ${roles[category]}. ${exercise} Ask about the user's experience and preferred stack first; adapt scope, hints and follow-ups to their level. Start with a concrete example, clarify assumptions, and ask them to explain decisions and verify edge cases. Give feedback on correctness, trade-offs and communication using evidence from this exercise.`,
   };
@@ -60,19 +62,19 @@ function round(
 
 /** Keep these first so the legacy type-to-default mapping remains stable. */
 const originalPresets: Extract<NodePreset, { kind: "round" }>[] = [
-  round("coding", "Coding & algorithms", "coding", "dsa", ["Arrays", "Trees", "Dynamic programming"], "Solve a bounded scheduling problem, explain complexity and test empty and duplicate inputs.", [], "medium", 60),
-  round("architecture", "System architecture", "architecture", "system-design", ["Scalability", "Storage", "Trade-offs"], "Design a scalable notification service with storage choices, failure handling and capacity estimates.", [], "hard", 60),
-  round("object-design", "Object-oriented design", "architecture", "lld", ["Object-oriented design", "Extensibility"], "Model a booking domain and show how an additional pricing rule can be added without breaking callers.", [], "medium", 60),
+  round("coding", "Coding & algorithms", "coding", "dsa", ["Arrays", "Trees", "Dynamic programming"], "Solve a bounded scheduling problem, explain complexity and test empty and duplicate inputs.", [], "medium"),
+  round("architecture", "System architecture", "architecture", "system-design", ["Scalability", "Storage", "Trade-offs"], "Design a scalable notification service with storage choices, failure handling and capacity estimates.", [], "hard"),
+  round("object-design", "Object-oriented design", "architecture", "lld", ["Object-oriented design", "Extensibility"], "Model a booking domain and show how an additional pricing rule can be added without breaking callers.", [], "medium"),
   round("behavioural", "Behavioural & ownership", "career", "behavioural", ["Ownership", "Collaboration"], "Discuss a real ownership challenge, identify your actions and reflect on collaboration and outcomes."),
   round("project", "Project deep-dive", "career", "hiring-manager", ["Project deep-dive", "Technical decisions"], "Walk through a project you contributed to, explain a key decision and separate your work from team outcomes."),
-  round("frontend", "Frontend system design", "frontend", "system-design", ["Component architecture", "State management", "Accessibility"], "Design an accessible dashboard with component boundaries, asynchronous state and error recovery.", [], "medium", 60),
+  round("frontend", "Frontend system design", "frontend", "system-design", ["Component architecture", "State management", "Accessibility"], "Design an accessible dashboard with component boundaries, asynchronous state and error recovery.", [], "medium"),
   round("browser", "Browser & JavaScript", "frontend", "lld", ["Event loop", "DOM", "Rendering performance"], "Diagnose an unresponsive browser interaction and explain event-loop scheduling and rendering work."),
-  round("backend-api", "Backend & API design", "backend", "system-design", ["API contracts", "Authentication", "Reliability"], "Design an order API with authentication, idempotency and documented error contracts.", [], "medium", 60),
+  round("backend-api", "Backend & API design", "backend", "system-design", ["API contracts", "Authentication", "Reliability"], "Design an order API with authentication, idempotency and documented error contracts.", [], "medium"),
   { ...round("sql-data", "SQL & data modelling", "databases", "dsa", ["SQL", "Joins", "Indexes", "Data modelling"], "Write a sales aggregation query, verify joins and compare index choices."), instructions: "Focus on data reasoning, query correctness and trade-offs." },
-  round("ml-ai", "ML & AI systems", "ai", "system-design", ["Model evaluation", "Inference", "Data pipelines"], "Design a prediction service with evaluation, serving constraints and data feedback loops.", [], "hard", 60),
+  round("ml-ai", "ML & AI systems", "ai", "system-design", ["Model evaluation", "Inference", "Data pipelines"], "Design a prediction service with evaluation, serving constraints and data feedback loops.", [], "hard"),
   round("debugging", "Debugging & troubleshooting", "testing", "lld", ["Root cause analysis", "Observability", "Regression diagnosis"], "Investigate a reproducible regression from logs and a minimal example, then propose a fix and regression check."),
-  round("devops", "DevOps & cloud", "cloud", "system-design", ["CI/CD", "Cloud infrastructure", "Incident response"], "Plan a service deployment with an observable rollout, rollback path and incident runbook.", [], "medium", 60),
-  round("machine-coding", "Machine coding", "coding", "lld", ["Implementation", "Testing", "Maintainability"], "Implement a small task scheduler with a clear interface, tests and maintainable state transitions.", [], "hard", 90),
+  round("devops", "DevOps & cloud", "cloud", "system-design", ["CI/CD", "Cloud infrastructure", "Incident response"], "Plan a service deployment with an observable rollout, rollback path and incident runbook.", [], "medium"),
+  round("machine-coding", "Machine coding", "coding", "lld", ["Implementation", "Testing", "Maintainability"], "Implement a small task scheduler with a clear interface, tests and maintainable state transitions.", [], "hard"),
   round("leadership", "Technical leadership", "career", "hiring-manager", ["Mentoring", "Roadmap prioritisation", "Stakeholder alignment"], "Work through a roadmap conflict, propose priorities and show how you would mentor and align stakeholders.", ["staff", "principal"], "hard"),
 ];
 
@@ -82,7 +84,7 @@ const specialistPresets: Extract<NodePreset, { kind: "round" }>[] = [
   round("arrays-hashing", "Arrays & hash maps", "coding", "dsa", ["Arrays", "Hash maps", "Complexity"], "Find duplicate events within a time window and compare a naive approach with a hash-based one."),
   round("linked-lists", "Linked lists & pointers", "coding", "dsa", ["Linked lists", "Pointer invariants", "Cycles"], "Reverse segments of a linked list and explain pointer invariants and cycle detection."),
   round("trees-graphs", "Trees & graph traversal", "coding", "dsa", ["BFS", "DFS", "Topological sorting"], "Find an execution order for dependent tasks and report a cycle with a concrete example."),
-  round("dynamic-programming", "Dynamic programming", "coding", "dsa", ["Recurrences", "Memoisation", "State design"], "Solve a constrained resource allocation problem and derive the recurrence before optimising memory.", [], "hard", 60),
+  round("dynamic-programming", "Dynamic programming", "coding", "dsa", ["Recurrences", "Memoisation", "State design"], "Solve a constrained resource allocation problem and derive the recurrence before optimising memory.", [], "hard"),
   round("search-sort", "Searching & sorting", "coding", "dsa", ["Binary search", "Sorting", "Invariants"], "Locate the first feasible capacity for a workload and prove the search boundary conditions."),
   round("heaps-intervals", "Heaps & interval scheduling", "coding", "dsa", ["Priority queues", "Intervals", "Greedy algorithms"], "Schedule overlapping meetings using a heap and explain why the greedy choice is correct."),
   round("coding-review", "Code review & refactoring", "coding", "lld", ["Code review", "Refactoring", "Behaviour preservation"], "Review a small parser, identify risky changes and refactor it while preserving tested behaviour."),
@@ -110,7 +112,7 @@ const specialistPresets: Extract<NodePreset, { kind: "round" }>[] = [
   round("event-services", "Event-driven backend", "backend", "system-design", ["Messaging", "Outbox", "Retries"], "Design reliable order events using an outbox, consumer deduplication and poison-message handling."),
   round("backend-caching", "Backend caching", "backend", "system-design", ["TTL", "Invalidation", "Cache stampedes"], "Add a cache to a catalogue service and reason through stale data and a traffic spike."),
   // End-to-end product implementation.
-  round("fullstack-feature", "Fullstack feature delivery", "fullstack", "lld", ["UI", "API", "Persistence"], "Implement a saved-items flow across UI, API and database, including duplicate and offline errors.", [], "medium", 60),
+  round("fullstack-feature", "Fullstack feature delivery", "fullstack", "lld", ["UI", "API", "Persistence"], "Implement a saved-items flow across UI, API and database, including duplicate and offline errors.", [], "medium"),
   round("fullstack-auth", "Fullstack authentication", "fullstack", "system-design", ["Sessions", "Authorisation", "CSRF"], "Design a sign-in and protected-resource flow with session expiry and permission checks."),
   round("fullstack-debug", "Cross-layer debugging", "fullstack", "lld", ["Network traces", "Logs", "Data consistency"], "Trace a missing form submission across browser, API and storage and isolate the failing boundary."),
   round("realtime-product", "Realtime product design", "fullstack", "system-design", ["WebSockets", "Presence", "Reconnection"], "Design a collaborative board with reconnect handling, presence and conflicting edits."),
@@ -149,7 +151,7 @@ const specialistPresets: Extract<NodePreset, { kind: "round" }>[] = [
   round("ai-agents", "AI agents & tool use", "ai", "system-design", ["Tool contracts", "State", "Recovery"], "Design a bounded tool-using assistant with validated inputs, explicit permissions and failure recovery.", ["llm", "agents"]),
   round("mlops", "MLOps & model serving", "ai", "system-design", ["Model registry", "Drift", "Serving"], "Plan a model rollout with versioned features, drift monitoring and rollback criteria."),
   // Operations and infrastructure.
-  round("cloud-architecture", "Cloud infrastructure architecture", "cloud", "system-design", ["Networking", "IAM", "Availability zones"], "Design a cloud service across availability zones and explain network, identity and cost boundaries.", ["aws", "azure", "gcp"], "hard", 60),
+  round("cloud-architecture", "Cloud infrastructure architecture", "cloud", "system-design", ["Networking", "IAM", "Availability zones"], "Design a cloud service across availability zones and explain network, identity and cost boundaries.", ["aws", "azure", "gcp"], "hard"),
   round("kubernetes", "Kubernetes operations", "cloud", "system-design", ["Deployments", "Probes", "Resource limits"], "Diagnose a failing Kubernetes rollout and adjust probes, resource requests and rollback strategy.", ["k8s"]),
   round("infrastructure-code", "Infrastructure as code", "cloud", "lld", ["Terraform", "State", "Drift"], "Review an infrastructure change and plan safe state handling, drift detection and environment separation.", ["iac"]),
   round("sre-reliability", "SRE reliability engineering", "cloud", "system-design", ["SLIs", "SLOs", "Error budgets"], "Define a service-level objective and use an error budget to prioritise reliability work.", ["sre"]),
@@ -176,7 +178,7 @@ const specialistPresets: Extract<NodePreset, { kind: "round" }>[] = [
   round("game-engineering", "Game systems engineering", "systems", "lld", ["Game loops", "Entity systems", "Frame budgets"], "Implement a simple entity update system and reason about deterministic updates and frame time.", ["unity", "unreal"]),
   round("graphics", "Graphics & rendering systems", "systems", "system-design", ["Rendering pipelines", "GPU", "Profiling"], "Diagnose a frame-time spike and compare CPU submission, GPU work and resource lifetime choices."),
   // Software architecture and design decisions.
-  round("distributed-systems", "Distributed systems reasoning", "architecture", "system-design", ["Consistency", "Partitions", "Replication"], "Design replicated configuration storage and explain behaviour during a network partition.", [], "hard", 60),
+  round("distributed-systems", "Distributed systems reasoning", "architecture", "system-design", ["Consistency", "Partitions", "Replication"], "Design replicated configuration storage and explain behaviour during a network partition.", [], "hard"),
   round("domain-design", "Domain-driven design", "architecture", "lld", ["Bounded contexts", "Aggregates", "Invariants"], "Model order and fulfilment contexts and place invariants at explicit aggregate boundaries."),
   round("architecture-review", "Architecture review & trade-offs", "architecture", "system-design", ["ADRs", "Constraints", "Evolution"], "Compare two service designs against real constraints and write a concise decision rationale.", ["staff", "principal"], "hard"),
   round("legacy-modernisation", "Legacy modernisation", "architecture", "system-design", ["Strangler pattern", "Compatibility", "Migration"], "Plan an incremental replacement of a legacy service with measurable checkpoints and rollback paths."),
@@ -186,7 +188,7 @@ const specialistPresets: Extract<NodePreset, { kind: "round" }>[] = [
   round("mentoring", "Mentoring & feedback", "career", "behavioural", ["Coaching", "Feedback", "Growth"], "Role-play feedback on a struggling project and propose a specific, supportive growth plan."),
   round("staff-influence", "Staff engineer influence", "career", "hiring-manager", ["Cross-team influence", "Strategy", "Technical leverage"], "Resolve a cross-team technical dependency and show how you would build alignment without authority.", ["staff", "principal"], "hard"),
   round("engineering-management", "Engineering management", "career", "hiring-manager", ["Team health", "Delivery", "Delegation"], "Balance a delivery deadline with team capacity and explain delegation and stakeholder communication.", ["em", "manager"]),
-  round("graduate-career", "Graduate & early-career discussion", "career", "hiring-manager", ["Learning", "Projects", "Motivation"], "Explain a study, personal or work project and connect what you learned to the role you want.", ["graduate", "junior", "entry level"], "easy", 30),
+  round("graduate-career", "Graduate & early-career discussion", "career", "hiring-manager", ["Learning", "Projects", "Motivation"], "Explain a study, personal or work project and connect what you learned to the role you want.", ["graduate", "junior", "entry level"], "easy"),
   round("technical-communication", "Technical communication", "career", "behavioural", ["Audience adaptation", "Written reasoning", "Clarity"], "Explain a technical trade-off to both an engineer and a non-technical stakeholder using a concrete example."),
 ];
 

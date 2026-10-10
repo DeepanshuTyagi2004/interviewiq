@@ -6,6 +6,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { MAX_INFO_NODES, MAX_ROUND_NODES } from "@/features/loops/graph";
 import { NODE_CATEGORIES, NODE_PRESETS, filterNodePresets } from "@/features/loops/presets";
 import { PALETTE_MIME } from "@/features/loops/components/FlowCanvas";
+import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
 import { cn } from "@/lib/utils/cn";
 import { createNodeDragPreview } from "./nodeDragPreview";
 
@@ -88,7 +89,7 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
               <span draggable={false} className="min-w-0 flex-1">
                 <span className="block text-[12.5px] font-medium leading-snug">{node.label}</span>
                 <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{node.description}</span>
-                <span className="mt-2 flex items-center gap-1 font-mono text-[10px] text-faint">{node.kind === "round" ? `${node.durationMinutes} min · ${node.difficulty}` : <><Info aria-hidden className="h-3 w-3" />Reference only</>}</span>
+                <span className="mt-2 flex items-center gap-1 font-mono text-[10px] text-faint">{node.kind === "round" ? `${MOCK_ROUND_MINUTES} min · ${node.difficulty}` : <><Info aria-hidden className="h-3 w-3" />Reference only</>}</span>
                 <span id={`${uid}-${node.id}-hint`} className="sr-only">Topics: {node.topics.join(", ")}.{node.keywords.length ? ` Keywords: ${node.keywords.join(", ")}.` : ""}{capped ? " Limit reached; remove a node first." : ""}</span>
               </span>
               <Plus aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint" />

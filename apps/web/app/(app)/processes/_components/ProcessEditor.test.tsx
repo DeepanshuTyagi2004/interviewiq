@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { newRoundNode } from "@/features/loops/graph";
 import type { InterviewProcess, ProcessGraph } from "@/features/loops/types";
@@ -63,6 +63,19 @@ describe("ProcessEditor", () => {
     expect(screen.getByRole("combobox", { name: "Process level" })).toBeDisabled();
     expect(screen.getByLabelText("Node palette")).toHaveAttribute("inert");
   });
+  it("shows a round's length as read-only text, always the 45-minute mock length", async () => {
+    const user = userEvent.setup();
+    // A process saved before the change still holds 60 minutes.
+    mocks.data = { ...mocks.data!, graph: { nodes: [{ ...newRoundNode("dsa", { x: 0, y: 0 }), durationMinutes: 60 }], edges: [] } };
+    render(<ProcessEditor processId="p-1" />);
+    await user.click(screen.getByRole("button", { name: "Inspect Coding & algorithms" }));
+    const inspector = screen.getByLabelText("Inspector");
+    expect(within(inspector).getByText("Length")).toBeInTheDocument();
+    expect(within(inspector).getByText("45 min, every mock interview")).toBeInTheDocument();
+    expect(within(inspector).queryByRole("spinbutton")).toBeNull();
+    expect(within(inspector).queryByText(/60/)).toBeNull();
+  });
+
   it("saves natural-language guidance, stable comma-separated topics and round difficulty", async () => {
     const user = userEvent.setup();
     render(<ProcessEditor processId="p-1" />);

@@ -19,7 +19,7 @@ import { FlowCanvas } from "@/features/loops/components/FlowCanvas";
 import { MAX_INFO_NODES, MAX_ROUND_NODES, newCatalogueNode } from "@/features/loops/graph";
 import { NODE_PRESETS } from "@/features/loops/presets";
 import { ApiFetchError } from "@/lib/api-client/errors";
-import { ROUND_OPTIONS } from "@/lib/constants/interview";
+import { MOCK_ROUND_MINUTES, ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { NodePalette } from "./NodePalette";
@@ -55,12 +55,12 @@ function Inspector({ node, onPatch, onDelete }: { node: ProcessNode; onPatch: (p
             <Label>Round type</Label>
             <CustomSelect label="Round type" className={field} value={node.type} options={types.map((t) => ({ value: t.value, label: t.label }))} onValueChange={(value) => { const type = types.find((t) => t.value === value)?.value; if (type) onPatch({ type }); }} />
           </label>
+          {/* Not editable: every mock round has the same length. */}
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5">
-              <Label>Minutes</Label>
-              <input aria-label="Duration in minutes" type="number" min={5} max={240} className={field} value={node.durationMinutes}
-                onChange={(e) => onPatch({ durationMinutes: Math.min(240, Math.max(5, Math.round(Number(e.target.value) || 5))) })} />
-            </label>
+            <div className="flex flex-col gap-1.5">
+              <Label>Length</Label>
+              <span className="text-[13px] text-foreground">{MOCK_ROUND_MINUTES} min, every mock interview</span>
+            </div>
           </div>
         </>
       ) : (

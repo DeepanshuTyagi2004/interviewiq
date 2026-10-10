@@ -25,6 +25,20 @@ describe("NodePalette", () => {
     error.mockRestore();
   });
 
+  it("shows the 45-minute mock length on round cards, even if a preset still holds another length", () => {
+    const round = NODE_PRESETS.find((node) => node.kind === "round")!;
+    const stored = round.durationMinutes;
+    (round as { durationMinutes: number }).durationMinutes = 60; // simulate stale data; restored below
+    try {
+      render(<NodePalette {...props} />);
+      const card = screen.getByRole("button", { name: `Add ${round.label}` });
+      expect(card).toHaveTextContent("45 min · " + round.difficulty);
+      expect(card).not.toHaveTextContent("60 min");
+    } finally {
+      (round as { durationMinutes: number }).durationMinutes = stored;
+    }
+  });
+
   it("finds technology, topics, and multiword matches, and clears search", async () => {
     const user = userEvent.setup();
     render(<NodePalette {...props} />);
