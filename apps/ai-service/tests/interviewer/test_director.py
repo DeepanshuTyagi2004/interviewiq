@@ -35,3 +35,11 @@ def test_merges_triggers_into_single_flight_runs_and_survives_failures():
     assert briefs == [(3, ["time", "turns"])]
     assert len(failures) == 2 and d.runs == 1      # the "item" run fails (LLMUnavailable); "proctor" gets an invalid brief
     assert len(built) == 3
+
+
+def test_the_brief_carries_the_directors_read_of_how_the_current_problem_is_going():
+    from app.interviewer.brief import BRIEF_SCHEMA, Brief
+
+    assert Brief.model_validate({"for_position": 1, "problem_signal": "struggling"}).problem_signal == "struggling"
+    assert Brief.model_validate({"for_position": 1}).problem_signal == "unknown"
+    assert BRIEF_SCHEMA["properties"]["problem_signal"]["enum"] == ["strong", "adequate", "struggling", "unknown"]

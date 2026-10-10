@@ -9,10 +9,23 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Literal
 
-from app.interviewer.plan import PROTECTED_PHASES, Item, build_items, reserve_slots
+from app.interviewer.plan import (BACKGROUND_PHASES, MIN_BACKGROUND_TURNS, MIN_TURNS, PROTECTED_PHASES, Item, build_items, opening_hint,
+                                  reserve_slots)
 
 OrderKind = Literal["converge", "move_on", "wrap_up_now", "nudge", "mention_violation", "final_warning",
-                    "conduct_warning", "end"]
+                    "conduct_warning", "closing", "open_item", "end"]
+
+# Orders the talker must act on at once; every other order waits for a pause so the interviewer never speaks twice in a row.
+URGENT_ORDERS = frozenset({"mention_violation", "final_warning", "conduct_warning", "wrap_up_now", "closing", "open_item", "end"})
+ORDER_SPACING_S = 12.0
+# A problem solved early with this much of the round to spare is followed by another (a reserve problem), so a 30-minute
+# round is used, not ended after twelve minutes.
+EXTRA_PROBLEM_MIN_SLACK_S = 360.0
+EXTRA_PROBLEM_MIN_S = 180
+HARDER_PROBLEM_MIN_SLACK_S = 720.0
+STANDARD_PROBLEMS = 2           # a DSA round's standard: two problems; a reserve is only added to reach it, never beyond
+MIN_SECOND_PROBLEM_S = 480.0   # a second problem is only started when the round has this much left for it
+STRUGGLED_HINT_STEPS = 2
 
 # What the talker is told about each proctor event (spec §7). PRODUCT IP draft.
 MENTION: dict[str, str] = {
@@ -52,6 +65,7 @@ class Rules:
 class Conductor:
     def __init__(self, blueprint: dict[str, Any], round_seconds: int, rules: Rules | None = None,
                  clock: Callable[[], float] = time.time, skills: tuple[str, ...] | list[str] = ()) -> None:
+        self.blueprint = blueprint
         self.rules = rules or Rules()
         self.clock = clock
         self.round_seconds = round_seconds
@@ -74,6 +88,11 @@ class Conductor:
         self.nudged_at = 0.0
         self.candidate_speaking = False
         self.agent_speaking = False
+        self.reply_owed = False   # the candidate spoke and the interviewer has not answered yet (set by the run)
+        self.agent_spoke_at = float("-inf")
+        self.signals: dict[str, str] = {}     # the director's latest read of each problem: strong / adequate / struggling
+        self.no_more_problems = False         # a later problem was skipped (the candidate struggled, or the round is out of time)
+        self.outline_said = False             # the interviewer has already told them how the round will run (not repeated at the framing)
         self.fired: dict[str, set[str]] = {}
         self.turns_since_director = 0
         self.triggers: set[str] = set()
@@ -94,11 +113,31 @@ class Conductor:
     def _activate(self, index: int, now: float) -> None:
         self.index = index
         item = self.items[index]
+        if item.kind == "slot" and any(i.kind == "slot" and i.status == "done" for i in self.items[:index]):
+            # A later problem gets the time that is really left, not more than its box.
+            now_s = now - (self.started_at or now)
+            left = self.round_seconds - now_s - sum(i.max_seconds for i in self.items[index + 1:] if i.status == "pending" and i.kind != "slot")
+            item.max_seconds = int(min(item.max_seconds, max(180.0, left)))
         item.status = "active"
         item.started_at = now
         self.position += 1
         self.nudged_at = now
         self.triggers.add("item")
+        if item.phase == "wrap_up":
+            self._order("closing", "Say your closing now, warmly and briefly, and thank them. The interview ends when you have "
+                                   "said it: no further questions.", now)
+        elif self.position > 1:
+            # The talker is not always exact about opening a new part in the turn that moves to it. This order makes sure it
+            # is opened: at once if the last turn was a bare transition, and consumed when that turn already opened it.
+            if item.kind == "slot":
+                self._order("open_item", "You have moved on to the next coding problem: put it on their screen now (show_problem), say "
+                                         "only that it is on their screen, and invite their questions. If you just said you would talk "
+                                         "about something else, say you have a problem for them first.", now)
+            elif item.phase == "framing" and self.outline_said:
+                self._order("open_item", "You have moved on, and you already told them how the round will run: do not repeat it. "
+                                         "Ask for a short introduction of their background (or follow up on what they just said).", now)
+            elif (hint := opening_hint(self.blueprint, item.phase)) is not None:
+                self._order("open_item", f"You have moved on to {item.phase}: open it now. {hint[0].upper() + hint[1:]}", now)
 
     def _find(self, item_id: str) -> int | None:
         return next((i for i, it in enumerate(self.items) if it.item_id == item_id), None)
@@ -116,6 +155,12 @@ class Conductor:
     def next_item(self, reason: str) -> Item | None:
         now = self.clock()
         cur = self.current()
+        if cur.kind == "slot" and self.will_skip_next_problem():
+            # Struggled on this one (or out of time): the next problems are not given and the round heads for its end.
+            for later in self.items[self.index + 1:]:
+                if later.kind == "slot" and later.status == "pending":
+                    later.status = "skipped"
+            self.no_more_problems = True
         if cur.status == "active":
             cur.status, cur.ended_at, cur.ended_by = "done", now, reason
         for i in range(self.index + 1, len(self.items)):
@@ -159,6 +204,7 @@ class Conductor:
     # ------------------------------------------------------------ events
 
     def on_candidate_turn(self) -> None:
+        self.current().turns += 1
         self.last_activity = self.clock()
         self.turns_since_director += 1
         if self.turns_since_director >= self.rules.director_every_turns:
@@ -173,7 +219,129 @@ class Conductor:
     def set_agent_speaking(self, speaking: bool) -> None:
         self.agent_speaking = speaking
         if not speaking:
-            self.last_activity = self.clock()
+            self.last_activity = self.agent_spoke_at = self.clock()
+
+    def quiet_for_s(self) -> float:
+        """Seconds since the interviewer last stopped speaking."""
+        return self.clock() - self.agent_spoke_at
+
+    def urgent_pending(self) -> bool:
+        return any(o.kind in URGENT_ORDERS for o in self.pending_orders())
+
+    def can_advance(self) -> tuple[bool, str]:
+        """Whether the talker may leave the current item now, and if not, why (told to the talker in the live state)."""
+        if self.ended:
+            return False, "the interview is already over"
+        item = self.current()
+        elapsed = self.clock() - (item.started_at or self.clock())
+        if item.max_seconds > 0 and elapsed >= item.max_seconds:
+            return True, ""                                       # the plan's time is up: the plan comes first
+        if item.kind == "phase" and item.phase in BACKGROUND_PHASES:
+            ahead = next((i for i in self.items[self.index + 1:] if i.status == "pending"), None)
+            if ahead is None or ahead.kind == "slot":              # leaving the conversation for the coding
+                total = sum(i.turns for i in self.items if i.kind == "phase" and i.phase in BACKGROUND_PHASES)
+                if total < MIN_BACKGROUND_TURNS:
+                    return False, (f"the conversation before the coding has had {total} of {MIN_BACKGROUND_TURNS} exchanges: "
+                                   "ask about their background and follow up on what they say first")
+        need = MIN_TURNS.get(item.phase, 0) if item.kind == "phase" else 0
+        if item.turns < need:
+            more = need - item.turns
+            return False, (f"you are in {item.phase} and the candidate has had {item.turns} of {need} exchanges: "
+                           f"ask {more} more real question{'s' if more > 1 else ''} first (follow up on what they say)")
+        return True, ""
+
+    def problem_allowed(self) -> bool:
+        """Whether a problem may be shown or announced now: a problem is current, or the conversation before the coding has had
+        its exchanges (or the current part's time is up) and a problem is still ahead."""
+        cur = self.current()
+        if self.ended:
+            return False
+        if cur.kind == "slot":
+            return True
+        if not any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:]):
+            return False
+        if cur.phase not in BACKGROUND_PHASES:
+            return False
+        total = sum(i.turns for i in self.items if i.kind == "phase" and i.phase in BACKGROUND_PHASES)
+        # A part's time being up only opens the problem when no other part of the conversation is still ahead: a framing that
+        # ran long moves on to the introduction, and promising the problem then would be a promise nothing can keep.
+        conversation_ahead = any(i.kind == "phase" and i.phase in BACKGROUND_PHASES and i.status == "pending" for i in self.items[self.index + 1:])
+        part_time_up = cur.max_seconds > 0 and self.clock() - (cur.started_at or self.clock()) >= cur.max_seconds and not conversation_ahead
+        # Or the whole conversation has used its time (a plan item that lags far behind the talker never keeps the problem off the screen).
+        background = [i for i in self.items if i.kind == "phase" and i.phase in BACKGROUND_PHASES]
+        began = min((i.started_at for i in background if i.started_at is not None), default=None)
+        budget_up = began is not None and self.clock() - began >= sum(i.max_seconds for i in background)
+        return total >= MIN_BACKGROUND_TURNS or part_time_up or budget_up
+
+    def performance(self, item: Item) -> str:
+        """`struggled` or `strong` for a problem. The director's read decides when it has one; two ladder hints or running out of the
+        problem's time (with the director not calling it strong) also count as struggling."""
+        signal = self.signals.get(item.item_id)
+        if signal == "struggling" or item.hint_step >= STRUGGLED_HINT_STEPS:
+            return "struggled"
+        out_of_time = item.max_seconds > 0 and self.clock() - (item.started_at or self.clock()) >= item.max_seconds
+        if out_of_time and signal != "strong":
+            return "struggled"
+        return "strong"
+
+    def _time_for_next_problem(self) -> float:
+        """What is left of the round for a next problem, once everything else still planned after the current part has its time."""
+        now = self.clock()
+        left = self.round_seconds - (now - (self.started_at or now))
+        return left - sum(i.max_seconds for i in self.items[self.index + 1:] if i.status == "pending" and i.kind != "slot")
+
+    def will_skip_next_problem(self) -> bool:
+        """Leaving the current problem now would skip the next one: the candidate struggled on this one, or there is no time for it."""
+        cur = self.current()
+        if cur.kind != "slot" or self.ended:
+            return False
+        if not any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:]):
+            return False
+        return self.performance(cur) == "struggled" or self._time_for_next_problem() < MIN_SECOND_PROBLEM_S
+
+    def slack_s(self) -> float:
+        """Round time left once everything still planned after the current item has had its time."""
+        now = self.clock()
+        left = self.round_seconds - (now - (self.started_at or now))
+        return left - sum(i.max_seconds for i in self.items[self.index + 1:] if i.status == "pending")
+
+    def would_extend(self) -> bool:
+        """Whether leaving the current problem now would add another one: it is the last planned problem, a reserve is
+        left, and the round has the time."""
+        cur = self.current()
+        given = sum(1 for i in self.items if i.kind == "slot" and i.status in ("done", "active"))
+        return (not self.ended and not self.no_more_problems and cur.kind == "slot" and bool(self.reserves) and given < STANDARD_PROBLEMS
+                and self.performance(cur) == "strong"
+                and not any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:])
+                and self.slack_s() >= EXTRA_PROBLEM_MIN_SLACK_S)
+
+    def plan_extra_problem(self) -> Item | None:
+        """Add a reserve problem right after the current one when the round has time to spare: the harder one if the
+        candidate solved this quickly, otherwise another of the same kind."""
+        if not self.would_extend():
+            return None
+        cur = self.current()
+        slack = self.slack_s()
+        # The harder reserve only for a quick solve with plenty of round left: a hard problem in a few minutes is not an interview.
+        quick = (self.clock() - (cur.started_at or self.clock())) < 0.6 * cur.max_seconds and slack >= HARDER_PROBLEM_MIN_SLACK_S
+        pick = next((sid for sid in self.reserves if ("harder" in sid) == quick), None) or next(iter(self.reserves))
+        slot = self.reserves.pop(pick)
+        seconds = max(EXTRA_PROBLEM_MIN_S, int(min(int(slot["timebox_mins"]) * 60, slack - 60)))
+        item = Item(slot["slot_id"], "slot", "core", seconds, slot_id=slot["slot_id"])
+        self.items.insert(self.index + 1, item)
+        self.plan_changes.append({"op": "extra_problem", "target": slot["slot_id"], "at": self.clock(), "position": self.position})
+        return item
+
+    def ask_follow_up(self, held_back_problem: bool = False) -> Order:
+        held = (" The coding problem is not next yet: you were not allowed to put it up, so do not mention it or the coding part."
+                if held_back_problem else "")
+        return self._order("open_item", "Your last turn did not ask the candidate anything. Ask them a real follow-up question now, about "
+                                        "what they just said (do not announce what comes next)." + held, self.clock())
+
+    def close_out(self) -> None:
+        """The interviewer has said goodbye: finish the plan through the wrap-up and end the round."""
+        while not self.ended:
+            self.next_item("closing")
 
     def on_code_change(self) -> None:
         self.last_activity = self.clock()
@@ -263,9 +431,11 @@ class Conductor:
                     self.triggers.add("time")
                     text = ("Time for this question is up. Say something like 'seems like we have to move on', note where they "
                             "got to, then call next_item. Decline any request for more time firmly."
-                            if item.kind in ("slot", "filler") else "This part's time is up. Move on naturally and call next_item.")
+                            if item.kind in ("slot", "filler") else
+                            "This part's time is up. First acknowledge what the candidate just said in a few words, "
+                            "then move on naturally and call next_item.")
                     new.append(self._order("move_on", text, now))
-        if not self.candidate_speaking and not self.agent_speaking:
+        if not self.candidate_speaking and not self.agent_speaking and not self.reply_owed and item.phase != "wrap_up":
             coding = item.kind == "slot"
             limit = self.rules.silence_coding_s if coding else self.rules.silence_talking_s
             if now - max(self.last_activity, self.nudged_at) >= limit:
@@ -279,6 +449,10 @@ class Conductor:
     # ------------------------------------------------------------ director briefs
 
     def apply_brief(self, brief: dict[str, Any]) -> dict[str, Any]:
+        if brief.get("for_position") == self.position and self.current().kind == "slot":
+            signal = brief.get("problem_signal")
+            if signal in ("strong", "adequate", "struggling"):           # "unknown" never overwrites a judgement
+                self.signals[self.current().item_id] = signal
         if brief.get("for_position") != self.position:
             dropped = ["goal", "next_move"] + [f"plan_change:{c.get('op')}" for c in brief.get("plan_changes") or []]
             return {"stale": True, "applied": [], "dropped": dropped}
@@ -317,9 +491,11 @@ class Conductor:
             ridx = self._find(replace)
             if slot is None or ridx is None or self.items[ridx].kind != "slot" or self.items[ridx].status not in ("active", "pending"):
                 return False, "needs an unused reserve and a current or pending problem to replace"
+            replaced = self.items[ridx]
+            if ridx == self.index and (replaced.turns >= 1 or now - (replaced.started_at or now) > 90):
+                return False, "the candidate is already working on this problem: it cannot be swapped out now"
             del self.reserves[target]
             new_item = Item(slot["slot_id"], "slot", "core", int(slot["timebox_mins"]) * 60, slot_id=slot["slot_id"])
-            replaced = self.items[ridx]
             self.items.insert(ridx + 1, new_item)
             if ridx == self.index:
                 replaced.status, replaced.ended_at, replaced.ended_by = "swapped", now, "use_reserve"
@@ -368,7 +544,7 @@ class Conductor:
             "proctor": self.proctor, "full_violations": self.full_violations, "conduct": self.conduct,
             "conduct_turns": sorted(self.conduct_turns), "redirects": self.redirects, "labels": self.labels,
             "follow_ups": self.follow_ups, "plan_changes": self.plan_changes, "fired": {k: sorted(v) for k, v in self.fired.items()},
-            "ended": self.ended, "end_reason": self.end_reason,
+            "ended": self.ended, "end_reason": self.end_reason, "signals": self.signals, "no_more_problems": self.no_more_problems,
         }
 
     @classmethod
@@ -385,6 +561,7 @@ class Conductor:
         c.follow_ups, c.plan_changes = data.get("follow_ups", {}), data.get("plan_changes", [])
         c.fired = {k: set(v) for k, v in data.get("fired", {}).items()}
         c.ended, c.end_reason = data.get("ended", False), data.get("end_reason")
+        c.signals, c.no_more_problems = data.get("signals", {}), data.get("no_more_problems", False)
         now = clock()
         c.last_activity = now
         c.nudged_at = now

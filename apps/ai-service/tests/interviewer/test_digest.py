@@ -197,6 +197,23 @@ def test_that_is_a_hint_only_before_a_thing_on_screen():
     assert "“this works”" in d.text and "“that loop”" in d.text and "“that this”" not in d.text
 
 
+def test_a_deictic_word_over_a_pointer_that_had_long_been_resting_is_marked_as_weak_evidence():
+    clock = Clock(0.0)
+    t = ActivityTracker(clock)
+    clock.t = 80.0
+    t.events.append(code_ptr(30.0, 4, "x = 1"))                      # the pointer arrived 12 s before the word
+    t.on_transcript("so I add those differences up", True, 42.0)
+    weak = digest_for_utterance(t, t.take_turn(), clock()).text
+    assert "“those differences”" in weak and "pointer had rested there" in weak
+    clock2 = Clock(0.0)
+    t2 = ActivityTracker(clock2)
+    clock2.t = 80.0
+    t2.events.append(code_ptr(40.5, 4, "x = 1"))                     # it arrived just before the word
+    t2.on_transcript("so I add those differences up", True, 42.0)
+    fresh = digest_for_utterance(t2, t2.take_turn(), clock2()).text
+    assert "“those differences”" in fresh and "pointer had rested there" not in fresh
+
+
 def test_a_flood_of_activity_stays_inside_the_budget_and_keeps_what_matters_most():
     clock = Clock(0.0)
     t = ActivityTracker(clock)
@@ -245,7 +262,7 @@ def test_the_doc_keeps_the_digest_and_no_raw_events():
     doc = digest_for_utterance(t, utt, clock()).doc()
     assert doc["started_at"] == 100.0 and doc["duration_s"] == 8.0
     assert doc["spans"][0] == {"kind": "typing", "at": 1.0, "dur": 0.8, "text": "typed line 6 (2 edits): `if target - x in seen: return`"}
-    assert doc["refs"] == [{"phrase": "this loop", "at": 4.0, "target": "line 5 `seen = {}`"}]
+    assert doc["refs"] == [{"phrase": "this loop", "at": 4.0, "target": "line 5 `seen = {}`", "resting": False}]
     assert doc["since"].startswith("Since they last spoke") and doc["now"] == "Right now: caret at line 9, col 14."
     assert doc["text"].startswith(HEADER)
     assert "events" not in doc and len(doc["spans"]) <= 40

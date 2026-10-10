@@ -17,6 +17,7 @@ BURST_GAP_S = 2.0
 DWELL_MIN_S = 0.8
 BOARD_GROUP_GAP_S = 3.0
 REF_WINDOW_S = 1.5
+REST_WEAK_S = 6.0          # a pointer that had been on its target this long before the word is "resting", not pointing
 NOW_WINDOW_S = 3.0
 MAX_REFS = 5
 MAX_LINES = 14
@@ -163,12 +164,14 @@ class Ref:
     phrase: str               # the deictic word and the one after it: "this loop"
     at: float
     target: str
+    rested_s: float = 0.0     # how long the pointer had been on the target when the word was said
 
 
-def _target_at(events: list[Event], at: float) -> str | None:
-    """What the pointer was on (within REF_WINDOW_S of `at`), else where the caret or selection was."""
+def _target_at(events: list[Event], at: float) -> tuple[str, float] | None:
+    """What the pointer was on (within REF_WINDOW_S of `at`), else where the caret or selection was, and for how long the
+    pointer had been there (a pointer that arrived before the window counts as long resting)."""
     pointers = [e for e in events if e.kind == "ptr"]
-    best: tuple[float, str] | None = None
+    best: tuple[float, str, float] | None = None
     for i, e in enumerate(pointers):
         target = _target(e)
         if target is None:
@@ -176,17 +179,18 @@ def _target_at(events: list[Event], at: float) -> str | None:
         stop = pointers[i + 1].at if i + 1 < len(pointers) else float("inf")
         gap = 0.0 if e.at <= at <= stop else min(abs(at - e.at), abs(at - stop))
         if gap <= REF_WINDOW_S and (best is None or gap < best[0]):
-            best = (gap, target)
+            rested = float("inf") if e.data.get("carried") else max(0.0, at - e.at)
+            best = (gap, target, rested)
     if best:
-        return best[1]
+        return best[1], best[2]
     carets = [e for e in events if e.kind == "caret" and abs(e.at - at) <= REF_WINDOW_S]
     if not carets:
         return None
     c = min(carets, key=lambda e: abs(e.at - at))
     if c.data.get("sel"):
         lo, hi = c.data["sel"]
-        return f"the selection on {_lines(lo, hi)}"
-    return f"the caret on line {c.data['line']}"
+        return f"the selection on {_lines(lo, hi)}", 0.0
+    return f"the caret on line {c.data['line']}", 0.0
 
 
 def _refs(utt: Utterance, events: list[Event]) -> list[Ref]:
@@ -199,10 +203,10 @@ def _refs(utt: Utterance, events: list[Event]) -> list[Ref]:
         deictic = token in _DEICTIC or (token == "that" and nxt_token in _THAT_NOUNS) or (token == "line" and nxt_token.isdigit())
         if not deictic:
             continue
-        target = _target_at(events, w.at)
-        if target is None:
+        found = _target_at(events, w.at)
+        if found is None:
             continue
-        refs.append(Ref(clean(f"{w.text} {nxt}".strip(), 30), w.at, target))
+        refs.append(Ref(clean(f"{w.text} {nxt}".strip(), 30), w.at, found[0], found[1]))
         if len(refs) >= MAX_REFS:
             break
     return refs
@@ -245,7 +249,8 @@ def _when(span: Span, t0: float) -> str:
 
 def _render(utt: Utterance, spans: list[Span], refs: list[Ref], since: str | None, right_now: str | None) -> str:
     t0 = utt.start
-    items: list[tuple[int, float, str]] = [(_PRIORITY["ref"], r.at, f"- says “{r.phrase}” at {r.at - t0:+.1f}s → {r.target}") for r in refs]
+    items: list[tuple[int, float, str]] = [(_PRIORITY["ref"], r.at, f"- says “{r.phrase}” at {r.at - t0:+.1f}s → {r.target}"
+                                                     + (" (the pointer had rested there)" if r.rested_s > REST_WEAK_S else "")) for r in refs]
     items += [(_PRIORITY[s.kind], s.start, f"- {_when(s, t0)} {s.text}") for s in spans]
     kept = sorted(items, key=lambda i: (0 if i[0] == _PRIORITY["ref"] else 1, i[1]))
     head = [HEADER, f"While speaking ({max(1, round(utt.end - utt.start))} s):"]
@@ -282,7 +287,8 @@ class Digest:
             "duration_s": round(self.end - self.start, 1),
             "spans": [{"kind": s.kind, "at": round(s.start - self.start, 1), "dur": round(s.end - s.start, 1), "text": s.text}
                       for s in self.spans[:MAX_DOC_SPANS]],
-            "refs": [{"phrase": r.phrase, "at": round(r.at - self.start, 1), "target": r.target} for r in self.refs],
+            "refs": [{"phrase": r.phrase, "at": round(r.at - self.start, 1), "target": r.target,
+                      "resting": r.rested_s > REST_WEAK_S} for r in self.refs],
             "since": self.since, "now": self.now, "text": self.text,
         }
 
@@ -297,7 +303,7 @@ def _carried(tracker: ActivityTracker, at: float) -> list[Event]:
     if pointers:
         last = max(pointers, key=lambda e: e.at)
         if last.data.get("s") != "out":
-            out.append(Event(at, "ptr", last.data))
+            out.append(Event(at, "ptr", {**last.data, "carried": True}))
     carets = [e for e in tracker.events if e.kind == "caret" and e.at < at]
     if carets:
         last = max(carets, key=lambda e: e.at)

@@ -52,6 +52,9 @@ class Brief(_M):
     tone: str = ""
     evidence: list[EvidenceNote] = Field(default_factory=list)
     summary: str = ""
+    # How the current problem is going, in the director's judgement: "strong" (clear approach, working code, handles probes), "adequate",
+    # "struggling" (needed repeated hints, no working approach, lost). "unknown" until there is something to judge.
+    problem_signal: Literal["strong", "adequate", "struggling", "unknown"] = "unknown"
     conduct: Conduct = Field(default_factory=Conduct)
     leak_review: LeakReview = Field(default_factory=LeakReview)
 

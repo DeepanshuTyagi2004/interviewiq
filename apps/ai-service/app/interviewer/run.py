@@ -12,24 +12,35 @@ from typing import Any, AsyncIterator, Callable
 
 from app.interviewer.activity import ActivityTracker, Utterance
 from app.interviewer.brief import Brief
-from app.interviewer.conductor import Conductor, Order, Rules
+from app.interviewer.closing import (addresses_the_candidate, announces_problem, asks_for_next_problem, asks_for_questions, gives_outline,
+                                     is_farewell, leaves_the_part, matches_probe, moves_to_another_problem, starts_coding)
+from app.interviewer.conductor import ORDER_SPACING_S, Conductor, Order, Rules
 from app.interviewer.digest import digest_for_utterance, digest_idle
 from app.interviewer.director import Director
-from app.interviewer.guard import LeakGuard
-from app.interviewer.plan import round_seconds, wire_ids
-from app.interviewer.prompts import director_messages, item_details, state_block, talker_messages, talker_prefix
-from app.interviewer.talker import TalkerFailed, TalkerTurn
-from app.interviewer.tools import ToolExecutor
+from app.interviewer.guard import NEUTRAL_LINE, LeakGuard
+from app.interviewer.llm import ToolCall
+from app.interviewer.plan import layout_for, round_seconds, wire_ids
+from app.interviewer.prompts import director_messages, item_details, opening_hint, state_block, talker_messages, talker_prefix
+from app.interviewer.talker import SCREEN_CLAIM, Pacing, TalkerFailed, TalkerTurn
+from app.interviewer.tools import ToolExecutor, tools_for
 
 logger = logging.getLogger(__name__)
 MAX_HISTORY = 20
 FAILURES_TO_END = 3
+TECHNICAL_AFTER_S = 90.0     # failed replies end the round only once they have gone on this long (a provider blip is not an ending)
+RETRY_AFTER_FAILURE_S = 4.0  # a reply that failed is asked for again after this long
 CANDIDATE_GONE_S = 120.0
 ABSENCE_VIOLATION_S = 20.0   # away at least this long (a refresh is quicker) counts as a full violation
 END_REQUEST_WATCHDOG_S = 8.0
 END_ORDER_GRACE_S = 20.0     # an ending the talker never got to say is carried out anyway after this long
 REPLY_RETRY_S = 3.0
+MUST_REPHRASE = ("(What you were about to say is not allowed at this point (it would announce something that is not ready or give "
+                 "something away). Say something different instead: react to what they just said and ask a real question.)")
+MUST_ANSWER = ("(You said nothing, and the candidate is waiting for you: reply now with at least one spoken sentence, "
+               "acknowledging what they just said. Do not use <silent>.)")
 MAX_TRACKED_ACTIONS = 60
+# What the talker logs when it has decided to leave the current part. It sometimes says so and forgets the next_item call.
+MOVE_ON_ACTIONS = frozenset({"acknowledge_move_on", "wrap_up_slot", "move_on"})
 
 
 def _iso() -> str:
@@ -46,8 +57,10 @@ class RunDeps:
     api: Any
     store: Any
     clock: Callable[[], float] = time.time
-    first_token_timeout_s: float = 4.0
+    first_token_timeout_s: float = 3.0
     rules: Rules | None = None
+    fallback_chat: Any = None            # raced against a slow talker model (see talker.py)
+    pacing: Pacing | None = None
 
 
 class InterviewRun:
@@ -61,7 +74,8 @@ class InterviewRun:
         self.wire = wire_ids(deps.blueprint)   # slot_id -> the id the browser sees
         self.guard = LeakGuard(deps.blueprint)
         self.tools = ToolExecutor(self)
-        self.talker = TalkerTurn(deps.talker_chat, self.guard, self.tools, deps.first_token_timeout_s)
+        self.talker = TalkerTurn(deps.talker_chat, self.guard, self.tools, deps.first_token_timeout_s,
+                                 fallback=deps.fallback_chat, pacing=deps.pacing, on_slow=self._on_slow)
         self.director = Director(deps.director_chat, self._director_messages, self._on_brief, self._on_director_failure)
         self.prefix = talker_prefix(deps.blueprint, deps.context)
         self.tracker = ActivityTracker(deps.clock)
@@ -80,6 +94,14 @@ class InterviewRun:
         self.actions: dict[str, str] = {}          # workspace message id -> type, until its ack is reported to the talker
         self.code_seen: list[str] | None = None    # the code the talker was shown this turn (anchors refer to it)
         self.failures = 0
+        self.first_failure_at: float | None = None   # when the current run of failed replies began
+        self.failed_at: float | None = None          # when the last reply failed (cleared by the next one that works)
+        self.tool_refused: list[dict[str, Any]] = []   # tool calls the plan refused last turn, told to the talker once
+        self.unanswered: str | None = None           # what the candidate said that has not been answered yet
+        self._asked = ""                             # what the current reply answers
+        self._greeted = False                        # the greeting has been said (no filler line ever precedes it)
+        self.slow = False                            # the interviewer is taking longer than usual (shown on the page)
+        self._room_sent: tuple[str, bool] | None = None
         self.finishing = False
         self.finished = asyncio.Event()
         self.turn_ended_at: float | None = None
@@ -108,6 +130,7 @@ class InterviewRun:
             # The crash can beat the last checkpoint: number new turns after every turn already stored.
             self.seq = max(int(saved.get("seq") or 0), await self.d.store.max_seq(self.session_id))
             self.d.workspace.restore_mirror(saved.get("mirror") or {})
+            await self._sync_room_state()
             return
         await self.d.store.start_run({
             "session_id": self.session_id, "candidate_id": self.candidate_id,
@@ -116,6 +139,24 @@ class InterviewRun:
             "models": {"talker": getattr(self.d.talker_chat, "model", None), "director": getattr(self.d.director_chat, "model", None)},
         })
         self.conductor.start()
+        await self._sync_room_state()
+
+    async def _sync_room_state(self) -> None:
+        """Tell the page the layout (conversation full width until a problem needs the editor, and again for the
+        closing) and whether the interviewer is slow. Sent whole, and only when it changed."""
+        layout = "talk" if self.finishing or self.conductor.ended else layout_for(self.d.blueprint, self.conductor.current())
+        state = (layout, self.slow)
+        if state == self._room_sent:
+            return
+        self._room_sent = state
+        try:
+            await self.d.workspace.send({"type": "room.state", "layout": layout, "slow": self.slow})
+        except Exception as exc:  # noqa: BLE001 - the layout is a nicety, it must never break the interview
+            logger.warning("could not send the room state: %s", exc)
+
+    def _on_slow(self, slow: bool) -> None:
+        self.slow = slow
+        self._spawn(self._sync_room_state())
 
     def _spawn(self, coro) -> None:
         task = asyncio.create_task(coro)
@@ -157,6 +198,8 @@ class InterviewRun:
         self.transcript.append({"seq": self.seq, "speaker": "candidate", "text": text})
         self.candidate_said[item_id] = (self.candidate_said.get(item_id, "") + " " + text)[-4000:]
         self.ask_for_turn, self.ask = self.ask, None
+        self.unanswered = text
+        self.conductor.reply_owed = True
         self.conductor.on_candidate_turn()
         self.turn_ended_at = now
         try:
@@ -227,11 +270,48 @@ class InterviewRun:
             "code": {"language": code["language"], "version": code["version"], "lines": self.d.workspace.code_lines()} if code else None,
             "board": self.d.workspace.board_summary, "summary": self.summary,
             "on_screen": self._on_screen(item), "refused": refused, "activity": activity,
+            "advance": dict(zip(("ok", "why"), self.conductor.can_advance())),
+            "problem_left": any(i.kind == "slot" and i.status in ("pending", "active") for i in self.conductor.items),
+            "extra_problem": self.conductor.would_extend(),
+            "next_part": self._next_part(),
+            "skip_next_problem": self.conductor.will_skip_next_problem(),
         }
 
+    def _follow_the_conversation(self, text: str, result, failed: bool, item_id: str) -> None:
+        """The talker sometimes starts the next part without calling next_item. When what it asked is unmistakably the next part, move
+        the plan to it so the screen, the time and the orders follow the conversation."""
+        c = self.conductor
+        item = c.current()
+        if not text or result.interrupted or failed or c.ended or item.item_id != item_id or any(t["name"] == "next_item" for t in result.tool_calls):
+            return
+        ahead = next((i for i in c.items[c.index + 1:] if i.status == "pending"), None)
+        if ahead is None or ahead.kind != "phase" or not c.can_advance()[0]:
+            return
+        probes = [p.get("prompt", "") for p in (self.d.blueprint.get("personalization") or {}).get("resume_probes", [])]
+        slot_shown = item.kind == "slot" and self.tools._on_screen()
+        if item.kind == "slot" and c.would_extend():
+            c.plan_extra_problem()                  # time for another problem: the conversation about the projects waits for it
+            return
+        if slot_shown and ahead.phase == "deep_dive" and matches_probe(text, probes):
+            c.next_item("moved to the projects")
+        elif item.phase == "deep_dive" and ahead.phase == "candidate_questions" and asks_for_questions(text):
+            c.next_item("invited their questions")
+
+    def _next_part(self) -> dict[str, Any] | None:
+        if self.conductor.would_extend():
+            return {"phase": "problem", "hint": None}        # the round has time for another problem after this one
+        pending = [i for i in self.conductor.items[self.conductor.index + 1:] if i.status == "pending"]
+        if self.conductor.will_skip_next_problem():
+            pending = [i for i in pending if i.kind != "slot"]    # the next problem will not be given
+        nxt = pending[0] if pending else None
+        if nxt is None:
+            return None
+        return {"phase": "problem", "hint": None} if nxt.kind == "slot" else {"phase": nxt.phase, "hint": opening_hint(self.d.blueprint, nxt.phase)}
+
     def _take_refused(self) -> list[dict[str, Any]]:
-        """Workspace actions the candidate's screen refused since last turn; acked ones are forgotten."""
-        refused: list[dict[str, Any]] = []
+        """Workspace actions the candidate's screen refused since last turn, and tool calls the plan refused; acked ones
+        are forgotten."""
+        refused, self.tool_refused = list(self.tool_refused), []
         for message_id, kind in list(self.actions.items()):
             ack = self.d.workspace.acks.get(message_id)
             if ack is None:
@@ -255,6 +335,10 @@ class InterviewRun:
         orders = self.conductor.pending_orders()
         item = self.conductor.current()
         refused = self._take_refused()
+        if candidate_text is None and self.failed_at is not None:
+            candidate_text = self.unanswered           # asking again for a reply that failed: it answers the same turn
+        self._asked = candidate_text or ""                 # what this reply answers (the backstops read it after the turn)
+        utterance = self._utterance
         digest = self._digest(candidate_text is not None)
         activity = digest.doc() if digest is not None else None
         self.last_activity = activity
@@ -267,19 +351,77 @@ class InterviewRun:
         started = self.d.clock()
         self.awaiting_audio = turn
         failed = False
+        problem_in_play = self.conductor.problem_allowed()
+        quiet_coding = item.kind == "slot" and self.tools._on_screen() and starts_coding(candidate_text or "")
+        offered = tools_for(problem_in_play, bool(self.d.workspace.board_summary))
+        # Their questions come at the end: until the plan reaches that part, inviting them is held back (the conductor owns the order).
+        left = [i for i in self.conductor.items if i.status in ("pending", "active")]
+        qa_early = item.phase not in ("candidate_questions", "wrap_up") and (
+            any(i.kind == "slot" for i in left) or any(i.phase == "deep_dive" and i.status == "pending" for i in left)
+            or (item.phase == "deep_dive" and not self.conductor.can_advance()[0]))
         try:
+            spoken = 0
             async for sentence in self.talker.run(messages, turn_id=str(turn), current_slot=item.slot_id,
-                                                  candidate_said=self.candidate_said.get(item.item_id, "")):
+                                                  candidate_said=self.candidate_said.get(item.item_id, ""), tools=offered,
+                                                  block_screen_claims=not problem_in_play, neutral_on_blocked=False,
+                                                  block_qa_invites=qa_early, fillers_allowed=self._greeted, quiet_coding=quiet_coding):
+                spoken += 1
                 yield sentence
-            self.failures = 0
+            first = self.talker.last
+            if first.blocked and not first.interrupted and not self.finishing \
+                    and (spoken == 0 or not addresses_the_candidate(" ".join(first.spoken))
+                         or (any(b["rule"] == "screen_claim" for b in first.blocked) and "?" not in " ".join(first.spoken))):
+                # Everything the talker said was held back, or what is left is a remark that asks them nothing and would leave
+                # them waiting: ask again, saying why, rather than speak a bare filler line or go quiet.
+                already = (f' You have already said this in this turn: "{" ".join(first.spoken)}" Do not repeat or reword it; add only what is missing.'
+                           if first.spoken else "")
+                async for sentence in self.talker.run([*messages, {"role": "user", "content": MUST_REPHRASE + already}], turn_id=str(turn),
+                                                      current_slot=item.slot_id, candidate_said=self.candidate_said.get(item.item_id, ""),
+                                                      tools=offered, block_screen_claims=not problem_in_play, neutral_on_blocked=False,
+                                                      block_qa_invites=qa_early, fillers_allowed=self._greeted, quiet_coding=quiet_coding):
+                    spoken += 1
+                    yield sentence
+                before, first = first, self.talker.last
+                first.spoken = before.spoken + first.spoken            # the turn is what was said in both passes
+                first.tool_calls = before.tool_calls + first.tool_calls
+                first.blocked = before.blocked + first.blocked
+                first.decision = first.decision or before.decision
+                if spoken == 0:
+                    spoken = 1
+                    first.spoken.append(NEUTRAL_LINE)
+                    yield NEUTRAL_LINE
+            typing = bool(activity and "typed line" in (activity.get("text") or ""))
+            if spoken == 0 and candidate_text is not None and (item.kind != "slot" or not typing) and not first.interrupted \
+                    and not first.blocked and not self.finishing:
+                # <silent> is for a candidate thinking aloud over their code. After a conversational answer nothing said is dead
+                # air: ask once more, telling the model it must answer.
+                async for sentence in self.talker.run([*messages, {"role": "user", "content": MUST_ANSWER}], turn_id=str(turn),
+                                                      current_slot=item.slot_id, candidate_said=self.candidate_said.get(item.item_id, ""),
+                                                      tools=offered, block_screen_claims=not problem_in_play, fillers_allowed=self._greeted, quiet_coding=quiet_coding):
+                    yield sentence
+                again = self.talker.last
+                again.tool_calls = first.tool_calls + again.tool_calls
+                again.decision = again.decision or first.decision
+            if not self.talker.last.interrupted:
+                self.failures, self.first_failure_at, self.failed_at = 0, None, None
+                self.unanswered, self.conductor.reply_owed = None, False
+                if self.slow:
+                    self.slow = False
+            else:
+                self.conductor.reply_owed = False      # the candidate took the floor: what they say next is the turn
         except TalkerFailed:
             failed = True
             self.failures += 1
+            self.failed_at = self.d.clock()
+            if self.first_failure_at is None:
+                self.first_failure_at = self.failed_at
+            self.slow = True
+            self._utterance = utterance                # the retry builds the same activity digest
         finally:
-            self._after_turn(turn, orders, item.item_id, started, failed, refused, activity)
+            self._after_turn(turn, orders, item.item_id, started, failed, refused, activity, item.phase == "wrap_up")
 
     def _after_turn(self, turn: int, orders: list[Order], item_id: str, started: float, failed: bool,
-                    refused: list[dict[str, Any]], activity: dict[str, Any] | None = None) -> None:
+                    refused: list[dict[str, Any]], activity: dict[str, Any] | None = None, started_in_wrap_up: bool = False) -> None:
         result = self.talker.last
         if not result.interrupted and not failed:
             self.conductor.consume(orders)
@@ -287,6 +429,50 @@ class InterviewRun:
             if kinds & {"move_on", "wrap_up_now"} and self.conductor.current().item_id == item_id and not self.conductor.ended:
                 self.conductor.next_item("move_on")
         text = " ".join(result.spoken)
+        if text and not result.interrupted and not failed:
+            self._greeted = True
+        if text and not result.interrupted and not failed and gives_outline(text):
+            self.conductor.outline_said = True
+        if not result.interrupted:
+            self.tool_refused = [{"tool": c["name"], "reason": c["result"].get("error")} for c in result.tool_calls
+                                 if c["result"].get("ok") is False]
+        # The plan follows the conversation first: moving to the next part creates the order to open it, which this very turn
+        # may already have satisfied (it asked the part's opening question), so it must exist before that is checked.
+        self._follow_the_conversation(text, result, failed, item_id)
+        opened_now = bool(result.spoken) and (addresses_the_candidate(" ".join(result.spoken))
+                                              or any(c["name"] == "show_problem" and c["result"].get("ok") for c in result.tool_calls))
+        if opened_now and not result.interrupted and not failed:
+            # An order to open the part this very turn moved to is satisfied when the turn asked a question or showed the problem.
+            self.conductor.consume([o for o in self.conductor.pending_orders()
+                                    if o.kind == "open_item" and all(o is not x for x in orders)])
+        if (text and not result.interrupted and not failed and not self.conductor.ended
+                and self.conductor.problem_allowed() and not self.tools._on_screen() and any(announces_problem(s) for s in result.spoken)):
+            # They were told the problem is on their screen (from the problem itself or from the conversation before it, once a
+            # problem is allowed) and it is not: show it, the words were already spoken. show_problem runs the plan on if needed.
+            self._spawn(self.tools.execute(ToolCall(id="backstop", name="show_problem", arguments={}), str(turn)))
+        cur = self.conductor.current()
+        if (text and not result.interrupted and not failed and not self.conductor.ended and cur.kind == "phase"
+                and cur.phase in ("small_talk", "framing", "candidate_intro", "deep_dive") and not addresses_the_candidate(text)
+                and not any(o.kind == "open_item" for o in self.conductor.pending_orders())):
+            # A turn in the conversation that asked them nothing leaves the candidate waiting: the next turn must ask.
+            self.conductor.ask_follow_up(held_back_problem=any(b.get("rule") == "screen_claim" for b in result.blocked))
+        declared = (result.decision or {}).get("action")
+        # A different problem was promised, or asked for and told "it's on your screen", with no next_item behind it: do the move.
+        promised = ((moves_to_another_problem(text) or (asks_for_next_problem(self._asked) and (announces_problem(text) or SCREEN_CLAIM.search(text))))
+                    and self.conductor.current().kind == "slot"
+                    and not any(c["name"] == "show_problem" and c["result"].get("ok") for c in result.tool_calls))
+        if (text and ((leaves_the_part(text) and declared in MOVE_ON_ACTIONS) or promised) and not result.interrupted and not failed and not self.conductor.ended
+                and not any(c["name"] == "next_item" for c in result.tool_calls) and self.conductor.can_advance()[0]
+                and self.conductor.current().item_id == item_id and self.conductor.current().phase not in ("candidate_questions", "wrap_up")
+                and (self.conductor.current().kind != "slot" or self.tools._on_screen())):
+            if self.conductor.current().kind == "slot":
+                self.conductor.plan_extra_problem()
+            self.conductor.next_item("declared move on")
+        phase = self.conductor.current().phase
+        problems_done = not any(i.kind == "slot" and i.status in ("pending", "active") for i in self.conductor.items)
+        said_goodbye = (phase in ("candidate_questions", "wrap_up") or problems_done) and is_farewell(text)
+        if not result.interrupted and not failed and text and not self.conductor.ended and (said_goodbye or started_in_wrap_up):
+            self.conductor.close_out()                  # the closing has been said: the round is over, nothing more is asked
         self.transcript.append({"seq": turn, "speaker": "interviewer", "text": text})
         self._spawn(self.d.store.append_turn({
             "session_id": self.session_id, "candidate_id": self.candidate_id, "seq": turn, "speaker": "interviewer",
@@ -295,14 +481,17 @@ class InterviewRun:
             "end_to_first_token_ms": (int((started - self.turn_ended_at) * 1000 + (result.first_token_ms or 0))
                                       if self.turn_ended_at is not None else None),
             "usage": result.usage, "provider": result.provider, "interrupted": result.interrupted, "error": result.error,
+            "model": result.model, "hedged": result.hedged, "fillers": result.fillers, "attempts": result.attempts,
             "brief_position": (self.brief or {}).get("for_position"), "refused": refused, "activity": activity,
         }))
         end = self.conductor.end_order
-        if self.failures >= FAILURES_TO_END:
+        if self.failures >= FAILURES_TO_END and self.first_failure_at is not None \
+                and self.d.clock() - self.first_failure_at >= TECHNICAL_AFTER_S:
             self._spawn(self.finish(self._end_reason("technical")))
         elif end is not None and (end.consumed or not end.speak):
             self._spawn(self.finish(end.end_reason or "completed"))
         self._trigger_director()
+        self._spawn(self._sync_room_state())
         self._spawn(self._checkpoint())
 
     async def _checkpoint(self) -> None:
@@ -341,6 +530,15 @@ class InterviewRun:
             return
         new = self.conductor.tick()
         self._trigger_director()
+        await self._sync_room_state()
+        now = self.d.clock()
+        if self.failed_at is not None and self.conductor.reply_owed and now - self.failed_at >= RETRY_AFTER_FAILURE_S \
+                and now - self.reply_requested_at >= RETRY_AFTER_FAILURE_S:
+            self._speak_soon()                         # the last reply failed: ask for it again, never a "you're quiet" check-in
+        pending = self.conductor.pending_orders()
+        if pending and not new and self.conductor.end_order is None and now - self.reply_requested_at >= REPLY_RETRY_S \
+                and (self.conductor.urgent_pending() or self.conductor.quiet_for_s() >= ORDER_SPACING_S):
+            self._speak_soon()                          # an order that waited for the interviewer to have been quiet a moment
         end = self.conductor.end_order
         if end is not None and end.speak and not end.consumed:
             # An ending decided while the agent or candidate was talking: say it as soon as the floor is free,
@@ -350,7 +548,7 @@ class InterviewRun:
                 await self.finish(self._end_reason("technical"))
             elif now - self.reply_requested_at >= REPLY_RETRY_S:
                 self._speak_soon()
-        elif new:
+        elif new and (self.conductor.urgent_pending() or self.conductor.quiet_for_s() >= ORDER_SPACING_S):
             self._speak_soon()
 
     async def tick_forever(self, every: float = 1.0) -> None:

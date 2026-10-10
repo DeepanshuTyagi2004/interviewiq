@@ -10,12 +10,16 @@ def test_simulates_a_short_round_through_to_the_end():
     talker = FakeChat([
         say("Hi, I'm Siddharth.", tools=(("next_item", {"reason": "greeted"}),)),
         say("Tell me about yourself."),
-        say("Thanks, let's code.", tools=(("next_item", {"reason": "intro done"}),)),
-        say("The problem is on your screen.", tools=(("show_problem", {"item_id": "core-1"}),)),
+        say("What was your last project?"),
+        say("How did you settle the balances?"),
+        say("Good. Why that way?"),
+        say("Thanks, let's code.", tools=(("next_item", {"reason": "intro done"}), ("show_problem", {"item_id": "core-1"}))),
+        say("The problem is on your screen."),
         say("I noticed you switched tabs. Please stay here."),
         say("Thanks for your time, take care."),
     ])
-    script = ["Hi!", "I'm Asha, a backend engineer.", "#wait 5", "Sounds good.", "#tab", "#end"]
+    script = ["Hi!", "I'm Asha, a backend engineer.", "A split-bill app.", "Greedily, on net balances.", "Because it is simple.",
+              "#wait 5", "Sounds good.", "#tab", "#end"]
 
     run = asyncio.run(simulate(blueprint(), context(), script, talker, FakeChat(), seconds_per_line=5, out=lines_out.append))
 

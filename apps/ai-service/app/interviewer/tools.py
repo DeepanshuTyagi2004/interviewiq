@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.interviewer.closing import asks_for_next_problem, leaves_the_part
 from app.interviewer.llm import ToolCall
 from app.interviewer.plan import problem_payload, reveal_text, slot_by_id
 from app.interviewer.protocol import new_id
@@ -48,6 +49,17 @@ TOOLS: list[dict[str, Any]] = [
           {"condition": _STR, "action": _STR, "reason": _STR}, ("condition", "action", "reason")),
 ]
 TOOL_NAMES = frozenset(t["function"]["name"] for t in TOOLS)
+# What a turn may do while no problem is in play: talk, move on, flag conduct, log. The workspace tools are withheld, so a
+# model that is eager to get to the coding cannot "show the problem" during the background questions.
+CONVERSATION_TOOLS = frozenset({"next_item", "flag_conduct", "log_turn"})
+
+
+def tools_for(problem_in_play: bool, board_has_content: bool = True) -> list[dict[str, Any]]:
+    """The tools a turn may use. Without a problem in play only the conversation tools; and `look_at_board` only when something is
+    on the whiteboard (the candidate's code is already in the prompt, and models reach for it to "look at the code")."""
+    if not problem_in_play:
+        return [t for t in TOOLS if t["function"]["name"] in CONVERSATION_TOOLS]
+    return [t for t in TOOLS if board_has_content or t["function"]["name"] != "look_at_board"]
 
 
 class ToolExecutor:
@@ -118,6 +130,25 @@ class ToolExecutor:
 
     async def _show_problem(self, args: dict[str, Any], turn_id: str) -> dict[str, Any]:
         item = self._conductor.current()
+        if item.kind == "phase" and not self._conductor.ended:
+            # The talker is still on a background phase but wants the problem up: when that phase is done, move the plan
+            # on for it (the tools of one turn can arrive in either order), otherwise say what is left to do first.
+            if self._conductor.problem_allowed():
+                # The conversation before the coding is done (or its time is up): the plan runs through whatever background parts
+                # are left, so the talker's labels lagging behind it never keep the problem off the screen.
+                while self._conductor.current().kind != "slot" and not self._conductor.ended:
+                    self._conductor.next_item("problem requested")
+                item = self._conductor.current()
+            else:
+                nxt = next((i for i in self._conductor.items[self._conductor.index + 1:] if i.status == "pending"), None)
+                if nxt is None or nxt.kind != "slot":
+                    return {"ok": False, "error": "there is no problem to show after this part: do not say a problem is on their screen; "
+                                                  "carry on with this part's conversation"}
+                ok, why = self._conductor.can_advance()
+                if not ok:
+                    return {"ok": False, "error": f"not yet: {why}; do not say a problem is on their screen"}
+                self._conductor.next_item("problem requested")
+                item = self._conductor.current()
         slot = self._slot()
         if slot is None or item.slot_id is None or (args.get("item_id") or item.slot_id) not in (item.slot_id, self._wire(slot)):
             return {"ok": False, "error": "show_problem only shows the current problem"}
@@ -204,7 +235,8 @@ class ToolExecutor:
 
     async def _look_at_board(self, args, turn_id):
         png = await self.run.d.workspace.request_snapshot()
-        return {"ok": True, "image": png} if png else {"ok": False, "error": "the board is empty or didn't answer"}
+        return {"ok": True, "image": png} if png else {"ok": False, "error": "the whiteboard is empty or didn't answer. The candidate's code is "
+                                                                           "already in your live state: read it and comment on it now"}
 
     async def _give_hint(self, args, turn_id):
         slot = self._slot()
@@ -219,6 +251,21 @@ class ToolExecutor:
         return {"ok": True, "step": step}
 
     async def _next_item(self, args, turn_id):
+        ok, why = self._conductor.can_advance()
+        if not ok:
+            return {"ok": False, "error": f"not yet: {why}"}
+        item = self._conductor.current()
+        slot = self._slot()
+        elapsed = self._conductor.clock() - (item.started_at or self._conductor.clock())
+        if item.kind == "slot" and slot is not None and not self._on_screen() and elapsed < item.max_seconds:
+            return {"ok": False, "error": "this problem has not been shown to the candidate yet: call show_problem now, "
+                                          "do not skip it"}
+        if item.kind == "slot" and elapsed < item.max_seconds and not leaves_the_part(" ".join(self.run.talker.last.spoken)) \
+                and not asks_for_next_problem(getattr(self.run, "unanswered", None) or ""):
+            return {"ok": False, "error": "you are still asking about this problem: do not call next_item until you have finished with "
+                                          "it and tell them you are moving on (say so in the same turn)"}
+        if item.kind == "slot":
+            self._conductor.plan_extra_problem()       # time to spare after the last problem: another one follows
         nxt = self._conductor.next_item(str(args.get("reason") or "done")[:200])
         return {"ok": True, "now": nxt.item_id if nxt else None}
 

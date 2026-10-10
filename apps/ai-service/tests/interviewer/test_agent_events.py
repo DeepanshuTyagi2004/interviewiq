@@ -44,3 +44,17 @@ def test_the_session_does_not_answer_before_the_candidates_turn_is_complete():
         return default, ours
 
     assert asyncio.run(build()) == (True, False)      # LiveKit's default is the trap; ours turns it off
+
+
+def test_the_candidate_gets_a_second_of_silence_before_their_turn_counts_as_finished():
+    import asyncio
+
+    from livekit.agents import AgentSession
+
+    from app.interviewer.agent import TURN_HANDLING, PlaceholderLLM
+
+    async def build():
+        return AgentSession(llm=PlaceholderLLM(), turn_handling=TURN_HANDLING).options.endpointing
+
+    ends = asyncio.run(build())
+    assert ends["min_delay"] >= 1.0 and ends["max_delay"] >= 4.0      # thinking aloud pauses mid-sentence; LiveKit's 0.5 s cuts them off

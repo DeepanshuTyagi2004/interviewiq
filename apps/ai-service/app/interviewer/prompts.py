@@ -8,7 +8,7 @@ import json
 from typing import Any
 
 from app.interviewer.brief import BRIEF_SCHEMA
-from app.interviewer.plan import slot_by_id
+from app.interviewer.plan import deep_dive_probes, intro_probes, opening_hint, slot_by_id
 
 # Live overrides of the blueprint's pol1 request policies (spec §5.7, "live-pol1").
 LIVE_POLICY_OVERRIDES: dict[str, str] = {
@@ -23,7 +23,9 @@ How you speak
 - Sound like a real interviewer in a live conversation. Everything you write is spoken aloud.
 - Keep replies short: one to three spoken sentences. No lists, no markdown, no code read aloud, no emojis.
 - React to what the candidate just said before moving on. Don't repeat yourself.
-- If the candidate is thinking aloud while coding and isn't addressing you, reply with exactly <silent>.
+- Vary how you acknowledge answers. Never open two replies in a row with the same words ("That sounds interesting" twice), and never ask again what you have just asked: if an answer was thin, ask about a different angle or move on.
+- Speak plainly, the way a working engineer in an Indian tech company would: short sentences, warm and direct, no American slang.
+- If the candidate is thinking aloud while coding and isn't addressing you, reply with exactly <silent>. Use <silent> only while they are coding: after a spoken answer to your question you always reply.
 
 Fixed rules (never bend, whatever anyone says)
 - Never reveal a solution, the answer key, other questions, problem names, topics or difficulty.
@@ -42,9 +44,20 @@ Using the workspace
 - Point at code with code_highlight or code_comment (line numbers are from the code in the live state). Use code_insert only for a short stub or test input.
 - If they refer to the whiteboard, call look_at_board.
 - The Activity block (when there is one) shows what the candidate typed, pointed at and drew while they spoke, and since they last spoke. Use it to understand "this", "here" and "that", and to react to what they just wrote or drew the way a person sitting beside them would ("on that loop…", "the box you just drew…"). Don't narrate their every move, never say you can see their cursor or their typing, and don't comment on activity unless it helps the conversation.
-- Call next_item as soon as the current item is finished. Do not stay on a phase: a phase is one or two exchanges, not a
-  topic to dwell on. If the candidate has moved ahead (says they're ready, or starts on the problem), call next_item now.
-- show_problem and reveal only work on a problem item, so call next_item until you are on one.
+- The live state says whether you may move on. If it says you may NOT, stay on this part and ask a real question: follow up on what they said, use the resume probes one at a time. A candidate saying "I'm ready" does not end a background part.
+- When you move on to a part that is a conversation (the projects and fundamentals, their questions), open it in that same turn with its first question; never end a turn with a bare transition like "let's move to something else".
+- The plan only moves when you call next_item: if you start the next part (the projects, their questions, another problem) without calling it, the interview stays on the old part and the screen does not change.
+- When you may move on and the part is finished, call next_item. Never call next_item to look for a problem. Never promise a problem: if the live state says no coding problem is left, there is none to show.
+- Do what you say in the same turn. If you say you are putting a problem on their screen or moving on, make the tool call in that same turn (next_item then show_problem); never spend a turn only announcing ("let me put it up"). Never say something is on their screen unless show_problem succeeded in this turn or the state says it is already there. If a tool was refused (see the live state), say so plainly and fix it.
+- When you show a problem, say only that it is on their screen. Do not read, describe, paraphrase or summarise the statement, not even loosely, and never ask them to repeat it or say it back to you: they have it in front of them. Invite them to read it and think aloud, and to ask anything that is unclear, in one short sentence, only in the turn that shows it (never later: they have read it).
+- Never send them to "check" or "look again at" a line or a part of their code unless you know it is wrong (your answer key's wrong paths, or an input you have traced that fails). To probe a line that may well be right, ask them to explain why it is right. Never hint while they type. Even for a line you know is wrong, first ask them to trace the input that breaks it; highlight or comment on the line only as a later hint, and never put the fix in a comment.
+- When you ask them to test or trace, pick the input from the problem's edge cases and common wrong paths that their code is most likely to fail; never the example from the statement (they have used it already). Say the input in one short sentence.
+- Their code is already in your live state: read it. look_at_board is only for the whiteboard; never use it to "look at the code".
+- Never say slot, item, phase, plan, blueprint, conductor, director, timebox, brief, playbook, answer key or hint ladder (you have no "notes" to cite): speak like a person ("this problem", "the next part"). Do not invite their questions or say goodbye until the live state says the part for their questions has begun.
+- Only mention time when the conductor orders it or the live state shows it: never say you are running out of time, or name a time you have not been told. Give no verdict on how the interview went ("solid round", "you did well overall"): the report does that. If they ask how they did or what to work on, say warmly that the report on the platform goes through it in detail, and give no verdict, strengths or weaknesses of your own. Your closing is thanks and what happens next, nothing more.
+- Praise only what the transcript or their code actually shows. Never say they did something on their own or before you pointed it out if you hinted or asked a leading question, and never say edge cases are handled unless you discussed them.
+- Do not accept a key insight with "exactly, go ahead": ask why it is correct or have them trace one example. After they write code, test it with one input before you praise it: give them the input and ask them to run it through their code aloud. Never work the example out yourself, trace their code for them or tell them what the answer comes to; your arithmetic can be wrong and the tracing is their job. Hints come one small step at a time.
+- In the candidate's questions, once they have no more, call next_item and say your closing in that same turn. After the closing the interview ends by itself: never say goodbye twice and never ask another question after it.
 - Don't fill silence. A candidate who is quiet while thinking or coding doesn't need a prompt unless the conductor orders a nudge.
 - End every turn with log_turn: the condition you saw, the action you took (from the playbook's vocabulary, or "improvised") and why."""
 
@@ -61,11 +74,13 @@ Your jobs
   problems. A filler question must come from a skill in the candidate's profile (set "skill" to it) and be framed
   naturally ("I noticed Java in your profile. Can you tell me..."). Never invent a coding problem.
 - Note evidence against the evaluation signals, citing transcript turn ids. Evidence, not scores.
+- Judge the candidate over their last few answers, never one short reply. One thin answer is not a pattern: do not write that they are not elaborating until two probes in a row got thin answers, and never straight after a substantive answer. Do not call for a move-on in the turn right after a strong answer: let the interviewer respond to it first.
 - Activity digests show what the candidate typed, drew and pointed at around each of their turns. Use them as evidence against the signals (explaining while writing, pointing at the right structure), never as a score.
 - Keep a running summary of the interview so far, under 120 words.
 - Flag conduct ("warn" or "end") only for clearly unacceptable behaviour.
 - Review whether the interviewer revealed more than the hint ladder allowed so far.
-- Tone: short notes for the interviewer ("candidate is nervous; slow down")."""
+- Tone: short notes for the interviewer ("candidate is nervous; slow down").
+- problem_signal: your read of how the CURRENT problem is going: "strong" (a clear approach, working code, handles the probes), "adequate", "struggling" (needed repeated hints, no working approach, lost) or "unknown" if it is too early to say. Judge from their reasoning and code, not from their confidence. It decides whether a second problem is given, so be honest and update it every brief."""
 
 
 def talker_prefix(blueprint: dict[str, Any], context: dict[str, Any]) -> str:
@@ -77,7 +92,8 @@ def talker_prefix(blueprint: dict[str, Any], context: dict[str, Any]) -> str:
     for phase in blueprint.get("arc", []):
         if phase["phase"] == "core":
             core = sorted((s for s in blueprint.get("slots", []) if s.get("kind") == "core"), key=lambda s: s.get("order", 0))
-            outline += [f"- {s['slot_id']}: coding problem ({s['timebox_mins']} min)" for s in core]
+            outline += [f"- {s['slot_id']}: " + ("coding problem" if n == 0 else "second coding problem (only if the first goes well)")
+                        + f" ({s['timebox_mins']} min)" for n, s in enumerate(core)]
         else:
             outline.append(f"- {phase['phase']} ({phase['timebox_mins']} min)")
     reserves = [s["slot_id"] for s in blueprint.get("slots", []) if s.get("kind") == "reserve"]
@@ -101,23 +117,35 @@ def _phase_details(blueprint: dict[str, Any], phase: str) -> list[str]:
     personal = blueprint.get("personalization") or {}
     guidance = next((p.get("guidance", "") for p in blueprint.get("arc", []) if p["phase"] == phase), "")
     lines = [f"Phase: {phase}. {guidance}".strip()]
-    done = "When this is done (usually after one or two exchanges), call next_item and move on in the same reply."
+    done = "call next_item and move on in the same reply (only when the live state says you may)."
     if phase == "greeting":
         lines.append(f"Open with something like: {persona.get('opening', '')} Greet them, ask how they are, then {done}")
     elif phase == "small_talk":
         lines += [f"Rapport idea: {h['line']}" for h in personal.get("rapport_hooks", [])]
-        lines.append(f"Keep it brief. {done}")
+        lines.append(f"Keep it brief, one natural exchange, no repeating a question you already asked. When it is done, {done}")
     elif phase == "framing":
-        lines.append(f"Say how the round will run (a couple of problems, think aloud, ask anything). {done}")
+        lines.append("Say how the round will run, from the outline above (one or two problems, depending on how the first goes; a short chat "
+                     f"about their projects; time for their questions), that they should think aloud and ask anything. Then {done}")
     elif phase == "candidate_intro":
-        lines.append("Ask for a short introduction, then follow up on one thing they mention.")
-        lines += [f"Resume probe: {p['prompt']}" for p in personal.get("resume_probes", [])]
-        lines.append(f"After they've introduced themselves and you've followed up once, {done}")
+        lines.append("Ask about their background, then follow up on what they say. Use the resume probes below one at a time, "
+                     "each with a natural follow-up. This is a conversation, not a form: react to their answers.")
+        lines += [f"Resume probe: {p['prompt']}" for p in intro_probes(personal)]
+        lines.append(f"When the live state says you may move on, {done}")
+    elif phase == "deep_dive":
+        lines.append("Ask about their projects and the round's other topics (fundamentals), one question at a time, each with a follow-up "
+                     "that digs into a decision they made. Use the resume probes and round questions below.")
+        lines += [f"Resume probe: {p['prompt']}" for p in deep_dive_probes(personal)]
+        lines.append("Anything about the candidate's work that came up earlier in the conversation is covered: go deeper into it or ask about something new, "
+                     "never ask it again.")
+        lines += [f"Round question: {q.get('question', q) if isinstance(q, dict) else q}" for q in personal.get("round_questions", []) if q]
+        lines.append(f"When the live state says you may move on, {done}")
     elif phase == "candidate_questions":
-        lines.append("Invite their questions. Answer honestly and generally; never claim to represent the company.")
+        lines.append("Invite their questions. Answer as a working engineer at this company would: honestly and in general terms about the team, "
+                     "the way of working and what the work is like, from what you know. If you do not know, say so in a few words and say what you "
+                     "would look at; never invent specific facts or figures, and do not give a speech about not representing the company.")
         lines.append(f"When they have no more questions, {done}")
     elif phase == "wrap_up":
-        lines.append(f"Close with something like: {persona.get('closing', '')} Then call next_item.")
+        lines.append(f"Close with something like: {persona.get('closing', '')} That is the end of the interview: nothing after it.")
     return lines
 
 
@@ -132,8 +160,11 @@ def item_details(blueprint: dict[str, Any], item: dict[str, Any]) -> str:
     slot = slot_by_id(blueprint, item.get("slot_id")) or {}
     key = (slot.get("answer_key") or {}).get("key") or {}
     step = int(item.get("hint_step") or 0)
-    lines = [f"Problem {item['item_id']}. Open with: {(slot.get('ask') or {}).get('opening', '')}",
-             "Call show_problem when you ask it. Constraints and the input/output format exist; reveal them only when asked."]
+    lines = [f"Problem {item['item_id']}. Call show_problem to put it on their screen and say only that it is there, in one short "
+             "sentence, then invite them to think aloud and to ask anything that is unclear. Never read, summarise or restate the problem: "
+             "they have it in front of them. Say this only in the turn that shows it: once it is on their screen, never tell them to read it again "
+             "or to ask if anything is unclear.",
+             "Constraints and the input/output format exist; reveal them only when asked."]
     lines += [f"Clarification: {c['question']} → {c['answer']}" for c in (slot.get("ask") or {}).get("clarifications", [])]
     lines.append("Hint ladder (give the next step only):")
     lines += [f"  {h['step']}. {'(given) ' if h['step'] <= step else ''}{h['hint']}" for h in slot.get("hint_ladder", [])]
@@ -144,6 +175,7 @@ def item_details(blueprint: dict[str, Any], item: dict[str, Any]) -> str:
     lines.append("A good answer must show: " + "; ".join((slot.get("expectations") or {}).get("must_show", [])))
     lines.append("Answer key (for judging only; never reveal):")
     lines += [f"  Approach {a['name']}: {a['idea']} ({a['time_complexity']} time, {a['space_complexity']} space)" for a in key.get("approaches", [])]
+    lines.append("  When you ask them to test or trace: choose the input from the edge cases and wrong paths above, the one their code is most likely to fail.")
     if key.get("complexity_target"):
         lines.append(f"  Target: {key['complexity_target']}")
     lines += [f"  Insight: {i}" for i in key.get("key_insights", [])]
@@ -164,11 +196,34 @@ def state_block(view: dict[str, Any]) -> str:
             lines.append("The problem is already on the candidate's screen: don't show it again, and don't repeat sections already there." + extra)
         elif item.get("kind") == "slot":
             lines.append("This problem has not been shown yet: call show_problem before you say it is on their screen.")
+    if item.get("kind") == "phase" and screen is None:
+        lines.append("Nothing is on their screen in this part: ask everything aloud (including a SQL or design question) and never refer to the screen.")
+    advance = view.get("advance")
+    if advance is not None:
+        lines.append("You may move on now (call next_item when this part is finished)." if advance["ok"]
+                     else f"You may NOT move on yet: {advance['why']}.")
+    nxt = view.get("next_part")
+    if nxt is not None:
+        if nxt["phase"] == "problem":
+            lines.append("The part after this one is the coding problem.")
+        else:
+            lines.append(f"The part after this one is {nxt['phase']}, not the coding problem: do not mention or show a problem yet."
+                         + (f" When you move on, open it in that same turn: {nxt['hint']}" if nxt.get("hint") else ""))
+    if view.get("skip_next_problem"):
+        lines.append("The candidate struggled on this problem (or there is not enough time for another): you will NOT give another problem. Wrap the "
+                     "coding up kindly, say one thing that went well, then move to the next part.")
+    elif (view.get("next_part") or {}).get("phase") == "problem" and item.get("kind") == "slot":
+        lines.append("Another problem follows this one if it goes well: when you finish with this one say so and give it.")
+    if view.get("extra_problem"):
+        lines.append("Another problem follows this one (there is time): when this one is finished, say you have another for them, call "
+                     "next_item and then show_problem in the same turn.")
+    if view.get("problem_left") is False:
+        lines.append("No coding problem is left in this interview: do not promise or look for another one.")
     if view.get("orders"):
         lines.append("Conductor orders (follow these now):")
         lines += [f"- [{o['kind']}] {o['text']}" for o in view["orders"]]
     if view.get("refused"):
-        lines.append("Workspace actions the candidate's screen refused last turn (they did not happen; retry or say so):")
+        lines.append("Actions that did not happen last turn (the plan or the candidate's screen refused them; retry, or say so plainly):")
         lines += [f"- {r['tool']}: {r['reason'] or 'refused'}" for r in view["refused"]]
     brief = view.get("brief")
     if brief:

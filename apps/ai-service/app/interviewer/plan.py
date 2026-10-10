@@ -6,10 +6,19 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.blueprint.vocabulary import family, slot_round_type
+
 ItemKind = Literal["phase", "slot", "filler"]
 ItemStatus = Literal["pending", "active", "done", "skipped", "swapped"]
-PROTECTED_PHASES = frozenset({"candidate_questions", "wrap_up"})
+PROTECTED_PHASES = frozenset({"candidate_questions", "deep_dive", "wrap_up"})
 MIN_PHASE_SECONDS = 60
+# Candidate exchanges a phase needs before the interviewer may leave it early (its time being up always wins). A real
+# interviewer does not skip the background questions because the candidate says "ready".
+MIN_TURNS: dict[str, int] = {"small_talk": 1, "framing": 1, "deep_dive": 3, "candidate_questions": 1}
+# The conversation before the coding (greeting, small talk, framing, the intro) is counted as one block: the talker is not
+# always exact about which of these it is in, so what is required is enough real exchanges across them before the problem.
+BACKGROUND_PHASES = frozenset({"greeting", "small_talk", "framing", "candidate_intro"})
+MIN_BACKGROUND_TURNS = 5
 
 
 @dataclass
@@ -25,6 +34,7 @@ class Item:
     ended_by: str | None = None
     hint_step: int = 0
     filler: dict[str, str] | None = None
+    turns: int = 0                      # candidate exchanges while this item was active
 
 
 def _ordered(slots: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
@@ -33,14 +43,30 @@ def _ordered(slots: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
 
 def build_items(blueprint: dict[str, Any]) -> list[Item]:
     items: list[Item] = []
+    deep_dive = int((blueprint.get("round") or {}).get("deep_dive_mins") or 0)
     for phase in blueprint.get("arc", []):
         name = phase["phase"]
         if name == "core":
             for slot in _ordered(blueprint.get("slots", []), "core"):
                 items.append(Item(slot["slot_id"], "slot", "core", int(slot["timebox_mins"]) * 60, slot_id=slot["slot_id"]))
+            if deep_dive > 0:
+                # The blueprint sets time aside for questions on the candidate's projects and the round's other topics
+                # inside the core's minutes. It is a conversation: its own item, so the room goes back to full width.
+                items.append(Item("deep_dive", "phase", "deep_dive", deep_dive * 60))
         else:
             items.append(Item(name, "phase", name, max(MIN_PHASE_SECONDS, int(phase.get("timebox_mins") or 1) * 60)))
     return items
+
+
+def layout_for(blueprint: dict[str, Any], item: Item) -> str:
+    """`work` while the candidate is on a coding, low-level design or system design problem (they need the problem
+    and the editor or board), `talk` for everything else: greetings, resume and profile questions, behavioural
+    questions, their questions for the interviewer and the closing."""
+    if item.kind != "slot":
+        return "talk"
+    slot = slot_by_id(blueprint, item.slot_id) or {}
+    round_type = (slot.get("problem") or {}).get("round_type") or (blueprint.get("round") or {}).get("type") or "dsa"
+    return "talk" if family(slot_round_type(round_type, item.slot_id or "")) == "behavioural" else "work"
 
 
 def reserve_slots(blueprint: dict[str, Any]) -> list[dict[str, Any]]:
@@ -101,4 +127,33 @@ def reveal_text(slot: dict[str, Any] | None, kind: str) -> str | None:
         parts = [f"Input: {content['input_format']}" if content.get("input_format") else "",
                  f"Output: {content['output_format']}" if content.get("output_format") else ""]
         return "\n".join(p for p in parts if p) or None
+    return None
+
+
+def intro_probes(personal: dict[str, Any]) -> list[dict[str, Any]]:
+    """The resume probe the introduction may use: the first of two or more. With a single probe it is kept for the deep dive."""
+    probes = list(personal.get("resume_probes") or [])
+    return probes[:1] if len(probes) >= 2 else []
+
+
+def deep_dive_probes(personal: dict[str, Any]) -> list[dict[str, Any]]:
+    """The resume probes left for the deep dive, so it never re-asks what the introduction already covered."""
+    probes = list(personal.get("resume_probes") or [])
+    return probes[1:] if len(probes) >= 2 else probes
+
+
+def opening_hint(blueprint: dict[str, Any], phase: str) -> str | None:
+    """What to say first when the interview moves on to this part, so the move is a question and not an announcement."""
+    personal = blueprint.get("personalization") or {}
+    if phase == "framing":
+        return "say how the round will run (from the outline), then ask for a short introduction of their background."
+    if phase == "candidate_intro":
+        return "ask for a short introduction, then what they are working on now."
+    if phase == "deep_dive":
+        probe = next((p.get("prompt") for p in deep_dive_probes(personal) if p.get("prompt")), None)
+        return probe or "ask about a project from their resume, then a fundamentals question."
+    if phase == "candidate_questions":
+        return "thank them and invite their questions about the team and the work."
+    if phase == "wrap_up":
+        return (blueprint.get("persona") or {}).get("closing") or "thank them and say what happens next."
     return None

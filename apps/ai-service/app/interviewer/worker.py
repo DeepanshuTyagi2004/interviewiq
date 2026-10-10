@@ -4,6 +4,7 @@ metadata {"session_id": …}. One interviewer per room; a restarted worker resum
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 from typing import Any
@@ -17,10 +18,12 @@ from app.config import Settings, get_settings
 from app.db import mongo
 from app.interviewer.agent import TURN_HANDLING, InterviewerAgent, LiveKitSpeaker, PlaceholderLLM, wire_session_events
 from app.interviewer.api_client import ApiClient
-from app.interviewer.llm import director_chat, talker_chat
+from app.interviewer.llm import build_chats
 from app.interviewer.protocol import WORKSPACE_TOPIC, agent_message
 from app.interviewer.run import InterviewRun, RunDeps
 from app.interviewer.store import MongoStore
+from app.interviewer.talker import Pacing
+from app.interviewer.voices import build_tts, tts_voice
 from app.interviewer.workspace import WorkspaceBridge
 
 logger = logging.getLogger(__name__)
@@ -76,7 +79,7 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.warning("job for room %r has no session id; ignoring", ctx.room.name)
         return
     api = ApiClient(settings.api_base_url, settings.internal_api_key)
-    talker, director = talker_chat(settings), director_chat(settings)
+    talker, talker_fallback, director = build_chats(settings)
     try:
         # Join first and listen at once: the browser says hello the moment it sees us, long before the blueprint
         # and context have loaded, and LiveKit drops a stream that has no handler yet. The bridge holds what
@@ -96,12 +99,16 @@ async def entrypoint(ctx: JobContext) -> None:
         context = await api.context(session_id)
 
         store = MongoStore()
+        hedge_s = settings.interviewer_talker_timeout_seconds
+        pacing = dataclasses.replace(Pacing.scaled(hedge_s), deadline_s=settings.interviewer_talker_deadline_seconds)
         run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker, director_chat=director,
-                                   workspace=bridge, api=api, store=store,
-                                   first_token_timeout_s=settings.interviewer_talker_timeout_seconds))
+                                   workspace=bridge, api=api, store=store, first_token_timeout_s=hedge_s,
+                                   fallback_chat=talker_fallback, pacing=pacing))
+        voice = tts_voice(settings, blueprint.get("persona"))
         session = AgentSession(
-            stt=deepgram.STT(model="nova-3", language="en-US", api_key=settings.deepgram_api_key),
-            tts=deepgram.TTS(model=settings.interviewer_tts_voice, api_key=settings.deepgram_api_key),
+            stt=deepgram.STT(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key,
+                             mip_opt_out=settings.deepgram_mip_opt_out),
+            tts=build_tts(voice, settings.deepgram_api_key, settings.deepgram_mip_opt_out),
             llm=PlaceholderLLM(),
             turn_handling=TURN_HANDLING,
         )
@@ -136,6 +143,8 @@ async def entrypoint(ctx: JobContext) -> None:
             await session.aclose()
     finally:
         await talker.aclose()
+        if talker_fallback is not None:
+            await talker_fallback.aclose()
         await director.aclose()
         await api.aclose()
         await mongo.close()

@@ -176,11 +176,12 @@ async def _speak(run: InterviewRun, text: str | None, out: Callable[[str], None]
 
 
 async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: list[str], talker_chat, director_chat, *,
-                   seconds_per_line: float = 20.0, out: Callable[[str], None] = print) -> InterviewRun:
+                   fallback_chat=None, seconds_per_line: float = 20.0, out: Callable[[str], None] = print) -> InterviewRun:
     clock = SimClock()
     workspace = SimWorkspace(out)
     run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker_chat, director_chat=director_chat,
-                               workspace=workspace, api=SimApi(out), store=MemoryStore(), clock=clock, first_token_timeout_s=15.0))
+                               workspace=workspace, api=SimApi(out), store=MemoryStore(), clock=clock, first_token_timeout_s=15.0,
+                               fallback_chat=fallback_chat))
     speaker = SimSpeaker()
     run.speaker = speaker
     await run.start(None)
@@ -256,7 +257,7 @@ async def _load(session_id: str, skills: list[str]) -> tuple[dict[str, Any], dic
 async def _main(args: argparse.Namespace) -> None:
     from app.config import get_settings
     from app.db import mongo
-    from app.interviewer.llm import director_chat, talker_chat
+    from app.interviewer.llm import build_chats
     settings = get_settings()
     if not settings.openrouter_api_key:
         raise SystemExit("OPENROUTER_API_KEY is not set in apps/ai-service/.env")
@@ -266,11 +267,13 @@ async def _main(args: argparse.Namespace) -> None:
     finally:
         await mongo.close()
     lines = open(args.script, encoding="utf-8").read().splitlines() if args.script else list(_keyboard())
-    talker, director = talker_chat(settings), director_chat(settings)
+    talker, fallback, director = build_chats(settings)
     try:
-        await simulate(blueprint, context, lines, talker, director)
+        await simulate(blueprint, context, lines, talker, director, fallback_chat=fallback)
     finally:
         await talker.aclose()
+        if fallback is not None:
+            await fallback.aclose()
         await director.aclose()
 
 
