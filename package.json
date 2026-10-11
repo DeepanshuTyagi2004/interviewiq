@@ -7,7 +7,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev dev:interviewer",
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
