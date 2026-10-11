@@ -241,3 +241,38 @@ def test_a_state_queued_before_the_first_hello_is_not_sent_twice():
 
     room = asyncio.run(go())
     assert [m["type"] for _, m in room.local_participant.texts].count("room.state") == 1
+
+
+def test_screen_changes_made_while_holding_reach_the_candidate_only_on_release_and_in_order():
+    async def run():
+        room, bridge, _ = make()
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")
+        await settle()
+        bridge.hold()
+        await bridge.send({"type": "room.state", "layout": "work", "slow": False})
+        await bridge.send(SHOW)
+        await bridge.send({"type": "code.insert", "at": "top", "text": "# note", "purpose": "stub"})     # not a screen change: sent at once
+        assert bridge.cards["core-1"]["statement"] == "Find the pair."                                    # the interviewer already knows it is up
+        assert [m["type"] for _, m in room.local_participant.texts] == ["code.insert"]
+        await bridge.release()
+        return room, bridge
+
+    room, bridge = asyncio.run(run())
+    assert [m["type"] for _, m in room.local_participant.texts] == ["code.insert", "room.state", "panel.show_problem"]
+    asyncio.run(bridge.release())                                     # nothing is sent twice
+    assert len(room.local_participant.texts) == 3
+
+
+def test_a_screen_change_released_before_the_browser_says_hello_is_queued_for_it():
+    async def run():
+        room, bridge, _ = make()
+        bridge.hold()
+        await bridge.send(SHOW)
+        await bridge.release()
+        assert room.local_participant.texts == []
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")
+        await settle()
+        return room
+
+    room = asyncio.run(run())
+    assert [m["type"] for _, m in room.local_participant.texts] == ["panel.show_problem"]

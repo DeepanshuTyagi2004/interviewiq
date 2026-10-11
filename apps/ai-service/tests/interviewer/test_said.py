@@ -1,4 +1,5 @@
 """What the interviewer already said: the same thing is not said again, the same thing put differently is."""
+from app.interviewer.guard import NEUTRAL_LINE
 from app.interviewer.said import NEUTRAL_LINES, SaidTracker
 
 ASK = "Can you walk me through how you would approach this?"
@@ -62,5 +63,19 @@ def test_a_resumed_interview_remembers_what_was_said_before_the_crash():
 def test_the_fallback_line_rotates_and_starts_with_the_original():
     said = SaidTracker()
     lines = [said.neutral() for _ in range(len(NEUTRAL_LINES) + 1)]
-    assert lines[0] == "What do you think?" and lines[0] == lines[-1]
+    assert lines[0] == NEUTRAL_LINE and lines[0] == lines[-1]
     assert all(a != b for a, b in zip(lines, lines[1:]))
+
+
+def test_the_fallback_line_never_asks_what_they_think_about_nothing():
+    assert all("what do you think" not in line.lower() for line in NEUTRAL_LINES)
+
+
+def test_the_line_that_puts_a_problem_up_is_said_the_same_way_every_time_and_is_never_a_repeat():
+    said = SaidTracker()
+    first = "Here's your first question. Give it a read, and let me know if you have any questions."
+    said.add(first, "1")
+    assert said.repeat_of("Here's your second question. Give it a read, and let me know if you have any questions.") is None
+    assert said.repeat_of(first) is None
+    said.add("Take your time with it, there is no rush at all.", "2")
+    assert said.repeat_of("Take your time with it, there is no rush at all.") is not None

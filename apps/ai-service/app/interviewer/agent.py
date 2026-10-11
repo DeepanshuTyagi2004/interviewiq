@@ -47,6 +47,11 @@ class InterviewerAgent(Agent):
         text = new_message.text_content or ""
         self._pending_user_text = text
         self.run.on_user_text(text)
+        if self.run.skip_reply(text):
+            # "Okay." after "give it a read" asks for nothing: a real interviewer lets them get on with it. The turn is recorded;
+            # the reply is not generated.
+            self._pending_user_text = None
+            raise StopResponse()
 
     async def llm_node(self, chat_ctx: llm.ChatContext, tools: list[llm.Tool], model_settings) -> AsyncIterable[str]:
         text, self._pending_user_text = self._pending_user_text, None

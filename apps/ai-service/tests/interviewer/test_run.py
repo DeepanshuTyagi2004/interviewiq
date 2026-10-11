@@ -1229,3 +1229,236 @@ def test_the_run_knows_whether_a_candidate_is_in_the_room():
     assert run.candidate_in_room.is_set()
     run.set_candidate_in_room(False)
     assert not run.candidate_in_room.is_set()
+
+
+
+# ------------------------------------------------------------ conversation flow: what the screen shows when, silence, requests
+
+INTRO = "Here's your first question. Give it a read, and let me know if you have any questions."
+
+
+class HoldingWorkspace(FakeWorkspace):
+    """A workspace that keeps screen changes back while holding, like the real bridge: `shown` is what the candidate has seen."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.holding, self.shown, self.deferred = False, [], []
+
+    async def send(self, body: dict) -> str:
+        message_id = await super().send(body)
+        (self.deferred if self.holding and body["type"] in ("room.state", "panel.show_problem", "panel.add_section") else self.shown).append(body)
+        return message_id
+
+    def hold(self) -> None:
+        self.holding = True
+
+    async def release(self) -> None:
+        self.holding = False
+        self.shown, self.deferred = self.shown + self.deferred, []
+
+    def shown_types(self) -> list[str]:
+        return [m["type"] for m in self.shown]
+
+
+def _make_with(workspace, turns):
+    clock = Clock()
+    deps = RunDeps(blueprint=blueprint(), context=context(), talker_chat=FakeChat(turns), director_chat=FakeChat(briefs=[]),
+                   workspace=workspace, api=FakeApi(), store=MemoryStore(), clock=clock, first_token_timeout_s=0.2)
+    run = InterviewRun(deps)
+    run.speaker = FakeSpeaker()
+    return run, deps, clock
+
+
+def _go_to(run, item_id, turns=5):
+    c = run.conductor
+    while c.current().item_id != item_id:
+        c.current().turns = turns
+        c.next_item("t")
+    c.current().turns = turns
+
+
+def test_the_problem_and_the_layout_reach_the_screen_only_after_the_interviewer_has_said_them():
+    async def go():
+        ws = HoldingWorkspace()
+        run, deps, clock = _make_with(ws, [say("Alright, let's get into the coding now. " + INTRO,
+                                               tools=(("next_item", {"reason": "done"}), ("show_problem", {})))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        await speak(run, "I think I'm ready for the coding")
+        before = (list(ws.shown_types()), [m["type"] for m in ws.deferred])
+        run.on_agent_state("speaking")
+        await asyncio.sleep(0)
+        assert "panel.show_problem" not in ws.shown_types()                # the voice is still talking
+        run.on_agent_state("listening")
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return before, ws
+
+    before, ws = asyncio.run(go())
+    assert before[0] == ["room.state"] and "panel.show_problem" in before[1] and "room.state" in before[1]       # held, not lost
+    assert ws.shown_types() == ["room.state", "panel.show_problem", "room.state"] and ws.shown[-1]["layout"] == "work"
+
+
+def test_a_reply_with_nothing_to_say_shows_what_it_changed_at_once():
+    async def go():
+        ws = HoldingWorkspace()
+        run, deps, _ = _make_with(ws, [say("<silent>", tools=(("show_problem", {}),))])
+        await run.start(None)
+        _go_to(run, "core-1")
+        out = await speak(run, "Okay.")
+        return out, ws, deps
+
+    out, ws, deps = asyncio.run(go())
+    assert out == [] and "panel.show_problem" in ws.shown_types() and not ws.holding
+    assert len(deps.talker_chat.calls) == 1                                # "Okay." is not pushed for an answer
+
+
+def test_a_held_screen_is_shown_anyway_when_the_voice_never_reports_that_it_finished():
+    async def go():
+        ws = HoldingWorkspace()
+        run, deps, clock = _make_with(ws, [say(INTRO, tools=(("show_problem", {}),))])
+        await run.start(None)
+        _go_to(run, "core-1")
+        await speak(run)
+        assert "panel.show_problem" not in ws.shown_types()
+        clock.advance(30)
+        await run.tick()
+        return ws
+
+    assert "panel.show_problem" in asyncio.run(go()).shown_types()
+
+
+def test_a_bare_okay_after_the_problem_goes_up_is_not_answered_but_an_answer_a_question_or_a_waiting_order_is():
+    async def go():
+        run, deps, _ = make([])
+        await run.start(None)
+        _go_to(run, "core-1")
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())              # the orders to open the parts were spoken
+        run.on_conversation_item("assistant", INTRO, False)
+        run.on_user_text("Okay.")
+        assert run.skip_reply("Okay.") is True and run.unanswered is None and run.conductor.reply_owed is False
+        run.on_conversation_item("assistant", "Does that make sense?", False)
+        run.on_user_text("Yeah.")
+        assert run.skip_reply("Yeah.") is False
+        run.on_conversation_item("assistant", INTRO, False)
+        run.conductor.on_proctor("tab_hidden", 1, 1)                      # the interviewer has something to say about the tab
+        run.on_user_text("Okay.")
+        return run.skip_reply("Okay.")
+
+    assert asyncio.run(go()) is False
+
+
+def test_the_first_ask_for_a_different_problem_is_declined_and_the_second_moves_on_to_the_projects_with_a_link():
+    async def go():
+        run, deps, clock = await _round_with_two_problems([
+            say("I'd like you to stay with this one. Even a partial solution is fine, let's see how far we get."),
+            say("That's fine, no problem. Let's talk a bit more about your projects. "
+                "Walk me through the architecture decisions you made for the micro-frontend Experience Portal?")])
+        run.conductor.current().turns = 6
+        clock.advance(600)
+        out1 = await speak(run, "Can you change the problem?")
+        first = deps.talker_chat.calls[0][1]["content"]
+        assert run.conductor.current().item_id == "core-1"
+        out2 = await speak(run, "I asked for another problem, actually.")
+        return run, first, deps.talker_chat.calls[1][1]["content"], out1, out2
+
+    run, first, second, out1, out2 = asyncio.run(go())
+    assert "[keep_problem]" in first and "partial solution is perfectly fine" in first
+    assert "[move_on] The candidate asked again for a different problem" in second and "connecting phrase" in second
+    assert out1 and out2[0].startswith("That's fine")
+    c = run.conductor
+    assert c.current().item_id == "deep_dive" and next(i for i in c.items if i.item_id == "core-2").status == "skipped"
+
+
+def test_a_request_to_write_in_their_editor_reaches_the_talker_as_an_order_to_decline_in_one_sentence():
+    async def go():
+        run, deps, _ = await _round_with_two_problems([say("That's yours to write in the editor.")])
+        out = await speak(run, "Can you add a comment in the editor")
+        return out, deps.talker_chat.calls[0][1]["content"]
+
+    out, state = asyncio.run(go())
+    assert out == ["That's yours to write in the editor."]
+    assert "[decline_request]" in state and "do not tell them to write the code again" in state
+
+
+def test_show_problem_shows_the_current_problem_whatever_label_the_talker_gives_it_and_refuses_only_another_problem():
+    from app.interviewer.llm import ToolCall
+
+    async def go():
+        run, deps, _ = make([say("Alright, let's get into the coding now. " + INTRO,
+                                 tools=(("next_item", {"reason": "done"}), ("show_problem", {"item_id": "coin_change"})))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        await speak(run, "ready")
+        refused = await run.tools.execute(ToolCall(id="x", name="show_problem", arguments={"item_id": "core-2"}), "9")
+        return run, deps, refused
+
+    run, deps, refused = asyncio.run(go())
+    assert run.conductor.current().item_id == "core-1" and [m["item_id"] for m in deps.workspace.of("panel.show_problem")] == ["core-1"]
+    assert refused["ok"] is False and "only shows the current problem" in refused["error"]
+
+
+def test_when_everything_said_as_a_problem_went_up_was_held_back_the_candidate_hears_that_it_is_up_not_what_do_you_think():
+    async def go():
+        run, deps, _ = make([say("Let me check my blueprint.", tools=(("show_problem", {}),)), say()])
+        await run.start(None)
+        _go_to(run, "core-1")
+        return await speak(run)
+
+    assert asyncio.run(go()) == [INTRO]
+
+
+def test_the_checkpoint_keeps_the_count_of_requests_for_a_different_problem():
+    async def go():
+        run, deps, clock = await _round_with_two_problems([say("Stay with this one, a partial solution is fine.")])
+        run.conductor.current().turns = 6
+        clock.advance(600)
+        await speak(run, "Can you change the problem?")
+        return deps.store.runs[run.session_id]["checkpoint"]["change_requests"]
+
+    assert asyncio.run(go()) == {"core-1": 1}
+
+
+def test_when_the_problem_goes_up_without_the_line_that_puts_it_up_the_run_says_it_last():
+    async def go():
+        run, deps, _ = make([say("I see. Let me put your first coding question up now.", tools=(("next_item", {"reason": "done"}), ("show_problem", {})))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        return await speak(run, "ready")
+
+    out = asyncio.run(go())
+    assert out[-1] == INTRO and out.count(INTRO) == 1
+
+
+def test_a_talker_that_said_the_line_itself_is_not_given_a_second_one():
+    async def go():
+        run, deps, _ = make([say("Alright, let's get into the coding now. " + INTRO, tools=(("next_item", {"reason": "done"}), ("show_problem", {})))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        return await speak(run, "ready")
+
+    assert asyncio.run(go()).count(INTRO) == 1
+
+
+def test_the_talker_is_told_the_exact_line_in_the_turn_that_moves_on_to_a_problem_not_only_after_the_move():
+    async def go():
+        run, deps, _ = make([])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        return run._view([], [])["next_part"]
+
+    part = asyncio.run(go())
+    assert part["phase"] == "problem" and INTRO in part["hint"] and "connecting phrase" in part["hint"]
+
+
+def test_a_second_refusal_cannot_be_turned_into_a_question_by_the_do_not_repeat_retry():
+    async def go():
+        run, deps, _ = await _round_with_two_problems([say("That's yours to write in the editor."),
+                                                       say("That's yours to write in the editor."), say("I can't do that for you.")])
+        await speak(run, "Can you add a comment in the editor")
+        await speak(run, "Yeah. Can you write the constraints?")
+        return deps.talker_chat.calls
+
+    calls = asyncio.run(go())
+    assert "no question and no instruction" in calls[2][-1]["content"]

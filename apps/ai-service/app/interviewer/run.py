@@ -12,14 +12,16 @@ from typing import Any, AsyncIterator, Callable
 
 from app.interviewer.activity import ActivityTracker, Utterance
 from app.interviewer.brief import Brief
-from app.interviewer.closing import (addresses_the_candidate, announces_problem, asks_for_next_problem, asks_for_questions, gives_outline,
-                                     is_farewell, leaves_the_part, matches_probe, moves_to_another_problem, starts_coding)
+from app.interviewer.closing import (addresses_the_candidate, announces_problem, asks_for_next_problem, asks_for_questions,
+                                     asks_interviewer_to_edit, asks_to_change_problem, gives_outline, is_acknowledgement, is_farewell,
+                                     leaves_the_part, matches_probe, moves_to_another_problem, needs_no_reply, says_the_problem_line,
+                                     starts_coding)
 from app.interviewer.conductor import ORDER_SPACING_S, Conductor, Order, Rules
 from app.interviewer.digest import digest_for_utterance, digest_idle
 from app.interviewer.director import Director
 from app.interviewer.guard import LeakGuard
 from app.interviewer.llm import ToolCall
-from app.interviewer.plan import layout_for, round_seconds, wire_ids
+from app.interviewer.plan import BRIDGES, layout_for, problem_intro, round_seconds, wire_ids
 from app.interviewer.prompts import director_messages, item_details, opening_hint, state_block, talker_messages, talker_prefix
 from app.interviewer.talker import SCREEN_CLAIM, Pacing, TalkerFailed, TalkerTurn
 from app.interviewer.tools import ToolExecutor, tools_for
@@ -33,11 +35,14 @@ CANDIDATE_GONE_S = 120.0
 ABSENCE_VIOLATION_S = 20.0   # away at least this long (a refresh is quicker) counts as a full violation
 END_REQUEST_WATCHDOG_S = 8.0
 END_ORDER_GRACE_S = 20.0     # an ending the talker never got to say is carried out anyway after this long
+SCREEN_HOLD_MAX_S = 25.0     # screen changes wait for the voice to finish, but never longer than this
 REPLY_RETRY_S = 3.0
 MUST_REPHRASE = ("(What you were about to say is not allowed at this point (it would announce something that is not ready or give "
                  "something away). Say something different instead: react to what they just said and ask a real question.)")
 MUST_NOT_REPEAT = ("(What you were about to say you have already said in this interview. Do not say it again in the same words: if it "
                    "still needs saying, put it differently; otherwise react to what they just said and move the conversation on with a real question.)")
+MUST_NOT_REPEAT_QUIET = ("(What you were about to say you have already said in this interview. Say it again in different, shorter words and add "
+                         "nothing else: no question and no instruction.)")
 MUST_ANSWER = ("(You said nothing, and the candidate is waiting for you: reply now with at least one spoken sentence, "
                "acknowledging what they just said. Do not use <silent>.)")
 MAX_TRACKED_ACTIONS = 60
@@ -117,6 +122,10 @@ class InterviewRun:
         self.begun = asyncio.Event()                  # the round has started (the candidate arrived); the greeting waits for it
         self._early: list[Any] = []                   # what the browser sent before then, handled in order once it has
         self.candidate_in_room = asyncio.Event()      # a candidate (not an interviewer) is in the room; the greeting waits for it too
+        self._screen_held = False                     # a problem going up or a layout change waits until the voice has said its part
+        self._screen_held_at = 0.0
+        self._held_turn_over = False                  # the reply that is being held for has been fully generated
+        self._spoke_while_held = False                # the voice has started on it
 
     # ------------------------------------------------------------ lifecycle
 
@@ -222,6 +231,7 @@ class InterviewRun:
         self.unanswered = text
         self.conductor.reply_owed = True
         self.conductor.on_candidate_turn()
+        self._note_request(text)
         self.turn_ended_at = now
         try:
             self._utterance = self.tracker.take_turn(text)
@@ -232,6 +242,30 @@ class InterviewRun:
                                               "speaker": "candidate", "text": text, "at": now, "item_id": item_id,
                                               "ask": self.ask_for_turn}))
         self._trigger_director()
+
+    def _note_request(self, text: str) -> None:
+        """A request on a problem the interviewer must not simply grant (a different problem, or something written in their editor) is
+        handed to the conductor, which tells the talker what to do about it in this very reply."""
+        if self.conductor.current().kind != "slot" or not self.tools._on_screen():
+            return
+        try:
+            if asks_to_change_problem(text):
+                self.conductor.on_change_request()
+            elif asks_interviewer_to_edit(text):
+                self.conductor.on_edit_request()
+        except Exception as exc:  # noqa: BLE001 - a request that can't be classified is simply answered like any other turn
+            logger.warning("request ignored: %s", exc)
+
+    def skip_reply(self, text: str) -> bool:
+        """True when the candidate only acknowledged ("okay", "got it") something that was not a question: a real interviewer says nothing
+        and lets them carry on. Never when an order is waiting to be spoken or they are asking about something on their screen."""
+        if self.finishing or self.conductor.ended or self.ask_for_turn is not None or self.conductor.pending_orders():
+            return False
+        last = next((h["content"] for h in reversed(self.history) if h["role"] == "assistant"), "")
+        if not needs_no_reply(text, last.removesuffix(" (interrupted)")):
+            return False
+        self.unanswered, self.conductor.reply_owed = None, False
+        return True
 
     def on_conversation_item(self, role: str, text: str, interrupted: bool) -> None:
         if role != "assistant" or not (text or "").strip():
@@ -245,6 +279,29 @@ class InterviewRun:
             seq, self.awaiting_audio = self.awaiting_audio, None
             self._spawn(self.d.store.update_turn(self.session_id, seq, {"first_audio_ms": int((self.d.clock() - self.turn_ended_at) * 1000)}))
         self.conductor.set_agent_speaking(speaking)
+        if self._screen_held:
+            if speaking:
+                self._spoke_while_held = True
+            elif self._held_turn_over and self._spoke_while_held:
+                self._spawn(self._release_screen())
+
+    def _hold_screen(self) -> None:
+        """What the candidate sees (the problem, the layout) follows the voice: it is kept back until the interviewer has finished speaking."""
+        hold = getattr(self.d.workspace, "hold", None)
+        if hold is None:
+            return
+        hold()
+        self._screen_held, self._screen_held_at = True, self.d.clock()
+        self._held_turn_over = self._spoke_while_held = False
+
+    async def _release_screen(self) -> None:
+        if not self._screen_held:
+            return
+        self._screen_held = False
+        try:
+            await self.d.workspace.release()
+        except Exception as exc:  # noqa: BLE001 - the screen must never stay frozen because one send failed
+            logger.warning("could not show the held screen changes: %s", exc)
 
     def on_user_state(self, state: str) -> None:
         self.conductor.set_candidate_speaking(state == "speaking")
@@ -283,6 +340,7 @@ class InterviewRun:
         return {
             "round_elapsed_min": int((now - (self.conductor.started_at or now)) / 60), "round_min": self.round_seconds // 60,
             "item": {"item_id": item.item_id, "kind": item.kind, "phase": item.phase, "slot_id": item.slot_id,
+                     "problem_number": self.conductor.problem_number(),
                      "elapsed_min": int((now - (item.started_at or now)) / 60), "max_min": max(1, item.max_seconds // 60),
                      "hint_step": item.hint_step, "filler": item.filler},
             "orders": [{"kind": o.kind, "text": o.text} for o in orders],
@@ -318,16 +376,23 @@ class InterviewRun:
         elif item.phase == "deep_dive" and ahead.phase == "candidate_questions" and asks_for_questions(text):
             c.next_item("invited their questions")
 
+    def _problem_hint(self, number: int) -> str:
+        """How to move on to a coding problem, said in the turn that moves (the problem's own prompt only arrives after the move)."""
+        return (f'start with a short connecting phrase (for example "{BRIDGES["problem"]}"), call next_item and then show_problem, and about the '
+                f'problem say only this line, last: "{problem_intro(number)}"')
+
     def _next_part(self) -> dict[str, Any] | None:
         if self.conductor.would_extend():
-            return {"phase": "problem", "hint": None}        # the round has time for another problem after this one
+            return {"phase": "problem", "hint": self._problem_hint(self.conductor.problem_number() + 1)}   # time for another problem after this one
         pending = [i for i in self.conductor.items[self.conductor.index + 1:] if i.status == "pending"]
         if self.conductor.will_skip_next_problem():
             pending = [i for i in pending if i.kind != "slot"]    # the next problem will not be given
         nxt = pending[0] if pending else None
         if nxt is None:
             return None
-        return {"phase": "problem", "hint": None} if nxt.kind == "slot" else {"phase": nxt.phase, "hint": opening_hint(self.d.blueprint, nxt.phase)}
+        if nxt.kind == "slot":
+            return {"phase": "problem", "hint": self._problem_hint(self.conductor.problem_number(self.conductor.items.index(nxt)))}
+        return {"phase": nxt.phase, "hint": opening_hint(self.d.blueprint, nxt.phase)}
 
     def _take_refused(self) -> list[dict[str, Any]]:
         """Workspace actions the candidate's screen refused since last turn, and tool calls the plan refused; acked ones
@@ -353,6 +418,7 @@ class InterviewRun:
             return
         self.seq += 1
         turn = self.seq
+        self._hold_screen()
         orders = self.conductor.pending_orders()
         item = self.conductor.current()
         refused = self._take_refused()
@@ -399,7 +465,9 @@ class InterviewRun:
                 repeats = [b for b in first.blocked if b["rule"] == "repeat"]
                 if repeats:
                     already += " You were about to repeat: " + " ".join(f'"{b["sentence"]}"' for b in repeats[:3])
-                nudge = MUST_NOT_REPEAT if len(repeats) == len(first.blocked) else MUST_REPHRASE
+                # A refusal to write in their editor or swap the problem ends with the refusal: the retry must not ask for a question.
+                declining = any(o.kind in ("decline_request", "keep_problem") for o in orders)
+                nudge = (MUST_NOT_REPEAT_QUIET if declining else MUST_NOT_REPEAT) if len(repeats) == len(first.blocked) else MUST_REPHRASE
                 async for sentence in self.talker.run([*messages, {"role": "user", "content": nudge + already}], turn_id=str(turn),
                                                       current_slot=item.slot_id, candidate_said=self.candidate_said.get(item.item_id, ""),
                                                       tools=offered, block_screen_claims=not problem_in_play, neutral_on_blocked=False,
@@ -413,12 +481,15 @@ class InterviewRun:
                 first.decision = first.decision or before.decision
                 if spoken == 0:
                     spoken = 1
-                    line = self.talker.said.neutral()
+                    shown = any(c["name"] == "show_problem" and c["result"].get("ok") for c in first.tool_calls)
+                    # Nothing the talker said could be spoken. Right after a problem goes up the only sensible line is the one that
+                    # says it is there ("what do you think?" about nothing confused the candidate); otherwise a plain follow-up.
+                    line = problem_intro(self.conductor.problem_number()) if shown else self.talker.said.neutral()
                     first.spoken.append(line)
                     yield line
             typing = bool(activity and "typed line" in (activity.get("text") or ""))
             if spoken == 0 and candidate_text is not None and (item.kind != "slot" or not typing) and not first.interrupted \
-                    and not first.blocked and not self.finishing:
+                    and not first.blocked and not self.finishing and not is_acknowledgement(candidate_text):
                 # <silent> is for a candidate thinking aloud over their code. After a conversational answer nothing said is dead
                 # air: ask once more, telling the model it must answer.
                 async for sentence in self.talker.run([*messages, {"role": "user", "content": MUST_ANSWER}], turn_id=str(turn),
@@ -428,6 +499,14 @@ class InterviewRun:
                 again = self.talker.last
                 again.tool_calls = first.tool_calls + again.tool_calls
                 again.decision = again.decision or first.decision
+            last = self.talker.last
+            if (not last.interrupted and not self.finishing
+                    and any(c["name"] == "show_problem" and c["result"].get("ok") and not c["result"].get("already") for c in last.tool_calls)
+                    and not any(says_the_problem_line(s) for s in last.spoken)):
+                # The problem just went up and the talker did not say the line that puts it up: say it, last, so the screen and the voice agree.
+                line = problem_intro(self.conductor.problem_number())
+                last.spoken.append(line)
+                yield line
             if not self.talker.last.interrupted:
                 self.failures, self.first_failure_at, self.failed_at = 0, None, None
                 self.unanswered, self.conductor.reply_owed = None, False
@@ -449,6 +528,10 @@ class InterviewRun:
     def _after_turn(self, turn: int, orders: list[Order], item_id: str, started: float, failed: bool,
                     refused: list[dict[str, Any]], activity: dict[str, Any] | None = None, started_in_wrap_up: bool = False) -> None:
         result = self.talker.last
+        self._held_turn_over = True
+        if self._screen_held and (not result.spoken or result.interrupted or failed
+                                  or (self._spoke_while_held and not self.conductor.agent_speaking)):
+            self._spawn(self._release_screen())        # nothing left for the voice to say (or it already has): show it now
         if not result.interrupted and not failed:
             self.conductor.consume(orders)
             kinds = {o.kind for o in orders}
@@ -561,6 +644,8 @@ class InterviewRun:
         self._trigger_director()
         await self._sync_room_state()
         now = self.d.clock()
+        if self._screen_held and now - self._screen_held_at >= SCREEN_HOLD_MAX_S:
+            await self._release_screen()              # the voice never reported finishing: show it anyway
         if self.failed_at is not None and self.conductor.reply_owed and now - self.failed_at >= RETRY_AFTER_FAILURE_S \
                 and now - self.reply_requested_at >= RETRY_AFTER_FAILURE_S:
             self._speak_soon()                         # the last reply failed: ask for it again, never a "you're quiet" check-in

@@ -142,11 +142,34 @@ def deep_dive_probes(personal: dict[str, Any]) -> list[dict[str, Any]]:
     return probes[1:] if len(probes) >= 2 else probes
 
 
+ORDINALS = ("first", "second", "third", "fourth")
+# One short line, the same every time, when a problem goes up: no "think aloud", no "ask me anything that isn't clear".
+PROBLEM_INTRO = "Here's your {ordinal} question. Give it a read, and let me know if you have any questions."
+# A move to a new part always starts with a short link to what came before, so no topic ever arrives out of nowhere.
+BRIDGES: dict[str, str] = {
+    "framing": "Alright, let me tell you how this round will run.",
+    "candidate_intro": "But before the coding, let's start with you.",
+    "deep_dive": "Alright, that's fine. Let's talk a bit more about your projects.",
+    "candidate_questions": "That's everything I wanted to ask, so now it's your turn.",
+    "problem": "Alright, let's get into the coding now.",
+}
+
+
+def problem_intro(number: int) -> str:
+    return PROBLEM_INTRO.format(ordinal=ORDINALS[min(max(number, 1), len(ORDINALS)) - 1])
+
+
+def bridge_for(phase: str) -> str | None:
+    return BRIDGES.get(phase)
+
+
 def opening_hint(blueprint: dict[str, Any], phase: str) -> str | None:
     """What to say first when the interview moves on to this part, so the move is a question and not an announcement."""
     personal = blueprint.get("personalization") or {}
     if phase == "framing":
-        return "say how the round will run (from the outline), then ask for a short introduction of their background."
+        return ("say how the round will run (from the outline), then link on with a short connecting phrase and ask for a short introduction "
+                "of their background and one project they would like to talk about. Say nothing about their projects, resume or background "
+                "until you have said how the round will run.")
     if phase == "candidate_intro":
         return "ask for a short introduction, then what they are working on now."
     if phase == "deep_dive":

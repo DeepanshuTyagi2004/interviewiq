@@ -39,7 +39,7 @@ INTERNAL_WORDS = re.compile(
     r"\b(?:core|reserve)-(?:\d|harder|alternate)\b|\b(?:name|string|arguments|parameter)=\"|</?\s*(?:tool|function|invoke|parameter)|"
     r"\b(?:my|our|the|this|that)\s+(?:earlier |original |prepared |internal )?brief\b(?!\s+(?:version|answer|summary|explanation|description|overview|look|introduction|history|moment|pause|note|reply|response|walk))",
     re.IGNORECASE)
-SCREEN_CLAIM = re.compile(r"\b(?:on|up on|onto) (?:your|the) screen\b|\bput (?:it|the problem|that|one) (?:up|on)\b|\bpull (?:it|the problem) up\b|\bhave a read\b|\bread (?:it|through it|the problem)\b|\btake a moment to read\b|"
+SCREEN_CLAIM = re.compile(r"\bhere(?:'s| is) your (?:first|second|third|next) (?:question|problem)\b|\b(?:on|up on|onto) (?:your|the) screen\b|\bput (?:it|the problem|that|one) (?:up|on)\b|\bpull (?:it|the problem) up\b|\bhave a read\b|\bread (?:it|through it|the problem)\b|\btake a moment to read\b|"
                           r"\b(?:jump|get|move|dive|go|turn)\s+(?:on\s+)?(?:in)?to\s+(?:the|a|our)\s+(?:(?:coding|first|actual|technical)\s+(?:problem|part|question|exercise)|(?:problems?|exercise))\b|"
                           r"\b(?:start|begin|do|tackle)\s+(?:the|a|our)\s+(?:(?:coding\s+)?(?:problem|exercise)|coding\s+part)\b", re.IGNORECASE)
 SILENT = "<silent>"

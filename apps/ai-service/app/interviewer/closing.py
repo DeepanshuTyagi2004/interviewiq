@@ -83,10 +83,21 @@ def announces_coding_now(text: str) -> bool:
 _AT_ONCE = re.compile(r"\bscreen\b|\bnow\b|\bpull(?:ing)?\b|\bappear|\bget (?:you )?(?:to|onto)\b|\bonto\b", re.IGNORECASE)
 
 
+_GIVE_IT_A_READ = re.compile(r"\bgive it a (?:read|look)\b", re.IGNORECASE)
+_PROBLEM_LINE = re.compile(r"\bgive it a (?:read|look)\b|\bhere(?:'s| is) your (?:first|second|third|next) (?:question|problem)\b", re.IGNORECASE)
+
+
+def says_the_problem_line(text: str) -> bool:
+    """The text is (or contains) the one short line that puts a problem up ("Here's your first question. Give it a read, ...")."""
+    return bool(_PROBLEM_LINE.search(text or ""))
+
+
 def announces_problem(text: str) -> bool:
-    """The sentence announces or promises the coding problem now ("let's get you onto the problem", "it's on your screen") as opposed
-    to describing how the round will run ("one coding problem, then your questions at the end")."""
+    """The sentence announces or promises the coding problem now ("let's get you onto the problem", "it's on your screen", "here's your
+    first question, give it a read") as opposed to describing how the round will run ("one coding problem, then your questions at the end")."""
     t = text or ""
+    if _GIVE_IT_A_READ.search(t):
+        return True
     if not (_PROBLEM_WORD.search(t) and _NOW_CUE.search(t)):
         return False
     if t.rstrip().endswith("?") and not re.search(r"\bscreen\b|\bput(?:ting)?\b|\bpull(?:ing)?\b", t, re.IGNORECASE):
@@ -130,6 +141,8 @@ def invites_questions_now(text: str) -> bool:
     """The text hands the floor to the candidate's own questions now ("any questions for me?", "let me move us on to your questions"),
     as opposed to saying that time for them comes at the end of the round."""
     t = text or ""
+    if _GIVE_IT_A_READ.search(t):
+        return False          # "Give it a read, and let me know if you have any questions" is about the problem they were just given
     return bool(_QUESTIONS_NOW.search(t)) and not _LATER.search(t)
 
 
@@ -151,3 +164,56 @@ def starts_coding(text: str) -> bool:
     """The candidate says they are about to write or type the code ("okay, writing it now"): the right reply is a word, never advice."""
     t = (text or "").strip()
     return bool(t) and "?" not in t and len(t.split()) <= 14 and bool(_STARTS_CODING.search(t))
+
+
+# ------------------------------------------------------------ what the candidate said needs no answer
+
+_ACK_ATOM = (r"(?:okay|ok|k|alright|all right|sure|yeah|yes|yep|yup|right|cool|fine|great|nice|good|perfect|hmm+|mm+|mhm|uh[- ]?huh|"
+             r"got it|i see|i get it|understood|noted|makes sense|that makes sense|sounds good|sounds fine|will do|thanks|thank you|"
+             r"thank you so much|thanks a lot|cheers|no problem|no worries|one sec(?:ond)?|just a (?:sec|second|moment|minute)|"
+             r"give me a (?:sec|second|moment|minute)|hold on|let me (?:read|think|see|check|look)(?: (?:it|this|that|through it|about it|first))?)")
+_ACK = re.compile(rf"^(?:{_ACK_ATOM}\b[\s,.;:!-]*)+$", re.IGNORECASE)
+
+
+def is_acknowledgement(text: str) -> bool:
+    """The candidate only acknowledged ("okay", "got it", "thanks", "let me read it"): there is nothing in it to answer."""
+    t = (text or "").strip()
+    return bool(t) and "?" not in t and len(t.split()) <= 8 and bool(_ACK.match(t))
+
+
+def asks_a_question(text: str) -> bool:
+    """The last sentence of what the interviewer said is a question, so a bare "yeah" after it is an answer, not a nod."""
+    sentences = [x for x in re.split(r"(?<=[.?!])\s+", (text or "").strip()) if x]
+    return bool(sentences and sentences[-1].rstrip("\"')\u201d ").endswith("?"))
+
+
+def needs_no_reply(candidate_text: str, interviewer_text: str) -> bool:
+    """An acknowledgement of something that was not a question: a real interviewer says nothing and lets them carry on."""
+    return is_acknowledgement(candidate_text) and not asks_a_question(interviewer_text)
+
+
+# ------------------------------------------------------------ requests the interviewer must not grant
+
+_CHANGE_VERB = re.compile(r"\b(?:change|switch|swap|replace|skip)\b[^.?!]{0,25}\b(?:problem|question|one|this)\b", re.IGNORECASE)
+_OTHER_PROBLEM = re.compile(r"\b(?:another|different|new|other|easier|simpler)\s+(?:coding\s+)?(?:problem|question|one)\b", re.IGNORECASE)
+_NOT_A_CHANGE = re.compile(r"\b(?:done|finished|solved|completed|ready|next)\b", re.IGNORECASE)
+
+
+def asks_to_change_problem(text: str) -> bool:
+    """The candidate wants a different problem than the one in front of them ("can you change the problem?", "I asked for another
+    problem"). Saying they are done and want the next one is the ordinary flow of the round, not a change."""
+    t = text or ""
+    return bool((_CHANGE_VERB.search(t) or _OTHER_PROBLEM.search(t)) and not _NOT_A_CHANGE.search(t))
+
+
+_EDIT_FOR_ME = re.compile(
+    r"\b(?:can|could|would|will|may)\s+you\b[^.?!]{0,30}\b(?:add|write|put|type|leave|insert|drop|paste|include|edit)\b[^.?!]{0,50}"
+    r"\b(?:comments?|notes?|constraints?|stubs?|boilerplate|signature|template|test cases?|editor)\b|"
+    r"(?:^|[.!?]\s+)(?:please\s+)?(?:add|write|put|leave|type)\s+(?:a |an |the |some )?(?:comments?|notes?)\b[^.?!]{0,30}\b(?:in|on|to|into|at)\b[^.?!]{0,20}\b(?:editor|code|file|top)\b",
+    re.IGNORECASE)
+
+
+def asks_interviewer_to_edit(text: str) -> bool:
+    """The candidate asks the interviewer to write something into their editor ("can you add a comment in the editor?"). Not part of an
+    interview. Asking for the solution itself is a different request (the ask_solution policy)."""
+    return bool(_EDIT_FOR_ME.search(text or ""))

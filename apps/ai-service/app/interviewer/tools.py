@@ -118,6 +118,15 @@ class ToolExecutor:
     def _wire(self, slot: dict[str, Any]) -> str:
         return self.run.wire.get(slot["slot_id"], slot["slot_id"])
 
+    def _names_another_problem(self, asked: Any, current_slot_id: str) -> bool:
+        """The `item_id` the talker gave names a different problem of this round. Anything else (nothing, the current id, the name of the
+        part it is in, a word it made up) means the current problem: a refusal over a label once left a promised problem off the screen."""
+        asked = str(asked or "")
+        if not asked:
+            return False
+        others = {sid for sid in self.run.wire if sid != current_slot_id} | {w for sid, w in self.run.wire.items() if sid != current_slot_id}
+        return asked in others
+
     def _on_screen(self) -> bool:
         slot = self._slot()
         return slot is not None and self._wire(slot) in self.run.d.workspace.cards
@@ -150,7 +159,7 @@ class ToolExecutor:
                 self._conductor.next_item("problem requested")
                 item = self._conductor.current()
         slot = self._slot()
-        if slot is None or item.slot_id is None or (args.get("item_id") or item.slot_id) not in (item.slot_id, self._wire(slot)):
+        if slot is None or item.slot_id is None or self._names_another_problem(args.get("item_id"), item.slot_id):
             return {"ok": False, "error": "show_problem only shows the current problem"}
         label = self._conductor.label_for(item.slot_id)
         if self._wire(slot) in self.run.d.workspace.cards:
@@ -260,8 +269,9 @@ class ToolExecutor:
         if item.kind == "slot" and slot is not None and not self._on_screen() and elapsed < item.max_seconds:
             return {"ok": False, "error": "this problem has not been shown to the candidate yet: call show_problem now, "
                                           "do not skip it"}
+        gave_up = self._conductor.change_requests.get(item.item_id, 0) >= 2      # they asked twice for another problem: this one is over
         if item.kind == "slot" and elapsed < item.max_seconds and not leaves_the_part(" ".join(self.run.talker.last.spoken)) \
-                and not asks_for_next_problem(getattr(self.run, "unanswered", None) or ""):
+                and not asks_for_next_problem(getattr(self.run, "unanswered", None) or "") and not gave_up:
             return {"ok": False, "error": "you are still asking about this problem: do not call next_item until you have finished with "
                                           "it and tell them you are moving on (say so in the same turn)"}
         if item.kind == "slot":

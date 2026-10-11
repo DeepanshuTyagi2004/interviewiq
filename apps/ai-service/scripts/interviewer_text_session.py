@@ -144,6 +144,10 @@ class Session:
         run.on_user_state("listening")
         run.on_user_text(line)
         self.record({"t": mmss(self.now()), "who": "candidate", "text": line, "words": words, "speech_s": round(speech_s, 1)})
+        if run.skip_reply(line):                       # what the LiveKit agent does for a bare "okay": the turn is kept, nothing is said
+            self.say(f"[{mmss(self.now())}] INTERVIEWER: (says nothing: that needed no reply)")
+            await self.settle()
+            return
         await self.interviewer(line, "reply")
         await self.settle()
 

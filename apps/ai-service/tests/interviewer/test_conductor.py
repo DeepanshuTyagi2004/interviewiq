@@ -445,3 +445,84 @@ def test_a_phases_time_being_up_does_not_allow_a_problem_while_another_part_of_t
     assert c.current().item_id == "candidate_intro"
     clock.advance(500)
     assert c.problem_allowed() is True                                            # the last conversation part, out of time: the problem is next
+
+
+def test_moving_to_a_new_part_orders_a_connecting_phrase_before_its_first_question():
+    c, _ = make()
+    c.next_item("t")                                                     # candidate_intro
+    intro = [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
+    assert "connecting phrase" in intro and "But before the coding, let's start with you." in intro
+    c.next_item("t")                                                     # core-1
+    problem = [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
+    assert "connecting phrase" in problem and "Alright, let's get into the coding now." in problem
+    assert "Here's your first question. Give it a read, and let me know if you have any questions." in problem
+    assert "think aloud" not in problem
+
+
+def test_the_second_problem_is_introduced_as_the_second_question():
+    c, _ = make()
+    to_core(c)
+    c.next_item("t")
+    assert "Here's your second question." in [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
+
+
+def test_the_time_up_orders_ask_for_a_connecting_phrase_into_the_next_part():
+    c, clock = make()
+    to_core(c)
+    c.set_candidate_speaking(True)
+    clock.advance(1260)
+    assert "connecting phrase" in next(o for o in c.tick() if o.kind == "move_on").text
+
+
+def _worked_on_core_1(c, clock, seconds=600, turns=6):
+    to_core(c)
+    c.current().turns = turns
+    clock.advance(seconds)
+
+
+def test_a_candidate_who_has_worked_on_the_problem_is_told_to_keep_it_and_that_a_partial_solution_is_fine():
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    assert c.can_swap_on_request() is False
+    order = c.on_change_request()
+    assert order.kind == "keep_problem" and "partial solution is perfectly fine" in order.text and "no question" in order.text
+    assert c.current().item_id == "core-1" and c.change_requests == {"core-1": 1}
+
+
+def test_a_candidate_who_has_barely_started_gets_a_different_problem_which_is_still_their_first():
+    c, clock = make()
+    to_core(c)
+    c.labels["core-1"] = "Problem 1"
+    c.current().turns = 1
+    clock.advance(30)
+    assert c.can_swap_on_request() is True
+    order = c.on_change_request()
+    assert c.current().item_id == "reserve-alternate" and next(i for i in c.items if i.item_id == "core-1").status == "swapped"
+    assert order.kind == "open_item" and "different one" in order.text and "Here's your first question." in order.text
+    assert c.labels["reserve-alternate"] == "Problem 1"
+
+
+def test_asking_again_ends_the_problem_kindly_skips_the_second_and_links_to_the_next_part():
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    c.on_change_request()
+    order = c.on_change_request()
+    assert order.kind == "move_on" and "Do not argue" in order.text and "connecting phrase" in order.text
+    assert c.signals["core-1"] == "struggling" and c.will_skip_next_problem() is True
+    c.next_item("move_on")
+    assert next(i for i in c.items if i.item_id == "core-2").status == "skipped" and c.current().item_id == "candidate_questions"
+
+
+def test_a_request_to_write_in_their_editor_is_declined_in_one_sentence_with_no_follow_up():
+    c, _ = make()
+    order = c.on_edit_request()
+    assert order.kind == "decline_request" and "Decline in one short sentence" in order.text and "do not ask a question" in order.text
+
+
+def test_the_count_of_change_requests_survives_a_restart():
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    c.on_change_request()
+    restored = Conductor.restore(blueprint(), 3600, c.checkpoint(), None, clock, ["Java"])
+    assert restored.change_requests == {"core-1": 1}
+    assert restored.on_change_request().kind == "move_on"

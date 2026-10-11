@@ -12,6 +12,8 @@ from app.interviewer.protocol import (BOARD_BACKUP_TOPIC, BOARD_RESTORE_TOPIC, B
                                       agent_message, new_id, parse_web)
 
 logger = logging.getLogger(__name__)
+# What changes what the candidate sees. Held back while the interviewer is speaking, so the screen follows the voice instead of leading it.
+HOLDABLE = frozenset({"room.state", "panel.show_problem", "panel.add_section", "panel.highlight", "panel.clear_highlight"})
 
 
 class WorkspaceBridge:
@@ -34,6 +36,8 @@ class WorkspaceBridge:
         self.board_backup: tuple[bytes, dict[str, str]] | None = None
         self.room_state: dict[str, Any] | None = None   # the latest `room.state`, sent again after every hello
         self.acks: dict[str, dict[str, Any]] = {}
+        self._holding = False
+        self._deferred: list[dict[str, Any]] = []     # screen changes made while holding, sent in order on release
         self._snapshots: dict[str, asyncio.Future] = {}
         self._tasks: set[asyncio.Task] = set()
 
@@ -123,12 +127,29 @@ class WorkspaceBridge:
 
     async def send(self, body: dict[str, Any]) -> str:
         message = agent_message(body)
-        self._mirror(message)
+        self._mirror(message)                          # what the interviewer knows is on screen is true at once
+        if self._holding and message["type"] in HOLDABLE:
+            self._deferred.append(message)             # what the candidate sees waits for the voice
+        else:
+            await self._deliver(message)
+        return message["id"]
+
+    async def _deliver(self, message: dict[str, Any]) -> None:
         if self.ready:
             await self._send_text(message)
         else:
             self._queue.append(message)
-        return message["id"]
+
+    def hold(self) -> None:
+        """From now on screen changes (a problem going up, the layout) are kept back until `release`."""
+        self._holding = True
+
+    async def release(self) -> None:
+        """Show what was held back, in the order it was made, and stop holding."""
+        self._holding = False
+        deferred, self._deferred = self._deferred, []
+        for message in deferred:
+            await self._deliver(message)
 
     async def _send_text(self, message: dict[str, Any]) -> None:
         await self.room.local_participant.send_text(json.dumps(message), topic=WORKSPACE_TOPIC)

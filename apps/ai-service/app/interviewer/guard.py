@@ -12,7 +12,7 @@ MIN_SHARED_NGRAMS = 2
 STATEMENT_GRAM = 4          # words in a row copied from the problem statement...
 STATEMENT_MIN_WORDS = 8     # ...in a sentence at least this long...
 STATEMENT_MIN_GRAMS = 2     # ...at least this many times: the statement is being read out, however loosely
-NEUTRAL_LINE = "What do you think?"
+NEUTRAL_LINE = "Could you say a bit more about that?"   # never "what do you think?": said right after a problem goes up it asks about nothing
 _WORD = re.compile(r"[a-z]{4,}")
 _PLAIN_WORD = re.compile(r"[a-z]+")
 # Words in a problem's original name that are ordinary speech anywhere in an interview: never a giveaway.

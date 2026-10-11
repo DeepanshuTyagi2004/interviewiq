@@ -159,14 +159,14 @@ def test_the_state_says_whether_to_advance_and_whether_any_problem_is_left_and_t
     assert "call next_item until you are on one" not in TALKER_RULES
     assert "Do what you say in the same turn" in TALKER_RULES and "Never promise a problem" in TALKER_RULES
     assert "Praise only what" in TALKER_RULES and "look_at_board is only for the whiteboard" in TALKER_RULES
-    assert "say only that it is on their screen" in TALKER_RULES
+    assert "Here's your first question. Give it a read, and let me know if you have any questions." in TALKER_RULES
 
 
 def test_the_rules_forbid_false_time_claims_verdicts_and_a_stiff_not_the_company_speech():
     from app.interviewer.prompts import TALKER_RULES, item_details
 
     assert "Only mention time when the conductor orders it" in TALKER_RULES
-    assert "no verdict" in TALKER_RULES and "<silent> only while they are coding" in TALKER_RULES
+    assert "no verdict" in TALKER_RULES and "reply with exactly <silent>" in TALKER_RULES
     questions = item_details(blueprint(), {"item_id": "candidate_questions", "kind": "phase", "phase": "candidate_questions", "hint_step": 0})
     assert "as a working engineer" in questions and "never invent" in questions.lower()
 
@@ -288,3 +288,39 @@ def test_the_talker_never_names_its_machinery_never_sends_them_to_a_line_it_does
     assert "first ask them to trace the input that breaks it" in TALKER_RULES and "never put the fix in a comment" in TALKER_RULES
     text = item_details(blueprint(), {"kind": "slot", "item_id": "core-1", "slot_id": "core-1", "phase": "core", "hint_step": 0})
     assert "choose the input from the edge cases and wrong paths above" in text
+
+
+def _phase(phase):
+    return item_details(blueprint(), {"item_id": phase, "kind": "phase", "phase": phase, "hint_step": 0})
+
+
+def test_the_small_talk_never_brings_up_their_work_and_the_framing_says_how_the_round_runs_before_the_projects():
+    small_talk = _phase("small_talk")
+    assert "I saw your split-bill app" not in small_talk and "Do not mention their projects" in small_talk
+    framing = _phase("framing")
+    assert framing.index("how the round will run") < framing.index("introduction")
+    assert "Say nothing about their projects, resume or background before this" in framing
+    intro = _phase("candidate_intro")
+    assert "I saw your split-bill app" in intro and "never as your first words" in intro
+
+
+def test_every_move_to_a_new_part_is_linked_with_a_connecting_phrase_and_the_problem_goes_up_with_one_short_line():
+    from app.interviewer.prompts import TALKER_RULES
+
+    assert "Link every change of topic" in TALKER_RULES and "never put the link after the new question" in TALKER_RULES
+    assert "Say how the round will run before you bring up their projects" in TALKER_RULES
+    slot = item_details(blueprint(), {"item_id": "core-1", "kind": "slot", "slot_id": "core-1", "hint_step": 0, "phase": "core", "problem_number": 1})
+    assert "Here's your first question. Give it a read, and let me know if you have any questions." in slot
+    assert 'no "think aloud"' in slot and 'no "what do you think"' in slot
+    assert "second question" in item_details(blueprint(), {"item_id": "core-2", "kind": "slot", "slot_id": "core-2", "hint_step": 0,
+                                                           "phase": "core", "problem_number": 2})
+    assert "Invite them to read it and think aloud" not in TALKER_RULES
+
+
+def test_the_rules_say_to_decline_editor_requests_and_problem_swaps_and_not_to_nag_about_writing_the_code():
+    from app.interviewer.prompts import LIVE_POLICY_OVERRIDES, TALKER_RULES
+
+    assert "Never write, add or edit anything in their editor" in TALKER_RULES and "Decline in one short sentence and stop" in TALKER_RULES
+    assert "A request to change the problem is not yours to grant" in TALKER_RULES and "a partial solution is perfectly fine" in TALKER_RULES
+    assert "Tell them to go ahead and write the code once at most" in TALKER_RULES
+    assert "partial solution" in LIVE_POLICY_OVERRIDES["skip_question"]

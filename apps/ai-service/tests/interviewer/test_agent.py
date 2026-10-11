@@ -62,7 +62,7 @@ def test_the_greeting_is_said_once_both_are_true_and_not_before_either():
 def test_a_candidate_turn_before_the_round_starts_is_not_answered_and_one_after_it_is():
     async def go():
         heard: list[str] = []
-        run = SimpleNamespace(begun=asyncio.Event(), on_user_text=heard.append)
+        run = SimpleNamespace(begun=asyncio.Event(), on_user_text=heard.append, skip_reply=lambda text: False)
         agent = SimpleNamespace(run=run, _pending_user_text=None)
         message = SimpleNamespace(text_content="Hi, can you hear me?")
         with pytest.raises(StopResponse):          # the greeting that follows is the reply; no reply to an unstarted round
@@ -73,3 +73,20 @@ def test_a_candidate_turn_before_the_round_starts_is_not_answered_and_one_after_
         return heard, agent._pending_user_text
 
     assert asyncio.run(go()) == (["Hi, can you hear me?"], "Hi, can you hear me?")
+
+
+def test_a_bare_acknowledgement_is_recorded_but_not_answered_and_a_real_turn_is():
+    async def go():
+        heard: list[str] = []
+        skip = {"now": True}
+        run = SimpleNamespace(begun=asyncio.Event(), on_user_text=heard.append, skip_reply=lambda text: skip["now"])
+        run.begun.set()
+        agent = SimpleNamespace(run=run, _pending_user_text=None)
+        with pytest.raises(StopResponse):
+            await InterviewerAgent.on_user_turn_completed(agent, None, SimpleNamespace(text_content="Okay."))
+        assert heard == ["Okay."] and agent._pending_user_text is None          # the turn is kept, no reply is generated
+        skip["now"] = False
+        await InterviewerAgent.on_user_turn_completed(agent, None, SimpleNamespace(text_content="What are the constraints?"))
+        return heard, agent._pending_user_text
+
+    assert asyncio.run(go()) == (["Okay.", "What are the constraints?"], "What are the constraints?")

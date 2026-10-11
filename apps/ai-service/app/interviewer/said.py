@@ -14,7 +14,9 @@ SIMILAR = 0.9      # word-level similarity from which a sentence is the same thi
 _WORD = re.compile(r"[a-z0-9]+")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # What fills an empty turn when everything the talker said was held back: always a question, rotated so it never repeats back to back.
-NEUTRAL_LINES = (NEUTRAL_LINE, "How would you approach that?", "What's your thinking here?", "Where would you take it from here?")
+NEUTRAL_LINES = (NEUTRAL_LINE, "What's your thinking there?", "Where would you take it from here?", "How would you approach that?")
+# The line that puts a problem up is the same every time on purpose ("Here's your second question. Give it a read, ..."): never a repeat.
+REPEATABLE = re.compile(r"\bgive it a read\b|^here(?:['\u2019]s| is) your (?:first|second|third|fourth) question\b", re.IGNORECASE)
 
 
 def words_of(text: str) -> list[str]:
@@ -36,7 +38,7 @@ class SaidTracker:
     def repeat_of(self, text: str) -> str | None:
         """The earlier sentence this one says again, or None."""
         words = words_of(text)
-        if len(words) < MIN_WORDS:
+        if len(words) < MIN_WORDS or REPEATABLE.search(text):
             return None
         matcher = SequenceMatcher(None, autojunk=False)
         matcher.set_seq2(words)                      # the new sentence is the cached side: each earlier one is compared against it
@@ -50,7 +52,7 @@ class SaidTracker:
 
     def add(self, text: str, turn_id: str) -> None:
         words = words_of(text)
-        if len(words) >= MIN_WORDS:
+        if len(words) >= MIN_WORDS and not REPEATABLE.search(text):
             self._said.append(Said(turn_id, text, words))
 
     def forget(self, turn_id: str) -> None:
