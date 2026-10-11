@@ -40,6 +40,15 @@ export interface LiveSessionResponse {
   status: SessionStatus;
 }
 
+/** What a warm-up tells the page: an interviewer is in the room or on its way (`warming`), or nothing was started. */
+export interface WarmResponse {
+  warming: boolean;
+}
+
+type DispatchOutcome = "dispatched" | "already_there" | "failed";
+/** Who asked for the interviewer: named in the log so a line says which step it belongs to. */
+type DispatchSource = "warm" | "go-live";
+
 /**
  * Go-live + resume for a booked session (live-interview runtime). Minting a token never mutates
  * state on resume — only PREP_READY → LIVE_IN_PROGRESS writes. Going live is refused while the
@@ -47,6 +56,7 @@ export interface LiveSessionResponse {
  */
 export class LiveSessionService {
   private readonly lastDispatch = new Map<string, number>();
+  private readonly dispatching = new Map<string, Promise<DispatchOutcome>>();
 
   constructor(
     private readonly sessions: InterviewSessionRepository,
@@ -81,7 +91,7 @@ export class LiveSessionService {
     }
     // The problems of this blueprint are now "seen": later blueprints won't repeat them.
     if (updated) await this.prep.recordSeen(updated);
-    if (updated) await this.dispatch(sessionId);
+    if (updated) await this.dispatchUnlessPresent(sessionId, "go-live");
     return this.connection(sessionId, candidateId, status);
   }
 
@@ -94,11 +104,25 @@ export class LiveSessionService {
     return { livekitUrl: null, token: null, roomName: null, status: s.status };
   }
 
+  /**
+   * Get the interviewer into the room while the candidate reads the instructions (spec 2026-10-11). Owner only, and never an
+   * error for a round that is not eligible. Changes nothing but the dispatch: no status, no seen problems, no clock.
+   */
+  async warm(candidateId: string, sessionId: string): Promise<WarmResponse> {
+    const s = await this.requireOwned(candidateId, sessionId);
+    const eligible = s.status === "LIVE_IN_PROGRESS" || (s.status === "PREP_READY" && this.live.isAvailableFor(candidateId));
+    if (!eligible) return { warming: false };
+    return { warming: (await this.dispatchUnlessPresent(sessionId, "warm")) !== "failed" };
+  }
+
   /** The round and a minimal profile for the interviewer worker; only while the session is live. */
   async context(sessionId: string) {
     const s = await this.sessions.findById(sessionId);
     if (!s) throw InterviewSessionError.notFound();
-    if (s.status !== "LIVE_IN_PROGRESS") throw InterviewSessionError.conflict("session_not_live", "the session is not live");
+    // A ready round answers too: the interviewer loads it while the candidate reads the instructions.
+    if (s.status !== "LIVE_IN_PROGRESS" && s.status !== "PREP_READY") {
+      throw InterviewSessionError.conflict("session_not_live", "the session is not live");
+    }
     const [{ firstName, profile }, company] = await Promise.all([this.prep.liveContext(s), this.companies?.findBySlug(s.company) ?? null]);
     return {
       session_id: s.id,
@@ -159,15 +183,55 @@ export class LiveSessionService {
     return { status: to, endedReason: reason, alreadyEnded: false };
   }
 
-  private async dispatch(sessionId: string): Promise<void> {
-    if (!this.rooms) return;
-    this.lastDispatch.set(sessionId, Date.now());
+  /** Whether LiveKit took the dispatch. A refused one is not remembered, so the next resume or warm-up tries again. */
+  private async dispatch(sessionId: string): Promise<boolean> {
+    if (!this.rooms) return false;
     try {
       await this.rooms.dispatchAgent(sessionId);
+      this.lastDispatch.set(sessionId, Date.now());
+      return true;
     } catch (err) {
       // The candidate still gets a token and enters; the next resume checks the room and dispatches again.
       this.log?.warn(`interviewer dispatch failed for session ${sessionId}: ${errorMessage(err)}`);
+      return false;
     }
+  }
+
+  /** Concurrent callers for one session share one attempt (a page that mounts twice must not start two interviewers). */
+  private dispatchUnlessPresent(sessionId: string, source: DispatchSource): Promise<DispatchOutcome> {
+    const running = this.dispatching.get(sessionId);
+    if (running) return running;
+    const attempt = this.dispatchIfAbsent(sessionId, source).finally(() => this.dispatching.delete(sessionId));
+    this.dispatching.set(sessionId, attempt);
+    return attempt;
+  }
+
+  /**
+   * Dispatch the interviewer unless one is in the room, is already on its way, or was dispatched in the last 30 s. A failed
+   * presence check does not stop the dispatch: a second interviewer leaves by itself (the worker's guard), a missing one cannot.
+   */
+  private async dispatchIfAbsent(sessionId: string, source: DispatchSource): Promise<DispatchOutcome> {
+    if (!this.rooms) return "failed";
+    const { outcome, why } = await this.decide(sessionId);
+    const said = outcome === "already_there" ? "skipped" : outcome;
+    this.log?.info(`interviewer for session ${sessionId} (${source}): ${said}, ${why}`);
+    return outcome;
+  }
+
+  private async decide(sessionId: string): Promise<{ outcome: DispatchOutcome; why: string }> {
+    const last = this.lastDispatch.get(sessionId);
+    if (last !== undefined && Date.now() - last < REDISPATCH_AFTER_MS) return { outcome: "already_there", why: "dispatched under 30 s ago" };
+    // Both questions at once: this runs before the candidate gets a token. A failed answer is not a "no" that hides a "yes" from the other.
+    const [inRoom, pending] = await Promise.allSettled([this.rooms!.hasAgent(sessionId), this.rooms!.hasDispatch(sessionId)]);
+    const failed = [inRoom, pending].filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failed.length > 0) {
+      this.log?.warn(`interviewer presence check failed for session ${sessionId}: ${failed.map((r) => errorMessage(r.reason)).join("; ")}`);
+    }
+    if (inRoom.status === "fulfilled" && inRoom.value) return { outcome: "already_there", why: "interviewer in the room" };
+    if (pending.status === "fulfilled" && pending.value) return { outcome: "already_there", why: "interviewer dispatch pending" };
+    return (await this.dispatch(sessionId))
+      ? { outcome: "dispatched", why: "none in the room" }
+      : { outcome: "failed", why: "LiveKit refused the dispatch" };
   }
 
   /** On resume: dispatch again when the room has no interviewer (the worker crashed), never twice in 30 s. */

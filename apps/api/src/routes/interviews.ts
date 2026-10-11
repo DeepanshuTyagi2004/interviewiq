@@ -54,6 +54,11 @@ export function interviewsRouter(c: Container): Router {
     res.json(await c.liveSessions.getLive(userId(req), uuidParam(req, "sessionId")));
   });
 
+  /** Get the interviewer into the room while the candidate reads the instructions: best effort, never an error for a round that is not eligible. */
+  r.post("/sessions/:sessionId/live/warm", async (req, res) => {
+    res.json(await c.liveSessions.warm(userId(req), uuidParam(req, "sessionId")));
+  });
+
   /** The candidate ends the live round: the fallback when the interviewer doesn't answer End (idempotent). */
   r.post("/sessions/:sessionId/live/end", async (req, res) => {
     res.json(await c.liveSessions.endFromCandidate(userId(req), uuidParam(req, "sessionId")));

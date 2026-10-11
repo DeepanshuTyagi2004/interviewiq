@@ -17,7 +17,7 @@ beforeAll(async () => {
 afterAll(() => env.close());
 
 describe("internal live endpoints", () => {
-  it("gives the worker the round and a minimal profile, only while live", async () => {
+  it("gives the worker the round and a minimal profile, while the round is live or ready", async () => {
     const user = await createUser(env, { name: "Asha Rao" });
     const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(),
       prepBriefing: { interviewer_name: "Siddharth", interviewer_style: "warm", format: "coding", duration_mins: 50 } }); // the briefing's own length, not the 45-minute default
@@ -28,8 +28,17 @@ describe("internal live endpoints", () => {
     expect(res.body.profile).toEqual({ headline: null, skills: [], projects: [] }); // a user with no profile yet
     expect(JSON.stringify(res.body)).not.toContain("@");
 
+    // A ready round answers too: the interviewer loads it while the candidate reads the instructions.
     const ready = await seedSession(env, user.id, jd, { status: "PREP_READY" });
-    expect((await env.http.get(ctx(ready.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY)).body.code).toBe("session_not_live");
+    const early = await env.http.get(ctx(ready.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
+    expect(early.status).toBe(200);
+    expect(early.body).toMatchObject({ session_id: ready.id, status: "PREP_READY", first_name: "Asha" });
+    // Any other status has no context to load.
+    for (const status of ["SCHEDULED", "PREP_QUEUED", "PREP_FAILED", "COMPLETED", "ABORTED_TECHNICAL"] as const) {
+      const other = await seedSession(env, user.id, jd, { status });
+      const res = await env.http.get(ctx(other.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
+      expect([res.status, res.body.code]).toEqual([409, "session_not_live"]);
+    }
     expect((await env.http.get(ctx(s.id))).status).toBe(401);
   });
 

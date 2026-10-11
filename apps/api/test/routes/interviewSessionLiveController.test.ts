@@ -214,3 +214,30 @@ describe("POST /sessions/:id/live/end (candidate fallback)", () => {
     expect((await env.c.repos.sessions.findById(s.id))!.endedReason).toBe("ended_by_interviewer");
   });
 });
+
+describe("POST /sessions/:id/live/warm", () => {
+  const warm = (sessionId: string) => `${live(sessionId)}/warm`;
+
+  it("warms a ready round without touching it, is a quiet no-op for any other, and is owner-only", async () => {
+    env.fetch.reset();
+    env.fetch.on("POST", /CreateDispatch$/, {});
+    env.fetch.on("POST", /ListParticipants$/, { participants: [] });
+    env.fetch.on("POST", /ListDispatch$/, { agent_dispatches: [] });
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "PREP_READY" });
+
+    const res = await env.http.post(warm(s.id)).set("Authorization", await bearer(env, user));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ warming: true });
+    expect(env.fetch.callsTo(/CreateDispatch/)).toHaveLength(1);
+    expect((await env.c.repos.sessions.findById(s.id))?.status).toBe("PREP_READY");
+
+    const booked = await seedSession(env, user.id, jd, { status: "SCHEDULED" });
+    const quiet = await env.http.post(warm(booked.id)).set("Authorization", await bearer(env, user));
+    expect([quiet.status, quiet.body]).toEqual([200, { warming: false }]);
+
+    const stranger = await env.http.post(warm(s.id)).set("Authorization", await bearer(env, await createUser(env)));
+    expect(stranger.status).toBe(404);
+    expect((await env.http.post(warm(randomUUID()))).status).toBe(401);
+  });
+});

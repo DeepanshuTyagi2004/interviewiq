@@ -1508,6 +1508,25 @@ paths:
           content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ResearchTarget" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/interviews/sessions/{sessionId}/live/warm:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: warmLiveInterviewSession
+      tags: [interview-sessions]
+      summary: Get the interviewer into the room while the candidate reads the instructions.
+      description: >
+        Best effort and idempotent. For a PREP_READY round the live interviewer is available for (or one that is already
+        LIVE_IN_PROGRESS) it dispatches the interviewer into the room unless one is already there or on its way, so the
+        interviewer is waiting when the candidate enters. It changes nothing else: no status change, no seen problems, no
+        clock. Any other round answers `warming: false`. Only the owning candidate may call this.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Whether an interviewer is in the room or on its way.
+          content: { application/json: { schema: { $ref: "#/components/schemas/WarmLiveResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/interviews/sessions/{sessionId}/live/end:
     parameters:
       - $ref: "#/components/parameters/SessionId"
@@ -1532,7 +1551,7 @@ paths:
     get:
       operationId: getLiveContext
       tags: [internal-live]
-      summary: The round and a minimal profile for the interviewer worker.
+      summary: The round and a minimal profile for the interviewer worker (while the round is PREP_READY or LIVE_IN_PROGRESS).
       security: [{ internalApiKey: [] }]
       responses:
         "200":
@@ -1541,7 +1560,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: "`session_not_live`."
+          description: "`session_not_live`: the session is neither PREP_READY nor LIVE_IN_PROGRESS."
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /api/v1/internal/live/sessions/{sessionId}/end:
     parameters:
@@ -2958,6 +2977,13 @@ components:
           items:
             $ref: "#/components/schemas/InterviewSession"
 
+    WarmLiveResponse:
+      type: object
+      required: [warming]
+      properties:
+        warming:
+          type: boolean
+          description: True when an interviewer is in the room, on its way, or was just dispatched.
     GoLiveResponse:
       type: object
       description: >
