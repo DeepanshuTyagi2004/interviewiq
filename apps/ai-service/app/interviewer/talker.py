@@ -17,8 +17,9 @@ from typing import Any, AsyncIterator, Callable
 
 from app.interviewer.closing import announces_coding_now, announces_problem, invites_questions_now
 from app.interviewer.fillers import Fillers
-from app.interviewer.guard import NEUTRAL_LINE, LeakGuard
+from app.interviewer.guard import LeakGuard
 from app.interviewer.llm import LLMUnavailable, StreamEvent, ToolCall
+from app.interviewer.said import SaidTracker
 from app.interviewer.tools import TOOLS, ToolExecutor
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
@@ -102,6 +103,8 @@ class TalkerTurn:
         self.clock = clock
         self.on_slow = on_slow
         self.fillers = fillers or Fillers()
+        self.said = SaidTracker()                   # every sentence spoken this interview: none is said again in the same words
+        self._turn_id = ""
         self.last = TurnResult()
         self._offered = TOOLS
         self._block_claims = False
@@ -115,6 +118,7 @@ class TalkerTurn:
                   neutral_on_blocked: bool = True, block_qa_invites: bool = False, fillers_allowed: bool = True,
                   quiet_coding: bool = False) -> AsyncIterator[str]:
         self._offered = tools if tools is not None else TOOLS
+        self._turn_id = turn_id
         self._block_claims = block_screen_claims
         self._block_qa = block_qa_invites
         self._quiet = quiet_coding                  # they are about to type: one short remark at most, never a hint
@@ -152,10 +156,12 @@ class TalkerTurn:
                     async for sentence in sentences:
                         yield sentence
             if neutral_on_blocked and not result.spoken and result.blocked:
-                result.spoken.append(NEUTRAL_LINE)
-                yield NEUTRAL_LINE
+                line = self.said.neutral()
+                result.spoken.append(line)
+                yield line
         except (asyncio.CancelledError, GeneratorExit):
             result.interrupted = True
+            self.said.forget(turn_id)               # they may not have heard it to the end: it can be said again
             raise
 
     async def _try(self, chat, messages, with_tools: bool, limit_s: float) -> _Opened:
@@ -347,6 +353,9 @@ class TalkerTurn:
         if not verdict.ok:
             result.blocked.append({"sentence": text, "rule": verdict.rule, "match": verdict.match})
             return None
+        if (earlier := self.said.repeat_of(text)) is not None:
+            result.blocked.append({"sentence": text, "rule": "repeat", "match": earlier})
+            return None
         if self._quiet:
             if HINT_CUE.search(text):
                 result.blocked.append({"sentence": text, "rule": "hint_while_typing", "match": HINT_CUE.search(text).group(0)})
@@ -355,4 +364,5 @@ class TalkerTurn:
                 return None                      # one short remark is enough while they type: the rest is dropped, not held against it
             self._remarks += 1
         result.spoken.append(text)
+        self.said.add(text, self._turn_id)
         return text

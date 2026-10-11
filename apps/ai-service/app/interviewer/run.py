@@ -17,7 +17,7 @@ from app.interviewer.closing import (addresses_the_candidate, announces_problem,
 from app.interviewer.conductor import ORDER_SPACING_S, Conductor, Order, Rules
 from app.interviewer.digest import digest_for_utterance, digest_idle
 from app.interviewer.director import Director
-from app.interviewer.guard import NEUTRAL_LINE, LeakGuard
+from app.interviewer.guard import LeakGuard
 from app.interviewer.llm import ToolCall
 from app.interviewer.plan import layout_for, round_seconds, wire_ids
 from app.interviewer.prompts import director_messages, item_details, opening_hint, state_block, talker_messages, talker_prefix
@@ -36,6 +36,8 @@ END_ORDER_GRACE_S = 20.0     # an ending the talker never got to say is carried 
 REPLY_RETRY_S = 3.0
 MUST_REPHRASE = ("(What you were about to say is not allowed at this point (it would announce something that is not ready or give "
                  "something away). Say something different instead: react to what they just said and ask a real question.)")
+MUST_NOT_REPEAT = ("(What you were about to say you have already said in this interview. Do not say it again in the same words: if it "
+                   "still needs saying, put it differently; otherwise react to what they just said and move the conversation on with a real question.)")
 MUST_ANSWER = ("(You said nothing, and the candidate is waiting for you: reply now with at least one spoken sentence, "
                "acknowledging what they just said. Do not use <silent>.)")
 MAX_TRACKED_ACTIONS = 60
@@ -112,10 +114,28 @@ class InterviewRun:
         self.left_at: float | None = None
         self._left_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
+        self.begun = asyncio.Event()                  # the round has started (the candidate arrived); the greeting waits for it
+        self._early: list[Any] = []                   # what the browser sent before then, handled in order once it has
+        self.candidate_in_room = asyncio.Event()      # a candidate (not an interviewer) is in the room; the greeting waits for it too
 
     # ------------------------------------------------------------ lifecycle
 
     async def start(self, saved: dict[str, Any] | None) -> None:
+        """Load or restore the round and start its clock. The worker calls this when the candidate arrives, not when the
+        interviewer joins the room. An interview that had already finished never begins (it is never greeted again)."""
+        await self._start(saved)
+        if self.ended_run is not None:
+            return
+        self.begun.set()
+        early, self._early = self._early, []
+        for message in early:                          # no await inside on_web_message, so nothing can interleave
+            await self.on_web_message(message)
+
+    def set_candidate_in_room(self, present: bool) -> None:
+        """The worker says whether a candidate is in the room. The interviewer speaks to no one: the greeting waits for this."""
+        (self.candidate_in_room.set if present else self.candidate_in_room.clear)()
+
+    async def _start(self, saved: dict[str, Any] | None) -> None:
         if saved and saved.get("ended_at"):
             # A re-dispatch into an interview that already finished (its end never reached the API, say): never run it
             # again. The worker repeats the ending (reaffirm_end) and leaves.
@@ -126,6 +146,7 @@ class InterviewRun:
             self.conductor = Conductor.restore(self.d.blueprint, self.round_seconds, saved["checkpoint"], self.d.rules,
                                                self.d.clock, self.skills)
             self.history = list(saved.get("history") or [])[-MAX_HISTORY:]
+            self.talker.said.seed(m["content"] for m in self.history if m["role"] == "assistant" and not m["content"].endswith("(interrupted)"))
             self.summary = saved.get("summary") or ""
             # The crash can beat the last checkpoint: number new turns after every turn already stored.
             self.seq = max(int(saved.get("seq") or 0), await self.d.store.max_seq(self.session_id))
@@ -189,7 +210,7 @@ class InterviewRun:
 
     def on_user_text(self, text: str) -> None:
         text = (text or "").strip()
-        if not text or self.finishing:
+        if not text or self.finishing or not self.begun.is_set():
             return
         now = self.d.clock()
         self.seq += 1
@@ -375,7 +396,11 @@ class InterviewRun:
                 # them waiting: ask again, saying why, rather than speak a bare filler line or go quiet.
                 already = (f' You have already said this in this turn: "{" ".join(first.spoken)}" Do not repeat or reword it; add only what is missing.'
                            if first.spoken else "")
-                async for sentence in self.talker.run([*messages, {"role": "user", "content": MUST_REPHRASE + already}], turn_id=str(turn),
+                repeats = [b for b in first.blocked if b["rule"] == "repeat"]
+                if repeats:
+                    already += " You were about to repeat: " + " ".join(f'"{b["sentence"]}"' for b in repeats[:3])
+                nudge = MUST_NOT_REPEAT if len(repeats) == len(first.blocked) else MUST_REPHRASE
+                async for sentence in self.talker.run([*messages, {"role": "user", "content": nudge + already}], turn_id=str(turn),
                                                       current_slot=item.slot_id, candidate_said=self.candidate_said.get(item.item_id, ""),
                                                       tools=offered, block_screen_claims=not problem_in_play, neutral_on_blocked=False,
                                                       block_qa_invites=qa_early, fillers_allowed=self._greeted, quiet_coding=quiet_coding):
@@ -388,8 +413,9 @@ class InterviewRun:
                 first.decision = first.decision or before.decision
                 if spoken == 0:
                     spoken = 1
-                    first.spoken.append(NEUTRAL_LINE)
-                    yield NEUTRAL_LINE
+                    line = self.talker.said.neutral()
+                    first.spoken.append(line)
+                    yield line
             typing = bool(activity and "typed line" in (activity.get("text") or ""))
             if spoken == 0 and candidate_text is not None and (item.kind != "slot" or not typing) and not first.interrupted \
                     and not first.blocked and not self.finishing:
@@ -502,6 +528,9 @@ class InterviewRun:
     # ------------------------------------------------------------ events and time
 
     async def on_web_message(self, m) -> None:
+        if not self.begun.is_set():
+            self._early.append(m)                      # the round has not started: held, then handled in order
+            return
         if m.type == "activity.batch":
             self._ingest_activity(m)
             return

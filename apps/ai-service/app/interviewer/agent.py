@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterable
 
-from livekit.agents import Agent, AgentSession, JobContext, llm
+from livekit.agents import Agent, AgentSession, JobContext, StopResponse, llm
 
 from app.interviewer.run import InterviewRun
 
@@ -33,9 +33,17 @@ class InterviewerAgent(Agent):
         self._pending_user_text: str | None = None
 
     async def on_enter(self) -> None:
+        # The interviewer may be in the room long before the candidate: it greets only once the round has started (their browser said
+        # hello) and they are in the room, so it never speaks to an empty room.
+        await self.run.begun.wait()
+        await self.run.candidate_in_room.wait()
         self.session.generate_reply()  # the opening turn: the run's greeting
 
     async def on_user_turn_completed(self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage) -> None:
+        if not self.run.begun.is_set():
+            # The interviewer listens from the moment it is in the room, but the round starts with the browser's hello. A turn that
+            # completes before that must not be answered as if the round were running: the greeting that follows is the reply.
+            raise StopResponse()
         text = new_message.text_content or ""
         self._pending_user_text = text
         self.run.on_user_text(text)

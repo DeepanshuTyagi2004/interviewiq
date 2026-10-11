@@ -566,3 +566,12 @@ def test_let_us_move_into_the_problems_is_recognised_as_a_promise_of_the_coding_
 
     assert SCREEN_CLAIM.search("That's a clear picture, let's move into the problems now.")
     assert announces_problem("Let's get to the problems now.")
+
+
+def test_a_sentence_already_said_this_interview_is_held_back_but_a_rewording_is_spoken():
+    ask = "Can you walk me through how you would approach this?"
+    turn, *_ = make([say(ask), say(ask), say("How would you go about solving this, step by step?")])
+    assert asyncio.run(collect(turn)) == [ask]
+    assert asyncio.run(collect(turn)) == [NEUTRAL_LINE]
+    assert turn.last.blocked[0]["rule"] == "repeat" and turn.last.blocked[0]["match"] == ask
+    assert asyncio.run(collect(turn)) == ["How would you go about solving this, step by step?"]

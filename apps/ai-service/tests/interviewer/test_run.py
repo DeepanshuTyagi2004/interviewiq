@@ -1163,3 +1163,69 @@ def test_a_framing_that_ran_long_does_not_let_the_interviewer_promise_a_problem_
     pieces, run = asyncio.run(go())
     assert pieces == ["Good, thanks for that."]
     assert run.talker.last.blocked and run.talker.last.blocked[0]["rule"] == "screen_claim"
+
+
+def test_messages_that_arrive_before_the_round_starts_are_held_and_handled_in_order_once_it_has():
+    async def go():
+        run, _, _ = make([say("Hello.")])
+        assert not run.begun.is_set()
+        tab = {"type": "proctor.event", "kind": "tab_hidden", "weight": 1, "at": 1, "counts": {"tab_changes": 1, "screen_changes": 0, "full_violations": 0}}
+        await run.on_web_message(web(tab))
+        await run.on_web_message(web({"type": "code.snapshot", "version": 1, "language": "python", "text": "x = 1"}))
+        assert len(run._early) == 2 and run.conductor.live_summary()["tab_changes"] == 0
+        await run.start(None)
+        return run
+
+    run = asyncio.run(go())
+    assert run.begun.is_set() and run._early == []
+    assert run.conductor.live_summary()["tab_changes"] == 1          # the held proctor event was handled after the start
+
+
+def test_a_finished_interview_never_begins_so_it_is_never_greeted_again():
+    async def go():
+        run, _, _ = make([say("Hello.")])
+        await run.start({"ended_at": "2026-10-10T20:00:00+00:00", "end_reason": "completed", "history": []})
+        return run
+
+    run = asyncio.run(go())
+    assert run.ended_run is not None and not run.begun.is_set()
+
+
+def test_what_the_candidate_says_before_the_round_starts_is_not_taken_as_a_turn():
+    async def go():
+        run, _, _ = make([say("Hello.")])
+        run.on_user_text("Hi, can you hear me?")
+        before = (run.seq, list(run.history), run.unanswered, run.conductor.reply_owed)
+        await run.start(None)
+        run.on_user_text("Hello")
+        return before, (run.seq, run.history[-1]["content"], run.unanswered)
+
+    before, after = asyncio.run(go())
+    assert before == (0, [], None, False)            # nothing was recorded, nothing is owed
+    assert after == (1, "Hello", "Hello")            # once the round has started a turn is a turn
+
+
+def test_a_resumed_run_keeps_its_stored_clock_instead_of_starting_a_new_one():
+    async def go():
+        run, deps, clock = make([say("Hello.")])
+        await run.start(None)
+        started = run.conductor.started_at
+        await run._checkpoint()
+        clock.advance(600)                                  # the worker restarts ten minutes into the round
+        again = InterviewRun(RunDeps(blueprint=blueprint(), context=context(), talker_chat=FakeChat([say("Welcome back.")]),
+                                     director_chat=FakeChat(briefs=[]), workspace=FakeWorkspace(), api=FakeApi(), store=deps.store,
+                                     clock=clock, first_token_timeout_s=0.2))
+        await again.start(await deps.store.load_run("s1"))
+        return started, again.conductor.started_at, clock()
+
+    started, resumed, now = asyncio.run(go())
+    assert resumed == started and resumed < now              # the round's 45 minutes did not start over
+
+
+def test_the_run_knows_whether_a_candidate_is_in_the_room():
+    run, _, _ = make([say("Hello.")])
+    assert not run.candidate_in_room.is_set()                  # an interviewer alone in a room has no one to speak to
+    run.set_candidate_in_room(True)
+    assert run.candidate_in_room.is_set()
+    run.set_candidate_in_room(False)
+    assert not run.candidate_in_room.is_set()
