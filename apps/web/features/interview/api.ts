@@ -6,6 +6,7 @@ import type {
   GoLiveResponse,
   InterviewSession,
   InterviewSessionListResponse,
+  WarmLiveResponse,
 } from "./types";
 
 /** GET /api/v1/interviews/sessions — the candidate's sessions (newest first). */
@@ -36,6 +37,11 @@ export function goLive(id: string): Promise<GoLiveResponse> {
 /** GET /api/v1/interviews/sessions/{id}/live — current live state (fresh token if LIVE_IN_PROGRESS). */
 export function getLive(id: string): Promise<GoLiveResponse> {
   return apiFetch<GoLiveResponse>(INTERVIEW_ENDPOINTS.live(id));
+}
+
+/** POST /api/v1/interviews/sessions/{id}/live/warm — get the interviewer into the room while the candidate reads the instructions (best effort). */
+export function warmLive(id: string): Promise<WarmLiveResponse> {
+  return apiFetch<WarmLiveResponse>(INTERVIEW_ENDPOINTS.liveWarm(id), { method: "POST" });
 }
 
 /** POST /api/v1/interviews/sessions/{id}/live/end — end the live round when the interviewer didn't answer End (idempotent). */

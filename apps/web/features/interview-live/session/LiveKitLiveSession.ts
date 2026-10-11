@@ -19,6 +19,8 @@ const BYTES_TOPIC: Record<BytesKind, string> = {
   'board.backup': BYTE_TOPICS.boardBackup,
 }
 const AGENT_STATES = new Set<AgentState>(['initializing', 'listening', 'thinking', 'speaking'])
+/** How long entering waits for the interviewer to be in the room before showing the room anyway. */
+export const AGENT_WAIT_MS = 15_000
 
 function mapConnState(s: ConnectionState): ConnState {
   switch (s) {
@@ -63,6 +65,7 @@ export class LiveKitLiveSession implements LiveSession {
   private readonly transcriptCbs = new Set<Cb<TranscriptSegment>>()
   private readonly agentCbs = new Set<Cb<AgentState>>()
   private readonly connCbs = new Set<Cb<ConnState>>()
+  private agentJoined: (() => void) | null = null
 
   async connect(sessionId: string): Promise<void> {
     this.setConn('connecting')
@@ -76,7 +79,12 @@ export class LiveKitLiveSession implements LiveSession {
       room.registerTextStreamHandler(TRANSCRIPTION_TOPIC, (reader, participant) => this.readTranscription(reader, participant.identity))
       room.registerByteStreamHandler(BYTE_TOPICS.boardRestore, (reader) => this.readRestore(reader))
       room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => this.setConn(mapConnState(state)))
-      room.on(RoomEvent.ParticipantConnected, (p: Participant) => { if (p.isAgent) this.emitAgent(agentStateOf(p)) })
+      room.on(RoomEvent.ParticipantConnected, (p: Participant) => {
+        if (p.isAgent) {
+          this.emitAgent(agentStateOf(p))
+          this.agentJoined?.()
+        }
+      })
       room.on(RoomEvent.ParticipantDisconnected, (p: Participant) => { if (p.isAgent) this.emitAgent('absent') })
       room.on(RoomEvent.ParticipantAttributesChanged, (_changed: Record<string, string>, p: Participant) => {
         if (p.isAgent) this.emitAgent(agentStateOf(p))
@@ -106,6 +114,9 @@ export class LiveKitLiveSession implements LiveSession {
       this.stream = null // self-view is best-effort only
     }
 
+    // An empty room reads as broken: enter once the interviewer is in it (the instructions page usually got it there already).
+    await this.waitForAgent(AGENT_WAIT_MS)
+
     // Only force 'connected' if nothing truer arrived while getUserMedia was pending.
     if (this.connectionState === 'connecting') this.setConn('connected')
   }
@@ -119,6 +130,21 @@ export class LiveKitLiveSession implements LiveSession {
     this.audioEls = []
     await this.room?.disconnect()
     this.setConn('disconnected')
+  }
+
+  /** Resolves when an interviewer is in the room, or after `ms`. It does not depend on the browser's hello, so it cannot deadlock. */
+  private waitForAgent(ms: number): Promise<void> {
+    const here = () => !!this.room && Array.from(this.room.remoteParticipants.values()).some((p) => p.isAgent)
+    if (here()) return Promise.resolve()
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer)
+        this.agentJoined = null
+        resolve()
+      }
+      const timer = setTimeout(done, ms)
+      this.agentJoined = done
+    })
   }
 
   getLocalStream() { return this.stream }

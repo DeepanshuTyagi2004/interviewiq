@@ -10,6 +10,7 @@ export type RoundType = components["schemas"]["RoundType"];
 export type CreateInterviewSessionRequest = components["schemas"]["CreateInterviewSessionRequest"];
 export type InterviewSessionListResponse = components["schemas"]["InterviewSessionListResponse"];
 export type GoLiveResponse = components["schemas"]["GoLiveResponse"];
+export type WarmLiveResponse = components["schemas"]["WarmLiveResponse"];
 export type CandidateLiveEndResult = components["schemas"]["CandidateLiveEndResult"];
 export type SessionPrep = components["schemas"]["SessionPrep"];
 export type PrepStep = components["schemas"]["PrepStep"];

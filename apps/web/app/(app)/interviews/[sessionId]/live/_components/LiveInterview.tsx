@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
 import { ScriptedLiveSession } from "@/features/interview-live/session/ScriptedLiveSession";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
+import { useWarmInterviewer } from "@/features/interview-live/session/useWarmInterviewer";
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { useLiveState, useSession } from "@/features/interview/hooks";
 import type { SessionStatus } from "@/features/interview/types";
@@ -55,6 +56,8 @@ function notReadyNote(status: SessionStatus | undefined): string {
 export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
   const { state } = useLiveSession();
   const router = useRouter();
+  // The instructions page is open: get the interviewer into the room while the candidate reads (one call, best effort).
+  useWarmInterviewer(sessionId, state === "prejoin");
 
   switch (state) {
     // The round runs full screen from its first page: the instructions, the checks and the connecting step wait
@@ -118,7 +121,7 @@ export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; met
         <FullscreenGate meta={meta}>
           <RoomFrame leave={false}>
             <RoomCentered className="items-center text-center">
-              <RoomSpinner label={state === "connecting" ? "Connecting to your interviewer…" : `${state}…`} />
+              <RoomSpinner label={state === "connecting" ? "Your interviewer is joining…" : `${state}…`} />
             </RoomCentered>
           </RoomFrame>
         </FullscreenGate>

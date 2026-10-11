@@ -15,6 +15,11 @@ vi.mock("@/features/interview/hooks", () => ({
   useLiveState: () => ({ data: { status: "PREP_READY" }, isLoading: false }),
   useSession: () => ({ data: { liveAvailable: true }, isLoading: false }),
 }));
+// The instructions page now gets the interviewer ready on mount: keep the network out of these tests.
+vi.mock("@/features/interview/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/interview/api")>()),
+  warmLive: vi.fn(async () => ({ warming: false })),
+}));
 
 import LiveInterview from "./LiveInterview";
 

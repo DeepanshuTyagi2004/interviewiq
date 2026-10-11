@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
   on: {} as Record<string, (...a: unknown[]) => void>,
   text: {} as Record<string, (reader: unknown, participant: { identity: string }) => unknown>,
   bytes: {} as Record<string, (reader: unknown, participant: { identity: string }) => unknown>,
   writer: { write: vi.fn(async () => {}), close: vi.fn(async () => {}) },
+  agentHere: true,
 }))
 const sendText = vi.fn(async () => ({}))
 const streamBytes = vi.fn(async () => h.writer)
@@ -18,7 +19,7 @@ vi.mock('livekit-client', () => ({
       sendText, streamBytes,
       setMicrophoneEnabled: vi.fn(async () => {}),
     }
-    remoteParticipants = new Map()
+    get remoteParticipants() { return new Map(h.agentHere ? [['agent-1', { isAgent: true, attributes: {} }]] : []) }
     on(event: string, cb: (...a: unknown[]) => void) { h.on[event] = cb; return this }
     registerTextStreamHandler(topic: string, cb: (r: unknown, p: { identity: string }) => unknown) { h.text[topic] = cb }
     registerByteStreamHandler(topic: string, cb: (r: unknown, p: { identity: string }) => unknown) { h.bytes[topic] = cb }
@@ -38,7 +39,7 @@ vi.mock('@/features/interview/api', () => ({
   goLive: vi.fn(async () => ({ livekitUrl: 'wss://x', token: 'jwt', roomName: 'interview-s1', status: 'LIVE_IN_PROGRESS' })),
 }))
 
-import { LiveKitLiveSession } from './LiveKitLiveSession'
+import { AGENT_WAIT_MS, LiveKitLiveSession } from './LiveKitLiveSession'
 import type { TranscriptSegment } from './transcript'
 
 function reader(chunks: string[], attributes: Record<string, string> = {}) {
@@ -53,6 +54,10 @@ describe('LiveKitLiveSession', () => {
   beforeEach(() => {
     for (const k of Object.keys(h.on)) delete h.on[k]
     vi.clearAllMocks()
+    h.agentHere = true
+  })
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('connects and reports connected', async () => {
@@ -92,7 +97,7 @@ describe('LiveKitLiveSession', () => {
     await s.connect('s1')
     h.on['participantAttributesChanged']({}, { isAgent: true, attributes: { 'lk.agent.state': 'thinking' } })
     h.on['participantDisconnected']({ isAgent: true, attributes: {} })
-    expect(states).toEqual(['thinking', 'absent'])
+    expect(states).toEqual(['initializing', 'thinking', 'absent']) // the interviewer already in the room at connect is reported first
   })
 
   it('sends stamped messages on the workspace topic and bytes in chunks', async () => {
@@ -106,5 +111,33 @@ describe('LiveKitLiveSession', () => {
     expect(streamBytes).toHaveBeenCalledWith(expect.objectContaining({ topic: 'workspace.board.snapshot', attributes: { request_id: 'r1' } }))
     expect(h.writer.write).toHaveBeenCalledTimes(2)
     expect(h.writer.close).toHaveBeenCalled()
+  })
+
+  it('does not finish connecting until the interviewer joins the room', async () => {
+    vi.useFakeTimers()
+    h.agentHere = false
+    const s = new LiveKitLiveSession()
+    let settled = false
+    const connecting = s.connect('s1').then(() => { settled = true })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(settled).toBe(false) // the page is held on "joining" by connect() not resolving
+    h.on['participantConnected']({ isAgent: true, attributes: {} })
+    await connecting
+    expect(settled).toBe(true)
+    expect(s.connectionState).toBe('connected')
+  })
+
+  it('gives up waiting after AGENT_WAIT_MS and enters the room anyway', async () => {
+    vi.useFakeTimers()
+    h.agentHere = false
+    const s = new LiveKitLiveSession()
+    let settled = false
+    const connecting = s.connect('s1').then(() => { settled = true })
+    await vi.advanceTimersByTimeAsync(AGENT_WAIT_MS - 1)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(2)
+    await connecting
+    expect(settled).toBe(true)
+    expect(s.connectionState).toBe('connected')
   })
 })

@@ -1309,6 +1309,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/sessions/{sessionId}/live/warm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get the interviewer into the room while the candidate reads the instructions.
+         * @description Best effort and idempotent. For a PREP_READY round the live interviewer is available for (or one that is already LIVE_IN_PROGRESS) it dispatches the interviewer into the room unless one is already there or on its way, so the interviewer is waiting when the candidate enters. It changes nothing else: no status change, no seen problems, no clock. Any other round answers `warming: false`. Only the owning candidate may call this.
+         *
+         */
+        post: operations["warmLiveInterviewSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interviews/sessions/{sessionId}/live/end": {
         parameters: {
             query?: never;
@@ -1340,7 +1363,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** The round and a minimal profile for the interviewer worker. */
+        /** The round and a minimal profile for the interviewer worker (while the round is PREP_READY or LIVE_IN_PROGRESS). */
         get: operations["getLiveContext"];
         put?: never;
         post?: never;
@@ -2493,6 +2516,10 @@ export interface components {
         };
         InterviewSessionListResponse: {
             sessions: components["schemas"]["InterviewSession"][];
+        };
+        WarmLiveResponse: {
+            /** @description True when an interviewer is in the room, on its way, or was just dispatched. */
+            warming: boolean;
         };
         /** @description Result of starting or checking the live interview. `livekitUrl`/`token`/`roomName` are populated while status == LIVE_IN_PROGRESS and null otherwise (e.g. before prep is ready, or after the session has COMPLETED/ABORTED_TECHNICAL).
          *      */
@@ -6381,6 +6408,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    warmLiveInterviewSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether an interviewer is in the room or on its way. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarmLiveResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     endLiveInterviewSession: {
         parameters: {
             query?: never;
@@ -6436,7 +6487,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            /** @description `session_not_live`. */
+            /** @description `session_not_live`: the session is neither PREP_READY nor LIVE_IN_PROGRESS. */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -9,6 +9,11 @@ vi.mock("@/features/interview/hooks", () => ({
   useLiveState: (id: string) => useLiveState(id),
   useSession: () => useSessionInfo(),
 }));
+// The instructions page now gets the interviewer ready on mount: keep the network out of these tests.
+vi.mock("@/features/interview/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/interview/api")>()),
+  warmLive: vi.fn(async () => ({ warming: false })),
+}));
 // keep the provider real but with an injected inert session
 import type { LiveSession } from "@/features/interview-live/session/types";
 const inert: Partial<LiveSession> = {
