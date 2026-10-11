@@ -29,9 +29,20 @@ const cancelFrame = (id: number) => (typeof window.cancelAnimationFrame === "fun
  * each the cat walks about, trips, laughs and pulls faces (pose.ts).
  * Each frame is written straight to the SVG (stage.ts), so React renders only when the chapter changes.
  * Decorative (`aria-hidden`); `prefers-reduced-motion` shows one still per mount; requestAnimationFrame
- * pauses with the tab. `freezeAt` pins a chapter time (tests and previews).
+ * pauses with the tab. `freezeAt` pins a chapter time (tests and previews). `fit` (lg and up) lets the stage take the
+ * height its parent has left and scales the cat to fit it, instead of the cat setting the height.
  */
-export function PrepAnimation({ setIndex, freezeAt, className }: { setIndex?: number; freezeAt?: number; className?: string }) {
+export function PrepAnimation({
+  setIndex,
+  freezeAt,
+  fit = false,
+  className,
+}: {
+  setIndex?: number;
+  freezeAt?: number;
+  fit?: boolean;
+  className?: string;
+}) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   // Picked after mount, so the server render and the first client render match.
   const [index, setIndexState] = useState<number | null>(setIndex ?? null);
@@ -92,9 +103,17 @@ export function PrepAnimation({ setIndex, freezeAt, className }: { setIndex?: nu
       aria-hidden="true"
       data-set={scene?.id}
       data-reduced={reduced ? "true" : undefined}
-      className={cn("flex min-w-0 flex-col items-center gap-1.5 rounded-[14px] bg-[hsl(var(--cat-stage))] px-4 pb-3.5 pt-3", className)}
+      className={cn(
+        "flex min-w-0 flex-col items-center gap-1.5 rounded-[14px] bg-[hsl(var(--cat-stage))] px-4 pb-3.5 pt-3",
+        fit && "lg:min-h-0 lg:flex-1",
+        className,
+      )}
     >
-      <svg viewBox="-30 22 360 228" className="block h-auto w-full max-w-[480px]" focusable="false">
+      <svg
+        viewBox="-30 22 360 228"
+        className={cn("block h-auto w-full max-w-[480px]", fit && "lg:min-h-0 lg:max-w-none lg:flex-1")}
+        focusable="false"
+      >
         <g ref={sceneRef} key={scene?.id ?? "none"}>
           {scene ? (
             <>

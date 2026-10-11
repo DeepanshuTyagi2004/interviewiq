@@ -80,36 +80,49 @@ const STATE_TEXT: Record<SessionStep["state"], string> = {
 /**
  * The lifecycle as a vertical step timeline: a dot per step on a 1px rail, the step with its mono
  * index, and a short note. The rail is drawn per step, from this dot down to the next one.
+ *
+ * From lg up every size is written `calc(N * --fu)`: `--fu` is the page's viewport-fit unit while the screen fits the
+ * viewport (the prep screen) and unset, so exactly N px, anywhere else.
  */
-function Progress({ session }: { session: InterviewSession }) {
+function Progress({ session, className }: { session: InterviewSession; className?: string }) {
   const steps = sessionSteps(session.status);
   return (
-    <section aria-labelledby="session-progress" className="flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5">
+    <section
+      aria-labelledby="session-progress"
+      className={cn(
+        "flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5 lg:gap-[calc(16*var(--fu,1px))] lg:p-[calc(20*var(--fu,1px))]",
+        className,
+      )}
+    >
       <h2 id="session-progress" className="iq-eyebrow m-0 font-normal">
         Progress
       </h2>
-      <ol className="iq-float m-0 flex list-none flex-col px-4 py-1.5">
+      <ol className="iq-float m-0 flex list-none flex-col px-4 py-1.5 lg:flex-1 lg:px-[calc(16*var(--fu,1px))] lg:py-[calc(6*var(--fu,1px))]">
         {steps.map((step, i) => (
-          <li key={step.key} className="relative flex items-start gap-3.5 py-3">
+          <li key={step.key} className="relative flex items-start gap-3.5 py-3 lg:flex-1 lg:gap-[calc(14*var(--fu,1px))] lg:py-[calc(12*var(--fu,1px))]">
             {i < steps.length - 1 ? (
-              <span aria-hidden data-rail className="absolute left-[5px] top-[23px] h-full w-px bg-line-3" />
+              <span
+                aria-hidden
+                data-rail
+                className="absolute left-[5px] top-[23px] h-full w-px bg-line-3 lg:left-[calc(5*var(--fu,1px))] lg:top-[calc(23*var(--fu,1px))]"
+              />
             ) : null}
-            <span className="relative flex h-[22px] w-[11px] flex-none items-center justify-center">
+            <span className="relative flex h-[22px] w-[11px] flex-none items-center justify-center lg:h-[calc(22*var(--fu,1px))] lg:w-[calc(11*var(--fu,1px))]">
               <StepDot step={step} status={session.status} />
             </span>
             <div className="min-w-0 flex-1">
               <p
                 className={cn(
-                  "m-0 flex items-baseline gap-2 text-[14.5px] leading-[22px]",
+                  "m-0 flex items-baseline gap-2 text-[14.5px] leading-[22px] lg:text-[length:calc(14.5*var(--fu,1px))] lg:leading-[calc(22*var(--fu,1px))]",
                   step.state === "upcoming" ? "text-faint" : "text-foreground",
                 )}
               >
-                <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint">
+                <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint lg:text-[length:calc(11*var(--fu,1px))]">
                   {padCount(i + 1)}
                 </span>
                 {step.label}
               </p>
-              <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">
+              <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground lg:text-[length:calc(12.5*var(--fu,1px))]">
                 {step.key === "booked" ? `Booked ${formatDate(session.createdAt)}` : step.note}
               </p>
             </div>
@@ -118,7 +131,7 @@ function Progress({ session }: { session: InterviewSession }) {
         ))}
       </ol>
       {!isFinished(session) ? (
-        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground lg:text-[length:calc(13*var(--fu,1px))]">
           The room runs full screen with your camera and microphone on. Leaving full screen or switching
           tabs pauses the round.
         </p>
@@ -138,7 +151,7 @@ function Details({ session }: { session: InterviewSession }) {
       "Slot",
       <>
         <span className="font-mono tabular-nums">{formatSlot(session.scheduledAt)}</span>
-        <span className="block text-xs text-faint">
+        <span className="block text-xs text-faint lg:text-[length:calc(12*var(--fu,1px))]">
           {formatRelativeTime(session.scheduledAt)} · <span className="font-mono">{session.timezone}</span>
         </span>
       </>,
@@ -151,7 +164,7 @@ function Details({ session }: { session: InterviewSession }) {
         {rows.map(([label, value]) => (
           <div
             key={label}
-            className="grid min-w-0 content-start grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] sm:grid-cols-1 sm:gap-0.5 sm:px-5 sm:py-2"
+            className="grid min-w-0 content-start grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] sm:grid-cols-1 sm:gap-0.5 sm:px-5 sm:py-2 lg:gap-y-[calc(2*var(--fu,1px))] lg:px-[calc(20*var(--fu,1px))] lg:py-[calc(8*var(--fu,1px))] lg:text-[length:calc(13.5*var(--fu,1px))]"
           >
             <dt className="text-faint">{label}</dt>
             <dd className="m-0 min-w-0 break-words text-foreground">{value}</dd>
@@ -236,19 +249,24 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   }
 
   const company = companyLabel(session);
+  // While the interviewer is being prepared the screen fits the viewport from lg up (no scrolling): the mascot and its
+  // steps on the left, the booking's details and the lifecycle on the right. Every other state keeps the plain page.
+  const fit = session.status === "SCHEDULED" || session.status === "PREP_QUEUED";
 
-  return (
-    <div className={PAGE}>
+  const content = (
+    <>
       <BackLink />
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-5 lg:mt-[calc(20*var(--fu,1px))] lg:gap-[calc(20*var(--fu,1px))]">
         <div className="min-w-0">
           <p className="iq-eyebrow m-0">
             Interview · {company} · {levelLabel(session.level)}
           </p>
-          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px] lg:text-[length:calc(30*var(--fu,1px))]">
             {roundLabel(session.roundType)}
           </h1>
-          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground">{statusLine(session)}</p>
+          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground lg:text-[length:calc(14*var(--fu,1px))]">
+            {statusLine(session)}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <StatusPill status={session.status} />
@@ -261,16 +279,34 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-3">
-          {session.status === "SCHEDULED" || session.status === "PREP_QUEUED" ? <PrepPanel session={session} /> : null}
+      <div
+        className={cn(
+          "mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
+          fit && "lg:mt-[calc(20*var(--fu,1px))] lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-[calc(12*var(--fu,1px))]",
+        )}
+      >
+        <div className={cn("flex min-w-0 flex-col gap-3", fit && "lg:min-h-0")}>
+          {fit ? <PrepPanel session={session} /> : null}
           {session.status === "PREP_FAILED" ? <PrepFailed session={session} /> : null}
-          <Progress session={session} />
+          {fit ? null : <Progress session={session} />}
         </div>
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className={cn("flex min-w-0 flex-col gap-3", fit && "lg:min-h-0 lg:gap-[calc(12*var(--fu,1px))]")}>
           <BriefingCard session={session} />
           <Details session={session} />
+          {fit ? <Progress session={session} className="lg:min-h-0 lg:flex-1" /> : null}
         </div>
+      </div>
+    </>
+  );
+
+  if (!fit) return <div className={PAGE}>{content}</div>;
+  // `.iq-fit` makes this a size container from lg, so `--u` follows the room the card gives it (as on the dashboard) and
+  // `--fu` hands that unit to the sizes above. The padding is spelled out because `PAGE` is `.iq-page`, which would
+  // replace the unit with a viewport-based one.
+  return (
+    <div className="iq-fit mx-auto flex w-full max-w-[1760px] flex-none flex-col lg:min-h-0 lg:flex-1">
+      <div className="flex flex-col px-[calc(16*var(--u))] pb-[calc(24*var(--u))] pt-[calc(26*var(--u))] sm:px-[calc(26*var(--u))] lg:h-full lg:min-h-0 lg:[--fu:var(--u)]">
+        {content}
       </div>
     </div>
   );

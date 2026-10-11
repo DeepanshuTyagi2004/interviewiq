@@ -46,39 +46,56 @@ function seconds(ms: number | null): string | null {
 const DOT: Record<FriendlyStepState, DotState> = { done: "active", active: "live", pending: "idle", failed: "error" };
 const STATE_TEXT: Record<FriendlyStepState, string> = { done: "Done", active: "In progress", pending: "Not yet", failed: "Needs attention" };
 
-/** While the blueprint is being prepared: a looping mascot above live, friendly progress steps. */
+/**
+ * While the blueprint is being prepared: a looping mascot above live, friendly progress steps. From lg up the panel
+ * takes the height its column has left: the steps and note keep their size (`--fu`, the page's viewport-fit unit) and
+ * the mascot stage gets the rest.
+ */
 export function PrepPanel({ session }: { session: InterviewSession }) {
   const steps = friendlySteps(session.prep.steps);
   return (
-    <section aria-labelledby="prep-progress" className="flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5">
+    <section
+      aria-labelledby="prep-progress"
+      className="flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5 lg:min-h-0 lg:flex-1 lg:gap-[calc(14*var(--fu,1px))] lg:p-[calc(20*var(--fu,1px))]"
+    >
       <h2 id="prep-progress" className="iq-eyebrow m-0 font-normal">
         Preparing your interviewer
       </h2>
-      <PrepAnimation className="w-full" />
-      <ol className="iq-float m-0 flex list-none flex-col px-4 py-1.5" aria-live="polite">
+      <PrepAnimation fit className="w-full" />
+      <ol
+        className="iq-float m-0 flex list-none flex-col px-4 py-1.5 lg:px-[calc(16*var(--fu,1px))] lg:py-[calc(4*var(--fu,1px))]"
+        aria-live="polite"
+      >
         {steps.map((step, i) => (
-          <li key={step.label} className="flex items-center gap-3.5 py-2.5">
-            <span className="flex h-[22px] w-[11px] flex-none items-center justify-center">
+          <li key={step.label} className="flex items-center gap-3.5 py-2.5 lg:gap-[calc(14*var(--fu,1px))] lg:py-[calc(7.5*var(--fu,1px))]">
+            <span className="flex h-[22px] w-[11px] flex-none items-center justify-center lg:h-[calc(22*var(--fu,1px))] lg:w-[calc(11*var(--fu,1px))]">
               {step.state === "done" ? (
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-foreground" />
               ) : (
                 <StatusDot state={DOT[step.state]} />
               )}
             </span>
-            <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint">
+            <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint lg:text-[length:calc(11*var(--fu,1px))]">
               {padCount(i + 1)}
             </span>
-            <span className={cn("min-w-0 flex-1 text-[14px]", step.state === "pending" ? "text-faint" : "text-foreground")}>
+            <span
+              className={cn(
+                "min-w-0 flex-1 text-[14px] lg:text-[length:calc(14*var(--fu,1px))]",
+                step.state === "pending" ? "text-faint" : "text-foreground",
+              )}
+            >
               {step.label}
             </span>
             {step.state === "done" && seconds(step.elapsedMs) ? (
-              <span className="font-mono text-[11.5px] tabular-nums text-faint">{seconds(step.elapsedMs)}</span>
+              <span className="font-mono text-[11.5px] tabular-nums text-faint lg:text-[length:calc(11.5*var(--fu,1px))]">
+                {seconds(step.elapsedMs)}
+              </span>
             ) : null}
             <span className="sr-only">{STATE_TEXT[step.state]}</span>
           </li>
         ))}
       </ol>
-      <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+      <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground lg:text-[length:calc(13*var(--fu,1px))]">
         This usually takes a few minutes. You can leave this page; we&apos;ll keep going.
       </p>
     </section>
