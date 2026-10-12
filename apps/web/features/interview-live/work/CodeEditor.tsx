@@ -9,8 +9,11 @@ import { useActivity } from '../activity/ActivityProvider'
 import { attachCodeActivity, createStarterSwapGuard, type ActivityEditor } from '../activity/codeActivity'
 import type { LiveSession } from '../session/types'
 import { LANGUAGES, starterText, type Language } from '../workspace/codeOps'
+import { clipboardRulesActive } from '../proctor/localClipboard'
+import { useProctorActions } from '../proctor/ProctorContext'
 import { useWorkspace } from '../workspace/WorkspaceProvider'
 import { createCodeApi, type EditorCodeApi } from './codeApi'
+import { CLIPBOARD_RULE_OPTIONS, NO_ASSIST_OPTIONS, attachEditorIntegrity, type EditorIntegrity, type IntegrityEditor, type IntegrityMonaco } from './editorIntegrity'
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -23,12 +26,16 @@ const toolButton = 'h-7 rounded-full border border-line-3 px-2.5 text-[12px] tex
 
 /** The shared Monaco editor. Sends a `code.snapshot` 800ms after typing stops; registers the code
  * adapter that applies the interviewer's comments, inserts and highlights; lets the candidate
- * highlight lines or ask about a selection. */
+ * highlight lines or ask about a selection. It also tags how each edit arrived, reports typing cadence, and, in production,
+ * keeps copy and paste inside the room (live integrity spec §6). */
 export function CodeEditor({ session }: { session: LiveSession }) {
   const { registerCode, askAbout } = useWorkspace()
   const { record } = useActivity()
   const detachActivity = useRef<(() => void) | null>(null)
   const starterSwap = useRef(createStarterSwapGuard())
+  const { foreignPaste } = useProctorActions()
+  const foreignRef = useRef(foreignPaste)
+  const integrity = useRef<EditorIntegrity | null>(null)
   const [lang, setLang] = useState<Language>('python')
   const [value, setValue] = useState(() => starterText('python'))
   const [selection, setSelection] = useState<{ start: number; end: number; text: string } | null>(null)
@@ -40,7 +47,8 @@ export function CodeEditor({ session }: { session: LiveSession }) {
   const { resolvedTheme } = useTheme()
 
   useEffect(() => { langRef.current = lang }, [lang])
-  useEffect(() => () => { registerCode(null); detachActivity.current?.() }, [registerCode])
+  useEffect(() => { foreignRef.current = foreignPaste }, [foreignPaste])
+  useEffect(() => () => { registerCode(null); detachActivity.current?.(); integrity.current?.dispose() }, [registerCode])
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current)
@@ -53,7 +61,7 @@ export function CodeEditor({ session }: { session: LiveSession }) {
     }
   }, [value, lang, session])
 
-  const onMount: OnMount = (editor) => {
+  const onMount: OnMount = (editor, monaco) => {
     const codeApi = createCodeApi(editor, () => langRef.current, (l) => setLang(l))
     api.current = codeApi
     editor.onDidChangeModelContent((e) => {
@@ -66,11 +74,26 @@ export function CodeEditor({ session }: { session: LiveSession }) {
       setSelection({ start: sel.startLineNumber, end: sel.endLineNumber, text: model.getValueInRange(sel) })
     })
     registerCode(codeApi)
+    integrity.current?.dispose()
+    const guard = attachEditorIntegrity(editor as unknown as IntegrityEditor, monaco as unknown as IntegrityMonaco, {
+      send: (body) => {
+        try {
+          session.send(body)
+        } catch {
+          // disconnected: this stretch of typing is simply lost, the round goes on
+        }
+      },
+      interviewerEditing: () => codeApi.isApplying(),
+      ignoring: () => starterSwap.current.matches(editor.getModel()?.getValue() ?? ''),
+      onForeign: (info) => foreignRef.current(info),
+    })
+    integrity.current = guard
     detachActivity.current?.()
     detachActivity.current = attachCodeActivity(
       editor as unknown as ActivityEditor,
       record,
       () => codeApi.isApplying() || starterSwap.current.matches(editor.getModel()?.getValue() ?? ''),
+      guard.classify,
     )
   }
 
@@ -126,7 +149,11 @@ export function CodeEditor({ session }: { session: LiveSession }) {
           value={value}
           onChange={(v) => setValue(v ?? '')}
           onMount={onMount}
-          options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 }, glyphMargin: true }}
+          options={{
+            minimap: { enabled: false }, fontSize: 14, automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 }, glyphMargin: true,
+            ...NO_ASSIST_OPTIONS,
+            ...(clipboardRulesActive() ? CLIPBOARD_RULE_OPTIONS : {}),
+          }}
         />
       </div>
     </div>
