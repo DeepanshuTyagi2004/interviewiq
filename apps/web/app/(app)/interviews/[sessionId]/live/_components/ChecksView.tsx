@@ -6,6 +6,7 @@ import { StatusDot, type DotState } from "@/components/hud";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { enterFullscreen } from "@/features/interview-live/proctor/keyboardLock";
+import { clearSystemClipboard } from "@/features/interview-live/proctor/localClipboard";
 import { requestEntireScreen, useScreenShared } from "@/features/interview-live/proctor/screenShare";
 import { useExternalDisplay } from "@/features/interview-live/proctor/useExternalDisplay";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
@@ -148,12 +149,16 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
 
   async function handleEnter() {
     setEntering(true);
+    // Clearing the clipboard needs this click's user gesture, so it starts before anything is awaited. It never rejects: a
+    // refusal is recorded, and the worker then treats a foreign paste as a violation rather than an ending.
+    const clearing = clearSystemClipboard();
     try {
       await enterFullscreen();
     } catch {
       setEntering(false);
       return;
     }
+    await clearing;
     // Hands off checks → connecting; ChecksView unmounts once LiveInterview re-renders for the
     // new state, so nothing after this point may rely on this component still being mounted.
     send({ type: "CHECKS_PASSED" });
@@ -182,7 +187,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
           System check
         </h1>
         <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
-          We run a quick check before entering the interview. Entering switches to full screen.
+          We run a quick check before entering the interview. Entering switches to full screen and clears your clipboard.
           Switching tabs, windows or screens is counted, and the interviewer will mention it.
         </p>
       </div>

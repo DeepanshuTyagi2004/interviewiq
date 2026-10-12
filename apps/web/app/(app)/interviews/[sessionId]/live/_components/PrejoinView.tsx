@@ -19,6 +19,9 @@ const DOS = [
 
 const DONTS = [
   "Don't switch tabs, windows or screens. Every switch is counted, and repeated switches end the round.",
+  "If you do leave this screen or full screen, come back within 15 seconds (30 for full screen or screen share). After that it counts as another violation, and after 60 seconds the interview ends.",
+  "Don't paste text from anywhere else. Copy and paste work only inside this room, your clipboard is cleared when you join, and pasting outside text ends the interview.",
+  "Don't use automated typing or scripts. Your code must be typed by you, and automated typing ends the interview.",
   "Don't use a phone, second monitor, or another person for help.",
   "Don't refresh or close this tab once the interview has started.",
 ];
@@ -102,7 +105,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
           <RuleList title="Don't" items={DONTS} kind="dont" />
 
           <p className="m-0 rounded-[14px] border border-line-2 bg-panel/60 px-[18px] py-3.5 text-[13.5px] leading-[1.55] text-muted-foreground">
-            While you work, the interviewer sees your cursor, what you type and draw, and what you say as you do it. Your answers and code are saved for your debrief; your cursor and keystroke trail are not, only short summaries of them.
+            While you work, the interviewer sees your cursor, what you type and draw, and what you say as you do it. Your answers and code are saved for your debrief; your cursor and keystroke trail are not, only short summaries of them. The interviewer also notices how you type, such as how steadily and whether text appears without typing, but never which keys you press.
           </p>
 
           <div className="flex items-start gap-3.5 rounded-[14px] border border-line-2 px-[18px] py-4">
@@ -116,7 +119,9 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
               I understand the interview runs in full screen with my entire
               screen shared, that the interviewer sees my cursor, typing and
               drawing, that switching tabs or screens is counted and can end
-              the round, and I agree to the rules above.
+              the round, that pasting text from outside the room or typing by
+              script ends the interview, that my clipboard is cleared when I
+              join, and I agree to the rules above.
             </Label>
           </div>
 

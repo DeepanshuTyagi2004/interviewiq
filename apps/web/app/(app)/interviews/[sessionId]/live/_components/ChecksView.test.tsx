@@ -7,6 +7,7 @@ import {
 } from "@/features/interview-live/session/LiveSessionProvider";
 import { MockLiveSession } from "@/features/interview-live/session/MockLiveSession";
 import { stopScreenShare } from "@/features/interview-live/proctor/screenShare";
+import { resetClipboard, wasCleared } from "@/features/interview-live/proctor/localClipboard";
 import { ChecksView } from "./ChecksView";
 
 async function flushTimers(ms = 0) {
@@ -129,5 +130,55 @@ describe("ChecksView", () => {
 
     expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId("fsm-state").textContent).toBe("error"));
+  });
+
+  it("Enter interview clears the clipboard once, with the click, while the clipboard rules are active", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const writeText = vi.fn(async () => {});
+    try {
+      const user = await renderAtChecks(new MockLiveSession());
+      // After render: userEvent.setup() installs its own clipboard stub, which would replace an earlier mock.
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+      mockEntireScreen();
+      await user.click(screen.getByRole("button", { name: "Share entire screen" }));
+      const enterButton = await screen.findByRole("button", { name: /enter interview/i });
+      await waitFor(() => expect(enterButton).toBeEnabled());
+      await user.click(enterButton);
+      await waitFor(() => expect(screen.getByTestId("fsm-state").textContent).toBe("live"));
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(writeText).toHaveBeenCalledWith("IQ-ROOM-CLIPBOARD");
+      expect(wasCleared()).toBe(true);
+    } finally {
+      resetClipboard();
+      Reflect.deleteProperty(navigator, "clipboard");
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("Enter interview still goes live when the clipboard cannot be cleared", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const writeText = vi.fn(async () => { throw new Error("denied"); });
+    try {
+      const user = await renderAtChecks(new MockLiveSession());
+      // After render: userEvent.setup() installs its own clipboard stub, which would replace an earlier mock.
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+      mockEntireScreen();
+      await user.click(screen.getByRole("button", { name: "Share entire screen" }));
+      const enterButton = await screen.findByRole("button", { name: /enter interview/i });
+      await waitFor(() => expect(enterButton).toBeEnabled());
+      await user.click(enterButton);
+      await waitFor(() => expect(screen.getByTestId("fsm-state").textContent).toBe("live"));
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(wasCleared()).toBe(false);
+    } finally {
+      resetClipboard();
+      Reflect.deleteProperty(navigator, "clipboard");
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("tells the candidate the clipboard is cleared on entering", async () => {
+    await renderAtChecks(new MockLiveSession());
+    expect(screen.getByText(/clears your clipboard/i)).toBeInTheDocument();
   });
 });
