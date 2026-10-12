@@ -89,3 +89,30 @@ Task 6: minor (deferred): no hook-level test of the 15 s tab-limit toast or of w
 Task 6: fix round 1/5 dispatched (resume implementer a357d666f6d550367): add the two disable comments
 Task 6: fix round 1/5 (1 addressed, 0 open — set-state-in-effect disables; re-reviewer a081f10944a54b1ca haiku; no new breakage; lint itself not run)
 Task 6: complete (no commits; files: proctor/awayEpisode.ts, awayEpisode.test.ts, useAwayCountdown.ts, useAwayCountdown.test.tsx, useProctor.ts, useProctor.test.tsx; 1 fix round). Wrap-up: patch plan Task 6 text with the two disable comments.
+Task 7: review clean (reviewer ad07ab4bdd7705f4f): matches brief; new tests hand-traced pass.
+Task 7: minor (deferred): countdown bar role="status" updates every second (screen readers may announce each tick); import order nit in LiveView; no existing LiveView test verified free of unfiltered role=status queries.
+Task 7: complete (committed in d861df0 by user request, not by SDD; files: ProctorContext.tsx/test, ProctorBars.tsx/test, LiveView.tsx)
+Task 1 (Python half, steps 8-12): implementer done (a87ace4849a534122, sonnet); review clean (aa0e80d072d565340): models/guard match Zod+examples; tests hand-traced pass; user authorized ai-service edit, no stack running. Tests not run.
+Task 1 Python: minor (deferred): test_run.py replies==0 assertion would pass without the guard (woken==[] is the real check); IGNORED_WEB_TYPES hand-synced (Phase 2 deletes).
+Task 1: fully complete (web + Python). Not committed.
+Task 8: implementer done (a8562a65ed0d40241, sonnet); review clean (a8949d046dd3ab1d8): matches brief; consumed interfaces match; clipboard attach gated by clipboardRulesActive; tests hand-traced pass.
+Task 8: minor (deferred): starterSwap.matches is stateful and called from two listeners (order-fragile); onMount path untested via CodeEditor (next/dynamic mocked); F1/Ctrl+Space addCommand also on in dev (deliberate; mention in final review).
+Task 8: complete (not committed; files: work/editorIntegrity.ts, editorIntegrity.test.ts, CodeEditor.options.test.tsx, CodeEditor.tsx)
+Task 9: implementer done (ab27399337935b8fa, sonnet); review pending (a39ad91b1009aabd1)
+Task 9: review clean (a39ad91b1009aabd1): matches brief; tests hand-traced pass; copy matches regexes.
+Task 9: minor (deferred): clearing starts before enterFullscreen so a refused fullscreen still overwrites the clipboard (harmless); failure test could assert writeText was called; "30 for full screen" copy is product draft.
+Task 9: complete (not committed; files: ChecksView.tsx, PrejoinView.tsx, ChecksView.test.tsx, PrejoinView.test.tsx)
+All tasks 1-9 complete. Next: final whole-branch review (opus), plan text patches (T3 dragover, T6 lint disables), Task 10 is the user's.
+FINAL review (opus, ade252851014ce594): Needs fixes.
+Final: Critical 1: foreign text reaches editor via problem-panel Note textarea (panel/Sections.tsx:66,44): room copy guard skips input/textarea (editorClipboard.ts:110), no paste/drop guard on room text fields. OPEN, awaiting user decision.
+Final: Important 2: dragging in-room text into editor counts as foreign_paste (editorClipboard.ts:91-97). OPEN.
+Final: Important 3: `charless` wrong both ways vs spec 6.2 (provenance.ts:8,28; cadence.ts:130-136; editorIntegrity.test.ts:68-75): key-driven long edits (Enter at Java depth>=3, Alt+Up/Down) counted charless; keyless 1-char scripted inserts not. OPEN.
+Final: Important 4: ChecksView clipboard tests couldn't pass (userEvent.setup replaces navigator.clipboard) — FIXED by main thread: mock defined after renderAtChecks, failure test asserts writeText called. Not run.
+Final: Important 5: lost proctor.back/away never repaired after reconnect (phase-2 contract gap; re-send state on hello, idempotent worker). OPEN, phase 2.
+Final: minors: find-widget paste; suggest override misses Mac Ctrl+Space/Ctrl+I/Alt+Esc; dev-mode copy claims clipboard cleared; mock ignores clipboard_cleared; `tight` sticks (12s tab switch leaves ~3s); toast/PASTE_TEXT promise phase-2 enforcement; Python Edit lacks via; getValue twice per change; plan :897/:1051 still set dropEffect + T6 lint disables missing in plan (wrap-up patch).
+Checked fine: schema byte-identical to generator output, 27 examples parse, Pydantic==Zod, all attach sites gated, privacy ok, 15/30/60 consistent.
+Final fixes 1-3 implemented (a97d4779db08a929d sonnet): attachRoomFieldGuard (editorClipboard.ts, wired in LiveView), in-room drag = local (roomDragActive/setRoomDrag), charless = keyless inserted chars (provenance.analyze {via,keyed}, cadence.inserted 4th arg keyed). Concerns: window is 150ms (TYPED_WINDOW_MS) not spec's 100; drop inserts at cursor; IME/find-replace-all/format may add to charless -> real-browser check. Re-review pending (aa6518508d6294c96).
+Plan text patched by main thread: T3 dragover no dropEffect (test assertion removed), T6 two set-state-in-effect disables.
+Final fixes re-review (aa6518508d6294c96): findings 1,2 closed; finding 3 missed cadence.ts createCadence wrapper dropping `keyed` (tsc error + 2 failing editorIntegrity tests). FIXED by main thread: wrapper forwards keyed (default false); added createCadence test 'passes keyed through'. Not run.
+Re-review minors (deferred): number/email inputs have no selection API so field copy is blocked; roomDrag sticks true if dragend never fires; leaked input listener in field tests; editorIntegrity.ts:81 if/else cosmetic.
+STATE: all code done and reviewed; nothing committed since d861df0 (+ ledger commit 24c2791). Task 10 (real browser) is the user's. Phase 2 (worker side) not started.

@@ -894,7 +894,6 @@ describe('attachEditorClipboard', () => {
     const over = dragEvent('dragover')
     inner.dispatchEvent(over.event)
     expect(over.event.defaultPrevented).toBe(true)
-    expect(over.dataTransfer.dropEffect).toBe('none')
     const drop = dragEvent('drop', 'answer = 42')
     inner.dispatchEvent(drop.event)
     expect(drop.event.defaultPrevented).toBe(true)
@@ -1048,7 +1047,7 @@ export function attachEditorClipboard(host: HTMLElement, editor: ClipboardEditor
     const event = e as DragEvent
     event.preventDefault()
     event.stopPropagation()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'
+    // Do NOT set dropEffect = 'none': a drag whose effect is none never fires `drop`, so a foreign drop would go unreported.
   }
   const onDrop = (e: Event) => {
     const event = e as DragEvent
@@ -2003,6 +2002,7 @@ export function useAwayCountdown(away: AwayEpisode | null): Countdown | null {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!away) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync the clock when an episode opens (repo precedent: useExternalDisplay.ts)
     setNow(Date.now())
     const tick = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(tick)
@@ -2239,6 +2239,7 @@ Replace the big signal effect with:
     if (!enabled) {
       prev.current = null
       awayRef.current = null
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset when the proctor is disabled (repo precedent: useExternalDisplay.ts)
       setAway(null)
       return
     }
