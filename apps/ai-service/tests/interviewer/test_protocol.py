@@ -65,3 +65,25 @@ def test_pydantic_requires_a_plain_lowercase_shape_kind():
     assert parse_web(json.dumps({**ok, "events": [shape]})) is not None
     for kind in ("Rectangle", "rect\nangle", "a b", "rect1", ""):
         assert parse_web(json.dumps({**ok, "events": [{**shape, "kind": kind}]})) is None
+
+
+def test_integrity_messages_parse_and_reject_bad_values():
+    away = parse_web(json.dumps(EXAMPLES["proctor.away"]))
+    assert away is not None and away.kinds == ["tab_hidden", "fullscreen_exit"] and away.at == 1760000002000
+    assert parse_web(json.dumps({**EXAMPLES["proctor.away"], "kinds": []})) is None
+    assert parse_web(json.dumps({**EXAMPLES["proctor.away"], "kinds": ["external_display"]})) is None
+    back = parse_web(json.dumps(EXAMPLES["proctor.back"]))
+    assert back is not None and back.at == 1760000012000
+    typing = parse_web(json.dumps(EXAMPLES["typing.window"]))
+    assert typing is not None and typing.iki.median == 118 and typing.untrusted == 0 and typing.charless == 0
+    bare = {k: v for k, v in EXAMPLES["typing.window"].items() if k not in ("iki", "dwell")}
+    parsed_bare = parse_web(json.dumps(bare))
+    assert parsed_bare is not None and parsed_bare.iki is None and parsed_bare.dwell is None
+    assert parse_web(json.dumps({**EXAMPLES["typing.window"], "keys": -1})) is None
+    assert parse_web(json.dumps({**EXAMPLES["typing.window"], "iki": {"median": 100}})) is None
+
+
+def test_an_unextended_worker_still_rejects_a_foreign_paste_event():
+    """Phase 2 teaches the worker this kind; until then it is dropped, never mistaken for a screen switch."""
+    paste = {**EXAMPLES["proctor.event"], "kind": "foreign_paste", "source": "paste", "chars": 80, "lines": 3, "clipboard_cleared": True}
+    assert parse_web(json.dumps(paste)) is None

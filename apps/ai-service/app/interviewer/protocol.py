@@ -22,6 +22,7 @@ Author = Literal["interviewer", "candidate"]
 CodeLanguage = Literal["python", "javascript", "typescript", "java", "cpp", "go"]
 EndReason = Literal["completed", "ended_by_interviewer", "candidate_ended", "technical"]
 ProctorKind = Literal["tab_hidden", "window_blur", "external_display", "fullscreen_exit", "share_stopped"]
+AwayKind = Literal["tab_hidden", "window_blur", "fullscreen_exit", "share_stopped"]
 
 
 class _M(BaseModel):
@@ -258,6 +259,38 @@ class EndRequest(_Msg):
     type: Literal["session.end_request"]
 
 
+class ProctorAway(_Msg):
+    type: Literal["proctor.away"]
+    kinds: list[AwayKind] = Field(min_length=1, max_length=4)
+    at: int = Field(ge=0)
+
+
+class ProctorBack(_Msg):
+    type: Literal["proctor.back"]
+    at: int = Field(ge=0)
+
+
+class TypingStat(_M):
+    median: float = Field(ge=0)
+    cv: float = Field(ge=0)
+
+
+class TypingWindow(_Msg):
+    type: Literal["typing.window"]
+    t0: int = Field(ge=0)
+    t1: int = Field(ge=0)
+    keys: int = Field(ge=0)
+    chars: int = Field(ge=0)
+    iki: TypingStat | None = None
+    dwell: TypingStat | None = None
+    backspaces: int = Field(ge=0)
+    nav: int = Field(ge=0)
+    longest_pause: float = Field(ge=0)
+    jumps: int = Field(ge=0)
+    untrusted: int = Field(ge=0)
+    charless: int = Field(ge=0)
+
+
 class _Event(_M):
     t: int = Field(ge=0)
 
@@ -329,7 +362,7 @@ class ActivityBatch(_Msg):
 
 
 _WEB_MODELS = (Ack, SectionAdded, HighlightAdded, CodeHighlightAdded, AskSelection, CodeSnapshot, BoardSummary,
-               ProctorEventMessage, Hello, EndRequest, ActivityBatch)
+               ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, ActivityBatch, TypingWindow)
 WebMessage = Annotated[Union[_WEB_MODELS], Field(discriminator="type")]
 
 _AGENT = TypeAdapter(AgentMessage)

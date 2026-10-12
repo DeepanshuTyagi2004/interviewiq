@@ -33,6 +33,9 @@ TECHNICAL_AFTER_S = 90.0     # failed replies end the round only once they have 
 RETRY_AFTER_FAILURE_S = 4.0  # a reply that failed is asked for again after this long
 CANDIDATE_GONE_S = 120.0
 ABSENCE_VIOLATION_S = 20.0   # away at least this long (a refresh is quicker) counts as a full violation
+# Browser integrity messages the worker does not act on yet (live-integrity plan 2). They parse, then are dropped here so
+# a typing window every 5 s never wakes the director.
+IGNORED_WEB_TYPES = frozenset({"typing.window", "proctor.away", "proctor.back"})
 END_REQUEST_WATCHDOG_S = 8.0
 END_ORDER_GRACE_S = 20.0     # an ending the talker never got to say is carried out anyway after this long
 SCREEN_HOLD_MAX_S = 25.0     # screen changes wait for the voice to finish, but never longer than this
@@ -611,6 +614,8 @@ class InterviewRun:
     # ------------------------------------------------------------ events and time
 
     async def on_web_message(self, m) -> None:
+        if m.type in IGNORED_WEB_TYPES:
+            return
         if not self.begun.is_set():
             self._early.append(m)                      # the round has not started: held, then handled in order
             return

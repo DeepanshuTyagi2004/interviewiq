@@ -1462,3 +1462,26 @@ def test_a_second_refusal_cannot_be_turned_into_a_question_by_the_do_not_repeat_
 
     calls = asyncio.run(go())
     assert "no question and no instruction" in calls[2][-1]["content"]
+
+
+def test_the_browser_integrity_messages_are_accepted_and_ignored_until_the_worker_handles_them():
+    async def go():
+        run, _, _ = make([say("Hello.")])
+        await run.start(None)
+        woken = []
+        run._trigger_director = lambda: woken.append(1)
+        for body in (
+            {"type": "proctor.away", "kinds": ["tab_hidden"], "at": 1},
+            {"type": "proctor.back", "at": 2},
+            {"type": "typing.window", "t0": 0, "t1": 5000, "keys": 40, "chars": 40, "backspaces": 0, "nav": 0,
+             "longest_pause": 300, "jumps": 0, "untrusted": 0, "charless": 0},
+        ):
+            msg = web(body)
+            assert msg is not None
+            await run.on_web_message(msg)
+        return run, woken
+
+    run, woken = asyncio.run(go())
+    assert woken == []                                   # they never wake the director
+    assert run.conductor.full_violations == 0 and run.conductor.proctor == []
+    assert run.speaker.replies == 0
