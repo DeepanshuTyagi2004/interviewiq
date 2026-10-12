@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { attachEditorClipboard, attachRoomCopyGuard, selectedText, type ClipRange, type ClipSelection, type ClipboardEditor } from './editorClipboard'
+import { attachEditorClipboard, attachRoomCopyGuard, attachRoomFieldGuard, selectedText, type ClipRange, type ClipSelection, type ClipboardEditor } from './editorClipboard'
 import { CLIPBOARD_MARKER, bufferIsWholeLine, getBuffer, resetClipboard } from './localClipboard'
 
 const sel = (sl: number, sc: number, el: number, ec: number): ClipSelection => ({
@@ -154,6 +154,24 @@ describe('attachEditorClipboard', () => {
     expect(deps.onForeign).toHaveBeenCalledWith({ source: 'drop', chars: 11, lines: 1 })
   })
 
+  it('treats text dragged from inside the room as a local paste, and a drag from outside as foreign', () => {
+    const { inner, editor, deps } = setup(CODE, [sel(1, 1, 1, 1)])
+    const disposeGuard = attachRoomCopyGuard(document)
+    const source = document.body.appendChild(document.createElement('p'))
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }))
+    const drop = dragEvent('drop', 'two sum')
+    inner.dispatchEvent(drop.event)
+    expect(drop.event.defaultPrevented).toBe(true)
+    expect(deps.asLocalPaste).toHaveBeenCalledTimes(1)
+    expect(editor.trigger).toHaveBeenCalledWith('room-clipboard', 'paste', expect.objectContaining({ text: 'two sum' }))
+    expect(deps.onForeign).not.toHaveBeenCalled()
+    source.dispatchEvent(new Event('dragend', { bubbles: true }))
+    inner.dispatchEvent(dragEvent('drop', 'answer = 42').event)
+    expect(deps.onForeign).toHaveBeenCalledWith({ source: 'drop', chars: 11, lines: 1 })
+    expect(editor.trigger).toHaveBeenCalledTimes(1)
+    disposeGuard()
+  })
+
   it('ignores a drop that carries no text (a file)', () => {
     const { inner, deps } = setup(CODE, [sel(1, 1, 1, 1)])
     inner.dispatchEvent(dragEvent('drop', '').event)
@@ -199,5 +217,116 @@ describe('attachRoomCopyGuard', () => {
     }
     expect(getBuffer()).toBe('')
     dispose()
+  })
+})
+
+describe('attachRoomFieldGuard', () => {
+  function field(tag: 'textarea' | 'input' = 'textarea', value = '') {
+    const el = document.body.appendChild(document.createElement(tag))
+    el.value = value
+    return el
+  }
+  const onInput = () => {
+    const fn = vi.fn()
+    document.addEventListener('input', fn)
+    return fn
+  }
+  function copyEvent(type: 'copy' | 'cut') {
+    return clipEvent(type)
+  }
+
+  it('pastes the room buffer into a text field when the OS clipboard holds the marker', () => {
+    const dispose = attachRoomCopyGuard(document)
+    const fields = attachRoomFieldGuard(document, { onForeign: vi.fn() })
+    const note = field('textarea', 'ab')
+    note.setSelectionRange(1, 1)
+    vi.spyOn(document, 'getSelection').mockReturnValue({ toString: () => 'ROOM' } as unknown as Selection)
+    const p = document.body.appendChild(document.createElement('p'))
+    p.dispatchEvent(clipEvent('copy').event)
+    const input = onInput()
+    const { event } = clipEvent('paste', CLIPBOARD_MARKER)
+    note.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(note.value).toBe('aROOMb')
+    expect(input).toHaveBeenCalledTimes(1)
+    fields()
+    dispose()
+  })
+
+  it('blocks foreign text pasted into a field, reporting its size and never its text', () => {
+    const onForeign = vi.fn()
+    const fields = attachRoomFieldGuard(document, { onForeign })
+    const note = field()
+    const text = 'def solve(): pass\nreturn 1'
+    const { event } = clipEvent('paste', text)
+    note.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(note.value).toBe('')
+    expect(onForeign).toHaveBeenCalledWith({ source: 'paste', chars: text.length, lines: 2 })
+    fields()
+  })
+
+  it('inserts nothing for the marker when the buffer is gone, and ignores blank pastes', () => {
+    const onForeign = vi.fn()
+    const fields = attachRoomFieldGuard(document, { onForeign })
+    const note = field()
+    note.dispatchEvent(clipEvent('paste', CLIPBOARD_MARKER).event)
+    note.dispatchEvent(clipEvent('paste', '  ').event)
+    expect(note.value).toBe('')
+    expect(onForeign).not.toHaveBeenCalled()
+    fields()
+  })
+
+  it('blocks text dropped into a field from outside the room, and allows a drag that began in the room', () => {
+    const onForeign = vi.fn()
+    const dispose = attachRoomCopyGuard(document)
+    const fields = attachRoomFieldGuard(document, { onForeign })
+    const note = field()
+    const outside = dragEvent('drop', 'answer = 42')
+    note.dispatchEvent(outside.event)
+    expect(outside.event.defaultPrevented).toBe(true)
+    expect(onForeign).toHaveBeenCalledWith({ source: 'drop', chars: 11, lines: 1 })
+    document.body.dispatchEvent(new Event('dragstart', { bubbles: true }))
+    const inside = dragEvent('drop', 'two sum')
+    note.dispatchEvent(inside.event)
+    expect(inside.event.defaultPrevented).toBe(false)
+    expect(onForeign).toHaveBeenCalledTimes(1)
+    fields()
+    dispose()
+  })
+
+  it('keeps copy and cut from a field in the room, and cut removes the selection', () => {
+    const fields = attachRoomFieldGuard(document, { onForeign: vi.fn() })
+    const note = field('textarea', 'hello world')
+    note.setSelectionRange(0, 5)
+    const copy = copyEvent('copy')
+    note.dispatchEvent(copy.event)
+    expect(getBuffer()).toBe('hello')
+    expect(copy.written['text/plain']).toBe(CLIPBOARD_MARKER)
+    expect(copy.event.defaultPrevented).toBe(true)
+    expect(note.value).toBe('hello world')
+    note.setSelectionRange(6, 11)
+    const cut = copyEvent('cut')
+    note.dispatchEvent(cut.event)
+    expect(getBuffer()).toBe('world')
+    expect(note.value).toBe('hello ')
+    fields()
+  })
+
+  it('leaves the editor to its own guard and stops once detached', () => {
+    const onForeign = vi.fn()
+    const fields = attachRoomFieldGuard(document, { onForeign })
+    const wrap = document.body.appendChild(document.createElement('div'))
+    wrap.className = 'monaco-editor'
+    const inner = wrap.appendChild(document.createElement('textarea'))
+    const inEditor = clipEvent('paste', 'def solve(): pass')
+    inner.dispatchEvent(inEditor.event)
+    expect(inEditor.event.defaultPrevented).toBe(false)
+    expect(onForeign).not.toHaveBeenCalled()
+    fields()
+    const note = field()
+    const after = clipEvent('paste', 'def solve(): pass')
+    note.dispatchEvent(after.event)
+    expect(after.event.defaultPrevented).toBe(false)
   })
 })

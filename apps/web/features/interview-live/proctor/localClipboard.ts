@@ -16,6 +16,16 @@ export function clipboardRulesActive(): boolean {
 let buffer = ''
 let bufferIsLine = false
 let cleared = false
+let roomDrag = false
+
+/** True while a drag that began inside the page is under way: dropping it into the editor is moving room text, not foreign. */
+export function roomDragActive(): boolean {
+  return roomDrag
+}
+
+export function setRoomDrag(on: boolean): void {
+  roomDrag = on
+}
 
 export function getBuffer(): string {
   return buffer
@@ -42,6 +52,7 @@ export function forgetBuffer(): void {
 export function resetClipboard(): void {
   forgetBuffer()
   cleared = false
+  roomDrag = false
 }
 
 /** Keeps a copy or cut in the room and leaves only the marker on the OS clipboard. An empty copy changes nothing. */

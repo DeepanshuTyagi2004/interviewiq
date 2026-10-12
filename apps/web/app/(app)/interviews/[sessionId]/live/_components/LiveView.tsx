@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { StatusDot } from '@/components/hud'
 import { getLive } from '@/features/interview/api'
 import { ActivityProvider } from '@/features/interview-live/activity/ActivityProvider'
 import { BottomBar } from '@/features/interview-live/controls/BottomBar'
 import { useLocalMedia } from '@/features/interview-live/media/useLocalMedia'
-import { attachRoomCopyGuard } from '@/features/interview-live/proctor/editorClipboard'
+import { attachRoomCopyGuard, attachRoomFieldGuard } from '@/features/interview-live/proctor/editorClipboard'
 import { clipboardRulesActive, forgetBuffer } from '@/features/interview-live/proctor/localClipboard'
 import { ProctorActionsProvider } from '@/features/interview-live/proctor/ProctorContext'
 import { ProctorBars } from '@/features/interview-live/proctor/ProctorBars'
@@ -28,11 +28,16 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
   const proctor = useProctor({ session, enabled: true })
   const proctorActions = useMemo(() => ({ foreignPaste: proctor.foreignPaste }), [proctor.foreignPaste])
   // Copy and cut anywhere in the room stay in the room (the editor guards its own); only while the clipboard rules are on.
+  const foreignRef = useRef(proctor.foreignPaste)
+  useEffect(() => { foreignRef.current = proctor.foreignPaste }, [proctor.foreignPaste])
   useEffect(() => {
     if (!clipboardRulesActive()) return
     const detach = attachRoomCopyGuard(document)
+    // Text fields in the room (a note on a problem) obey the same paste, drop, copy and cut rules as the editor.
+    const detachFields = attachRoomFieldGuard(document, { onForeign: (info) => foreignRef.current(info) })
     return () => {
       detach()
+      detachFields()
       forgetBuffer()
     }
   }, [])
