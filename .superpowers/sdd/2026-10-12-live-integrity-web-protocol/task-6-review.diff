@@ -1,0 +1,578 @@
+# Review package: working tree vs HEAD (the user commits themselves; nothing is committed)
+
+## Files in scope
+  apps/web/features/interview-live/proctor/awayEpisode.ts
+  apps/web/features/interview-live/proctor/awayEpisode.test.ts
+  apps/web/features/interview-live/proctor/useAwayCountdown.ts
+  apps/web/features/interview-live/proctor/useAwayCountdown.test.tsx
+  apps/web/features/interview-live/proctor/useProctor.ts
+  apps/web/features/interview-live/proctor/useProctor.test.tsx
+
+## git status for these files
+ M apps/web/features/interview-live/proctor/useProctor.test.tsx
+ M apps/web/features/interview-live/proctor/useProctor.ts
+?? apps/web/features/interview-live/proctor/awayEpisode.test.ts
+?? apps/web/features/interview-live/proctor/awayEpisode.ts
+?? apps/web/features/interview-live/proctor/useAwayCountdown.test.tsx
+?? apps/web/features/interview-live/proctor/useAwayCountdown.ts
+
+## Diff (10 lines of context). Untracked files appear as whole-file additions.
+diff --git a/apps/web/features/interview-live/proctor/awayEpisode.ts b/apps/web/features/interview-live/proctor/awayEpisode.ts
+new file mode 100644
+index 0000000..280342c
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/awayEpisode.ts
+@@ -0,0 +1,79 @@
++/**
++ * The return clock's browser half (live integrity spec §7): which away signals are active, where an episode starts and
++ * ends, and what the candidate is told. The worker times the episode on its own clock and decides what it costs; this
++ * only reports it and counts down.
++ */
++import type { AwayKind } from '../protocol/messages'
++
++/** Leaving the tab or the window: back within this, or it counts as another violation. */
++export const AWAY_LIMIT_TAB_S = 15
++/** Leaving full screen or stopping the share, and nothing else. */
++export const AWAY_LIMIT_SCREEN_S = 30
++/** Away this long ends the interview, whatever the cause. */
++export const AWAY_CAP_S = 60
++
++export interface AwaySignals {
++  fullscreen: boolean
++  hidden: boolean
++  blurred: boolean
++  /** A share that was running has stopped; a room that never had one has not lost it. */
++  shareLost: boolean
++}
++
++/** The away signals active right now, in a fixed order. A hidden tab always blurs the window too; that is one signal. */
++export function awayKinds(s: AwaySignals): AwayKind[] {
++  const kinds: AwayKind[] = []
++  if (s.hidden) kinds.push('tab_hidden')
++  if (s.blurred && !s.hidden) kinds.push('window_blur')
++  if (!s.fullscreen) kinds.push('fullscreen_exit')
++  if (s.shareLost) kinds.push('share_stopped')
++  return kinds
++}
++
++export interface AwayEpisode {
++  startedAt: number
++  /** Every away signal active now. */
++  kinds: AwayKind[]
++  /** True once the tab or the window has been left at any point in the episode: the strict limit then applies. */
++  tight: boolean
++}
++
++const leftTabOrWindow = (kinds: readonly AwayKind[]) => kinds.includes('tab_hidden') || kinds.includes('window_blur')
++
++export function limitSeconds(episode: Pick<AwayEpisode, 'tight'>): number {
++  return episode.tight ? AWAY_LIMIT_TAB_S : AWAY_LIMIT_SCREEN_S
++}
++
++export type AwayChange =
++  | { type: 'start' | 'update'; episode: AwayEpisode }
++  | { type: 'back'; awayMs: number; overLimit: boolean; limitS: number }
++
++/** One step of the tracker: an episode starts at the first signal, updates when the set changes, and ends when it is empty. */
++export function nextEpisode(prev: AwayEpisode | null, kinds: AwayKind[], now: number): { episode: AwayEpisode | null; change: AwayChange | null } {
++  if (kinds.length === 0) {
++    if (!prev) return { episode: null, change: null }
++    const awayMs = now - prev.startedAt
++    const limitS = limitSeconds(prev)
++    return { episode: null, change: { type: 'back', awayMs, overLimit: awayMs >= limitS * 1000, limitS } }
++  }
++  if (!prev) {
++    const episode: AwayEpisode = { startedAt: now, kinds, tight: leftTabOrWindow(kinds) }
++    return { episode, change: { type: 'start', episode } }
++  }
++  if (prev.kinds.join() === kinds.join()) return { episode: prev, change: null }
++  const episode: AwayEpisode = { ...prev, kinds, tight: prev.tight || leftTabOrWindow(kinds) }
++  return { episode, change: { type: 'update', episode } }
++}
++
++export interface Countdown {
++  /** `limit`: seconds left before it counts as another violation. `cap`: seconds left before the interview ends. */
++  phase: 'limit' | 'cap'
++  seconds: number
++}
++
++export function countdown(episode: AwayEpisode, now: number): Countdown {
++  const elapsed = Math.max(0, (now - episode.startedAt) / 1000)
++  const limit = limitSeconds(episode)
++  if (elapsed < limit) return { phase: 'limit', seconds: Math.ceil(limit - elapsed) }
++  return { phase: 'cap', seconds: Math.max(0, Math.ceil(AWAY_CAP_S - elapsed)) }
++}
+diff --git a/apps/web/features/interview-live/proctor/awayEpisode.test.ts b/apps/web/features/interview-live/proctor/awayEpisode.test.ts
+new file mode 100644
+index 0000000..cc8d023
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/awayEpisode.test.ts
+@@ -0,0 +1,82 @@
++import { describe, expect, it } from 'vitest'
++import { AWAY_CAP_S, AWAY_LIMIT_SCREEN_S, AWAY_LIMIT_TAB_S, awayKinds, countdown, limitSeconds, nextEpisode, type AwayEpisode } from './awayEpisode'
++
++const here = { fullscreen: true, hidden: false, blurred: false, shareLost: false }
++
++describe('awayKinds', () => {
++  it('is empty while the candidate is on the screen', () => {
++    expect(awayKinds(here)).toEqual([])
++  })
++
++  it('lists every active signal in a fixed order', () => {
++    expect(awayKinds({ fullscreen: false, hidden: true, blurred: false, shareLost: true })).toEqual(['tab_hidden', 'fullscreen_exit', 'share_stopped'])
++  })
++
++  it('does not count the window blur a hidden tab always causes', () => {
++    expect(awayKinds({ ...here, hidden: true, blurred: true })).toEqual(['tab_hidden'])
++    expect(awayKinds({ ...here, blurred: true })).toEqual(['window_blur'])
++  })
++})
++
++describe('nextEpisode', () => {
++  it('starts an episode at the first signal; leaving only full screen has the looser limit', () => {
++    const { episode, change } = nextEpisode(null, ['fullscreen_exit'], 1000)
++    expect(episode).toEqual({ startedAt: 1000, kinds: ['fullscreen_exit'], tight: false })
++    expect(change).toEqual({ type: 'start', episode })
++    expect(limitSeconds(episode!)).toBe(AWAY_LIMIT_SCREEN_S)
++  })
++
++  it('leaving the tab or the window has the strict limit', () => {
++    expect(nextEpisode(null, ['tab_hidden'], 1000).episode).toMatchObject({ tight: true })
++    expect(limitSeconds({ tight: true })).toBe(AWAY_LIMIT_TAB_S)
++    expect(nextEpisode(null, ['window_blur'], 1000).episode).toMatchObject({ tight: true })
++  })
++
++  it('reports nothing while the set of signals is unchanged', () => {
++    const prev: AwayEpisode = { startedAt: 1000, kinds: ['fullscreen_exit'], tight: false }
++    const next = nextEpisode(prev, ['fullscreen_exit'], 5000)
++    expect(next.episode).toBe(prev)
++    expect(next.change).toBeNull()
++  })
++
++  it('reports a changed set, keeps the start, and latches the strict limit even after the tab is back', () => {
++    const prev: AwayEpisode = { startedAt: 1000, kinds: ['fullscreen_exit'], tight: false }
++    const joined = nextEpisode(prev, ['tab_hidden', 'fullscreen_exit'], 4000)
++    expect(joined.episode).toEqual({ startedAt: 1000, kinds: ['tab_hidden', 'fullscreen_exit'], tight: true })
++    expect(joined.change).toEqual({ type: 'update', episode: joined.episode })
++    const left = nextEpisode(joined.episode, ['fullscreen_exit'], 6000)
++    expect(left.episode).toEqual({ startedAt: 1000, kinds: ['fullscreen_exit'], tight: true })
++  })
++
++  it('ends the episode when everything is back and says whether it ran past the limit', () => {
++    const screen: AwayEpisode = { startedAt: 0, kinds: ['fullscreen_exit'], tight: false }
++    expect(nextEpisode(screen, [], 29_000)).toEqual({ episode: null, change: { type: 'back', awayMs: 29_000, overLimit: false, limitS: 30 } })
++    expect(nextEpisode(screen, [], 30_000).change).toMatchObject({ overLimit: true })
++    const tab: AwayEpisode = { startedAt: 0, kinds: ['tab_hidden'], tight: true }
++    expect(nextEpisode(tab, [], 16_000).change).toMatchObject({ overLimit: true, limitS: 15 })
++  })
++
++  it('has nothing to say when there was no episode and there is none', () => {
++    expect(nextEpisode(null, [], 1000)).toEqual({ episode: null, change: null })
++  })
++})
++
++describe('countdown', () => {
++  const tab: AwayEpisode = { startedAt: 10_000, kinds: ['tab_hidden'], tight: true }
++
++  it('counts down to the limit, rounding up', () => {
++    expect(countdown(tab, 10_000)).toEqual({ phase: 'limit', seconds: 15 })
++    expect(countdown(tab, 10_001)).toEqual({ phase: 'limit', seconds: 15 })
++    expect(countdown(tab, 24_500)).toEqual({ phase: 'limit', seconds: 1 })
++  })
++
++  it('then counts down to the cap, and never below zero', () => {
++    expect(countdown(tab, 25_000)).toEqual({ phase: 'cap', seconds: AWAY_CAP_S - 15 })
++    expect(countdown(tab, 70_000)).toEqual({ phase: 'cap', seconds: 0 })
++    expect(countdown(tab, 500_000)).toEqual({ phase: 'cap', seconds: 0 })
++  })
++
++  it('treats a clock reading from before the episode as its start', () => {
++    expect(countdown(tab, 2_000)).toEqual({ phase: 'limit', seconds: 15 })
++  })
++})
+diff --git a/apps/web/features/interview-live/proctor/useAwayCountdown.ts b/apps/web/features/interview-live/proctor/useAwayCountdown.ts
+new file mode 100644
+index 0000000..356a916
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/useAwayCountdown.ts
+@@ -0,0 +1,31 @@
++'use client'
++import { useEffect, useState } from 'react'
++import { countdown, type AwayEpisode, type Countdown } from './awayEpisode'
++
++export function countdownLabel(c: Countdown): string {
++  return c.phase === 'limit' ? `⚠ Return in ${c.seconds} s` : `⚠ Interview ends in ${c.seconds} s`
++}
++
++/** Counts an away episode down once a second and shows the count in the tab title while it lasts: from another tab, the
++ * title is the only thing of the room the candidate can see. */
++export function useAwayCountdown(away: AwayEpisode | null): Countdown | null {
++  const [now, setNow] = useState(() => Date.now())
++  useEffect(() => {
++    if (!away) return
++    setNow(Date.now())
++    const tick = setInterval(() => setNow(Date.now()), 1000)
++    return () => clearInterval(tick)
++  }, [away])
++
++  const current = away ? countdown(away, now) : null
++  const label = current ? countdownLabel(current) : null
++  useEffect(() => {
++    if (!label) return
++    const original = document.title
++    document.title = label
++    return () => {
++      document.title = original
++    }
++  }, [label])
++  return current
++}
+diff --git a/apps/web/features/interview-live/proctor/useAwayCountdown.test.tsx b/apps/web/features/interview-live/proctor/useAwayCountdown.test.tsx
+new file mode 100644
+index 0000000..1ba1d2b
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/useAwayCountdown.test.tsx
+@@ -0,0 +1,42 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { act, renderHook } from '@testing-library/react'
++import type { AwayEpisode } from './awayEpisode'
++import { useAwayCountdown } from './useAwayCountdown'
++
++beforeEach(() => {
++  vi.useFakeTimers()
++  document.title = 'Interview'
++})
++afterEach(() => {
++  vi.useRealTimers()
++})
++
++describe('useAwayCountdown', () => {
++  it('counts down once a second, to the limit and then the cap, and shows it in the tab title', () => {
++    const away: AwayEpisode = { startedAt: Date.now(), kinds: ['tab_hidden'], tight: true }
++    const { result, unmount } = renderHook(() => useAwayCountdown(away))
++    expect(result.current).toEqual({ phase: 'limit', seconds: 15 })
++    expect(document.title).toBe('⚠ Return in 15 s')
++    act(() => { vi.advanceTimersByTime(4000) })
++    expect(result.current).toEqual({ phase: 'limit', seconds: 11 })
++    act(() => { vi.advanceTimersByTime(11_000) })
++    expect(result.current).toEqual({ phase: 'cap', seconds: 45 })
++    expect(document.title).toBe('⚠ Interview ends in 45 s')
++    unmount()
++    expect(document.title).toBe('Interview')
++  })
++
++  it('is nothing, and leaves the title alone, while the candidate is on the screen', () => {
++    const { result } = renderHook(() => useAwayCountdown(null))
++    expect(result.current).toBeNull()
++    expect(document.title).toBe('Interview')
++  })
++
++  it('restores the title when the candidate comes back', () => {
++    const away: AwayEpisode = { startedAt: Date.now(), kinds: ['fullscreen_exit'], tight: false }
++    const { rerender } = renderHook(({ a }: { a: AwayEpisode | null }) => useAwayCountdown(a), { initialProps: { a: away as AwayEpisode | null } })
++    expect(document.title).toBe('⚠ Return in 30 s')
++    rerender({ a: null })
++    expect(document.title).toBe('Interview')
++  })
++})
+diff --git a/apps/web/features/interview-live/proctor/useProctor.ts b/apps/web/features/interview-live/proctor/useProctor.ts
+index d25a08f..9a74e55 100644
+--- a/apps/web/features/interview-live/proctor/useProctor.ts
++++ b/apps/web/features/interview-live/proctor/useProctor.ts
+@@ -1,28 +1,36 @@
+ 'use client'
+ import { useCallback, useEffect, useRef, useState } from 'react'
+-import type { ProctorKind } from '../protocol/messages'
++import type { ProctorKind, WebMessageBody } from '../protocol/messages'
+ import type { LiveSession } from '../session/types'
++import { awayKinds, nextEpisode, type AwayEpisode } from './awayEpisode'
++import type { ForeignInsert } from './editorClipboard'
+ import { EMPTY_LEDGER, MERGE_WINDOW_MS, recordEvent, type Ledger } from './ledger'
++import { wasCleared } from './localClipboard'
+ import { isPrompting, useScreenShared } from './screenShare'
+ import { useExternalDisplay } from './useExternalDisplay'
+ import { useFullscreen } from './useFullscreen'
+ import { useVisibility } from './useVisibility'
+ 
+ export const TOAST_MS = 4000
+ export const WARNING_TEXT = "Don't change screens while the interview is running."
++export const PASTE_TEXT = 'Pasting from outside this editor is blocked, and it ends the interview.'
+ 
+ export interface ProctorState {
+   ledger: Ledger
+   outOfFullscreen: boolean
+   shareStopped: boolean
+   toast: string | null
++  /** The open away episode, for the countdown; null while the candidate is on the screen. */
++  away: AwayEpisode | null
++  /** The editor reports text pasted or dropped in from outside the room. */
++  foreignPaste: (info: ForeignInsert) => void
+ }
+ 
+ interface Signals {
+   fullscreen: boolean
+   hidden: boolean
+   blurred: boolean
+   /** null until the browser has said; a display that is already there at that point is a baseline, not an event. */
+   extended: boolean | null
+   shared: boolean
+ }
+@@ -34,20 +42,33 @@ export function useProctor({ session, enabled }: { session: LiveSession; enabled
+   const { isFullscreen } = useFullscreen()
+   const { hidden } = useVisibility()
+   const { extended } = useExternalDisplay()
+   const shared = useScreenShared()
+   const [blurred, setBlurred] = useState(false)
+   const [ledger, setLedger] = useState<Ledger>(EMPTY_LEDGER)
+   const [toast, setToast] = useState<string | null>(null)
+   const ledgerRef = useRef(ledger)
+   const prev = useRef<Signals | null>(null)
+   const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
++  const [away, setAway] = useState<AwayEpisode | null>(null)
++  const awayRef = useRef<AwayEpisode | null>(null)
++  // A room that never had a share (local mock mode) has not lost one.
++  const everShared = useRef(false)
++
++  /** Sends unless the connection is down: a stretch the interviewer misses is better than a broken room. */
++  const safeSend = useCallback((body: WebMessageBody) => {
++    try {
++      session.send(body)
++    } catch {
++      // reconnecting
++    }
++  }, [session])
+ 
+   useEffect(() => {
+     const onBlur = () => { if (!isPrompting()) setBlurred(true) }
+     const onFocus = () => setBlurred(false)
+     window.addEventListener('blur', onBlur)
+     window.addEventListener('focus', onFocus)
+     return () => {
+       window.removeEventListener('blur', onBlur)
+       window.removeEventListener('focus', onFocus)
+     }
+@@ -76,34 +97,64 @@ export function useProctor({ session, enabled }: { session: LiveSession; enabled
+       const l = ledgerRef.current
+       const entry = l.entries[index]
+       if (!entry) return
+       session.send({
+         type: 'proctor.event', kind: entry.kind, weight: entry.weight, at: entry.at,
+         counts: { tab_changes: l.tabChanges, screen_changes: l.screenChanges, full_violations: l.fullViolations },
+       })
+     })
+   }, [later, session])
+ 
++  const foreignPaste = useCallback((info: ForeignInsert) => {
++    setToast(PASTE_TEXT)
++    later(TOAST_MS, () => setToast(null))
++    // The worker keeps its own ledger, so these counts only satisfy the message.
++    safeSend({
++      type: 'proctor.event', kind: 'foreign_paste', weight: 1, at: Date.now(),
++      counts: { tab_changes: 0, screen_changes: 0, full_violations: 0 },
++      source: info.source, chars: info.chars, lines: info.lines, clipboard_cleared: wasCleared(),
++    })
++  }, [later, safeSend])
++
+   useEffect(() => {
+     if (!enabled) {
+       prev.current = null
++      awayRef.current = null
++      setAway(null)
+       return
+     }
+     const now: Signals = { fullscreen: isFullscreen, hidden, blurred, extended, shared }
+     const was = prev.current
+     prev.current = now
+     // On the first run an already-bad state counts, so entering out of full screen isn't a bypass.
+     if ((was === null || was.fullscreen) && !now.fullscreen) record('fullscreen_exit')
+     if ((was === null || !was.hidden) && now.hidden) record('tab_hidden')
+     if ((was === null || !was.blurred) && now.blurred && !now.hidden) record('window_blur')
+     // Only a display that appears after the round began counts: one already connected was warned about at the checks.
+     if (was !== null && was.extended === false && now.extended === true) record('external_display')
+     if (was !== null && was.shared && !now.shared) record('share_stopped')
+-  }, [enabled, isFullscreen, hidden, blurred, extended, shared, record])
++
++    // The return clock (spec §7): one episode from the first away signal until everything is back.
++    if (shared) everShared.current = true
++    const { episode, change } = nextEpisode(awayRef.current, awayKinds({ fullscreen: isFullscreen, hidden, blurred, shareLost: everShared.current && !shared }), Date.now())
++    awayRef.current = episode
++    setAway(episode)
++    if (change?.type === 'start' || change?.type === 'update') {
++      safeSend({ type: 'proctor.away', kinds: change.episode.kinds, at: Date.now() })
++    } else if (change?.type === 'back') {
++      safeSend({ type: 'proctor.back', at: Date.now() })
++      if (change.overLimit) {
++        setToast(`You were away ${Math.round(change.awayMs / 1000)} s, past the ${change.limitS} s limit. That counts as an extra violation.`)
++        later(TOAST_MS, () => setToast(null))
++      }
++    }
++  }, [enabled, isFullscreen, hidden, blurred, extended, shared, record, safeSend, later])
+ 
+   return {
+     ledger,
+     outOfFullscreen: enabled && !isFullscreen,
+     shareStopped: enabled && !shared,
+     toast,
++    away,
++    foreignPaste,
+   }
+ }
+diff --git a/apps/web/features/interview-live/proctor/useProctor.test.tsx b/apps/web/features/interview-live/proctor/useProctor.test.tsx
+index d883bcc..2365c71 100644
+--- a/apps/web/features/interview-live/proctor/useProctor.test.tsx
++++ b/apps/web/features/interview-live/proctor/useProctor.test.tsx
+@@ -1,16 +1,17 @@
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+ import { act, renderHook } from '@testing-library/react'
+ import { MockLiveSession } from '../session/MockLiveSession'
+ import { MERGE_WINDOW_MS } from './ledger'
+ import { requestEntireScreen, stopScreenShare } from './screenShare'
+-import { WARNING_TEXT, useProctor } from './useProctor'
++import { WARNING_TEXT, PASTE_TEXT, useProctor } from './useProctor'
++import { clearSystemClipboard, resetClipboard } from './localClipboard'
+ import type { ExtendedScreen } from './useExternalDisplay'
+ 
+ let hidden = false
+ function setFullscreen(on: boolean) {
+   ;(document as unknown as { fullscreenElement: Element | null }).fullscreenElement = on ? document.documentElement : null
+   document.dispatchEvent(new Event('fullscreenchange'))
+ }
+ 
+ beforeEach(() => {
+   hidden = false
+@@ -96,10 +97,135 @@ describe('useProctor second display', () => {
+     try {
+       const { result } = renderHook(() => useProctor({ session: new MockLiveSession(), enabled: true }))
+       expect(result.current.ledger.entries).toEqual([])
+       act(() => { scr.isExtended = true; onChange() })
+       expect(result.current.ledger.entries[0]).toMatchObject({ kind: 'external_display', weight: 1 })
+     } finally {
+       scr.addEventListener = add
+     }
+   })
+ })
++
++describe('useProctor return clock', () => {
++  it('opens an episode when full screen is left, tells the worker at once, and closes it on return', () => {
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    expect(result.current.away).toBeNull()
++    act(() => setFullscreen(false))
++    expect(result.current.away).toMatchObject({ kinds: ['fullscreen_exit'], tight: false })
++    expect(session.sentOf('proctor.away')).toEqual([expect.objectContaining({ kinds: ['fullscreen_exit'] })])   // before the 1.5 s merge window
++    act(() => setFullscreen(true))
++    expect(result.current.away).toBeNull()
++    expect(session.sentOf('proctor.back')).toHaveLength(1)
++  })
++
++  it('sends the new set when another signal joins, and keeps the strict limit once the tab is left', () => {
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    act(() => setFullscreen(false))
++    act(() => { hidden = true; document.dispatchEvent(new Event('visibilitychange')) })
++    expect(session.sentOf('proctor.away').at(-1)).toMatchObject({ kinds: ['tab_hidden', 'fullscreen_exit'] })
++    expect(result.current.away?.tight).toBe(true)
++    act(() => { hidden = false; document.dispatchEvent(new Event('visibilitychange')) })
++    expect(result.current.away).toMatchObject({ kinds: ['fullscreen_exit'], tight: true })
++  })
++
++  it('tells the candidate they stayed past the limit, and says nothing about a quick return', () => {
++    const slow = renderHook(() => useProctor({ session: new MockLiveSession(), enabled: true }))
++    act(() => setFullscreen(false))
++    act(() => { vi.advanceTimersByTime(31_000) })
++    act(() => setFullscreen(true))
++    expect(slow.result.current.toast).toMatch(/away 31 s, past the 30 s limit.*extra violation/)
++    slow.unmount()
++
++    const quick = renderHook(() => useProctor({ session: new MockLiveSession(), enabled: true }))
++    act(() => setFullscreen(false))
++    act(() => { vi.advanceTimersByTime(5000) })
++    act(() => setFullscreen(true))
++    expect(quick.result.current.toast).toBeNull()
++  })
++
++  it('does not treat a room that never had a screen share as having lost it', () => {
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    expect(result.current.shareStopped).toBe(true)
++    expect(result.current.away).toBeNull()
++    expect(session.sentOf('proctor.away')).toHaveLength(0)
++  })
++
++  it('opens an episode when a share that was running stops', async () => {
++    let end = () => {}
++    const track = { kind: 'video', stop: vi.fn(), getSettings: () => ({ displaySurface: 'monitor' }), addEventListener: (_t: string, cb: () => void) => { end = cb } }
++    Object.assign(navigator.mediaDevices, { getDisplayMedia: vi.fn(async () => ({ getTracks: () => [track], getVideoTracks: () => [track] })) })
++    await requestEntireScreen()
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    expect(result.current.away).toBeNull()
++    act(() => end())
++    expect(result.current.away).toMatchObject({ kinds: ['share_stopped'], tight: false })
++    expect(session.sentOf('proctor.away')).toEqual([expect.objectContaining({ kinds: ['share_stopped'] })])
++  })
++
++  it('does not open an episode for a second display, which cannot be undone', () => {
++    const scr = window.screen as ExtendedScreen
++    let onChange: () => void = () => {}
++    Object.defineProperty(scr, 'isExtended', { configurable: true, writable: true, value: false })
++    const add = scr.addEventListener
++    scr.addEventListener = ((type: string, cb: () => void) => { if (type === 'change') onChange = cb }) as typeof scr.addEventListener
++    try {
++      const session = new MockLiveSession()
++      const { result } = renderHook(() => useProctor({ session, enabled: true }))
++      act(() => { scr.isExtended = true; onChange() })
++      expect(result.current.ledger.entries[0]).toMatchObject({ kind: 'external_display' })
++      expect(result.current.away).toBeNull()
++      expect(session.sentOf('proctor.away')).toHaveLength(0)
++    } finally {
++      scr.addEventListener = add
++      Reflect.deleteProperty(scr, 'isExtended')
++    }
++  })
++
++  it('survives a session that throws while reconnecting', () => {
++    const session = new MockLiveSession()
++    vi.spyOn(session, 'send').mockImplementation(() => { throw new Error('reconnecting') })
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    expect(() => act(() => setFullscreen(false))).not.toThrow()
++    expect(result.current.away).not.toBeNull()
++  })
++
++  it('forgets an open episode when proctoring is switched off', () => {
++    const session = new MockLiveSession()
++    const { result, rerender } = renderHook(({ enabled }: { enabled: boolean }) => useProctor({ session, enabled }), { initialProps: { enabled: true } })
++    act(() => setFullscreen(false))
++    expect(result.current.away).not.toBeNull()
++    rerender({ enabled: false })
++    expect(result.current.away).toBeNull()
++  })
++})
++
++describe('useProctor foreign paste', () => {
++  afterEach(() => {
++    resetClipboard()
++    vi.unstubAllEnvs()
++    Reflect.deleteProperty(navigator, 'clipboard')
++  })
++
++  it('shows the warning and tells the worker the size, never the text', () => {
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    act(() => result.current.foreignPaste({ source: 'paste', chars: 120, lines: 6 }))
++    expect(result.current.toast).toBe(PASTE_TEXT)
++    expect(session.sentOf('proctor.event')).toEqual([
++      expect.objectContaining({ kind: 'foreign_paste', weight: 1, source: 'paste', chars: 120, lines: 6, clipboard_cleared: false }),
++    ])
++  })
++
++  it('says the clipboard was cleared at Join when it was', async () => {
++    vi.stubEnv('NODE_ENV', 'production')
++    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => {} } })
++    await clearSystemClipboard()
++    const session = new MockLiveSession()
++    const { result } = renderHook(() => useProctor({ session, enabled: true }))
++    act(() => result.current.foreignPaste({ source: 'drop', chars: 9, lines: 1 }))
++    expect(session.sentOf('proctor.event')[0]).toMatchObject({ source: 'drop', clipboard_cleared: true })
++  })
++})

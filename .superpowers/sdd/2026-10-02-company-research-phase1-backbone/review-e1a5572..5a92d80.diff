@@ -1,0 +1,162 @@
+# Review package: e1a5572b76e99805917755081da9c75be987b7f0..5a92d80f543b2b2d628d1a0775ff38dbee573b9f
+
+## Commits
+5a92d80 sdd snapshot 2026-10-02T12:09:01Z
+
+## Files changed
+ apps/web/features/research/hooks.test.tsx | 92 +++++++++++++++++++++++++++++++
+ apps/web/features/research/hooks.ts       |  7 ++-
+ 2 files changed, 98 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/apps/web/features/research/hooks.test.tsx b/apps/web/features/research/hooks.test.tsx
+new file mode 100644
+index 0000000..428b448
+--- /dev/null
++++ b/apps/web/features/research/hooks.test.tsx
+@@ -0,0 +1,92 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import { act, renderHook, waitFor } from "@testing-library/react";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import type { ReactNode } from "react";
++import { makeEvent } from "./testing";
++import type { ResearchEvent } from "./types";
++
++const listRunEventsMock = vi.fn();
++vi.mock("./api", async (orig) => ({
++  ...(await orig<typeof import("./api")>()),
++  listRunEvents: (...args: unknown[]) => listRunEventsMock(...args),
++}));
++
++import { useRunEvents } from "./hooks";
++
++const NEWEST = 5000;
++const evs = (from: number, to: number): ResearchEvent[] =>
++  Array.from({ length: to - from + 1 }, (_, i) => makeEvent({ seq: from + i }));
++
++/** Fake server: `afterSeq` / `beforeSeq` paging over events 1..total. */
++function serve(total: number) {
++  listRunEventsMock.mockImplementation(async (_runId: string, p: { afterSeq?: number; beforeSeq?: number; limit?: number }) => {
++    const limit = p.limit ?? 500;
++    let events: ResearchEvent[];
++    if (p.beforeSeq !== undefined) events = evs(Math.max(1, p.beforeSeq - limit), p.beforeSeq - 1);
++    else {
++      const from = (p.afterSeq ?? 0) + 1;
++      events = from > total ? [] : evs(from, Math.min(total, from + limit - 1));
++    }
++    return { events, last_seq: total };
++  });
++}
++
++function setup() {
++  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } });
++  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
++  return wrapper;
++}
++
++const render = (wrapper: ReturnType<typeof setup>, runId: string) =>
++  renderHook(({ id }) => useRunEvents(id, { live: false, lastSeq: NEWEST }), { wrapper, initialProps: { id: runId } });
++
++beforeEach(() => {
++  listRunEventsMock.mockReset();
++  serve(NEWEST);
++});
++
++describe("useRunEvents", () => {
++  it("opens at the newest 2000 rows by paging from lastSeq - 2000", async () => {
++    const { result } = render(setup(), "r1");
++    await waitFor(() => expect(result.current.events.length).toBe(2000));
++    expect(listRunEventsMock.mock.calls[0]).toEqual(["r1", { afterSeq: 3000, limit: 500 }]);
++    // Four full pages, then one empty page that ends the loop.
++    expect(listRunEventsMock).toHaveBeenCalledTimes(5);
++    expect(listRunEventsMock).toHaveBeenLastCalledWith("r1", { afterSeq: 5000, limit: 500 });
++    expect(result.current.events[0]!.seq).toBe(3001);
++    expect(result.current.events.at(-1)!.seq).toBe(5000);
++    expect(result.current.canLoadOlder).toBe(true);
++  });
++
++  it("loadOlder prepends the previous page and later tail pages stop trimming", async () => {
++    const { result } = render(setup(), "r1");
++    await waitFor(() => expect(result.current.events.length).toBe(2000));
++    await act(async () => {
++      await result.current.loadOlder();
++    });
++    expect(listRunEventsMock).toHaveBeenLastCalledWith("r1", { beforeSeq: 3001, limit: 500 });
++    expect(result.current.events.length).toBe(2500);
++    expect(result.current.events[0]!.seq).toBe(2501);
++  });
++
++  it("changing runId empties the buffer and restarts from the new run's tail", async () => {
++    const wrapper = setup();
++    const { result, rerender } = render(wrapper, "r1");
++    await waitFor(() => expect(result.current.events.length).toBe(2000));
++    listRunEventsMock.mockClear();
++    rerender({ id: "r2" });
++    expect(result.current.events).toEqual([]);
++    await waitFor(() => expect(result.current.events.length).toBe(2000));
++    expect(listRunEventsMock.mock.calls[0]).toEqual(["r2", { afterSeq: 3000, limit: 500 }]);
++  });
++
++  it("refills when the run is reopened within the cache's stale window", async () => {
++    const wrapper = setup();
++    const first = render(wrapper, "r1");
++    await waitFor(() => expect(first.result.current.events.length).toBe(2000));
++    first.unmount();
++    const second = render(wrapper, "r1");
++    await waitFor(() => expect(second.result.current.events.length).toBe(2000));
++    expect(second.result.current.events.at(-1)!.seq).toBe(5000);
++  });
++});
+diff --git a/apps/web/features/research/hooks.ts b/apps/web/features/research/hooks.ts
+index a97e3dd..3590cab 100644
+--- a/apps/web/features/research/hooks.ts
++++ b/apps/web/features/research/hooks.ts
+@@ -115,20 +115,24 @@ export function useRunEvents(runId: string | null, opts: { live: boolean; lastSe
+   const events = buffer.runId === runId ? buffer.events : [];
+   const setEvents = React.useCallback(
+     (update: (prev: ResearchEvent[]) => ResearchEvent[]) => setBuffer((b) => (b.runId === runId ? { runId, events: update(b.events) } : b)),
+     [runId],
+   );
+ 
+   const query = useQuery({
+     queryKey: K.events(runId ?? "none"),
+     enabled: !!runId && opts.lastSeq !== undefined,
+     refetchInterval: opts.live ? RESEARCH_POLLING.liveMs : false,
++    // The buffer lives in component state, so the cache must never skip a refill on mount or run switch.
++    staleTime: 0,
++    gcTime: 0,
++    refetchOnMount: "always",
+     queryFn: async () => {
+       if (paging.current.runId !== runId) paging.current = { runId, cursor: null, keepAll: false };
+       const state = paging.current;
+       if (state.cursor === null) state.cursor = initialAfterSeq(opts.lastSeq ?? 0, CONSOLE_MAX_ROWS);
+       for (;;) {
+         const page = await listRunEvents(runId!, { afterSeq: state.cursor, limit: EVENTS_PAGE_LIMIT });
+         if (page.events.length > 0) {
+           state.cursor = page.events[page.events.length - 1]!.seq;
+           const batch = page.events;
+           setEvents((prev) => appendCapped(prev, batch, state.keepAll ? Number.POSITIVE_INFINITY : CONSOLE_MAX_ROWS));
+@@ -136,21 +140,22 @@ export function useRunEvents(runId: string | null, opts: { live: boolean; lastSe
+         if (page.events.length < EVENTS_PAGE_LIMIT) return page.last_seq;
+       }
+     },
+   });
+ 
+   const oldest = events[0]?.seq ?? null;
+   const loadOlder = React.useCallback(async () => {
+     const q = olderPageQuery(oldest, EVENTS_PAGE_LIMIT);
+     if (!q || !runId) return;
+     setLoadingOlder(true);
++    const state = paging.current;
+     try {
+       const page = await listRunEvents(runId, q);
+-      paging.current.keepAll = true;
++      state.keepAll = true;
+       setEvents((prev) => appendCapped(prev, page.events, Number.POSITIVE_INFINITY));
+     } finally {
+       setLoadingOlder(false);
+     }
+   }, [oldest, runId, setEvents]);
+ 
+   return { events, error: query.error, loadOlder, canLoadOlder: olderPageQuery(oldest, EVENTS_PAGE_LIMIT) !== null, loadingOlder };
+ }

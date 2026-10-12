@@ -1,0 +1,518 @@
+# Review package: c352d1c11951ada59b47879caf0ec118ab606849..f5d9eabd6964ef4df82220dda120c928f6058c64
+
+## Commits
+f5d9eab sdd snapshot 2026-10-02T11:03:39Z
+
+## Files changed
+ apps/ai-service/app/research/memory_store.py       | 39 +++++++++-
+ apps/ai-service/app/research/store.py              | 44 ++++++++++--
+ .../tests/research/test_store_contract.py          | 83 +++++++++++++++++++++-
+ 3 files changed, 157 insertions(+), 9 deletions(-)
+
+## Diff
+diff --git a/apps/ai-service/app/research/memory_store.py b/apps/ai-service/app/research/memory_store.py
+index 3765982..b89f7ea 100644
+--- a/apps/ai-service/app/research/memory_store.py
++++ b/apps/ai-service/app/research/memory_store.py
+@@ -1,20 +1,20 @@
+ """In-memory ResearchStore for tests and `python -m app.research.cli --memory`. Mirrors
+ MongoResearchStore exactly: dotted-path $set/$inc, sort orders, projections, deep copies in and
+ out (so callers can never mutate stored state by accident)."""
+ from __future__ import annotations
+ 
+ import copy
+ from collections.abc import Iterable
+ 
+ from app.research.models import ACTIVE_RUN_STATUSES
+-from app.research.store import SPAN_LIST_EXCLUDE, EventFilter, event_matches
++from app.research.store import SPAN_LIST_EXCLUDE, DuplicateKey, EventFilter, event_matches
+ 
+ 
+ def _copy(doc: dict | None) -> dict | None:
+     return copy.deepcopy(doc) if doc is not None else None
+ 
+ 
+ def _parent(doc: dict, path: str) -> tuple[dict, str]:
+     *parents, last = path.split(".")
+     cur = doc
+     for part in parents:
+@@ -43,21 +43,21 @@ class InMemoryResearchStore:
+         self.events: list[dict] = []
+         self.payloads: dict[str, dict] = {}
+         self.sources: dict[str, dict] = {}
+         self.extracts: dict[str, dict] = {}
+         self.company_states: dict[str, dict] = {}
+         self.drafts: list[dict] = []
+ 
+     # --- runs ---
+     async def insert_run(self, run: dict) -> None:
+         if run["run_id"] in self.runs:
+-            raise ValueError(f"duplicate run_id {run['run_id']}")
++            raise DuplicateKey(f"duplicate run_id {run['run_id']}")
+         self.runs[run["run_id"]] = copy.deepcopy(run)
+ 
+     async def get_run(self, run_id: str) -> dict | None:
+         return _copy(self.runs.get(run_id))
+ 
+     async def update_run(self, run_id: str, *, fields: dict | None = None, inc: dict | None = None) -> dict | None:
+         doc = self.runs.get(run_id)
+         if doc is None:
+             return None
+         _apply(doc, fields, inc)
+@@ -71,20 +71,30 @@ class InMemoryResearchStore:
+         wanted = frozenset(statuses)
+         rows = sorted((r for r in self.runs.values() if r["status"] in wanted), key=lambda r: r["created_at"])
+         return copy.deepcopy(rows)
+ 
+     async def list_runs(self, limit: int) -> list[dict]:
+         rows = sorted(self.runs.values(), key=lambda r: r["created_at"], reverse=True)[:limit]
+         return [{k: copy.deepcopy(v) for k, v in r.items() if k != "targets"} for r in rows]
+ 
+     # --- items ---
+     async def insert_items(self, items: list[dict]) -> None:
++        # Check for duplicates within batch
++        seen = set()
++        for item in items:
++            key = (item["run_id"], item["company_id"])
++            if key in seen:
++                raise DuplicateKey(f"duplicate item (run_id, company_id) within batch: {key}")
++            if key in self.items:
++                raise DuplicateKey(f"duplicate item (run_id, company_id): {key}")
++            seen.add(key)
++        # Now insert all (no duplicates found)
+         for item in items:
+             self.items[(item["run_id"], item["company_id"])] = copy.deepcopy(item)
+ 
+     async def list_items(self, run_id: str) -> list[dict]:
+         rows = sorted((i for (rid, _), i in self.items.items() if rid == run_id), key=lambda i: i["position"])
+         return copy.deepcopy(rows)
+ 
+     async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None:
+         doc = self.items.get((run_id, company_id))
+         if doc is not None:
+@@ -98,60 +108,85 @@ class InMemoryResearchStore:
+         return _copy(self.spans.get(span_id))
+ 
+     async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]:
+         rows = [s for s in self.spans.values()
+                 if s["run_id"] == run_id and (company_id is None or s.get("company_id") == company_id)]
+         rows.sort(key=lambda s: s["started_at"])
+         return [{k: copy.deepcopy(v) for k, v in s.items() if k not in SPAN_LIST_EXCLUDE} for s in rows]
+ 
+     # --- events ---
+     async def insert_events(self, events: list[dict]) -> None:
++        # Check for duplicates within batch
++        seen = set()
++        for event in events:
++            key = (event["run_id"], event["seq"])
++            if key in seen:
++                raise DuplicateKey(f"duplicate event (run_id, seq) within batch: {key}")
++            if key in {(e["run_id"], e["seq"]) for e in self.events}:
++                raise DuplicateKey(f"duplicate event (run_id, seq): {key}")
++            seen.add(key)
++        # Now insert all (no duplicates found)
+         self.events.extend(copy.deepcopy(e) for e in events)
+ 
+     async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]:
+         rows = sorted((e for e in self.events if e["run_id"] == run_id and event_matches(e, flt)), key=lambda e: e["seq"])
+         rows = rows[-flt.limit:] if flt.before_seq is not None else rows[: flt.limit]
+         return copy.deepcopy(rows)
+ 
++    async def max_event_seq(self, run_id: str) -> int:
++        run_events = [e for e in self.events if e["run_id"] == run_id]
++        return max((e["seq"] for e in run_events), default=0)
++
+     # --- payloads / sources / extracts ---
+     async def put_payload(self, payload: dict) -> None:
++        if payload["payload_id"] in self.payloads:
++            raise DuplicateKey(f"duplicate payload_id {payload['payload_id']}")
+         self.payloads[payload["payload_id"]] = copy.deepcopy(payload)
+ 
+     async def get_payload(self, payload_id: str) -> dict | None:
+         return _copy(self.payloads.get(payload_id))
+ 
+     async def upsert_source(self, source: dict) -> None:
+         doc = copy.deepcopy(source)
+         kinds = doc.pop("kinds", [])
+         current = self.sources.setdefault(doc["url"], {"kinds": []})
+         current.update(doc)
+         current["kinds"] = current["kinds"] + [k for k in kinds if k not in current["kinds"]]
+ 
++    async def get_source(self, url: str) -> dict | None:
++        return _copy(self.sources.get(url))
++
+     async def get_extract(self, key: str) -> dict | None:
+         return _copy(self.extracts.get(key))
+ 
+     async def put_extract(self, extract: dict) -> None:
+         self.extracts[extract["key"]] = copy.deepcopy(extract)
+ 
+     # --- company research state / drafts ---
+     async def upsert_company_state(self, company_id: str, *, fields: dict) -> None:
+         current = self.company_states.setdefault(company_id, {"company_id": company_id})
+         _apply(current, fields, None)
+ 
+     async def list_company_states(self, company_ids: list[str] | None = None) -> list[dict]:
+         rows = [s for cid, s in self.company_states.items() if company_ids is None or cid in company_ids]
+         return copy.deepcopy(rows)
+ 
+     async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None:
+         rows = [d for d in self.drafts if d["company_id"] == company_id and (status is None or d["status"] == status)]
+         return _copy(max(rows, key=lambda d: d["version"])) if rows else None
+ 
+     async def insert_draft(self, draft: dict) -> None:
++        # Check for duplicate draft_id
++        if any(d["draft_id"] == draft["draft_id"] for d in self.drafts):
++            raise DuplicateKey(f"duplicate draft_id {draft['draft_id']}")
++        # Check for duplicate (company_id, version)
++        if any(d["company_id"] == draft["company_id"] and d["version"] == draft["version"] for d in self.drafts):
++            raise DuplicateKey(f"duplicate draft (company_id, version): ({draft['company_id']}, {draft['version']})")
+         self.drafts.append(copy.deepcopy(draft))
+ 
+     async def supersede_pending_drafts(self, company_id: str) -> int:
+         n = 0
+         for d in self.drafts:
+             if d["company_id"] == company_id and d["status"] == "pending_review":
+                 d["status"] = "superseded"
+                 n += 1
+         return n
+diff --git a/apps/ai-service/app/research/store.py b/apps/ai-service/app/research/store.py
+index 0e3290c..4724d9c 100644
+--- a/apps/ai-service/app/research/store.py
++++ b/apps/ai-service/app/research/store.py
+@@ -9,24 +9,28 @@ Docs are plain dicts and no `_id` ever leaks out. Updates take Mongo-style dotte
+ them the same way."""
+ from __future__ import annotations
+ 
+ import re
+ from collections.abc import Iterable
+ from dataclasses import dataclass
+ from typing import Protocol
+ 
+ from motor.motor_asyncio import AsyncIOMotorDatabase
+ from pymongo import ASCENDING, DESCENDING, ReturnDocument
+-from pymongo.errors import OperationFailure
++from pymongo.errors import BulkWriteError, DuplicateKeyError, OperationFailure
+ 
+ from app.research.models import ACTIVE_RUN_STATUSES
+ 
++
++class DuplicateKey(Exception):
++    """An insert violated a unique key; raised identically by both stores."""
++
+ RUNS = "research_runs"
+ ITEMS = "research_items"
+ SPANS = "research_spans"
+ EVENTS = "research_events"
+ PAYLOADS = "research_payloads"
+ SOURCES = "research_sources"
+ EXTRACTS = "research_extracts"
+ COMPANY_STATE = "company_research_state"
+ DRAFTS = "company_drafts"
+ 
+@@ -75,23 +79,25 @@ class ResearchStore(Protocol):
+     async def find_runs_by_status(self, statuses: Iterable[str]) -> list[dict]: ...
+     async def list_runs(self, limit: int) -> list[dict]: ...
+     async def insert_items(self, items: list[dict]) -> None: ...
+     async def list_items(self, run_id: str) -> list[dict]: ...
+     async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None: ...
+     async def put_span(self, span: dict) -> None: ...
+     async def get_span(self, span_id: str) -> dict | None: ...
+     async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]: ...
+     async def insert_events(self, events: list[dict]) -> None: ...
+     async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]: ...
++    async def max_event_seq(self, run_id: str) -> int: ...
+     async def put_payload(self, payload: dict) -> None: ...
+     async def get_payload(self, payload_id: str) -> dict | None: ...
+     async def upsert_source(self, source: dict) -> None: ...
++    async def get_source(self, url: str) -> dict | None: ...
+     async def get_extract(self, key: str) -> dict | None: ...
+     async def put_extract(self, extract: dict) -> None: ...
+     async def upsert_company_state(self, company_id: str, *, fields: dict) -> None: ...
+     async def list_company_states(self, company_ids: list[str] | None = None) -> list[dict]: ...
+     async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None: ...
+     async def insert_draft(self, draft: dict) -> None: ...
+     async def supersede_pending_drafts(self, company_id: str) -> int: ...
+ 
+ 
+ def _update_doc(fields: dict | None, inc: dict | None) -> dict:
+@@ -102,21 +108,24 @@ def _update_doc(fields: dict | None, inc: dict | None) -> dict:
+         doc["$inc"] = inc
+     return doc
+ 
+ 
+ class MongoResearchStore:
+     def __init__(self, db: AsyncIOMotorDatabase):
+         self._db = db
+ 
+     # --- runs ---
+     async def insert_run(self, run: dict) -> None:
+-        await self._db[RUNS].insert_one(dict(run))   # copy: insert_one adds _id to the dict it is given
++        try:
++            await self._db[RUNS].insert_one(dict(run))   # copy: insert_one adds _id to the dict it is given
++        except DuplicateKeyError as exc:
++            raise DuplicateKey(str(exc)) from exc
+ 
+     async def get_run(self, run_id: str) -> dict | None:
+         return await self._db[RUNS].find_one({"run_id": run_id}, {"_id": 0})
+ 
+     async def update_run(self, run_id: str, *, fields: dict | None = None, inc: dict | None = None) -> dict | None:
+         upd = _update_doc(fields, inc)
+         if not upd:
+             return await self.get_run(run_id)
+         return await self._db[RUNS].find_one_and_update(
+             {"run_id": run_id}, upd, projection={"_id": 0}, return_document=ReturnDocument.AFTER,
+@@ -131,21 +140,26 @@ class MongoResearchStore:
+         cur = self._db[RUNS].find({"status": {"$in": list(statuses)}}, {"_id": 0}).sort("created_at", ASCENDING)
+         return await cur.to_list(None)
+ 
+     async def list_runs(self, limit: int) -> list[dict]:
+         cur = self._db[RUNS].find({}, {"_id": 0, "targets": 0}).sort("created_at", DESCENDING).limit(limit)
+         return await cur.to_list(None)
+ 
+     # --- items ---
+     async def insert_items(self, items: list[dict]) -> None:
+         if items:
+-            await self._db[ITEMS].insert_many([dict(i) for i in items])
++            try:
++                await self._db[ITEMS].insert_many([dict(i) for i in items], ordered=False)
++            except (DuplicateKeyError, BulkWriteError) as exc:
++                if isinstance(exc, BulkWriteError) and not any(e['code'] == 11000 for e in exc.details.get('writeErrors', [])):
++                    raise
++                raise DuplicateKey(str(exc)) from exc
+ 
+     async def list_items(self, run_id: str) -> list[dict]:
+         return await self._db[ITEMS].find({"run_id": run_id}, {"_id": 0}).sort("position", ASCENDING).to_list(None)
+ 
+     async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None:
+         upd = _update_doc(fields, inc)
+         if upd:
+             await self._db[ITEMS].update_one({"run_id": run_id, "company_id": company_id}, upd)
+ 
+     # --- spans ---
+@@ -158,21 +172,26 @@ class MongoResearchStore:
+     async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]:
+         q: dict = {"run_id": run_id}
+         if company_id:
+             q["company_id"] = company_id
+         projection = {"_id": 0, **{k: 0 for k in SPAN_LIST_EXCLUDE}}
+         return await self._db[SPANS].find(q, projection).sort("started_at", ASCENDING).to_list(None)
+ 
+     # --- events ---
+     async def insert_events(self, events: list[dict]) -> None:
+         if events:
+-            await self._db[EVENTS].insert_many([dict(e) for e in events], ordered=False)
++            try:
++                await self._db[EVENTS].insert_many([dict(e) for e in events], ordered=False)
++            except (DuplicateKeyError, BulkWriteError) as exc:
++                if isinstance(exc, BulkWriteError) and not any(e['code'] == 11000 for e in exc.details.get('writeErrors', [])):
++                    raise
++                raise DuplicateKey(str(exc)) from exc
+ 
+     async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]:
+         seq: dict = {"$gt": flt.after_seq}
+         if flt.before_seq is not None:
+             seq["$lt"] = flt.before_seq
+         q: dict = {"run_id": run_id, "seq": seq}
+         if flt.min_level:
+             q["level_rank"] = {"$gte": LEVEL_RANK[flt.min_level]}
+         if flt.company_id:
+             q["company_id"] = flt.company_id
+@@ -182,34 +201,44 @@ class MongoResearchStore:
+             q["span_id"] = flt.span_id
+         if flt.type_prefix:
+             q["type"] = {"$regex": "^" + re.escape(flt.type_prefix)}
+         if flt.q:
+             q["message"] = {"$regex": re.escape(flt.q), "$options": "i"}
+         newest_first = flt.before_seq is not None
+         cur = self._db[EVENTS].find(q, {"_id": 0}).sort("seq", DESCENDING if newest_first else ASCENDING).limit(flt.limit)
+         rows = await cur.to_list(None)
+         return list(reversed(rows)) if newest_first else rows
+ 
++    async def max_event_seq(self, run_id: str) -> int:
++        doc = await self._db[EVENTS].find_one({"run_id": run_id}, {"seq": 1, "_id": 0}, sort=[("seq", DESCENDING)])
++        return doc["seq"] if doc else 0
++
+     # --- payloads / sources / extracts ---
+     async def put_payload(self, payload: dict) -> None:
+-        await self._db[PAYLOADS].insert_one(dict(payload))
++        try:
++            await self._db[PAYLOADS].insert_one(dict(payload))
++        except DuplicateKeyError as exc:
++            raise DuplicateKey(str(exc)) from exc
+ 
+     async def get_payload(self, payload_id: str) -> dict | None:
+         return await self._db[PAYLOADS].find_one({"payload_id": payload_id}, {"_id": 0})
+ 
+     async def upsert_source(self, source: dict) -> None:
+         doc = dict(source)
+         kinds = doc.pop("kinds", [])
+         await self._db[SOURCES].update_one(
+             {"url": doc["url"]}, {"$set": doc, "$addToSet": {"kinds": {"$each": kinds}}}, upsert=True,
+         )
+ 
++    async def get_source(self, url: str) -> dict | None:
++        return await self._db[SOURCES].find_one({"url": url}, {"_id": 0})
++
+     async def get_extract(self, key: str) -> dict | None:
+         return await self._db[EXTRACTS].find_one({"key": key}, {"_id": 0})
+ 
+     async def put_extract(self, extract: dict) -> None:
+         await self._db[EXTRACTS].replace_one({"key": extract["key"]}, dict(extract), upsert=True)
+ 
+     # --- company research state / drafts ---
+     async def upsert_company_state(self, company_id: str, *, fields: dict) -> None:
+         await self._db[COMPANY_STATE].update_one(
+             {"company_id": company_id}, {"$set": {**fields, "company_id": company_id}}, upsert=True,
+@@ -219,21 +248,24 @@ class MongoResearchStore:
+         q = {} if company_ids is None else {"company_id": {"$in": company_ids}}
+         return await self._db[COMPANY_STATE].find(q, {"_id": 0}).to_list(None)
+ 
+     async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None:
+         q: dict = {"company_id": company_id}
+         if status:
+             q["status"] = status
+         return await self._db[DRAFTS].find_one(q, {"_id": 0}, sort=[("version", DESCENDING)])
+ 
+     async def insert_draft(self, draft: dict) -> None:
+-        await self._db[DRAFTS].insert_one(dict(draft))
++        try:
++            await self._db[DRAFTS].insert_one(dict(draft))
++        except DuplicateKeyError as exc:
++            raise DuplicateKey(str(exc)) from exc
+ 
+     async def supersede_pending_drafts(self, company_id: str) -> int:
+         res = await self._db[DRAFTS].update_many(
+             {"company_id": company_id, "status": "pending_review"}, {"$set": {"status": "superseded"}},
+         )
+         return res.modified_count
+ 
+ 
+ async def ensure_research_indexes(db: AsyncIOMotorDatabase, *, ttl_days: int) -> None:
+     await db[RUNS].create_index([("run_id", ASCENDING)], name="run_id", unique=True)
+diff --git a/apps/ai-service/tests/research/test_store_contract.py b/apps/ai-service/tests/research/test_store_contract.py
+index 24b1794..435b664 100644
+--- a/apps/ai-service/tests/research/test_store_contract.py
++++ b/apps/ai-service/tests/research/test_store_contract.py
+@@ -4,21 +4,21 @@ at a server you can create throwaway databases on (e.g. the Atlas dev cluster):
+     RESEARCH_TEST_MONGO_URL='mongodb+srv://…' .venv/bin/python -m pytest tests/research/test_store_contract.py -q
+ """
+ import asyncio
+ import os
+ import uuid
+ from datetime import datetime, timedelta, timezone
+ 
+ import pytest
+ 
+ from app.research.memory_store import InMemoryResearchStore
+-from app.research.store import LEVEL_RANK, EventFilter, MongoResearchStore, ensure_research_indexes
++from app.research.store import LEVEL_RANK, DuplicateKey, EventFilter, MongoResearchStore, ensure_research_indexes
+ 
+ T0 = datetime(2026, 10, 2, 10, 0, tzinfo=timezone.utc)
+ 
+ 
+ async def _noop() -> None:
+     return None
+ 
+ 
+ @pytest.fixture(params=["memory", "mongo"])
+ def make_store(request):
+@@ -158,17 +158,98 @@ def test_company_state_upsert_and_filter(make_store):
+         one = await store.list_company_states(["c1"])
+         assert one == [{"company_id": "c1", "last_status": "done", "last_researched_at": T0}]
+         assert len(await store.list_company_states()) == 2
+     _run(make_store, scenario)
+ 
+ 
+ def test_sources_merge_kinds_and_extract_cache_roundtrip(make_store):
+     async def scenario(store):
+         await store.upsert_source({"url": "https://a.com", "text": "v1", "kinds": ["resolve"]})
+         await store.upsert_source({"url": "https://a.com", "text": "v2", "kinds": ["resolve", "profile"]})
++        source = await store.get_source("https://a.com")
++        assert source["kinds"] == ["resolve", "profile"]
++        assert source["text"] == "v2"
+         await store.put_payload({"payload_id": "p1", "run_id": "r1", "body": {"big": True}, "created_at": T0})
+         assert (await store.get_payload("p1"))["body"] == {"big": True}
+         await store.put_extract({"key": "k1", "output": {"a": 1}, "created_at": T0})
+         await store.put_extract({"key": "k1", "output": {"a": 2}, "created_at": T0})
+         assert (await store.get_extract("k1"))["output"] == {"a": 2}
+         assert await store.get_extract("missing") is None
+     _run(make_store, scenario)
++
++
++def test_duplicate_keys_raise_on_all_collections(make_store):
++    async def scenario(store):
++        # runs
++        await store.insert_run(_run_doc("r1"))
++        with pytest.raises(DuplicateKey):
++            await store.insert_run(_run_doc("r1"))
++        # items
++        await store.insert_items([{"run_id": "r1", "company_id": "c1", "position": 0, "status": "queued", "nodes": {}}])
++        with pytest.raises(DuplicateKey):
++            await store.insert_items([{"run_id": "r1", "company_id": "c1", "position": 1, "status": "queued", "nodes": {}}])
++        with pytest.raises(DuplicateKey):
++            await store.insert_items([
++                {"run_id": "r1", "company_id": "c2", "position": 1, "status": "queued", "nodes": {}},
++                {"run_id": "r1", "company_id": "c2", "position": 2, "status": "queued", "nodes": {}},
++            ])
++        # events
++        await store.insert_events([_event(1)])
++        with pytest.raises(DuplicateKey):
++            await store.insert_events([_event(1)])
++        with pytest.raises(DuplicateKey):
++            await store.insert_events([_event(2), _event(2)])
++        # payloads
++        await store.put_payload({"payload_id": "p1", "run_id": "r1", "body": {}, "created_at": T0})
++        with pytest.raises(DuplicateKey):
++            await store.put_payload({"payload_id": "p1", "run_id": "r1", "body": {}, "created_at": T0})
++        # drafts
++        await store.insert_draft({"draft_id": "d1", "company_id": "c1", "version": 1, "status": "pending_review"})
++        with pytest.raises(DuplicateKey):
++            await store.insert_draft({"draft_id": "d1", "company_id": "c2", "version": 2, "status": "pending_review"})
++        with pytest.raises(DuplicateKey):
++            await store.insert_draft({"draft_id": "d2", "company_id": "c1", "version": 1, "status": "pending_review"})
++    _run(make_store, scenario)
++
++
++def test_max_event_seq(make_store):
++    async def scenario(store):
++        assert await store.max_event_seq("r1") == 0
++        await store.insert_events([_event(1), _event(5), _event(3)])
++        assert await store.max_event_seq("r1") == 5
++        assert await store.max_event_seq("r2") == 0
++    _run(make_store, scenario)
++
++
++def test_ttl_indexes_can_be_reindexed(request):
++    """Mongo-only: verify ensure_research_indexes creates and updates TTL indexes."""
++    if request.config.getoption("--co"):
++        return  # skip during collection
++    url = os.environ.get("RESEARCH_TEST_MONGO_URL")
++    if not url:
++        pytest.skip("RESEARCH_TEST_MONGO_URL not set")
++
++    async def go():
++        from motor.motor_asyncio import AsyncIOMotorClient
++        client = AsyncIOMotorClient(url, tz_aware=True)
++        db = client[f"research_contract_{uuid.uuid4().hex[:10]}"]
++        try:
++            # Create indexes with ttl_days=1 (86400 seconds)
++            await ensure_research_indexes(db, ttl_days=1)
++            indexes = await db[MongoResearchStore._db.__self__.__name__ if hasattr(MongoResearchStore, '_db') else 'research_events'].index_information()
++            # Verify TTL was set correctly (use a real collection)
++            indexes_events = await db["research_events"].index_information()
++            assert "ts_ttl" in indexes_events
++            assert indexes_events["ts_ttl"]["expireAfterSeconds"] == 86400
++            indexes_payloads = await db["research_payloads"].index_information()
++            assert "created_at_ttl" in indexes_payloads
++            assert indexes_payloads["created_at_ttl"]["expireAfterSeconds"] == 86400
++            # Re-run with ttl_days=2 (172800 seconds)
++            await ensure_research_indexes(db, ttl_days=2)
++            indexes_events = await db["research_events"].index_information()
++            assert indexes_events["ts_ttl"]["expireAfterSeconds"] == 172800
++            indexes_payloads = await db["research_payloads"].index_information()
++            assert indexes_payloads["created_at_ttl"]["expireAfterSeconds"] == 172800
++        finally:
++            await client.drop_database(db.name)
++            client.close()
++    asyncio.run(go())

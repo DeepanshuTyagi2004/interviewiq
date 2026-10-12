@@ -1,0 +1,529 @@
+# Review package: 1afdde99130351ae6f628db5c1f634edbb04ce63..92ec639c8a419a773b2adcab365c24ee182db96b
+
+## Commits
+92ec639 sdd snapshot 2026-10-02T11:33:29Z
+
+## Files changed
+ apps/ai-service/app/research/runner.py        | 150 ++++++++++++++++-------
+ apps/ai-service/tests/research/test_runner.py | 166 +++++++++++++++++++++++++-
+ 2 files changed, 271 insertions(+), 45 deletions(-)
+
+## Diff
+diff --git a/apps/ai-service/app/research/runner.py b/apps/ai-service/app/research/runner.py
+index a27e164..2693ed5 100644
+--- a/apps/ai-service/app/research/runner.py
++++ b/apps/ai-service/app/research/runner.py
+@@ -77,20 +77,22 @@ class ResearchRunner:
+         self._targets = targets
+         self._clients = clients
+         self._secrets = secrets
+         self._echo = echo
+         self._retry_interval = retry_initial_interval
+         self._task: asyncio.Task | None = None
+         self._start_lock = asyncio.Lock()
+         self._tracer: Tracer | None = None
+         self._budget: Budget | None = None
+         self._active_run_id: str | None = None
++        self._driving_run_id: str | None = None
++        self._control_lock = asyncio.Lock()
+ 
+     @property
+     def store(self) -> ResearchStore:
+         return self._store
+ 
+     @property
+     def busy(self) -> bool:
+         return self._task is not None and not self._task.done()
+ 
+     async def wait_idle(self) -> None:
+@@ -122,47 +124,50 @@ class ResearchRunner:
+             await self._store.insert_items([self._new_item(run_id, i, t) for i, t in enumerate(chosen)])
+             for t in chosen:
+                 await self._store.upsert_company_state(t.id, fields={"last_run_id": run_id, "last_status": ItemStatus.QUEUED.value})
+             if chosen:
+                 self._launch(run_id)
+             else:
+                 await self._store.update_run(run_id, fields={"status": RunStatus.COMPLETED.value, "started_at": now, "finished_at": now})
+             return await self._store.get_run(run_id)
+ 
+     async def pause(self, run_id: str) -> dict:
+-        run = await self._require(run_id)
+-        check_transition(run["status"], "pause")
+-        await self._store.update_run(run_id, fields={"control": Control.PAUSE.value, "status": RunStatus.PAUSING.value,
+-                                                     "pause_reason": "admin"})
+-        await self._note(run_id, "control.pause", "pause requested: companies finish their current step, then park")
+-        if not self.busy:
+-            await self._finalize(run_id)
++        async with self._control_lock:
++            run = await self._require(run_id)
++            check_transition(run["status"], "pause")
++            await self._store.update_run(run_id, fields={"control": Control.PAUSE.value, "status": RunStatus.PAUSING.value,
++                                                         "pause_reason": "admin"})
++            await self._note(run_id, "control.pause", "pause requested: companies finish their current step, then park")
++            if self._driving_run_id != run_id:
++                await self._finalize(run_id)
+         return await self._store.get_run(run_id)
+ 
+     async def resume(self, run_id: str) -> dict:
+-        run = await self._require(run_id)
+-        check_transition(run["status"], "resume")
+-        if self.busy:
+-            raise InvalidTransition("the previous drive is still winding down; try again in a moment")
+-        await self._store.update_run(run_id, fields={"control": Control.NONE.value, "status": RunStatus.QUEUED.value,
+-                                                     "pause_reason": None})
+-        await self._note(run_id, "control.resume", "resume requested")
+-        self._launch(run_id)
++        async with self._control_lock:
++            run = await self._require(run_id)
++            check_transition(run["status"], "resume")
++            if self._driving_run_id == run_id:
++                raise InvalidTransition("the previous drive is still winding down; try again in a moment")
++            await self._store.update_run(run_id, fields={"control": Control.NONE.value, "status": RunStatus.QUEUED.value,
++                                                         "pause_reason": None})
++            await self._note(run_id, "control.resume", "resume requested")
++            self._launch(run_id)
+         return await self._store.get_run(run_id)
+ 
+     async def stop(self, run_id: str) -> dict:
+-        run = await self._require(run_id)
+-        check_transition(run["status"], "stop")
+-        await self._store.update_run(run_id, fields={"control": Control.STOP.value, "status": RunStatus.STOPPING.value})
+-        await self._note(run_id, "control.stop", "stop requested: companies finish their current step, then cancel")
+-        if not self.busy:   # paused (or orphaned): nothing is driving it, so complete the stop here
+-            await self._finalize(run_id)
++        async with self._control_lock:
++            run = await self._require(run_id)
++            check_transition(run["status"], "stop")
++            await self._store.update_run(run_id, fields={"control": Control.STOP.value, "status": RunStatus.STOPPING.value})
++            await self._note(run_id, "control.stop", "stop requested: companies finish their current step, then cancel")
++            if self._driving_run_id != run_id:   # paused (or orphaned): nothing is driving it, so complete the stop here
++                await self._finalize(run_id)
+         return await self._store.get_run(run_id)
+ 
+     async def raise_budget(self, run_id: str, *, exa_cap: int | None = None, llm_cap: int | None = None) -> dict:
+         run = await self._require(run_id)
+         budget = run["budget"]
+         fields: dict[str, int] = {}
+         for kind, cap in (("exa", exa_cap), ("llm", llm_cap)):
+             if cap is None:
+                 continue
+             if cap < budget[f"{kind}_used"]:
+@@ -203,20 +208,21 @@ class ResearchRunner:
+                 await self._note(run_id, "run.recovered", "service restarted while pausing: run is paused", level="warn")
+             elif self.busy:
+                 await self._store.update_run(run_id, fields={"status": RunStatus.FAILED.value, "finished_at": utcnow(),
+                                                              "error": "orphaned: another run was already being resumed"})
+             else:
+                 await self._note(run_id, "run.recovered", "service restarted mid-run: resuming from saved state", level="warn")
+                 self._launch(run_id)
+ 
+     # --- drive loop --------------------------------------------------------------------------------
+     def _launch(self, run_id: str) -> None:
++        self._driving_run_id = run_id
+         self._task = asyncio.create_task(self._drive(run_id), name=f"research-run-{run_id}")
+ 
+     async def _drive(self, run_id: str) -> None:
+         run = await self._store.get_run(run_id)
+         tracer = Tracer(self._store, run_id, secrets=self._secrets, start_seq=await self._resume_seq(run), echo=self._echo)
+         await tracer.start()
+         self._tracer, self._active_run_id = tracer, run_id
+         token = CURRENT_TRACER.set(tracer)
+         resumed = run.get("started_at") is not None
+         try:
+@@ -229,66 +235,113 @@ class ResearchRunner:
+                         data={"mode": run["mode"], "trigger": run["trigger"], "scope": run["scope"], "budget": run["budget"]})
+             budget = Budget.from_run(self._store, run)
+             self._budget = budget
+             active_ids = await self._active_target_ids()
+             async with tracer.span("run", "resume" if resumed else "run", attrs={"mode": run["mode"], "trigger": run["trigger"]}):
+                 async with self._clients() as (exa, llm):
+                     io = ResearchIO(mode=Mode(run["mode"]), exa=exa, llm=llm,
+                                     fixtures=FixtureStore(self._settings.research_fixtures_dir), tracer=tracer,
+                                     budget=budget, store=self._store, settings=self._settings)
+                     await self._process_items(run, io, tracer, active_ids)
+-            await self._finalize(run_id, tracer)
++            async with self._control_lock:
++                await self._finalize(run_id, tracer)
++                self._driving_run_id = None
+         except Exception as exc:  # noqa: BLE001 — a failed run is recorded, never raised into the event loop
+             logger.exception("research run %s failed", run_id)
+             info = redact(error_info(exc), self._secrets)
+-            await self._store.update_run(run_id, fields={"status": RunStatus.FAILED.value, "control": Control.NONE.value,
+-                                                         "error": info["message"], "finished_at": utcnow()})
+-            tracer.emit("run.failed", f"run failed: {info['type']}: {info['message']}", level="error", data=info)
++            async with self._control_lock:
++                await self._store.update_run(run_id, fields={"status": RunStatus.FAILED.value, "control": Control.NONE.value,
++                                                             "error": info["message"], "finished_at": utcnow()})
++                await self._fail_running_items(run_id, info["message"])
++                tracer.emit("run.failed", f"run failed: {info['type']}: {info['message']}", level="error", data=info)
++                self._driving_run_id = None
+         finally:
+             CURRENT_TRACER.reset(token)
++            if self._driving_run_id == run_id:
++                self._driving_run_id = None
+             await tracer.close()
+-            self._tracer = None
+-            self._budget = None
+-            self._active_run_id = None
++            if self._tracer is tracer:
++                self._tracer = None
++                self._budget = None
++                self._active_run_id = None
++
++    async def _fail_running_items(self, run_id: str, message: str) -> None:
++        """A failed run must not leave companies `running`: reconcile them (best effort)."""
++        try:
++            for item in await self._store.list_items(run_id):
++                if item["status"] != ItemStatus.RUNNING:
++                    continue
++                await self._set_item_status(run_id, item["company_id"], ItemStatus.RUNNING, ItemStatus.FAILED, extra={
++                    "current_node": None, "finished_at": utcnow(),
++                    "error": {"type": "RunFailed", "message": message, "traceback": "", "code_ref": None}})
++                await self._store.upsert_company_state(item["company_id"], fields={"last_status": ItemStatus.FAILED.value})
++        except Exception:  # noqa: BLE001
++            logger.exception("could not reconcile running companies of failed run %s", run_id)
+ 
+     async def _active_target_ids(self) -> set[str] | None:
+         try:
+             return {t.id for t in await self._targets()}
+         except Exception as exc:  # noqa: BLE001
+             logger.warning("could not refresh research targets (%s); researching the queued companies as-is", exc)
+             return None
+ 
+     async def _process_items(self, run: dict, io: ResearchIO, tracer: Tracer, active_ids: set[str] | None) -> None:
+         run_id = run["run_id"]
+         items = await self._store.list_items(run_id)
+         order = [i for i in items if i["status"] in (ItemStatus.RUNNING, ItemStatus.PAUSED)]
+         order += [i for i in items if i["status"] == ItemStatus.QUEUED]
+         sem = asyncio.Semaphore(self._settings.research_concurrency)
+         tasks: list[asyncio.Task] = []
+-        for item in order:
+-            await sem.acquire()
+-            if await self._control(run_id) is not Control.NONE:
+-                sem.release()
+-                break
+-            if active_ids is not None and item["company_id"] not in active_ids:
+-                await self._skip_inactive(run_id, item, tracer)
+-                sem.release()
+-                continue
+-            tasks.append(asyncio.create_task(self._run_item_slot(run, item, io, tracer, sem)))
+-        await asyncio.gather(*tasks)
++        try:
++            for item in order:
++                await sem.acquire()
++                try:
++                    if await self._control(run_id) is not Control.NONE:
++                        sem.release()
++                        break
++                    if active_ids is not None and item["company_id"] not in active_ids:
++                        await self._skip_inactive(run_id, item, tracer)
++                        sem.release()
++                        continue
++                except BaseException:
++                    sem.release()
++                    raise
++                tasks.append(asyncio.create_task(self._run_item_slot(run, item, io, tracer, sem)))
++            await asyncio.gather(*tasks)
++        except BaseException:
++            # No company task may outlive its drive (the clients and tracer are about to close).
++            for t in tasks:
++                t.cancel()
++            await asyncio.gather(*tasks, return_exceptions=True)
++            raise
+ 
+     async def _run_item_slot(self, run: dict, item: dict, io: ResearchIO, tracer: Tracer, sem: asyncio.Semaphore) -> None:
+         try:
+             await self._run_item(run, item, io, tracer)
++        except Exception as exc:  # noqa: BLE001 — a bookkeeping failure fails only this company
++            logger.exception("research run %s: bookkeeping failed for %s", run["run_id"], item["company_id"])
++            await self._fail_item_after_bookkeeping_error(run["run_id"], item, exc)
+         finally:
+             sem.release()
+ 
++    async def _fail_item_after_bookkeeping_error(self, run_id: str, item: dict, exc: Exception) -> None:
++        try:
++            current = next((i for i in await self._store.list_items(run_id) if i["company_id"] == item["company_id"]), None)
++            if current is None or current["status"] != ItemStatus.RUNNING:
++                return
++            info = redact(error_info(exc), self._secrets)
++            await self._set_item_status(run_id, item["company_id"], ItemStatus.RUNNING, ItemStatus.FAILED, extra={
++                "current_node": None, "finished_at": utcnow(), "error": info})
++            await self._store.upsert_company_state(item["company_id"], fields={"last_status": ItemStatus.FAILED.value})
++        except Exception:  # noqa: BLE001
++            logger.exception("could not mark %s failed after a bookkeeping error", item["company_id"])
++
+     async def _run_item(self, run: dict, item: dict, io: ResearchIO, tracer: Tracer) -> None:
+         run_id, cid = run["run_id"], item["company_id"]
+         company = item["target"]
+         others = [t for t in run["targets"] if t["id"] != cid]
+         state: dict = item.get("state") or {"company": company, "others": others}
+         last_node: str | None = item.get("last_node")
+         outcome, err = ItemStatus.DONE, None
+         token = CURRENT_COMPANY.set(cid)
+         try:
+             await self._set_item_status(run_id, cid, ItemStatus(item["status"]), ItemStatus.RUNNING,
+@@ -320,23 +373,30 @@ class ResearchRunner:
+                             break
+                 finally:
+                     await stream.aclose()
+             if interrupted is Control.PAUSE:
+                 outcome = ItemStatus.PAUSED
+             elif interrupted is Control.STOP:
+                 outcome = ItemStatus.CANCELLED
+             elif (state.get("draft") or {}).get("status") == "unchanged":
+                 outcome = ItemStatus.SKIPPED
+         except BudgetExhausted as exc:
+-            outcome = ItemStatus.PAUSED
+-            await self._store.update_run(run_id, fields={"control": Control.PAUSE.value, "status": RunStatus.PAUSING.value,
+-                                                         "pause_reason": "budget_exhausted"})
++            async with self._control_lock:
++                control = await self._control(run_id)
++                if control is Control.STOP:
++                    outcome = ItemStatus.CANCELLED      # a stop wins: finalize will stop the run
++                else:
++                    outcome = ItemStatus.PAUSED
++                    if control is Control.NONE:
++                        await self._store.update_run(run_id, fields={
++                            "control": Control.PAUSE.value, "status": RunStatus.PAUSING.value,
++                            "pause_reason": "budget_exhausted"})
+             tracer.emit("budget.exhausted", f"{exc}: pausing the run; raise the cap, then resume", level="warn",
+                         data={"kind": exc.kind, "used": exc.used, "cap": exc.cap})
+         except Exception as exc:  # noqa: BLE001 — one company's failure never stops the run
+             outcome, err = ItemStatus.FAILED, redact(error_info(exc), self._secrets)
+         finally:
+             CURRENT_COMPANY.reset(token)
+         await self._finish_item(run_id, item, outcome, state, err, tracer)
+ 
+     async def _finish_item(self, run_id: str, item: dict, outcome: ItemStatus, state: dict,
+                            err: dict | None, tracer: Tracer) -> None:
+@@ -382,24 +442,26 @@ class ResearchRunner:
+         run = await self._store.get_run(run_id)
+         control = run["control"]
+         if control == Control.STOP:
+             for item in await self._store.list_items(run_id):
+                 if item["status"] in (ItemStatus.QUEUED, ItemStatus.PAUSED, ItemStatus.RUNNING):
+                     await self._set_item_status(run_id, item["company_id"], ItemStatus(item["status"]), ItemStatus.CANCELLED,
+                                                 extra={"state": None, "last_node": None, "current_node": None,
+                                                        "finished_at": utcnow()})
+                     await self._store.upsert_company_state(item["company_id"], fields={"last_status": ItemStatus.CANCELLED.value})
+             fields = {"status": RunStatus.STOPPED.value, "control": Control.NONE.value, "finished_at": utcnow()}
+-        elif control == Control.PAUSE:
++        elif control == Control.PAUSE and any(
++                i["status"] in (ItemStatus.QUEUED, ItemStatus.PAUSED, ItemStatus.RUNNING)
++                for i in await self._store.list_items(run_id)):
+             fields = {"status": RunStatus.PAUSED.value}
+         else:
+-            fields = {"status": RunStatus.COMPLETED.value, "finished_at": utcnow()}
++            fields = {"status": RunStatus.COMPLETED.value, "control": Control.NONE.value, "finished_at": utcnow()}
+         run = await self._store.update_run(run_id, fields=fields)
+         c = run["counters"]
+         summary = f"run {fields['status']} · done {c['done']} · skipped {c['skipped']} · failed {c['failed']} · cancelled {c['cancelled']}"
+         data = {"counters": c, "budget": run["budget"], "pause_reason": run.get("pause_reason")}
+         if tracer is not None:
+             tracer.emit(f"run.{fields['status']}", summary, data=data)
+         else:
+             await self._note(run_id, f"run.{fields['status']}", summary, data=data)
+ 
+     # --- helpers -----------------------------------------------------------------------------------
+diff --git a/apps/ai-service/tests/research/test_runner.py b/apps/ai-service/tests/research/test_runner.py
+index c582f44..2eb9497 100644
+--- a/apps/ai-service/tests/research/test_runner.py
++++ b/apps/ai-service/tests/research/test_runner.py
+@@ -324,21 +324,22 @@ def test_one_company_failing_does_not_stop_the_others(tmp_path):
+ def test_secrets_in_upstream_errors_are_redacted_everywhere(tmp_path):
+     async def go():
+         store = InMemoryResearchStore()
+         exa = company_exa(fail=ExaError(f"Exa returned 401 for key {SECRET}"))
+         runner, _ = make_runner(store, tmp_path, exa=exa, targets=[MEESHO])
+         run = await runner.start_run(trigger="admin", scope="all")
+         await runner.wait_idle()
+         (item,) = await store.list_items(run["run_id"])
+         assert item["status"] == "failed" and "«redacted:EXA_API_KEY»" in item["error"]["message"]
+         assert len(exa.calls) == 3          # transient → retried 3× by the node RetryPolicy
+-        everything = json.dumps([store.runs, list(store.items.values()), store.spans, store.events], default=str)
++        everything = json.dumps([store.runs, list(store.items.values()), store.spans, store.events, store.payloads,
++                                 store.sources, store.extracts, store.company_states, store.drafts], default=str)
+         assert SECRET not in everything
+     asyncio.run(go())
+ 
+ 
+ def test_replay_reproduces_a_recorded_run_for_free(tmp_path):
+     async def go():
+         recorded = InMemoryResearchStore()
+         rec_runner, _ = make_runner(recorded, tmp_path)
+         await rec_runner.start_run(trigger="admin", scope="all", mode="record")
+         await rec_runner.wait_idle()
+@@ -381,10 +382,173 @@ def test_company_archived_after_queueing_is_skipped(tmp_path):
+     asyncio.run(go())
+ 
+ 
+ def test_nothing_to_research_completes_immediately(tmp_path):
+     async def go():
+         store = InMemoryResearchStore()
+         runner, _ = make_runner(store, tmp_path, targets=[])
+         run = await runner.start_run(trigger="cron", scope="all")
+         assert run["status"] == "completed" and not runner.busy
+     asyncio.run(go())
++
++
++class _TeardownStopStore(InMemoryResearchStore):
++    """Fires `hook` once, from the first events flush that happens after the run is already `paused`
++    (i.e. while the drive is tearing down in tracer.close())."""
++    hook = None
++
++    async def insert_events(self, events):
++        await super().insert_events(events)
++        run_id = events[0]["run_id"] if events else None
++        if self.hook and run_id in self.runs and self.runs[run_id]["status"] == "paused":
++            hook, self.hook = self.hook, None
++            await hook()
++
++
++def test_stop_during_drive_teardown_is_not_lost(tmp_path):
++    async def go():
++        store = _TeardownStopStore()
++        holder = {}
++
++        async def pause_once(label):
++            if "p" not in holder:
++                holder["p"] = True
++                await runner.pause(holder["run_id"])
++
++        async def stop_now():
++            await runner.stop(holder["run_id"])
++        store.hook = stop_now
++        runner, _ = make_runner(store, tmp_path, llm=company_llm(on_call=pause_once))
++        run = await runner.start_run(trigger="admin", scope="all")
++        holder["run_id"] = run["run_id"]
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "stopped" and run["control"] == "none"
++        assert all(i["status"] == "cancelled" for i in await store.list_items(run["run_id"]))
++    asyncio.run(go())
++
++
++class _ItemHookStore(InMemoryResearchStore):
++    on_update = None
++
++    async def update_item(self, run_id, company_id, *, fields=None, inc=None):
++        if self.on_update:
++            await self.on_update(company_id, fields or {})
++        return await super().update_item(run_id, company_id, fields=fields, inc=inc)
++
++
++def test_budget_exhaustion_does_not_override_a_pending_stop(tmp_path):
++    async def go():
++        store = _ItemHookStore()
++        holder = {}
++
++        async def stop_in_razorpay_resolve(company_id, fields):
++            if company_id == "c-razorpay" and fields.get("current_node") == "resolve" and "s" not in holder:
++                holder["s"] = True
++                await runner.stop(holder["run_id"])
++        store.on_update = stop_in_razorpay_resolve
++        runner, _ = make_runner(store, tmp_path, research_max_llm_calls=1)
++        run = await runner.start_run(trigger="admin", scope="all")
++        holder["run_id"] = run["run_id"]
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "stopped" and run["control"] == "none"
++        assert _statuses(await store.list_items(run["run_id"])) == {"c-meesho": "done", "c-razorpay": "cancelled"}
++    asyncio.run(go())
++
++
++def _only_current_task():
++    return [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
++
++
++def test_bookkeeping_error_in_one_company_fails_only_that_company(tmp_path):
++    async def go():
++        store = _ItemHookStore()
++        boom = {}
++
++        async def fail_meesho_done_once(company_id, fields):
++            if company_id == "c-meesho" and fields.get("status") == "done" and "b" not in boom:
++                boom["b"] = True
++                raise RuntimeError("mongo hiccup")
++        store.on_update = fail_meesho_done_once
++        runner, _ = make_runner(store, tmp_path, research_concurrency=2)
++        run = await runner.start_run(trigger="admin", scope="all")
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "completed"
++        assert _statuses(await store.list_items(run["run_id"])) == {"c-meesho": "failed", "c-razorpay": "done"}
++        assert run["counters"]["failed"] == 1 and run["counters"]["done"] == 1 and run["counters"]["running"] == 0
++        assert _only_current_task() == []
++    asyncio.run(go())
++
++
++def test_dispatcher_failure_cancels_in_flight_companies_and_fails_the_run(tmp_path):
++    async def go():
++        store = InMemoryResearchStore()
++        async def slow_llm(label):
++            await asyncio.sleep(30)          # Meesho stays in flight until the drive cancels it
++        runner, live_targets = make_runner(store, tmp_path, llm=company_llm(on_call=slow_llm), research_concurrency=2)
++
++        async def broken_skip(*a, **kw):
++            await asyncio.sleep(0.05)
++            raise RuntimeError("store down")
++        runner._skip_inactive = broken_skip
++        run = await runner.start_run(trigger="admin", scope="all")
++        live_targets.remove(RAZORPAY)           # dispatcher hits _skip_inactive while Meesho is in flight
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "failed" and "store down" in run["error"]
++        items = await store.list_items(run["run_id"])
++        assert not any(i["status"] == "running" for i in items)
++        assert next(i for i in items if i["company_id"] == "c-meesho")["error"]["type"] == "RunFailed"
++        assert run["counters"]["running"] == 0
++        assert _only_current_task() == []
++    asyncio.run(go())
++
++
++def test_drive_starts_its_tracer_past_the_highest_stored_seq(tmp_path, monkeypatch):
++    import app.research.runner as runner_mod
++    started = []
++    real = runner_mod.Tracer
++
++    def spy(*args, **kw):
++        started.append(kw.get("start_seq"))
++        return real(*args, **kw)
++
++    async def go():
++        store = InMemoryResearchStore()
++        holder = {}
++
++        async def pause_once(label):
++            if "p" not in holder:
++                holder["p"] = True
++                await runner.pause(holder["run_id"])
++        runner, _ = make_runner(store, tmp_path, llm=company_llm(on_call=pause_once))
++        run = await runner.start_run(trigger="admin", scope="all")
++        holder["run_id"] = run["run_id"]
++        await runner.wait_idle()
++        stored_max = await store.max_event_seq(run["run_id"])
++        await store.update_run(run["run_id"], fields={"last_seq": 2})
++        monkeypatch.setattr(runner_mod, "Tracer", spy)
++        runner._note = lambda *a, **kw: asyncio.sleep(0)     # isolate the _drive half
++        await runner.resume(run["run_id"])
++        await runner.wait_idle()
++        assert started == [stored_max]
++    asyncio.run(go())
++
++
++def test_pause_with_nothing_left_to_resume_completes(tmp_path):
++    async def go():
++        store = HookStore()
++        holder = {}
++
++        async def pause_on_last_company_draft():
++            if len(store.drafts) == 2:
++                await runner.pause(holder["run_id"])
++        store.on_draft = pause_on_last_company_draft
++        runner, _ = make_runner(store, tmp_path)
++        run = await runner.start_run(trigger="admin", scope="all")
++        holder["run_id"] = run["run_id"]
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "completed" and run["control"] == "none"
++    asyncio.run(go())

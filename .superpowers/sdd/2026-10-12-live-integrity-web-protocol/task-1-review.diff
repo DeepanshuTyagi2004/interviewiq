@@ -1,0 +1,684 @@
+# Review package: working tree vs HEAD (the user commits themselves; nothing is committed)
+
+## Files in scope
+  apps/web/features/interview-live/protocol/messages.ts
+  apps/web/features/interview-live/protocol/messages.test.ts
+  apps/web/features/interview-live/session/script.ts
+  apps/web/features/interview-live/session/ScriptedLiveSession.test.ts
+  packages/contracts/live-workspace.examples.json
+  packages/contracts/live-workspace.schema.json
+
+## git status for these files
+ M apps/web/features/interview-live/protocol/messages.test.ts
+ M apps/web/features/interview-live/protocol/messages.ts
+ M apps/web/features/interview-live/session/ScriptedLiveSession.test.ts
+ M apps/web/features/interview-live/session/script.ts
+ M packages/contracts/live-workspace.examples.json
+ M packages/contracts/live-workspace.schema.json
+
+## Diff (10 lines of context). Untracked files appear as whole-file additions.
+diff --git a/apps/web/features/interview-live/protocol/messages.ts b/apps/web/features/interview-live/protocol/messages.ts
+index 068c1dc..29d8c5f 100644
+--- a/apps/web/features/interview-live/protocol/messages.ts
++++ b/apps/web/features/interview-live/protocol/messages.ts
+@@ -18,20 +18,27 @@ export const BYTE_TOPICS = {
+ 
+ const Id = z.string().min(1).max(64)
+ const Line = z.number().int().min(1)
+ const header = { v: z.literal(PROTOCOL_VERSION), id: Id }
+ 
+ export const SectionKind = z.enum(['constraints', 'format', 'clarification', 'hint', 'explanation', 'note'])
+ export const Author = z.enum(['interviewer', 'candidate'])
+ export const CodeLanguage = z.enum(['python', 'javascript', 'typescript', 'java', 'cpp', 'go'])
+ export const EndReason = z.enum(['completed', 'ended_by_interviewer', 'candidate_ended', 'technical'])
+ export const ProctorKind = z.enum(['tab_hidden', 'window_blur', 'external_display', 'fullscreen_exit', 'share_stopped'])
++/** What a `proctor.event` can report: the five ledger kinds, plus text pasted or dropped in from outside the room
++ * (live integrity spec §6.1). The ledger itself only knows `ProctorKind`. */
++export const ProctorEventKind = z.enum(['tab_hidden', 'window_blur', 'external_display', 'fullscreen_exit', 'share_stopped', 'foreign_paste'])
++/** The signals that put a candidate "away" and that coming back undoes. A second display is not one (spec §7.1). */
++export const AwayKind = z.enum(['tab_hidden', 'window_blur', 'fullscreen_exit', 'share_stopped'])
++/** How a change to the code arrived (spec §6.1). */
++export const EditVia = z.enum(['typed', 'local_paste', 'interviewer', 'undo', 'other'])
+ 
+ export const Example = z.object({
+   input: z.string().max(4000),
+   output: z.string().max(4000),
+   explanation: z.string().max(2000).optional(),
+ })
+ export const Section = z.object({
+   id: Id,
+   kind: SectionKind,
+   title: z.string().min(1).max(120),
+@@ -124,69 +131,93 @@ export const CodeHighlightAdded = z.object({
+ })
+ export const AskSelection = z.object({
+   ...header, type: z.literal('ask.selection'), surface: z.enum(['statement', 'code', 'board']),
+   quote: z.string().min(1).max(4000), item_id: Id.optional(), lines: z.tuple([Line, Line]).optional(),
+ })
+ export const CodeSnapshot = z.object({
+   ...header, type: z.literal('code.snapshot'), version: z.number().int().min(0), language: CodeLanguage, text: z.string().max(100000),
+ })
+ export const BoardSummary = z.object({ ...header, type: z.literal('board.summary'), version: z.number().int().min(0), text: z.string().max(20000) })
+ export const ProctorEventMessage = z.object({
+-  ...header, type: z.literal('proctor.event'), kind: ProctorKind, weight: z.union([z.literal(1), z.literal(0.5)]),
++  ...header, type: z.literal('proctor.event'), kind: ProctorEventKind, weight: z.union([z.literal(1), z.literal(0.5)]),
+   at: z.number().int().min(0),
+   counts: z.object({ tab_changes: z.number().int().min(0), screen_changes: z.number().min(0), full_violations: z.number().int().min(0) }),
++  /** `foreign_paste` only: how it arrived, its size (never its text), and whether the clipboard was cleared at Join. */
++  source: z.enum(['paste', 'drop']).optional(),
++  chars: z.number().int().min(0).optional(),
++  lines: z.number().int().min(0).optional(),
++  clipboard_cleared: z.boolean().optional(),
+ })
+ export const Hello = z.object({ ...header, type: z.literal('workspace.hello'), has_content: z.boolean() })
+ export const EndRequest = z.object({ ...header, type: z.literal('session.end_request') })
++/** The candidate is away: `kinds` is every away signal active now, sent at the start and whenever the set changes. */
++export const ProctorAway = z.object({
++  ...header, type: z.literal('proctor.away'), kinds: z.array(AwayKind).min(1).max(4), at: z.number().int().min(0),
++})
++/** Everything is back: visible, focused, full screen, sharing. */
++export const ProctorBack = z.object({ ...header, type: z.literal('proctor.back'), at: z.number().int().min(0) })
+ 
+ // ---------------------------------------------------------------- activity (web → agent)
+ 
+ /** Most events one batch may carry. */
+ export const ACTIVITY_MAX_EVENTS = 60
+ const At = z.number().int().min(0)
+ const Col = z.number().int().min(1)
+ const PtrCode = z.object({ k: z.literal('ptr'), t: At, s: z.literal('code'), line: Line, col: Col, text: z.string().max(80) })
+ const PtrBoard = z.object({ k: z.literal('ptr'), t: At, s: z.literal('board'), x: z.number(), y: z.number(), over: z.string().max(60).optional() })
+ const PtrPanel = z.object({ k: z.literal('ptr'), t: At, s: z.literal('panel'), quote: z.string().max(120) })
+ const PtrOut = z.object({ k: z.literal('ptr'), t: At, s: z.literal('out') })
+ const Caret = z.object({
+   k: z.literal('caret'), t: At, line: Line, col: Col, sel: z.tuple([Line, Line]).optional(), text: z.string().max(120).optional(),
+ })
+ const Edit = z.object({
+   k: z.literal('edit'), t: At, from_line: Line, to_line: Line, ins: z.string().max(200), removed: z.number().int().min(0),
++  via: EditVia.optional(),
+ })
+ const Shape = z.object({
+   k: z.literal('shape'), t: At, op: z.enum(['add', 'move', 'edit', 'delete']), id: Id, kind: z.string().regex(/^[a-z]+$/).max(30), label: z.string().max(60).optional(),
+ })
+ const Focus = z.object({ k: z.literal('focus'), t: At, s: z.enum(['code', 'board', 'panel']) })
+ /** One thing the candidate did in the workspace; `t` is browser epoch milliseconds. */
+ export const ActivityEvent = z.union([PtrCode, PtrBoard, PtrPanel, PtrOut, Caret, Edit, Shape, Focus])
+ export const ActivityBatch = z.object({
+   ...header, type: z.literal('activity.batch'), sent_at: At, events: z.array(ActivityEvent).min(1).max(ACTIVITY_MAX_EVENTS),
+ })
+ 
++const Stat = z.object({ median: z.number().min(0), cv: z.number().min(0) })
++const Count = z.number().int().min(0)
++/** Typing cadence for one stretch of typing (live integrity spec §6.2): counts and timing statistics, never characters. */
++export const TypingWindow = z.object({
++  ...header, type: z.literal('typing.window'), t0: At, t1: At, keys: Count, chars: Count,
++  iki: Stat.optional(), dwell: Stat.optional(),
++  backspaces: Count, nav: Count, longest_pause: z.number().min(0), jumps: Count, untrusted: Count, charless: Count,
++})
++
+ export const WebMessage = z.discriminatedUnion('type', [
+   Ack, SectionAdded, HighlightAdded, CodeHighlightAdded, AskSelection, CodeSnapshot, BoardSummary,
+-  ProctorEventMessage, Hello, EndRequest, ActivityBatch,
++  ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, ActivityBatch, TypingWindow,
+ ])
+ 
+ export const WorkspaceMessage = z.union([AgentMessage, WebMessage])
+ 
+ export type AgentMessage = z.infer<typeof AgentMessage>
+ export type WebMessage = z.infer<typeof WebMessage>
+ export type Section = z.infer<typeof Section>
+ export type Example = z.infer<typeof Example>
+ export type Author = z.infer<typeof Author>
+ export type SectionKind = z.infer<typeof SectionKind>
+ export type CodeLanguage = z.infer<typeof CodeLanguage>
+ export type EndReason = z.infer<typeof EndReason>
+ export type ProctorKind = z.infer<typeof ProctorKind>
++export type ProctorEventKind = z.infer<typeof ProctorEventKind>
++export type AwayKind = z.infer<typeof AwayKind>
++export type EditVia = z.infer<typeof EditVia>
+ export type LineAnchor = z.infer<typeof LineAnchor>
+ export type DrawElement = z.infer<typeof DrawElement>
+ export type WireCard = z.infer<typeof Card>
+ export type ActivityEvent = z.infer<typeof ActivityEvent>
+ 
+ export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+ /** A message before `v` and `id` are stamped. */
+ export type AgentMessageBody = DistributiveOmit<AgentMessage, 'v' | 'id'>
+ export type WebMessageBody = DistributiveOmit<WebMessage, 'v' | 'id'>
+ /** An activity event before the batcher stamps `t`. */
+diff --git a/apps/web/features/interview-live/protocol/messages.test.ts b/apps/web/features/interview-live/protocol/messages.test.ts
+index c2fcffb..504b75e 100644
+--- a/apps/web/features/interview-live/protocol/messages.test.ts
++++ b/apps/web/features/interview-live/protocol/messages.test.ts
+@@ -64,11 +64,50 @@ describe('workspace protocol', () => {
+     expect(bad([out])).toBe(true)
+   })
+ 
+   it('stamps the version and a fresh id', () => {
+     const a = stampWeb({ type: 'session.end_request' })
+     const b = stampWeb({ type: 'session.end_request' })
+     expect(a.v).toBe(1)
+     expect(a.id).not.toBe(b.id)
+     expect(stampAgent({ type: 'panel.clear_highlight', highlight_id: 'h' }).id).toMatch(/^a_/)
+   })
++
++  it('accepts a foreign-paste proctor event and rejects unknown kinds and negative sizes', () => {
++    const base = examples['proctor.event'] as Record<string, unknown>
++    const paste = { ...base, kind: 'foreign_paste', source: 'paste', chars: 120, lines: 6, clipboard_cleared: true }
++    expect(WebMessage.safeParse(paste).success).toBe(true)
++    expect(WebMessage.safeParse({ ...paste, source: 'drop' }).success).toBe(true)
++    expect(WebMessage.safeParse({ ...paste, source: 'clipboard' }).success).toBe(false)
++    expect(WebMessage.safeParse({ ...paste, chars: -1 }).success).toBe(false)
++    expect(WebMessage.safeParse({ ...base, kind: 'teleport' }).success).toBe(false)
++  })
++
++  it('accepts an away set and rejects an empty one or a signal that cannot be undone', () => {
++    const away = examples['proctor.away'] as Record<string, unknown>
++    expect(WebMessage.safeParse(away).success).toBe(true)
++    expect(WebMessage.safeParse({ ...away, kinds: [] }).success).toBe(false)
++    expect(WebMessage.safeParse({ ...away, kinds: ['external_display'] }).success).toBe(false)
++    expect(WebMessage.safeParse(examples['proctor.back']).success).toBe(true)
++  })
++
++  it('accepts a typing window with or without timing statistics and rejects bad counts', () => {
++    const ok = examples['typing.window'] as Record<string, unknown>
++    expect(WebMessage.safeParse(ok).success).toBe(true)
++    const bare = { ...ok }
++    delete bare.iki
++    delete bare.dwell
++    expect(WebMessage.safeParse(bare).success).toBe(true)
++    expect(WebMessage.safeParse({ ...ok, keys: -1 }).success).toBe(false)
++    expect(WebMessage.safeParse({ ...ok, untrusted: 1.5 }).success).toBe(false)
++    expect(WebMessage.safeParse({ ...ok, iki: { median: 100 } }).success).toBe(false)
++  })
++
++  it('tags an edit with how it arrived', () => {
++    const batch = examples['activity.batch'] as { events: Record<string, unknown>[] }
++    const edit = batch.events.find((e) => e.k === 'edit')!
++    expect(edit.via).toBe('typed')
++    const withVia = (via: unknown) => WebMessage.safeParse({ ...batch, events: [{ ...edit, via }] }).success
++    expect(withVia('local_paste')).toBe(true)
++    expect(withVia('magic')).toBe(false)
++  })
+ })
+diff --git a/apps/web/features/interview-live/session/script.ts b/apps/web/features/interview-live/session/script.ts
+index fc17e37..908d0d5 100644
+--- a/apps/web/features/interview-live/session/script.ts
++++ b/apps/web/features/interview-live/session/script.ts
+@@ -63,30 +63,38 @@ export function askReply(quote: string, itemId: string = DEMO_ITEM): Step[] {
+       after: 300,
+       message: {
+         type: 'panel.add_section', item_id: itemId,
+         section: { id: `demo-clar-${Date.now()}`, kind: 'clarification', title: 'Clarification', body: 'Characters are case-sensitive, and the string may be empty.', author: 'interviewer' },
+       },
+     },
+     { after: 200, say: "I've added that to the problem." },
+   ]
+ }
+ 
+-const MENTION: Record<Extract<WebMessage, { type: 'proctor.event' }>['kind'], string> = {
++const MENTION: Record<Exclude<Extract<WebMessage, { type: 'proctor.event' }>['kind'], 'foreign_paste'>, string> = {
+   tab_hidden: 'I noticed you switched tabs. Please stay on this screen.',
+   window_blur: 'I noticed you moved to another window. Please stay on this screen.',
+   external_display: 'I can see a second display. Please disconnect it.',
+   fullscreen_exit: "You've left full screen. Please go back to it.",
+   share_stopped: 'Your screen share stopped. Please share your entire screen again.',
+ }
+ 
+-/** Mirrors the spec §7 rule: mention every event; the 2nd full violation gets a final warning; the 3rd ends the round. */
++/** Mirrors the spec §7 rule: mention every event; the 2nd full violation gets a final warning; the 3rd ends the round.
++ * Text pasted from outside the editor ends the round at once (live integrity spec §2). */
+ export function proctorReply(event: Extract<WebMessage, { type: 'proctor.event' }>): Step[] {
++  if (event.kind === 'foreign_paste') {
++    return [
++      { after: 400, say: "That text didn't come from this editor, and pasting outside text isn't allowed. I'm ending the interview here." },
++      { after: 300, message: { type: 'session.ending', reason: 'ended_by_interviewer', message: "I'm ending the interview here because text was pasted from outside the editor." } },
++      { after: 300, disconnect: true },
++    ]
++  }
+   if (event.weight !== 1) return [{ after: 400, say: MENTION[event.kind] }]
+   if (event.counts.full_violations >= 3) {
+     return [
+       { after: 400, say: "That's the third time. I'm ending the interview here because of repeated screen switching." },
+       { after: 300, message: { type: 'session.ending', reason: 'ended_by_interviewer', message: "I'm ending the interview here because of repeated screen switching." } },
+       { after: 300, disconnect: true },
+     ]
+   }
+   if (event.counts.full_violations === 2) {
+     return [{ after: 400, say: `${MENTION[event.kind]} This is your final warning: one more and I'll end the interview.` }]
+diff --git a/apps/web/features/interview-live/session/ScriptedLiveSession.test.ts b/apps/web/features/interview-live/session/ScriptedLiveSession.test.ts
+index a6b626c..2e08314 100644
+--- a/apps/web/features/interview-live/session/ScriptedLiveSession.test.ts
++++ b/apps/web/features/interview-live/session/ScriptedLiveSession.test.ts
+@@ -63,10 +63,30 @@ describe('ScriptedLiveSession room state', () => {
+     const { session, rooms } = setup(0)
+     session.send({ type: 'workspace.hello', has_content: false })
+     vi.runAllTimers()
+     const played = rooms.length
+     expect(rooms.at(-1)).toMatchObject({ layout: 'work', slow: false })
+     session.send({ type: 'workspace.hello', has_content: true })
+     expect(rooms).toHaveLength(played + 1)
+     expect(rooms.at(-1)).toMatchObject({ layout: 'work', slow: false })
+   })
+ })
++
++describe('ScriptedLiveSession integrity', () => {
++  beforeEach(() => { vi.useFakeTimers() })
++  afterEach(() => { vi.useRealTimers() })
++
++  it('ends the round at once, saying why, after a foreign paste', () => {
++    const session = new ScriptedLiveSession({ speed: 1 })
++    const endings: Extract<AgentMessage, { type: 'session.ending' }>[] = []
++    session.onMessage((m) => { if (m.type === 'session.ending') endings.push(m) })
++    session.send({
++      type: 'proctor.event', kind: 'foreign_paste', weight: 1, at: 1,
++      counts: { tab_changes: 0, screen_changes: 0, full_violations: 0 },
++      source: 'paste', chars: 80, lines: 4, clipboard_cleared: true,
++    })
++    vi.advanceTimersByTime(2000)
++    expect(endings).toHaveLength(1)
++    expect(endings[0]).toMatchObject({ reason: 'ended_by_interviewer' })
++    expect(endings[0].message).toMatch(/pasted/i)
++  })
++})
+diff --git a/packages/contracts/live-workspace.examples.json b/packages/contracts/live-workspace.examples.json
+index ba9b8f4..e801ead 100644
+--- a/packages/contracts/live-workspace.examples.json
++++ b/packages/contracts/live-workspace.examples.json
+@@ -257,21 +257,22 @@
+         "k": "focus",
+         "t": 1760000000100,
+         "s": "code"
+       },
+       {
+         "k": "edit",
+         "t": 1760000000200,
+         "from_line": 3,
+         "to_line": 3,
+         "ins": "for i in range(n):",
+-        "removed": 0
++        "removed": 0,
++        "via": "typed"
+       },
+       {
+         "k": "caret",
+         "t": 1760000000300,
+         "line": 3,
+         "col": 19
+       },
+       {
+         "k": "caret",
+         "t": 1760000000350,
+@@ -312,12 +313,42 @@
+         "id": "abc",
+         "kind": "rectangle",
+         "label": "cache"
+       },
+       {
+         "k": "ptr",
+         "t": 1760000000800,
+         "s": "out"
+       }
+     ]
++  },
++  "proctor.away": {
++    "v": 1,
++    "id": "w_away",
++    "type": "proctor.away",
++    "kinds": ["tab_hidden", "fullscreen_exit"],
++    "at": 1760000002000
++  },
++  "proctor.back": {
++    "v": 1,
++    "id": "w_back",
++    "type": "proctor.back",
++    "at": 1760000012000
++  },
++  "typing.window": {
++    "v": 1,
++    "id": "w_typing",
++    "type": "typing.window",
++    "t0": 1760000000000,
++    "t1": 1760000005000,
++    "keys": 42,
++    "chars": 44,
++    "iki": { "median": 118, "cv": 0.71 },
++    "dwell": { "median": 92, "cv": 0.38 },
++    "backspaces": 3,
++    "nav": 1,
++    "longest_pause": 2400,
++    "jumps": 1,
++    "untrusted": 0,
++    "charless": 0
+   }
+ }
+diff --git a/packages/contracts/live-workspace.schema.json b/packages/contracts/live-workspace.schema.json
+index 5e9dc7b..3d5edcd 100644
+--- a/packages/contracts/live-workspace.schema.json
++++ b/packages/contracts/live-workspace.schema.json
+@@ -1231,21 +1231,22 @@
+               "type": "string",
+               "const": "proctor.event"
+             },
+             "kind": {
+               "type": "string",
+               "enum": [
+                 "tab_hidden",
+                 "window_blur",
+                 "external_display",
+                 "fullscreen_exit",
+-                "share_stopped"
++                "share_stopped",
++                "foreign_paste"
+               ]
+             },
+             "weight": {
+               "anyOf": [
+                 {
+                   "type": "number",
+                   "const": 1
+                 },
+                 {
+                   "type": "number",
+@@ -1275,20 +1276,40 @@
+                   "minimum": 0,
+                   "maximum": 9007199254740991
+                 }
+               },
+               "required": [
+                 "tab_changes",
+                 "screen_changes",
+                 "full_violations"
+               ],
+               "additionalProperties": false
++            },
++            "source": {
++              "type": "string",
++              "enum": [
++                "paste",
++                "drop"
++              ]
++            },
++            "chars": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "lines": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "clipboard_cleared": {
++              "type": "boolean"
+             }
+           },
+           "required": [
+             "v",
+             "id",
+             "type",
+             "kind",
+             "weight",
+             "at",
+             "counts"
+@@ -1340,20 +1361,95 @@
+               "const": "session.end_request"
+             }
+           },
+           "required": [
+             "v",
+             "id",
+             "type"
+           ],
+           "additionalProperties": false
+         },
++        {
++          "type": "object",
++          "properties": {
++            "v": {
++              "type": "number",
++              "const": 1
++            },
++            "id": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 64
++            },
++            "type": {
++              "type": "string",
++              "const": "proctor.away"
++            },
++            "kinds": {
++              "minItems": 1,
++              "maxItems": 4,
++              "type": "array",
++              "items": {
++                "type": "string",
++                "enum": [
++                  "tab_hidden",
++                  "window_blur",
++                  "fullscreen_exit",
++                  "share_stopped"
++                ]
++              }
++            },
++            "at": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            }
++          },
++          "required": [
++            "v",
++            "id",
++            "type",
++            "kinds",
++            "at"
++          ],
++          "additionalProperties": false
++        },
++        {
++          "type": "object",
++          "properties": {
++            "v": {
++              "type": "number",
++              "const": 1
++            },
++            "id": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 64
++            },
++            "type": {
++              "type": "string",
++              "const": "proctor.back"
++            },
++            "at": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            }
++          },
++          "required": [
++            "v",
++            "id",
++            "type",
++            "at"
++          ],
++          "additionalProperties": false
++        },
+         {
+           "type": "object",
+           "properties": {
+             "v": {
+               "type": "number",
+               "const": 1
+             },
+             "id": {
+               "type": "string",
+               "minLength": 1,
+@@ -1577,20 +1673,30 @@
+                         "maximum": 9007199254740991
+                       },
+                       "ins": {
+                         "type": "string",
+                         "maxLength": 200
+                       },
+                       "removed": {
+                         "type": "integer",
+                         "minimum": 0,
+                         "maximum": 9007199254740991
++                      },
++                      "via": {
++                        "type": "string",
++                        "enum": [
++                          "typed",
++                          "local_paste",
++                          "interviewer",
++                          "undo",
++                          "other"
++                        ]
+                       }
+                     },
+                     "required": [
+                       "k",
+                       "t",
+                       "from_line",
+                       "to_line",
+                       "ins",
+                       "removed"
+                     ],
+@@ -1674,15 +1780,134 @@
+             }
+           },
+           "required": [
+             "v",
+             "id",
+             "type",
+             "sent_at",
+             "events"
+           ],
+           "additionalProperties": false
++        },
++        {
++          "type": "object",
++          "properties": {
++            "v": {
++              "type": "number",
++              "const": 1
++            },
++            "id": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 64
++            },
++            "type": {
++              "type": "string",
++              "const": "typing.window"
++            },
++            "t0": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "t1": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "keys": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "chars": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "iki": {
++              "type": "object",
++              "properties": {
++                "median": {
++                  "type": "number",
++                  "minimum": 0
++                },
++                "cv": {
++                  "type": "number",
++                  "minimum": 0
++                }
++              },
++              "required": [
++                "median",
++                "cv"
++              ],
++              "additionalProperties": false
++            },
++            "dwell": {
++              "type": "object",
++              "properties": {
++                "median": {
++                  "type": "number",
++                  "minimum": 0
++                },
++                "cv": {
++                  "type": "number",
++                  "minimum": 0
++                }
++              },
++              "required": [
++                "median",
++                "cv"
++              ],
++              "additionalProperties": false
++            },
++            "backspaces": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "nav": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "longest_pause": {
++              "type": "number",
++              "minimum": 0
++            },
++            "jumps": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "untrusted": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            },
++            "charless": {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 9007199254740991
++            }
++          },
++          "required": [
++            "v",
++            "id",
++            "type",
++            "t0",
++            "t1",
++            "keys",
++            "chars",
++            "backspaces",
++            "nav",
++            "longest_pause",
++            "jumps",
++            "untrusted",
++            "charless"
++          ],
++          "additionalProperties": false
+         }
+       ]
+     }
+   ]
+ }

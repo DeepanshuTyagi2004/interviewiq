@@ -1,0 +1,112 @@
+# Review package: 4a2fbda7486c249ce600d9589a3d375c1cfb6426..d12c2c923c6b64286be7d5252315f91d3b9c9f19
+
+## Commits
+d12c2c9 sdd snapshot 2026-10-02T11:10:19Z
+
+## Files changed
+ apps/ai-service/app/research/trace/tracer.py  |  8 ++--
+ apps/ai-service/tests/research/test_tracer.py | 53 +++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/apps/ai-service/app/research/trace/tracer.py b/apps/ai-service/app/research/trace/tracer.py
+index db917ac..29b5115 100644
+--- a/apps/ai-service/app/research/trace/tracer.py
++++ b/apps/ai-service/app/research/trace/tracer.py
+@@ -101,23 +101,25 @@ class Tracer:
+     async def _flush_loop(self) -> None:
+         while True:
+             await asyncio.sleep(self._flush_interval)
+             try:
+                 await self.flush()
+             except Exception:  # noqa: BLE001 — a failed flush is retried on the next tick
+                 logger.exception("research trace flush failed (run %s)", self.run_id)
+ 
+     async def flush(self) -> None:
+         async with self._lock:
+-            payloads, self._pending_payloads = self._pending_payloads, []
+-            for p in payloads:
+-                await self._store.put_payload(p)
++            # Payloads first (events reference them via data_ref); a payload leaves the queue only
++            # once written, so a failure keeps it and every later one pending and skips the events.
++            while self._pending_payloads:
++                await self._store.put_payload(self._pending_payloads[0])
++                self._pending_payloads.pop(0)
+             batch, self._buffer = self._buffer, []
+             if not batch:
+                 return
+             try:
+                 await self._store.insert_events(batch)
+                 await self._store.update_run(self.run_id, fields={"last_seq": batch[-1]["seq"]})
+             except DuplicateKey:
+                 # Re-queueing would fail identically forever; drop the batch and say so.
+                 logger.error("dropping %d trace events (run %s, seq %d-%d): duplicate (run_id, seq)",
+                              len(batch), self.run_id, batch[0]["seq"], batch[-1]["seq"])
+diff --git a/apps/ai-service/tests/research/test_tracer.py b/apps/ai-service/tests/research/test_tracer.py
+index 6eba3de..6481f7a 100644
+--- a/apps/ai-service/tests/research/test_tracer.py
++++ b/apps/ai-service/tests/research/test_tracer.py
+@@ -163,10 +163,63 @@ def test_duplicate_key_batch_is_dropped_not_requeued():
+         await store.insert_run({"run_id": "run1", "status": "running", "last_seq": 0, "created_at": utcnow()})
+         t = Tracer(store, "run1", secrets={}, flush_interval=10)
+         t.emit("log", "lost")
+         await t.flush()
+         assert t._buffer == []
+         t.emit("log", "kept")
+         await t.flush()
+         events = await store.list_events("run1", EventFilter())
+         assert [e["message"] for e in events] == ["kept"]
+     asyncio.run(go())
++
++
++def test_failed_payload_write_keeps_payload_pending_and_defers_events():
++    class FlakyPayloads(InMemoryResearchStore):
++        def __init__(self):
++            super().__init__()
++            self.failed = False
++
++        async def put_payload(self, payload):
++            if not self.failed:
++                self.failed = True
++                raise RuntimeError("payload write down")
++            return await super().put_payload(payload)
++
++    async def go():
++        store = FlakyPayloads()
++        await store.insert_run({"run_id": "run1", "status": "running", "last_seq": 0, "created_at": utcnow()})
++        t = Tracer(store, "run1", secrets={}, flush_interval=10)
++        big = {"text": "x" * (INLINE_LIMIT_BYTES + 10)}
++        t.emit("log", "big", data=big)
++        with pytest.raises(RuntimeError):
++            await t.flush()
++        assert await store.list_events("run1", EventFilter()) == []
++        await t.flush()
++        (event,) = await store.list_events("run1", EventFilter())
++        assert (await store.get_payload(event["data_ref"]))["body"] == big
++    asyncio.run(go())
++
++
++def test_failed_event_insert_requeues_batch_with_same_seqs():
++    class FlakyEvents(InMemoryResearchStore):
++        def __init__(self):
++            super().__init__()
++            self.failed = False
++
++        async def insert_events(self, events):
++            if not self.failed:
++                self.failed = True
++                raise RuntimeError("insert down")
++            return await super().insert_events(events)
++
++    async def go():
++        store = FlakyEvents()
++        await store.insert_run({"run_id": "run1", "status": "running", "last_seq": 0, "created_at": utcnow()})
++        t = Tracer(store, "run1", secrets={}, flush_interval=10)
++        t.emit("log", "a")
++        t.emit("log", "b")
++        with pytest.raises(RuntimeError):
++            await t.flush()
++        await t.flush()
++        events = await store.list_events("run1", EventFilter())
++        assert [e["seq"] for e in events] == [1, 2]
++    asyncio.run(go())

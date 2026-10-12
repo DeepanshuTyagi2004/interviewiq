@@ -1,0 +1,1124 @@
+# Review package: b40aea894e46d2ca553479582be6ec26bcd7c66d..e1a5572b76e99805917755081da9c75be987b7f0
+
+## Commits
+e1a5572 sdd snapshot 2026-10-02T12:06:24Z
+
+## Files changed
+ apps/web/features/research/api.ts                |  84 ++++++++++++
+ apps/web/features/research/clipboard.ts          |  24 ++++
+ apps/web/features/research/copy-bundle.test.ts   |  76 +++++++++++
+ apps/web/features/research/copy-bundle.ts        | 113 ++++++++++++++++
+ apps/web/features/research/deep-link.test.ts     |  19 +++
+ apps/web/features/research/deep-link.ts          |  32 +++++
+ apps/web/features/research/event-filters.test.ts |  44 +++++++
+ apps/web/features/research/event-filters.ts      |  50 ++++++++
+ apps/web/features/research/hooks.ts              | 156 +++++++++++++++++++++++
+ apps/web/features/research/index.ts              |  10 ++
+ apps/web/features/research/status.test.ts        |  52 ++++++++
+ apps/web/features/research/status.ts             |  67 ++++++++++
+ apps/web/features/research/testing.ts            |  46 +++++++
+ apps/web/features/research/time.test.ts          |  16 +++
+ apps/web/features/research/time.ts               |  11 ++
+ apps/web/features/research/trace-tree.test.ts    |  44 +++++++
+ apps/web/features/research/trace-tree.ts         |  66 ++++++++++
+ apps/web/features/research/types.ts              |  27 ++++
+ apps/web/lib/constants/research/index.ts         |  45 +++++++
+ 19 files changed, 982 insertions(+)
+
+## Diff
+diff --git a/apps/web/features/research/api.ts b/apps/web/features/research/api.ts
+new file mode 100644
+index 0000000..aaa1160
+--- /dev/null
++++ b/apps/web/features/research/api.ts
+@@ -0,0 +1,84 @@
++import { apiFetch } from "@/lib/api-client/client";
++import { EVENTS_PAGE_LIMIT, RESEARCH_ENDPOINTS as E } from "@/lib/constants/research";
++import type {
++  AdminCompany, AdminCompanyList, CreateCompanyRequest, ResearchBudgetUpdate, ResearchEvent, ResearchEventPage,
++  ResearchLevel, ResearchRun, ResearchRunDetail, ResearchRunList, ResearchSpanDetailResponse, ResearchSpanList,
++  RunAction, SeedResult, StartResearchRunRequest, UpdateCompanyRequest,
++} from "./types";
++
++export function listAdminCompanies(): Promise<AdminCompanyList> {
++  return apiFetch<AdminCompanyList>(E.companies);
++}
++
++export function createCompany(body: CreateCompanyRequest): Promise<AdminCompany> {
++  return apiFetch<AdminCompany>(E.companies, { method: "POST", json: body });
++}
++
++export function updateCompany(id: string, patch: UpdateCompanyRequest): Promise<AdminCompany> {
++  return apiFetch<AdminCompany>(E.company(id), { method: "PATCH", json: patch });
++}
++
++export function deleteCompany(id: string): Promise<void> {
++  return apiFetch<void>(E.company(id), { method: "DELETE" });
++}
++
++export function seedCompanies(): Promise<SeedResult> {
++  return apiFetch<SeedResult>(E.seed, { method: "POST" });
++}
++
++export function listRuns(limit = 20): Promise<ResearchRunList> {
++  return apiFetch<ResearchRunList>(`${E.runs}?limit=${limit}`);
++}
++
++export function getRun(runId: string): Promise<ResearchRunDetail> {
++  return apiFetch<ResearchRunDetail>(E.run(runId));
++}
++
++export function startRun(body: StartResearchRunRequest): Promise<ResearchRun> {
++  return apiFetch<ResearchRun>(E.runs, { method: "POST", json: body });
++}
++
++export function controlRun(runId: string, action: RunAction): Promise<ResearchRun> {
++  return apiFetch<ResearchRun>(E.control(runId, action), { method: "POST" });
++}
++
++export function raiseBudget(runId: string, body: ResearchBudgetUpdate): Promise<ResearchRun> {
++  return apiFetch<ResearchRun>(E.budget(runId), { method: "PATCH", json: body });
++}
++
++export interface EventPageParams {
++  afterSeq?: number;
++  beforeSeq?: number;
++  limit?: number;
++  level?: ResearchLevel;
++  spanId?: string;
++}
++
++export function listRunEvents(runId: string, params: EventPageParams = {}): Promise<ResearchEventPage> {
++  const qs = new URLSearchParams();
++  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null) qs.set(key, String(value));
++  const s = qs.toString();
++  return apiFetch<ResearchEventPage>(`${E.events(runId)}${s ? `?${s}` : ""}`);
++}
++
++export function listRunSpans(runId: string, companyId?: string | null): Promise<ResearchSpanList> {
++  return apiFetch<ResearchSpanList>(`${E.spans(runId)}${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`);
++}
++
++export function getSpan(spanId: string): Promise<ResearchSpanDetailResponse> {
++  return apiFetch<ResearchSpanDetailResponse>(E.span(spanId));
++}
++
++/** Everything needed to look at a run offline: the run, its items, every span and every event. */
++export async function collectRunExport(runId: string) {
++  const [detail, spans] = await Promise.all([getRun(runId), listRunSpans(runId)]);
++  const events: ResearchEvent[] = [];
++  let afterSeq = 0;
++  for (;;) {
++    const page = await listRunEvents(runId, { afterSeq, limit: EVENTS_PAGE_LIMIT });
++    events.push(...page.events);
++    if (page.events.length < EVENTS_PAGE_LIMIT) break;
++    afterSeq = page.events[page.events.length - 1]!.seq;
++  }
++  return { exported_at: new Date().toISOString(), ...detail, spans: spans.spans, events };
++}
+diff --git a/apps/web/features/research/clipboard.ts b/apps/web/features/research/clipboard.ts
+new file mode 100644
+index 0000000..fb9ba66
+--- /dev/null
++++ b/apps/web/features/research/clipboard.ts
+@@ -0,0 +1,24 @@
++import { toast } from "sonner";
++
++export async function copyText(text: string, what = "Copied"): Promise<boolean> {
++  try {
++    await navigator.clipboard.writeText(text);
++    toast.success(`${what} · ${text.length.toLocaleString()} chars`);
++    return true;
++  } catch {
++    toast.error("Could not copy: the browser blocked clipboard access");
++    return false;
++  }
++}
++
++export function downloadJson(filename: string, data: unknown): void {
++  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
++  const url = URL.createObjectURL(blob);
++  const a = document.createElement("a");
++  a.href = url;
++  a.download = filename;
++  document.body.appendChild(a);
++  a.click();
++  a.remove();
++  URL.revokeObjectURL(url);
++}
+diff --git a/apps/web/features/research/copy-bundle.test.ts b/apps/web/features/research/copy-bundle.test.ts
+new file mode 100644
+index 0000000..6172a30
+--- /dev/null
++++ b/apps/web/features/research/copy-bundle.test.ts
+@@ -0,0 +1,76 @@
++import { describe, expect, it } from "vitest";
++import { COPY_BUNDLE_MAX_CHARS } from "@/lib/constants/research";
++import { fence, formatFailureReport, formatRunSummary, formatSpanForClaude, trimMiddle } from "./copy-bundle";
++import { makeEvent, makeItem, makeRun, makeSpan } from "./testing";
++
++describe("trimMiddle", () => {
++  it("keeps short text and trims the middle of long text, saying how much", () => {
++    expect(trimMiddle("short", 100)).toBe("short");
++    const out = trimMiddle("a".repeat(500) + "b".repeat(500), 200);
++    expect(out.length).toBeLessThanOrEqual(240);
++    expect(out.startsWith("a")).toBe(true);
++    expect(out.endsWith("b")).toBe(true);
++    expect(out).toMatch(/\[\d+ chars trimmed\]/);
++  });
++});
++
++describe("fence", () => {
++  it("uses a fence longer than any backtick run inside the body", () => {
++    expect(fence("json", "{}")).toBe("```json\n{}\n```");
++    expect(fence("text", "has ``` inside")).toBe("````text\nhas ``` inside\n````");
++  });
++});
++
++describe("formatSpanForClaude", () => {
++  const span = {
++    ...makeSpan({
++      span_id: "s".repeat(32), kind: "llm", name: "resolve_company@v1", company_id: "c-meesho", node: "resolve", status: "error",
++      attrs: { model: "gemma-3-27b-it", prompt_name: "resolve_company", prompt_version: "v1" },
++      error: { type: "ValidationError", message: "canonical_name missing", traceback: "Traceback…", code_ref: "app/research/nodes/resolve.py:resolve" },
++    }),
++    input: { system: "sys", user: "x".repeat(100_000) },
++    output: { data: { is_company: true } },
++  };
++
++  it("leads with run, company, node, model, prompt and the code location, then fenced sections", () => {
++    const out = formatSpanForClaude({ span, logs: [makeEvent({ seq: 7, message: "resolve meesho: 5 results" })], run: makeRun(), companyName: "Meesho" });
++    expect(out).toContain("## InterviewIQ research trace — llm · resolve_company@v1 · error");
++    expect(out).toContain("- company: Meesho");
++    expect(out).toContain("- node: resolve");
++    expect(out).toContain("- model: gemma-3-27b-it");
++    expect(out).toContain("- prompt: resolve_company@v1");
++    expect(out).toContain("- code: apps/ai-service/app/research/nodes/resolve.py:resolve");
++    for (const section of ["### Error", "### Input", "### Output", "### Attributes", "### Logs"]) expect(out).toContain(section);
++    expect(out).toContain("resolve meesho: 5 results");
++    expect(out.length).toBeLessThanOrEqual(COPY_BUNDLE_MAX_CHARS + 100);
++    expect(out).toMatch(/chars trimmed/);
++  });
++});
++
++describe("formatFailureReport", () => {
++  it("includes the node timeline, the error, previous node outputs and the failing step", () => {
++    const item = makeItem({
++      status: "failed", last_node: null, nodes: { resolve: { status: "error", error: "ValidationError: canonical_name" } },
++      error: { type: "ValidationError", message: "canonical_name missing", traceback: "tb", code_ref: "app/research/nodes/resolve.py:resolve" },
++    });
++    const failing = { ...makeSpan({ span_id: "f".repeat(32), kind: "llm", name: "resolve_company@v1" }), input: { user: "u" }, output: null };
++    const out = formatFailureReport({ run: makeRun(), item, failing, previousOutputs: [{ node: "resolve", output: { partial: 1 } }], logs: [] });
++    expect(out).toContain("## InterviewIQ research failure — Meesho (meesho)");
++    expect(out).toContain("- resolve: error — ValidationError: canonical_name");
++    expect(out).toContain("- code: apps/ai-service/app/research/nodes/resolve.py:resolve");
++    expect(out).toContain("### Output of resolve");
++    expect(out).toContain("### Failing step: llm · resolve_company@v1");
++  });
++});
++
++describe("formatRunSummary", () => {
++  it("summarises the run and one line per company", () => {
++    const out = formatRunSummary(makeRun({ status: "paused", pause_reason: "budget_exhausted" }), [
++      makeItem({ status: "done" }),
++      makeItem({ company_id: "c2", company_name: "TCS", status: "failed", error: { type: "X", message: "boom", traceback: "", code_ref: null } }),
++    ]);
++    expect(out).toContain("paused (budget_exhausted)");
++    expect(out).toContain("- Meesho: done");
++    expect(out).toContain("- TCS: failed — X: boom");
++  });
++});
+diff --git a/apps/web/features/research/copy-bundle.ts b/apps/web/features/research/copy-bundle.ts
+new file mode 100644
+index 0000000..8b56df7
+--- /dev/null
++++ b/apps/web/features/research/copy-bundle.ts
+@@ -0,0 +1,113 @@
++import { COPY_BUNDLE_MAX_CHARS } from "@/lib/constants/research";
++import type { ResearchEvent, ResearchItem, ResearchRun, ResearchSpanDetail } from "./types";
++
++/**
++ * "Copy for Claude" bundles (spec §9.1): markdown a developer pastes into Claude Code. Context
++ * first (what ran, where the code is), then fenced input / output / error / logs, each trimmed
++ * so the whole bundle stays under COPY_BUNDLE_MAX_CHARS.
++ */
++
++const BUDGET = { input: 12_000, output: 12_000, error: 8_000, logs: 6_000, previous: 6_000 } as const;
++
++export function trimMiddle(text: string, max: number): string {
++  if (text.length <= max) return text;
++  const keep = Math.max(0, max - 40);
++  const head = Math.ceil(keep * 0.6);
++  const tail = keep - head;
++  return `${text.slice(0, head)}\n… [${text.length - head - tail} chars trimmed] …\n${text.slice(text.length - tail)}`;
++}
++
++export function fence(lang: string, body: string): string {
++  const longestRun = Math.max(0, ...[...body.matchAll(/`+/g)].map((m) => m[0].length));
++  const ticks = "`".repeat(Math.max(3, longestRun + 1));
++  return `${ticks}${lang}\n${body}\n${ticks}`;
++}
++
++const json = (value: unknown) => JSON.stringify(value ?? null, null, 2);
++
++export function logLine(e: ResearchEvent): string {
++  return `${String(e.seq).padStart(6)} ${e.ts.slice(11, 19)} ${e.level.padEnd(5)} ${(e.node ?? "-").padEnd(12)} ${e.type.padEnd(16)} ${e.message}`;
++}
++
++export interface SpanBundleInput {
++  span: ResearchSpanDetail;
++  logs: ResearchEvent[];
++  run: Pick<ResearchRun, "run_id" | "mode" | "pipeline_version"> | null;
++  companyName?: string | null;
++}
++
++export function formatSpanForClaude({ span, logs, run, companyName }: SpanBundleInput): string {
++  const attrs = (span.attrs ?? {}) as Record<string, unknown>;
++  const header = [
++    `## InterviewIQ research trace — ${span.kind} · ${span.name} · ${span.status}`,
++    "",
++    `- run: ${run?.run_id ?? span.run_id} (mode ${run?.mode ?? "?"}, pipeline ${run?.pipeline_version ?? "?"})`,
++    `- company: ${companyName ?? span.company_id ?? "—"}`,
++    `- node: ${span.node ?? "—"}`,
++    `- span: ${span.span_id}${span.parent_id ? ` (parent ${span.parent_id})` : ""}`,
++    `- duration: ${span.duration_ms ?? "?"} ms`,
++    ...(attrs.model ? [`- model: ${String(attrs.model)}`] : []),
++    ...(attrs.prompt_name ? [`- prompt: ${String(attrs.prompt_name)}@${String(attrs.prompt_version ?? "?")}`] : []),
++    ...(span.error?.code_ref ? [`- code: apps/ai-service/${span.error.code_ref}`] : []),
++  ];
++  const parts = [header.join("\n")];
++  if (span.error) {
++    parts.push("### Error", fence("text", trimMiddle(`${span.error.type}: ${span.error.message}\n\n${span.error.traceback ?? ""}`, BUDGET.error)));
++  }
++  parts.push("### Input", fence("json", trimMiddle(json(span.input), BUDGET.input)));
++  parts.push("### Output", fence("json", trimMiddle(json(span.output), BUDGET.output)));
++  parts.push("### Attributes", fence("json", json(attrs)));
++  if (logs.length > 0) parts.push("### Logs", fence("text", trimMiddle(logs.map(logLine).join("\n"), BUDGET.logs)));
++  return trimMiddle(parts.join("\n\n"), COPY_BUNDLE_MAX_CHARS);
++}
++
++export interface FailureReportInput {
++  run: ResearchRun;
++  item: ResearchItem;
++  failing: ResearchSpanDetail | null;
++  previousOutputs: Array<{ node: string; output: unknown }>;
++  logs: ResearchEvent[];
++}
++
++export function formatFailureReport({ run, item, failing, previousOutputs, logs }: FailureReportInput): string {
++  const timeline = Object.entries(item.nodes ?? {}).map(([node, p]) => `- ${node}: ${p.status ?? "?"}${p.error ? ` — ${p.error}` : ""}`);
++  const parts = [
++    `## InterviewIQ research failure — ${item.company_name} (${item.company_slug})`,
++    "",
++    `- run: ${run.run_id} (mode ${run.mode}, pipeline ${run.pipeline_version ?? "?"}, trigger ${run.trigger})`,
++    `- item: ${item.status} · attempts ${item.attempts} · last completed node: ${item.last_node ?? "none"}`,
++    ...(item.error?.code_ref ? [`- code: apps/ai-service/${item.error.code_ref}`] : []),
++    "",
++    "### Node timeline",
++    timeline.length > 0 ? timeline.join("\n") : "- (no node started)",
++  ];
++  if (item.error) {
++    parts.push("", "### Error", fence("text", trimMiddle(`${item.error.type}: ${item.error.message}\n\n${item.error.traceback ?? ""}`, BUDGET.error)));
++  }
++  for (const prev of previousOutputs) parts.push("", `### Output of ${prev.node}`, fence("json", trimMiddle(json(prev.output), BUDGET.previous)));
++  if (failing) {
++    parts.push(
++      "", `### Failing step: ${failing.kind} · ${failing.name}`,
++      "Input:", fence("json", trimMiddle(json(failing.input), BUDGET.input)),
++      "Output:", fence("json", trimMiddle(json(failing.output), 4_000)),
++    );
++  }
++  if (logs.length > 0) parts.push("", "### Logs", fence("text", trimMiddle(logs.map(logLine).join("\n"), BUDGET.logs)));
++  return trimMiddle(parts.join("\n"), COPY_BUNDLE_MAX_CHARS);
++}
++
++export function formatRunSummary(run: ResearchRun, items: ResearchItem[]): string {
++  const c = run.counters;
++  const b = run.budget;
++  return [
++    `## Research run ${run.run_id} — ${run.status}${run.pause_reason ? ` (${run.pause_reason})` : ""}`,
++    "",
++    `- mode ${run.mode} · trigger ${run.trigger} · scope ${run.scope} · pipeline ${run.pipeline_version ?? "?"}`,
++    `- started ${run.started_at ?? "—"} · finished ${run.finished_at ?? "—"}`,
++    `- budget: exa ${b.exa_used}/${b.exa_cap} · llm ${b.llm_used}/${b.llm_cap} · tokens ${b.tokens_in} in / ${b.tokens_out} out`,
++    `- ${c.total} total · ${c.done} done · ${c.skipped} skipped · ${c.failed} failed · ${c.cancelled} cancelled · ${c.paused} paused · ${c.running} running · ${c.queued} queued`,
++    ...(run.error ? [`- error: ${run.error}`] : []),
++    "",
++    ...items.map((i) => `- ${i.company_name}: ${i.status}${i.error ? ` — ${i.error.type}: ${i.error.message}` : ""}`),
++  ].join("\n");
++}
+diff --git a/apps/web/features/research/deep-link.test.ts b/apps/web/features/research/deep-link.test.ts
+new file mode 100644
+index 0000000..2f0f4f7
+--- /dev/null
++++ b/apps/web/features/research/deep-link.test.ts
+@@ -0,0 +1,19 @@
++import { describe, expect, it } from "vitest";
++import { deepLinkHref, parseDeepLink } from "./deep-link";
++
++describe("parseDeepLink", () => {
++  it("defaults to companies, and a run id alone opens the runs tab", () => {
++    expect(parseDeepLink(new URLSearchParams(""))).toEqual({ tab: "companies", run: null, company: null, span: null });
++    expect(parseDeepLink(new URLSearchParams("run=abc&span=s1")).tab).toBe("runs");
++    expect(parseDeepLink(new URLSearchParams("tab=bogus")).tab).toBe("companies");
++    expect(parseDeepLink(new URLSearchParams("tab=access&run=abc")).tab).toBe("access");
++  });
++});
++
++describe("deepLinkHref", () => {
++  it("sets and clears keys while keeping the rest", () => {
++    const current = new URLSearchParams("tab=runs&run=r1&span=s1");
++    expect(deepLinkHref(current, { run: "r2", span: null, company: null })).toBe("?tab=runs&run=r2");
++    expect(deepLinkHref(new URLSearchParams(""), { tab: "runs", run: "r1" })).toBe("?tab=runs&run=r1");
++  });
++});
+diff --git a/apps/web/features/research/deep-link.ts b/apps/web/features/research/deep-link.ts
+new file mode 100644
+index 0000000..d886814
+--- /dev/null
++++ b/apps/web/features/research/deep-link.ts
+@@ -0,0 +1,32 @@
++/** The Intelligence page's URL state: ?tab=&run=&company=&span= (spec §9.1 deep links). */
++
++export const INTELLIGENCE_TABS = ["companies", "runs", "briefs", "access", "questions", "resume", "prep", "agent"] as const;
++export type IntelligenceTab = (typeof INTELLIGENCE_TABS)[number];
++
++export interface DeepLink {
++  tab: IntelligenceTab;
++  run: string | null;
++  company: string | null;
++  span: string | null;
++}
++
++interface ParamsLike {
++  get(name: string): string | null;
++}
++
++export function parseDeepLink(params: ParamsLike): DeepLink {
++  const raw = params.get("tab");
++  const run = params.get("run") || null;
++  const tab = (INTELLIGENCE_TABS as readonly string[]).includes(raw ?? "") ? (raw as IntelligenceTab) : run ? "runs" : "companies";
++  return { tab, run, company: params.get("company") || null, span: params.get("span") || null };
++}
++
++export function deepLinkHref(current: URLSearchParams, patch: Partial<DeepLink>): string {
++  const next = new URLSearchParams(current);
++  for (const [key, value] of Object.entries(patch)) {
++    if (value === null || value === undefined || value === "") next.delete(key);
++    else next.set(key, value);
++  }
++  const qs = next.toString();
++  return qs ? `?${qs}` : "?";
++}
+diff --git a/apps/web/features/research/event-filters.test.ts b/apps/web/features/research/event-filters.test.ts
+new file mode 100644
+index 0000000..aec2393
+--- /dev/null
++++ b/apps/web/features/research/event-filters.test.ts
+@@ -0,0 +1,44 @@
++import { describe, expect, it } from "vitest";
++import { DEFAULT_FILTERS, appendCapped, filterEvents, initialAfterSeq, olderPageQuery } from "./event-filters";
++import { makeEvent } from "./testing";
++
++const EVENTS = [
++  makeEvent({ seq: 1, level: "debug", level_rank: 10, type: "span.start", company_id: "c1", node: "resolve" }),
++  makeEvent({ seq: 2, level: "warn", level_rank: 30, message: "Meesho is slow", company_id: "c1", node: "resolve" }),
++  makeEvent({ seq: 3, level: "error", level_rank: 40, type: "span.end", company_id: "c2", node: "write_draft" }),
++];
++
++describe("filterEvents", () => {
++  it("filters by minimum level, company, node, type prefix and case-insensitive text", () => {
++    const seqs = (f: Partial<typeof DEFAULT_FILTERS>) => filterEvents(EVENTS, { ...DEFAULT_FILTERS, ...f }).map((e) => e.seq);
++    expect(seqs({})).toEqual([1, 2, 3]);
++    expect(seqs({ minLevel: "warn" })).toEqual([2, 3]);
++    expect(seqs({ companyId: "c1" })).toEqual([1, 2]);
++    expect(seqs({ node: "write_draft" })).toEqual([3]);
++    expect(seqs({ type: "span." })).toEqual([1, 3]);
++    expect(seqs({ q: "MEESHO" })).toEqual([2]);
++  });
++});
++
++describe("appendCapped", () => {
++  it("dedupes by seq, keeps ascending order and drops the OLDEST beyond the cap", () => {
++    const merged = appendCapped([makeEvent({ seq: 1 }), makeEvent({ seq: 2 })], [makeEvent({ seq: 2 }), makeEvent({ seq: 3 })], 2);
++    expect(merged.map((e) => e.seq)).toEqual([2, 3]);
++  });
++  it("returns the same array when there is nothing new", () => {
++    const prev = [makeEvent({ seq: 1 })];
++    expect(appendCapped(prev, [], 10)).toBe(prev);
++  });
++});
++
++describe("paging (opening a run with more than CONSOLE_MAX_ROWS events)", () => {
++  it("starts the tail at the newest rows, not the first", () => {
++    expect(initialAfterSeq(5000, 2000)).toBe(3000);
++    expect(initialAfterSeq(120, 2000)).toBe(0);
++  });
++  it("asks for the page just before the oldest loaded row, until the first event is loaded", () => {
++    expect(olderPageQuery(3001, 500)).toEqual({ beforeSeq: 3001, limit: 500 });
++    expect(olderPageQuery(1, 500)).toBeNull();
++    expect(olderPageQuery(null, 500)).toBeNull();
++  });
++});
+diff --git a/apps/web/features/research/event-filters.ts b/apps/web/features/research/event-filters.ts
+new file mode 100644
+index 0000000..56c5c63
+--- /dev/null
++++ b/apps/web/features/research/event-filters.ts
+@@ -0,0 +1,50 @@
++import type { ResearchEvent, ResearchLevel } from "./types";
++
++export const LEVEL_ORDER: readonly ResearchLevel[] = ["trace", "debug", "info", "warn", "error"];
++export const LEVEL_RANK: Record<ResearchLevel, number> = { trace: 0, debug: 10, info: 20, warn: 30, error: 40 };
++
++export interface EventFilters {
++  minLevel: ResearchLevel;
++  companyId: string | null;
++  node: string | null;
++  /** Event type prefix, e.g. "span." or "item.". */
++  type: string;
++  /** Case-insensitive substring of the message. */
++  q: string;
++}
++
++export const DEFAULT_FILTERS: EventFilters = { minLevel: "trace", companyId: null, node: null, type: "", q: "" };
++
++export function filterEvents(events: ResearchEvent[], f: EventFilters): ResearchEvent[] {
++  const q = f.q.trim().toLowerCase();
++  const type = f.type.trim();
++  const min = LEVEL_RANK[f.minLevel];
++  return events.filter(
++    (e) =>
++      LEVEL_RANK[e.level] >= min &&
++      (!f.companyId || e.company_id === f.companyId) &&
++      (!f.node || e.node === f.node) &&
++      (!type || e.type.startsWith(type)) &&
++      (!q || e.message.toLowerCase().includes(q)),
++  );
++}
++
++/** Merge a page into the console buffer: dedupe by seq, ascending, keep only the newest `max`. */
++export function appendCapped(prev: ResearchEvent[], next: ResearchEvent[], max: number): ResearchEvent[] {
++  if (next.length === 0) return prev;
++  const bySeq = new Map(prev.map((e) => [e.seq, e]));
++  for (const e of next) bySeq.set(e.seq, e);
++  const merged = [...bySeq.values()].sort((a, b) => a.seq - b.seq);
++  return merged.length > max ? merged.slice(merged.length - max) : merged;
++}
++
++/** Where the live tail starts for a run opened late: only its newest `max` events. */
++export function initialAfterSeq(lastSeq: number, max: number): number {
++  return Math.max(0, lastSeq - max);
++}
++
++/** The page just before the oldest loaded event, or null once event #1 is loaded. */
++export function olderPageQuery(oldestLoadedSeq: number | null, limit: number): { beforeSeq: number; limit: number } | null {
++  if (oldestLoadedSeq === null || oldestLoadedSeq <= 1) return null;
++  return { beforeSeq: oldestLoadedSeq, limit };
++}
+diff --git a/apps/web/features/research/hooks.ts b/apps/web/features/research/hooks.ts
+new file mode 100644
+index 0000000..a97e3dd
+--- /dev/null
++++ b/apps/web/features/research/hooks.ts
+@@ -0,0 +1,156 @@
++"use client";
++
++import * as React from "react";
++import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
++import { CONSOLE_MAX_ROWS, EVENTS_PAGE_LIMIT, RESEARCH_POLLING, RESEARCH_QUERY_KEYS as K } from "@/lib/constants/research";
++import {
++  controlRun, createCompany, deleteCompany, getRun, getSpan, listAdminCompanies, listRunEvents, listRunSpans,
++  listRuns, raiseBudget, seedCompanies, startRun, updateCompany,
++} from "./api";
++import { appendCapped, initialAfterSeq, olderPageQuery } from "./event-filters";
++import { isRunActive } from "./status";
++import type { ResearchEvent, RunAction, UpdateCompanyRequest } from "./types";
++
++export function useAdminCompanies() {
++  return useQuery({ queryKey: K.companies, queryFn: listAdminCompanies, refetchInterval: RESEARCH_POLLING.listsMs });
++}
++
++export function useCreateCompany() {
++  const qc = useQueryClient();
++  return useMutation({ mutationFn: createCompany, onSuccess: () => qc.invalidateQueries({ queryKey: K.companies }) });
++}
++
++export function useUpdateCompany() {
++  const qc = useQueryClient();
++  return useMutation({
++    mutationFn: ({ id, patch }: { id: string; patch: UpdateCompanyRequest }) => updateCompany(id, patch),
++    onSuccess: () => qc.invalidateQueries({ queryKey: K.companies }),
++  });
++}
++
++export function useDeleteCompany() {
++  const qc = useQueryClient();
++  return useMutation({ mutationFn: (id: string) => deleteCompany(id), onSuccess: () => qc.invalidateQueries({ queryKey: K.companies }) });
++}
++
++export function useSeedCompanies() {
++  const qc = useQueryClient();
++  return useMutation({ mutationFn: () => seedCompanies(), onSuccess: () => qc.invalidateQueries({ queryKey: K.companies }) });
++}
++
++export function useResearchRuns() {
++  return useQuery({ queryKey: K.runs, queryFn: () => listRuns(20), refetchInterval: RESEARCH_POLLING.listsMs });
++}
++
++export function useResearchRun(runId: string | null) {
++  return useQuery({
++    queryKey: K.run(runId ?? "none"),
++    queryFn: () => getRun(runId!),
++    enabled: !!runId,
++    refetchInterval: (q) => (q.state.data && isRunActive(q.state.data.run.status) ? RESEARCH_POLLING.liveMs : false),
++  });
++}
++
++export function useRunSpans(runId: string | null, live: boolean) {
++  return useQuery({
++    queryKey: K.spans(runId ?? "none"),
++    queryFn: () => listRunSpans(runId!),
++    enabled: !!runId,
++    refetchInterval: live ? RESEARCH_POLLING.spansMs : false,
++  });
++}
++
++export function useSpanDetail(spanId: string | null) {
++  return useQuery({
++    queryKey: K.span(spanId ?? "none"),
++    queryFn: () => getSpan(spanId!),
++    enabled: !!spanId,
++    refetchInterval: (q) => (q.state.data?.span.status === "running" ? RESEARCH_POLLING.liveMs : false),
++  });
++}
++
++export function useStartRun() {
++  const qc = useQueryClient();
++  return useMutation({
++    mutationFn: startRun,
++    onSuccess: () => {
++      qc.invalidateQueries({ queryKey: K.runs });
++      qc.invalidateQueries({ queryKey: K.companies });
++    },
++  });
++}
++
++export function useRunControl() {
++  const qc = useQueryClient();
++  return useMutation({
++    mutationFn: ({ runId, action }: { runId: string; action: RunAction }) => controlRun(runId, action),
++    onSuccess: (_run, { runId }) => {
++      qc.invalidateQueries({ queryKey: K.run(runId) });
++      qc.invalidateQueries({ queryKey: K.runs });
++    },
++  });
++}
++
++export function useRaiseBudget() {
++  const qc = useQueryClient();
++  return useMutation({
++    mutationFn: ({ runId, exaCap, llmCap }: { runId: string; exaCap?: number; llmCap?: number }) => raiseBudget(runId, { exaCap, llmCap }),
++    onSuccess: (_run, { runId }) => qc.invalidateQueries({ queryKey: K.run(runId) }),
++  });
++}
++
++/**
++ * The console's event buffer. Opens at the run's newest CONSOLE_MAX_ROWS events, then tails by seq
++ * while the run is live. "Load older" fetches the page before the oldest row; after that the buffer
++ * stops trimming so the older rows stay put.
++ */
++export function useRunEvents(runId: string | null, opts: { live: boolean; lastSeq: number | undefined }) {
++  const [buffer, setBuffer] = React.useState<{ runId: string | null; events: ResearchEvent[] }>({ runId, events: [] });
++  const [loadingOlder, setLoadingOlder] = React.useState(false);
++  // Paging state belongs to one run; a different runId starts it afresh.
++  const paging = React.useRef<{ runId: string | null; cursor: number | null; keepAll: boolean }>({ runId, cursor: null, keepAll: false });
++
++  // A different run starts with an empty console (adjusting state during render, not in an effect).
++  if (buffer.runId !== runId) setBuffer({ runId, events: [] });
++  const events = buffer.runId === runId ? buffer.events : [];
++  const setEvents = React.useCallback(
++    (update: (prev: ResearchEvent[]) => ResearchEvent[]) => setBuffer((b) => (b.runId === runId ? { runId, events: update(b.events) } : b)),
++    [runId],
++  );
++
++  const query = useQuery({
++    queryKey: K.events(runId ?? "none"),
++    enabled: !!runId && opts.lastSeq !== undefined,
++    refetchInterval: opts.live ? RESEARCH_POLLING.liveMs : false,
++    queryFn: async () => {
++      if (paging.current.runId !== runId) paging.current = { runId, cursor: null, keepAll: false };
++      const state = paging.current;
++      if (state.cursor === null) state.cursor = initialAfterSeq(opts.lastSeq ?? 0, CONSOLE_MAX_ROWS);
++      for (;;) {
++        const page = await listRunEvents(runId!, { afterSeq: state.cursor, limit: EVENTS_PAGE_LIMIT });
++        if (page.events.length > 0) {
++          state.cursor = page.events[page.events.length - 1]!.seq;
++          const batch = page.events;
++          setEvents((prev) => appendCapped(prev, batch, state.keepAll ? Number.POSITIVE_INFINITY : CONSOLE_MAX_ROWS));
++        }
++        if (page.events.length < EVENTS_PAGE_LIMIT) return page.last_seq;
++      }
++    },
++  });
++
++  const oldest = events[0]?.seq ?? null;
++  const loadOlder = React.useCallback(async () => {
++    const q = olderPageQuery(oldest, EVENTS_PAGE_LIMIT);
++    if (!q || !runId) return;
++    setLoadingOlder(true);
++    try {
++      const page = await listRunEvents(runId, q);
++      paging.current.keepAll = true;
++      setEvents((prev) => appendCapped(prev, page.events, Number.POSITIVE_INFINITY));
++    } finally {
++      setLoadingOlder(false);
++    }
++  }, [oldest, runId, setEvents]);
++
++  return { events, error: query.error, loadOlder, canLoadOlder: olderPageQuery(oldest, EVENTS_PAGE_LIMIT) !== null, loadingOlder };
++}
+diff --git a/apps/web/features/research/index.ts b/apps/web/features/research/index.ts
+new file mode 100644
+index 0000000..54ecb2e
+--- /dev/null
++++ b/apps/web/features/research/index.ts
+@@ -0,0 +1,10 @@
++export * from "./types";
++export * from "./api";
++export * from "./hooks";
++export * from "./status";
++export * from "./trace-tree";
++export * from "./event-filters";
++export * from "./copy-bundle";
++export * from "./deep-link";
++export * from "./time";
++export * from "./clipboard";
+diff --git a/apps/web/features/research/status.test.ts b/apps/web/features/research/status.test.ts
+new file mode 100644
+index 0000000..8b9cb2d
+--- /dev/null
++++ b/apps/web/features/research/status.test.ts
+@@ -0,0 +1,52 @@
++import { describe, expect, it } from "vitest";
++import { companyResearchStatus, nodeStates, runControls } from "./status";
++import { makeCompany, makeItem } from "./testing";
++import type { CompanyResearchState } from "./types";
++
++const state = (over: Partial<CompanyResearchState>): CompanyResearchState => ({
++  lastRunId: "r1", lastResearchedAt: null, lastStatus: null, latestDraftId: null, latestDraftStatus: null, ...over,
++});
++const PUBLISHED = "2026-01-01T00:00:00Z";
++
++describe("companyResearchStatus", () => {
++  it.each([
++    [makeCompany(), "never_researched"],
++    [makeCompany({ research: state({ lastStatus: "queued" }) }), "queued"],
++    [makeCompany({ research: state({ lastStatus: "running" }) }), "researching"],
++    [makeCompany({ research: state({ lastStatus: "paused" }) }), "researching"],
++    [makeCompany({ research: state({ lastStatus: "failed" }) }), "failed"],
++    [makeCompany({ research: state({ lastStatus: "done", latestDraftStatus: "pending_review" }) }), "awaiting_review"],
++    [makeCompany({ publishedAt: PUBLISHED, research: state({ lastStatus: "done", latestDraftStatus: "pending_review" }) }), "update_pending"],
++    [makeCompany({ publishedAt: PUBLISHED }), "published"],
++    [makeCompany({ publishedAt: PUBLISHED, research: state({ lastStatus: "skipped", latestDraftStatus: "approved" }) }), "published"],
++  ] as const)("%#: %s", (company, expected) => {
++    expect(companyResearchStatus(company)).toBe(expected);
++  });
++});
++
++describe("runControls", () => {
++  it.each([
++    ["running", { start: false, pause: true, resume: false, stop: true }],
++    ["queued", { start: false, pause: true, resume: false, stop: true }],
++    ["pausing", { start: false, pause: false, resume: false, stop: true }],
++    ["paused", { start: false, pause: false, resume: true, stop: true }],
++    ["stopping", { start: false, pause: false, resume: false, stop: false }],
++    ["completed", { start: true, pause: false, resume: false, stop: false }],
++    [undefined, { start: true, pause: false, resume: false, stop: false }],
++  ] as const)("%s", (status, expected) => {
++    expect(runControls(status)).toEqual(expected);
++  });
++
++  it("disables everything while a control request is in flight", () => {
++    expect(runControls("paused", true)).toEqual({ start: false, pause: false, resume: false, stop: false });
++  });
++});
++
++describe("nodeStates", () => {
++  it("lists every graph node in order, idle until it starts", () => {
++    expect(nodeStates(makeItem({ nodes: { resolve: { status: "ok" }, write_draft: { status: "running" } } }))).toEqual([
++      { name: "resolve", state: "ok" }, { name: "write_draft", state: "running" },
++    ]);
++    expect(nodeStates(undefined)).toEqual([{ name: "resolve", state: "idle" }, { name: "write_draft", state: "idle" }]);
++  });
++});
+diff --git a/apps/web/features/research/status.ts b/apps/web/features/research/status.ts
+new file mode 100644
+index 0000000..c3bafda
+--- /dev/null
++++ b/apps/web/features/research/status.ts
+@@ -0,0 +1,67 @@
++import type { DotState } from "@/components/hud";
++import { NODE_ORDER, type NodeName } from "@/lib/constants/research";
++import type { AdminCompany, ResearchItem, ResearchItemStatus, ResearchRunStatus, ResearchSpan } from "./types";
++
++export type CompanyResearchStatus =
++  | "never_researched" | "queued" | "researching" | "awaiting_review" | "published" | "update_pending" | "failed";
++
++export const COMPANY_STATUS_META: Record<CompanyResearchStatus, { label: string; dot: DotState }> = {
++  never_researched: { label: "Never researched", dot: "idle" },
++  queued: { label: "Queued", dot: "idle" },
++  researching: { label: "Researching", dot: "live" },
++  awaiting_review: { label: "Awaiting review", dot: "warn" },
++  update_pending: { label: "Published · update pending review", dot: "warn" },
++  published: { label: "Published", dot: "active" },
++  failed: { label: "Failed", dot: "error" },
++};
++
++/** Where a company is in research, from its latest run and its latest draft (spec §9.1 Companies). */
++export function companyResearchStatus(company: AdminCompany): CompanyResearchStatus {
++  const research = company.research;
++  const last = research?.lastStatus;
++  if (last === "queued") return "queued";
++  if (last === "running" || last === "paused") return "researching";
++  if (last === "failed") return "failed";
++  if (research?.latestDraftStatus === "pending_review") return company.publishedAt ? "update_pending" : "awaiting_review";
++  if (company.publishedAt) return "published";
++  return "never_researched";
++}
++
++export const RUN_STATUS_DOT: Record<ResearchRunStatus, DotState> = {
++  queued: "idle", running: "live", pausing: "live", paused: "warn", stopping: "live",
++  stopped: "idle", completed: "active", failed: "error",
++};
++
++export const ITEM_STATUS_DOT: Record<ResearchItemStatus, DotState> = {
++  queued: "idle", running: "live", paused: "warn", done: "active", failed: "error", skipped: "idle", cancelled: "idle",
++};
++
++export const SPAN_STATUS_DOT: Record<ResearchSpan["status"], DotState> = {
++  running: "live", ok: "active", error: "error", cancelled: "idle",
++};
++
++const ACTIVE: ReadonlySet<ResearchRunStatus> = new Set(["queued", "running", "pausing", "paused", "stopping"]);
++
++export function isRunActive(status: ResearchRunStatus): boolean {
++  return ACTIVE.has(status);
++}
++
++/** Which run controls apply (mirrors the ai-service's transition rules). */
++export function runControls(status: ResearchRunStatus | undefined, pending = false) {
++  if (pending) return { start: false, pause: false, resume: false, stop: false };
++  return {
++    start: !status || !isRunActive(status),
++    pause: status === "queued" || status === "running",
++    resume: status === "paused",
++    stop: status === "queued" || status === "running" || status === "pausing" || status === "paused",
++  };
++}
++
++export type NodeState = "idle" | "running" | "ok" | "error";
++
++export function nodeStates(item: Pick<ResearchItem, "nodes"> | undefined): Array<{ name: NodeName; state: NodeState }> {
++  return NODE_ORDER.map((name) => {
++    const s = item?.nodes?.[name]?.status;
++    return { name, state: s === "running" || s === "ok" || s === "error" ? s : "idle" };
++  });
++}
+diff --git a/apps/web/features/research/testing.ts b/apps/web/features/research/testing.ts
+new file mode 100644
+index 0000000..4ab3c08
+--- /dev/null
++++ b/apps/web/features/research/testing.ts
+@@ -0,0 +1,46 @@
++/** Builders for research UI tests. Not imported by app code. */
++import type { AdminCompany, ResearchEvent, ResearchItem, ResearchRun, ResearchSpan } from "./types";
++
++export const RUN_ID = "a".repeat(32);
++
++export function makeCompany(over: Partial<AdminCompany> = {}): AdminCompany {
++  return {
++    id: "00000000-0000-4000-8000-000000000001", name: "Meesho", slug: "meesho", website: null, aliases: [],
++    status: "active", origin: "admin", tier: null, publishedVersion: null, publishedAt: null,
++    createdAt: "2026-10-01T00:00:00Z", research: null, ...over,
++  };
++}
++
++export function makeRun(over: Partial<ResearchRun> = {}): ResearchRun {
++  return {
++    run_id: RUN_ID, trigger: "admin", mode: "live", scope: "all", company_ids: ["c-meesho"], status: "running",
++    control: "none", pause_reason: null, requested_by: null,
++    counters: { total: 2, queued: 1, running: 1, paused: 0, done: 0, failed: 0, skipped: 0, cancelled: 0 },
++    budget: { exa_used: 3, exa_cap: 400, llm_used: 2, llm_cap: 2000, tokens_in: 1200, tokens_out: 300 },
++    last_seq: 10, created_at: "2026-10-02T10:00:00+00:00", started_at: "2026-10-02T10:00:01+00:00",
++    finished_at: null, error: null, pipeline_version: "research-v1", ...over,
++  };
++}
++
++export function makeItem(over: Partial<ResearchItem> = {}): ResearchItem {
++  return {
++    run_id: RUN_ID, company_id: "c-meesho", company_name: "Meesho", company_slug: "meesho", position: 0,
++    status: "running", attempts: 1, current_node: "resolve", last_node: null, nodes: { resolve: { status: "running" } },
++    draft_id: null, error: null, started_at: null, finished_at: null, ...over,
++  };
++}
++
++export function makeSpan(over: Partial<ResearchSpan> & { span_id: string }): ResearchSpan {
++  return {
++    parent_id: null, run_id: RUN_ID, company_id: null, node: null, kind: "node", name: "resolve", status: "ok",
++    started_at: "2026-10-02T10:00:01+00:00", ended_at: null, duration_ms: 120, attrs: {}, input_ref: null,
++    output_ref: null, error: null, ...over,
++  };
++}
++
++export function makeEvent(over: Partial<ResearchEvent> = {}): ResearchEvent {
++  return {
++    run_id: RUN_ID, seq: 1, ts: "2026-10-02T10:00:05+00:00", level: "info", level_rank: 20, type: "log",
++    message: "hello", span_id: null, company_id: null, node: null, ...over,
++  };
++}
+diff --git a/apps/web/features/research/time.test.ts b/apps/web/features/research/time.test.ts
+new file mode 100644
+index 0000000..6723e89
+--- /dev/null
++++ b/apps/web/features/research/time.test.ts
+@@ -0,0 +1,16 @@
++import { describe, expect, it } from "vitest";
++import { timeAgo } from "./time";
++
++const NOW = Date.parse("2026-10-02T12:00:00Z");
++
++describe("timeAgo", () => {
++  it.each([
++    ["2026-10-02T11:59:40Z", "just now"],
++    ["2026-10-02T11:55:00Z", "5m ago"],
++    ["2026-10-02T09:00:00Z", "3h ago"],
++    ["2026-09-30T12:00:00Z", "2d ago"],
++    ["2026-08-01T12:00:00Z", "1 Aug 2026"],
++  ])("%s → %s", (iso, expected) => {
++    expect(timeAgo(iso, NOW)).toBe(expected);
++  });
++});
+diff --git a/apps/web/features/research/time.ts b/apps/web/features/research/time.ts
+new file mode 100644
+index 0000000..678c884
+--- /dev/null
++++ b/apps/web/features/research/time.ts
+@@ -0,0 +1,11 @@
++/** "5m ago" for recent instants, a short date for anything older than a week. */
++export function timeAgo(iso: string, now: number = Date.now()): string {
++  const then = Date.parse(iso);
++  if (Number.isNaN(then)) return "—";
++  const s = Math.max(0, Math.round((now - then) / 1000));
++  if (s < 60) return "just now";
++  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
++  if (s < 86_400) return `${Math.floor(s / 3600)}h ago`;
++  if (s < 7 * 86_400) return `${Math.floor(s / 86_400)}d ago`;
++  return new Date(then).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
++}
+diff --git a/apps/web/features/research/trace-tree.test.ts b/apps/web/features/research/trace-tree.test.ts
+new file mode 100644
+index 0000000..680c07b
+--- /dev/null
++++ b/apps/web/features/research/trace-tree.test.ts
+@@ -0,0 +1,44 @@
++import { describe, expect, it } from "vitest";
++import { buildSpanTree, countSpans, deepestErrorSpan, flattenVisible, nodeSpansFor } from "./trace-tree";
++import { makeSpan } from "./testing";
++
++const t = (s: number) => `2026-10-02T10:00:${String(s).padStart(2, "0")}+00:00`;
++const SPANS = [
++  makeSpan({ span_id: "run", kind: "run", name: "run", started_at: t(0) }),
++  makeSpan({ span_id: "co", parent_id: "run", kind: "company", name: "Meesho", company_id: "c1", started_at: t(1) }),
++  makeSpan({ span_id: "draft", parent_id: "co", kind: "node", name: "write_draft", company_id: "c1", started_at: t(5) }),
++  makeSpan({ span_id: "resolve", parent_id: "co", kind: "node", name: "resolve", company_id: "c1", status: "error", started_at: t(2) }),
++  makeSpan({ span_id: "llm", parent_id: "resolve", kind: "llm", name: "resolve_company@v1", company_id: "c1", status: "error", started_at: t(3) }),
++  makeSpan({ span_id: "orphan", parent_id: "gone", kind: "exa", name: "q", started_at: t(9) }),
++];
++
++describe("buildSpanTree", () => {
++  it("nests by parent, orders children by start time, and keeps orphans as roots", () => {
++    const roots = buildSpanTree(SPANS);
++    expect(roots.map((r) => r.span.span_id)).toEqual(["run", "orphan"]);
++    const company = roots[0]!.children[0]!;
++    expect(company.children.map((c) => c.span.name)).toEqual(["resolve", "write_draft"]);
++    expect(company.children[0]!.children[0]!.depth).toBe(3);
++  });
++
++  it("bubbles errors up to every ancestor", () => {
++    const [run] = buildSpanTree(SPANS);
++    expect(run!.hasError).toBe(true);
++    expect(run!.children[0]!.hasError).toBe(true);
++    expect(run!.children[0]!.children[1]!.hasError).toBe(false);
++  });
++
++  it("flattenVisible hides the children of collapsed spans", () => {
++    const roots = buildSpanTree(SPANS);
++    expect(flattenVisible(roots, new Set()).map((n) => n.span.span_id)).toEqual(["run", "co", "resolve", "llm", "draft", "orphan"]);
++    expect(flattenVisible(roots, new Set(["co"])).map((n) => n.span.span_id)).toEqual(["run", "co", "orphan"]);
++    expect(countSpans(roots)).toBe(6);
++  });
++
++  it("finds the innermost failing step and the company's node spans", () => {
++    const roots = buildSpanTree(SPANS);
++    expect(deepestErrorSpan(roots, "c1")?.span_id).toBe("llm");
++    expect(deepestErrorSpan(roots, "nope")).toBeNull();
++    expect(nodeSpansFor(roots, "c1").map((s) => s.name)).toEqual(["resolve", "write_draft"]);
++  });
++});
+diff --git a/apps/web/features/research/trace-tree.ts b/apps/web/features/research/trace-tree.ts
+new file mode 100644
+index 0000000..594a9a3
+--- /dev/null
++++ b/apps/web/features/research/trace-tree.ts
+@@ -0,0 +1,66 @@
++import type { ResearchSpan } from "./types";
++
++export interface SpanNode {
++  span: ResearchSpan;
++  children: SpanNode[];
++  /** This span or any descendant failed: drives the error marker on collapsed parents. */
++  hasError: boolean;
++  depth: number;
++}
++
++const byStart = (a: SpanNode, b: SpanNode) => a.span.started_at.localeCompare(b.span.started_at);
++
++/** Flat spans (parent_id links) → a start-ordered tree. Spans whose parent isn't loaded become roots. */
++export function buildSpanTree(spans: ResearchSpan[]): SpanNode[] {
++  const nodes = new Map<string, SpanNode>(spans.map((s) => [s.span_id, { span: s, children: [], hasError: false, depth: 0 }]));
++  const roots: SpanNode[] = [];
++  for (const node of nodes.values()) {
++    const parent = node.span.parent_id ? nodes.get(node.span.parent_id) : undefined;
++    if (parent) parent.children.push(node);
++    else roots.push(node);
++  }
++  const visit = (node: SpanNode, depth: number): boolean => {
++    node.depth = depth;
++    node.children.sort(byStart);
++    let failed = node.span.status === "error";
++    for (const child of node.children) if (visit(child, depth + 1)) failed = true;
++    node.hasError = failed;
++    return failed;
++  };
++  roots.sort(byStart);
++  for (const root of roots) visit(root, 0);
++  return roots;
++}
++
++export function flattenVisible(roots: SpanNode[], collapsed: ReadonlySet<string>): SpanNode[] {
++  const out: SpanNode[] = [];
++  const stack = [...roots].reverse();
++  while (stack.length > 0) {
++    const node = stack.pop()!;
++    out.push(node);
++    if (!collapsed.has(node.span.span_id)) for (let i = node.children.length - 1; i >= 0; i--) stack.push(node.children[i]!);
++  }
++  return out;
++}
++
++export function countSpans(roots: SpanNode[]): number {
++  return flattenVisible(roots, new Set()).length;
++}
++
++/** The innermost failed span for a company: the step a failure report should show first. */
++export function deepestErrorSpan(roots: SpanNode[], companyId: string): ResearchSpan | null {
++  let best: SpanNode | null = null;
++  for (const node of flattenVisible(roots, new Set())) {
++    if (node.span.status !== "error" || node.span.company_id !== companyId) continue;
++    if (best === null || node.depth > best.depth || (node.depth === best.depth && node.span.started_at > best.span.started_at)) best = node;
++  }
++  return best ? best.span : null;
++}
++
++/** A company's node spans in start order (their outputs feed the failure report). */
++export function nodeSpansFor(roots: SpanNode[], companyId: string): ResearchSpan[] {
++  return flattenVisible(roots, new Set())
++    .map((n) => n.span)
++    .filter((s) => s.kind === "node" && s.company_id === companyId)
++    .sort((a, b) => a.started_at.localeCompare(b.started_at));
++}
+diff --git a/apps/web/features/research/types.ts b/apps/web/features/research/types.ts
+new file mode 100644
+index 0000000..87685b6
+--- /dev/null
++++ b/apps/web/features/research/types.ts
+@@ -0,0 +1,27 @@
++import type { components } from "@/lib/api-client/generated/schema";
++
++type Schemas = components["schemas"];
++
++export type AdminCompany = Schemas["AdminCompany"];
++export type AdminCompanyList = Schemas["AdminCompanyList"];
++export type CompanyResearchState = Schemas["CompanyResearchState"];
++export type CreateCompanyRequest = Schemas["CreateCompanyRequest"];
++export type UpdateCompanyRequest = Schemas["UpdateCompanyRequest"];
++export type SeedResult = Schemas["SeedResult"];
++export type ResearchMode = Schemas["ResearchMode"];
++export type ResearchLevel = Schemas["ResearchLevel"];
++export type ResearchRunStatus = Schemas["ResearchRunStatus"];
++export type ResearchItemStatus = Schemas["ResearchItemStatus"];
++export type ResearchRun = Schemas["ResearchRun"];
++export type ResearchRunList = Schemas["ResearchRunList"];
++export type ResearchRunDetail = Schemas["ResearchRunDetail"];
++export type ResearchItem = Schemas["ResearchItem"];
++export type ResearchEvent = Schemas["ResearchEvent"];
++export type ResearchEventPage = Schemas["ResearchEventPage"];
++export type ResearchSpan = Schemas["ResearchSpan"];
++export type ResearchSpanList = Schemas["ResearchSpanList"];
++export type ResearchSpanDetail = Schemas["ResearchSpanDetail"];
++export type ResearchSpanDetailResponse = Schemas["ResearchSpanDetailResponse"];
++export type StartResearchRunRequest = Schemas["StartResearchRunRequest"];
++export type ResearchBudgetUpdate = Schemas["ResearchBudgetUpdate"];
++export type RunAction = "pause" | "resume" | "stop";
+diff --git a/apps/web/lib/constants/research/index.ts b/apps/web/lib/constants/research/index.ts
+new file mode 100644
+index 0000000..26fee68
+--- /dev/null
++++ b/apps/web/lib/constants/research/index.ts
+@@ -0,0 +1,45 @@
++/**
++ * Company research pipeline: admin-only endpoints (interviewiq-api proxies; the browser never
++ * reaches the AI service), query keys, polling cadence and console limits.
++ */
++
++export const RESEARCH_ENDPOINTS = {
++  companies: "/api/v1/admin/companies",
++  company: (id: string) => `/api/v1/admin/companies/${encodeURIComponent(id)}`,
++  seed: "/api/v1/admin/companies/seed",
++  runs: "/api/v1/admin/research/runs",
++  run: (runId: string) => `/api/v1/admin/research/runs/${runId}`,
++  control: (runId: string, action: "pause" | "resume" | "stop") => `/api/v1/admin/research/runs/${runId}/${action}`,
++  budget: (runId: string) => `/api/v1/admin/research/runs/${runId}/budget`,
++  events: (runId: string) => `/api/v1/admin/research/runs/${runId}/events`,
++  spans: (runId: string) => `/api/v1/admin/research/runs/${runId}/spans`,
++  span: (spanId: string) => `/api/v1/admin/research/spans/${spanId}`,
++} as const;
++
++export const RESEARCH_QUERY_KEYS = {
++  companies: ["research", "companies"] as const,
++  runs: ["research", "runs"] as const,
++  run: (runId: string) => ["research", "run", runId] as const,
++  spans: (runId: string) => ["research", "spans", runId] as const,
++  span: (spanId: string) => ["research", "span", spanId] as const,
++  events: (runId: string) => ["research", "events", runId] as const,
++};
++
++export const RESEARCH_POLLING = {
++  /** Run detail + console tail while a run is active, and a span that is still running. */
++  liveMs: 1000,
++  /** The trace tree while a run is active. */
++  spansMs: 2000,
++  /** Company list and run history. */
++  listsMs: 5000,
++} as const;
++
++/** Newest console rows kept in the DOM; older ones load on demand ("Load older"). */
++export const CONSOLE_MAX_ROWS = 2000;
++export const EVENTS_PAGE_LIMIT = 500;
++/** "Copy for Claude" bundles are trimmed to paste cleanly into a chat. */
++export const COPY_BUNDLE_MAX_CHARS = 40_000;
++
++/** Mirror of NODE_ORDER in apps/ai-service/app/research/models.py: keep in sync. */
++export const NODE_ORDER = ["resolve", "write_draft"] as const;
++export type NodeName = (typeof NODE_ORDER)[number];

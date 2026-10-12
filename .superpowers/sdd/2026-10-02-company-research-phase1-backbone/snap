@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# snap PREV -- PATHSPEC...  → print a snapshot commit (parent PREV) whose tree is PREV's tree with the
+# working-tree state of PATHSPEC applied (additions, edits AND deletions). Uses a private index: never
+# touches the real index, HEAD or any branch (the user commits their own work). Lets review-package
+# diff exactly one task's files. Pathspecs that match nothing (yet) are skipped.
+set -euo pipefail
+prev=$1; shift; [ "${1:-}" = "--" ] && shift
+dir=$(mktemp -d); idx="$dir/index"
+GIT_INDEX_FILE=$idx git read-tree "$prev"
+specs=()
+for p in "$@"; do
+  if [ -e "$p" ] || [ -n "$(GIT_INDEX_FILE=$idx git ls-files -- "$p" | head -1)" ]; then specs+=("$p"); fi
+done
+[ ${#specs[@]} -gt 0 ] && GIT_INDEX_FILE=$idx git add -A -- "${specs[@]}"
+tree=$(GIT_INDEX_FILE=$idx git write-tree)
+rm -rf "$dir"
+git commit-tree "$tree" -p "$prev" -m "sdd snapshot $(date -u +%FT%TZ)"

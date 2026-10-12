@@ -1,0 +1,625 @@
+# Review package: b00c0f4c3fb3656c337b0f9289a64e9a1178d763..c352d1c11951ada59b47879caf0ec118ab606849
+
+## Commits
+c352d1c sdd snapshot 2026-10-02T10:58:17Z
+
+## Files changed
+ apps/ai-service/app/research/memory_store.py       | 157 ++++++++++++
+ apps/ai-service/app/research/store.py              | 264 +++++++++++++++++++++
+ .../tests/research/test_store_contract.py          | 174 ++++++++++++++
+ 3 files changed, 595 insertions(+)
+
+## Diff
+diff --git a/apps/ai-service/app/research/memory_store.py b/apps/ai-service/app/research/memory_store.py
+new file mode 100644
+index 0000000..3765982
+--- /dev/null
++++ b/apps/ai-service/app/research/memory_store.py
+@@ -0,0 +1,157 @@
++"""In-memory ResearchStore for tests and `python -m app.research.cli --memory`. Mirrors
++MongoResearchStore exactly: dotted-path $set/$inc, sort orders, projections, deep copies in and
++out (so callers can never mutate stored state by accident)."""
++from __future__ import annotations
++
++import copy
++from collections.abc import Iterable
++
++from app.research.models import ACTIVE_RUN_STATUSES
++from app.research.store import SPAN_LIST_EXCLUDE, EventFilter, event_matches
++
++
++def _copy(doc: dict | None) -> dict | None:
++    return copy.deepcopy(doc) if doc is not None else None
++
++
++def _parent(doc: dict, path: str) -> tuple[dict, str]:
++    *parents, last = path.split(".")
++    cur = doc
++    for part in parents:
++        nxt = cur.get(part)
++        if not isinstance(nxt, dict):
++            nxt = {}
++            cur[part] = nxt
++        cur = nxt
++    return cur, last
++
++
++def _apply(doc: dict, fields: dict | None, inc: dict | None) -> None:
++    for path, value in (fields or {}).items():
++        parent, key = _parent(doc, path)
++        parent[key] = copy.deepcopy(value)
++    for path, delta in (inc or {}).items():
++        parent, key = _parent(doc, path)
++        parent[key] = (parent.get(key) or 0) + delta
++
++
++class InMemoryResearchStore:
++    def __init__(self) -> None:
++        self.runs: dict[str, dict] = {}
++        self.items: dict[tuple[str, str], dict] = {}
++        self.spans: dict[str, dict] = {}
++        self.events: list[dict] = []
++        self.payloads: dict[str, dict] = {}
++        self.sources: dict[str, dict] = {}
++        self.extracts: dict[str, dict] = {}
++        self.company_states: dict[str, dict] = {}
++        self.drafts: list[dict] = []
++
++    # --- runs ---
++    async def insert_run(self, run: dict) -> None:
++        if run["run_id"] in self.runs:
++            raise ValueError(f"duplicate run_id {run['run_id']}")
++        self.runs[run["run_id"]] = copy.deepcopy(run)
++
++    async def get_run(self, run_id: str) -> dict | None:
++        return _copy(self.runs.get(run_id))
++
++    async def update_run(self, run_id: str, *, fields: dict | None = None, inc: dict | None = None) -> dict | None:
++        doc = self.runs.get(run_id)
++        if doc is None:
++            return None
++        _apply(doc, fields, inc)
++        return copy.deepcopy(doc)
++
++    async def find_active_run(self) -> dict | None:
++        active = [r for r in self.runs.values() if r["status"] in ACTIVE_RUN_STATUSES]
++        return _copy(max(active, key=lambda r: r["created_at"])) if active else None
++
++    async def find_runs_by_status(self, statuses: Iterable[str]) -> list[dict]:
++        wanted = frozenset(statuses)
++        rows = sorted((r for r in self.runs.values() if r["status"] in wanted), key=lambda r: r["created_at"])
++        return copy.deepcopy(rows)
++
++    async def list_runs(self, limit: int) -> list[dict]:
++        rows = sorted(self.runs.values(), key=lambda r: r["created_at"], reverse=True)[:limit]
++        return [{k: copy.deepcopy(v) for k, v in r.items() if k != "targets"} for r in rows]
++
++    # --- items ---
++    async def insert_items(self, items: list[dict]) -> None:
++        for item in items:
++            self.items[(item["run_id"], item["company_id"])] = copy.deepcopy(item)
++
++    async def list_items(self, run_id: str) -> list[dict]:
++        rows = sorted((i for (rid, _), i in self.items.items() if rid == run_id), key=lambda i: i["position"])
++        return copy.deepcopy(rows)
++
++    async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None:
++        doc = self.items.get((run_id, company_id))
++        if doc is not None:
++            _apply(doc, fields, inc)
++
++    # --- spans ---
++    async def put_span(self, span: dict) -> None:
++        self.spans[span["span_id"]] = copy.deepcopy(span)
++
++    async def get_span(self, span_id: str) -> dict | None:
++        return _copy(self.spans.get(span_id))
++
++    async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]:
++        rows = [s for s in self.spans.values()
++                if s["run_id"] == run_id and (company_id is None or s.get("company_id") == company_id)]
++        rows.sort(key=lambda s: s["started_at"])
++        return [{k: copy.deepcopy(v) for k, v in s.items() if k not in SPAN_LIST_EXCLUDE} for s in rows]
++
++    # --- events ---
++    async def insert_events(self, events: list[dict]) -> None:
++        self.events.extend(copy.deepcopy(e) for e in events)
++
++    async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]:
++        rows = sorted((e for e in self.events if e["run_id"] == run_id and event_matches(e, flt)), key=lambda e: e["seq"])
++        rows = rows[-flt.limit:] if flt.before_seq is not None else rows[: flt.limit]
++        return copy.deepcopy(rows)
++
++    # --- payloads / sources / extracts ---
++    async def put_payload(self, payload: dict) -> None:
++        self.payloads[payload["payload_id"]] = copy.deepcopy(payload)
++
++    async def get_payload(self, payload_id: str) -> dict | None:
++        return _copy(self.payloads.get(payload_id))
++
++    async def upsert_source(self, source: dict) -> None:
++        doc = copy.deepcopy(source)
++        kinds = doc.pop("kinds", [])
++        current = self.sources.setdefault(doc["url"], {"kinds": []})
++        current.update(doc)
++        current["kinds"] = current["kinds"] + [k for k in kinds if k not in current["kinds"]]
++
++    async def get_extract(self, key: str) -> dict | None:
++        return _copy(self.extracts.get(key))
++
++    async def put_extract(self, extract: dict) -> None:
++        self.extracts[extract["key"]] = copy.deepcopy(extract)
++
++    # --- company research state / drafts ---
++    async def upsert_company_state(self, company_id: str, *, fields: dict) -> None:
++        current = self.company_states.setdefault(company_id, {"company_id": company_id})
++        _apply(current, fields, None)
++
++    async def list_company_states(self, company_ids: list[str] | None = None) -> list[dict]:
++        rows = [s for cid, s in self.company_states.items() if company_ids is None or cid in company_ids]
++        return copy.deepcopy(rows)
++
++    async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None:
++        rows = [d for d in self.drafts if d["company_id"] == company_id and (status is None or d["status"] == status)]
++        return _copy(max(rows, key=lambda d: d["version"])) if rows else None
++
++    async def insert_draft(self, draft: dict) -> None:
++        self.drafts.append(copy.deepcopy(draft))
++
++    async def supersede_pending_drafts(self, company_id: str) -> int:
++        n = 0
++        for d in self.drafts:
++            if d["company_id"] == company_id and d["status"] == "pending_review":
++                d["status"] = "superseded"
++                n += 1
++        return n
+diff --git a/apps/ai-service/app/research/store.py b/apps/ai-service/app/research/store.py
+new file mode 100644
+index 0000000..0e3290c
+--- /dev/null
++++ b/apps/ai-service/app/research/store.py
+@@ -0,0 +1,264 @@
++"""Persistence for the research pipeline (spec §4.2).
++
++`ResearchStore` is the seam: the runner, tracer, gateway and nodes only talk to it.
++`MongoResearchStore` is production; `InMemoryResearchStore` (memory_store.py) backs tests and
++`cli --memory`. Both must pass tests/research/test_store_contract.py.
++
++Docs are plain dicts and no `_id` ever leaks out. Updates take Mongo-style dotted paths
++(`fields={"nodes.resolve.status": "ok"}` → $set, `inc={...}` → $inc); the in-memory store applies
++them the same way."""
++from __future__ import annotations
++
++import re
++from collections.abc import Iterable
++from dataclasses import dataclass
++from typing import Protocol
++
++from motor.motor_asyncio import AsyncIOMotorDatabase
++from pymongo import ASCENDING, DESCENDING, ReturnDocument
++from pymongo.errors import OperationFailure
++
++from app.research.models import ACTIVE_RUN_STATUSES
++
++RUNS = "research_runs"
++ITEMS = "research_items"
++SPANS = "research_spans"
++EVENTS = "research_events"
++PAYLOADS = "research_payloads"
++SOURCES = "research_sources"
++EXTRACTS = "research_extracts"
++COMPANY_STATE = "company_research_state"
++DRAFTS = "company_drafts"
++
++LEVEL_RANK: dict[str, int] = {"trace": 0, "debug": 10, "info": 20, "warn": 30, "error": 40}
++SPAN_LIST_EXCLUDE: tuple[str, ...] = ("input", "output")
++
++
++@dataclass(frozen=True)
++class EventFilter:
++    after_seq: int = 0
++    before_seq: int | None = None   # set → newest `limit` events with seq < before_seq (still ascending)
++    limit: int = 500
++    min_level: str | None = None
++    company_id: str | None = None
++    node: str | None = None
++    type_prefix: str | None = None
++    span_id: str | None = None
++    q: str | None = None            # case-insensitive substring of `message`
++
++
++def event_matches(e: dict, flt: EventFilter) -> bool:
++    if e["seq"] <= flt.after_seq:
++        return False
++    if flt.before_seq is not None and e["seq"] >= flt.before_seq:
++        return False
++    if flt.min_level and e["level_rank"] < LEVEL_RANK[flt.min_level]:
++        return False
++    if flt.company_id and e.get("company_id") != flt.company_id:
++        return False
++    if flt.node and e.get("node") != flt.node:
++        return False
++    if flt.span_id and e.get("span_id") != flt.span_id:
++        return False
++    if flt.type_prefix and not e["type"].startswith(flt.type_prefix):
++        return False
++    if flt.q and flt.q.lower() not in e["message"].lower():
++        return False
++    return True
++
++
++class ResearchStore(Protocol):
++    async def insert_run(self, run: dict) -> None: ...
++    async def get_run(self, run_id: str) -> dict | None: ...
++    async def update_run(self, run_id: str, *, fields: dict | None = None, inc: dict | None = None) -> dict | None: ...
++    async def find_active_run(self) -> dict | None: ...
++    async def find_runs_by_status(self, statuses: Iterable[str]) -> list[dict]: ...
++    async def list_runs(self, limit: int) -> list[dict]: ...
++    async def insert_items(self, items: list[dict]) -> None: ...
++    async def list_items(self, run_id: str) -> list[dict]: ...
++    async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None: ...
++    async def put_span(self, span: dict) -> None: ...
++    async def get_span(self, span_id: str) -> dict | None: ...
++    async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]: ...
++    async def insert_events(self, events: list[dict]) -> None: ...
++    async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]: ...
++    async def put_payload(self, payload: dict) -> None: ...
++    async def get_payload(self, payload_id: str) -> dict | None: ...
++    async def upsert_source(self, source: dict) -> None: ...
++    async def get_extract(self, key: str) -> dict | None: ...
++    async def put_extract(self, extract: dict) -> None: ...
++    async def upsert_company_state(self, company_id: str, *, fields: dict) -> None: ...
++    async def list_company_states(self, company_ids: list[str] | None = None) -> list[dict]: ...
++    async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None: ...
++    async def insert_draft(self, draft: dict) -> None: ...
++    async def supersede_pending_drafts(self, company_id: str) -> int: ...
++
++
++def _update_doc(fields: dict | None, inc: dict | None) -> dict:
++    doc: dict = {}
++    if fields:
++        doc["$set"] = fields
++    if inc:
++        doc["$inc"] = inc
++    return doc
++
++
++class MongoResearchStore:
++    def __init__(self, db: AsyncIOMotorDatabase):
++        self._db = db
++
++    # --- runs ---
++    async def insert_run(self, run: dict) -> None:
++        await self._db[RUNS].insert_one(dict(run))   # copy: insert_one adds _id to the dict it is given
++
++    async def get_run(self, run_id: str) -> dict | None:
++        return await self._db[RUNS].find_one({"run_id": run_id}, {"_id": 0})
++
++    async def update_run(self, run_id: str, *, fields: dict | None = None, inc: dict | None = None) -> dict | None:
++        upd = _update_doc(fields, inc)
++        if not upd:
++            return await self.get_run(run_id)
++        return await self._db[RUNS].find_one_and_update(
++            {"run_id": run_id}, upd, projection={"_id": 0}, return_document=ReturnDocument.AFTER,
++        )
++
++    async def find_active_run(self) -> dict | None:
++        return await self._db[RUNS].find_one(
++            {"status": {"$in": sorted(ACTIVE_RUN_STATUSES)}}, {"_id": 0}, sort=[("created_at", DESCENDING)],
++        )
++
++    async def find_runs_by_status(self, statuses: Iterable[str]) -> list[dict]:
++        cur = self._db[RUNS].find({"status": {"$in": list(statuses)}}, {"_id": 0}).sort("created_at", ASCENDING)
++        return await cur.to_list(None)
++
++    async def list_runs(self, limit: int) -> list[dict]:
++        cur = self._db[RUNS].find({}, {"_id": 0, "targets": 0}).sort("created_at", DESCENDING).limit(limit)
++        return await cur.to_list(None)
++
++    # --- items ---
++    async def insert_items(self, items: list[dict]) -> None:
++        if items:
++            await self._db[ITEMS].insert_many([dict(i) for i in items])
++
++    async def list_items(self, run_id: str) -> list[dict]:
++        return await self._db[ITEMS].find({"run_id": run_id}, {"_id": 0}).sort("position", ASCENDING).to_list(None)
++
++    async def update_item(self, run_id: str, company_id: str, *, fields: dict | None = None, inc: dict | None = None) -> None:
++        upd = _update_doc(fields, inc)
++        if upd:
++            await self._db[ITEMS].update_one({"run_id": run_id, "company_id": company_id}, upd)
++
++    # --- spans ---
++    async def put_span(self, span: dict) -> None:
++        await self._db[SPANS].replace_one({"span_id": span["span_id"]}, dict(span), upsert=True)
++
++    async def get_span(self, span_id: str) -> dict | None:
++        return await self._db[SPANS].find_one({"span_id": span_id}, {"_id": 0})
++
++    async def list_spans(self, run_id: str, company_id: str | None = None) -> list[dict]:
++        q: dict = {"run_id": run_id}
++        if company_id:
++            q["company_id"] = company_id
++        projection = {"_id": 0, **{k: 0 for k in SPAN_LIST_EXCLUDE}}
++        return await self._db[SPANS].find(q, projection).sort("started_at", ASCENDING).to_list(None)
++
++    # --- events ---
++    async def insert_events(self, events: list[dict]) -> None:
++        if events:
++            await self._db[EVENTS].insert_many([dict(e) for e in events], ordered=False)
++
++    async def list_events(self, run_id: str, flt: EventFilter) -> list[dict]:
++        seq: dict = {"$gt": flt.after_seq}
++        if flt.before_seq is not None:
++            seq["$lt"] = flt.before_seq
++        q: dict = {"run_id": run_id, "seq": seq}
++        if flt.min_level:
++            q["level_rank"] = {"$gte": LEVEL_RANK[flt.min_level]}
++        if flt.company_id:
++            q["company_id"] = flt.company_id
++        if flt.node:
++            q["node"] = flt.node
++        if flt.span_id:
++            q["span_id"] = flt.span_id
++        if flt.type_prefix:
++            q["type"] = {"$regex": "^" + re.escape(flt.type_prefix)}
++        if flt.q:
++            q["message"] = {"$regex": re.escape(flt.q), "$options": "i"}
++        newest_first = flt.before_seq is not None
++        cur = self._db[EVENTS].find(q, {"_id": 0}).sort("seq", DESCENDING if newest_first else ASCENDING).limit(flt.limit)
++        rows = await cur.to_list(None)
++        return list(reversed(rows)) if newest_first else rows
++
++    # --- payloads / sources / extracts ---
++    async def put_payload(self, payload: dict) -> None:
++        await self._db[PAYLOADS].insert_one(dict(payload))
++
++    async def get_payload(self, payload_id: str) -> dict | None:
++        return await self._db[PAYLOADS].find_one({"payload_id": payload_id}, {"_id": 0})
++
++    async def upsert_source(self, source: dict) -> None:
++        doc = dict(source)
++        kinds = doc.pop("kinds", [])
++        await self._db[SOURCES].update_one(
++            {"url": doc["url"]}, {"$set": doc, "$addToSet": {"kinds": {"$each": kinds}}}, upsert=True,
++        )
++
++    async def get_extract(self, key: str) -> dict | None:
++        return await self._db[EXTRACTS].find_one({"key": key}, {"_id": 0})
++
++    async def put_extract(self, extract: dict) -> None:
++        await self._db[EXTRACTS].replace_one({"key": extract["key"]}, dict(extract), upsert=True)
++
++    # --- company research state / drafts ---
++    async def upsert_company_state(self, company_id: str, *, fields: dict) -> None:
++        await self._db[COMPANY_STATE].update_one(
++            {"company_id": company_id}, {"$set": {**fields, "company_id": company_id}}, upsert=True,
++        )
++
++    async def list_company_states(self, company_ids: list[str] | None = None) -> list[dict]:
++        q = {} if company_ids is None else {"company_id": {"$in": company_ids}}
++        return await self._db[COMPANY_STATE].find(q, {"_id": 0}).to_list(None)
++
++    async def latest_draft(self, company_id: str, *, status: str | None = None) -> dict | None:
++        q: dict = {"company_id": company_id}
++        if status:
++            q["status"] = status
++        return await self._db[DRAFTS].find_one(q, {"_id": 0}, sort=[("version", DESCENDING)])
++
++    async def insert_draft(self, draft: dict) -> None:
++        await self._db[DRAFTS].insert_one(dict(draft))
++
++    async def supersede_pending_drafts(self, company_id: str) -> int:
++        res = await self._db[DRAFTS].update_many(
++            {"company_id": company_id, "status": "pending_review"}, {"$set": {"status": "superseded"}},
++        )
++        return res.modified_count
++
++
++async def ensure_research_indexes(db: AsyncIOMotorDatabase, *, ttl_days: int) -> None:
++    await db[RUNS].create_index([("run_id", ASCENDING)], name="run_id", unique=True)
++    await db[RUNS].create_index([("status", ASCENDING), ("created_at", DESCENDING)], name="status_created")
++    await db[ITEMS].create_index([("run_id", ASCENDING), ("company_id", ASCENDING)], name="run_company", unique=True)
++    await db[SPANS].create_index([("span_id", ASCENDING)], name="span_id", unique=True)
++    await db[SPANS].create_index(
++        [("run_id", ASCENDING), ("company_id", ASCENDING), ("started_at", ASCENDING)], name="run_company_started",
++    )
++    await db[EVENTS].create_index([("run_id", ASCENDING), ("seq", ASCENDING)], name="run_seq", unique=True)
++    await db[PAYLOADS].create_index([("payload_id", ASCENDING)], name="payload_id", unique=True)
++    await db[SOURCES].create_index([("url", ASCENDING)], name="url", unique=True)
++    await db[EXTRACTS].create_index([("key", ASCENDING)], name="key", unique=True)
++    await db[COMPANY_STATE].create_index([("company_id", ASCENDING)], name="company_id", unique=True)
++    await db[DRAFTS].create_index([("draft_id", ASCENDING)], name="draft_id", unique=True)
++    await db[DRAFTS].create_index([("company_id", ASCENDING), ("version", DESCENDING)], name="company_version", unique=True)
++    seconds = ttl_days * 86_400
++    await _ttl_index(db, EVENTS, "ts", seconds)
++    await _ttl_index(db, PAYLOADS, "created_at", seconds)
++
++
++async def _ttl_index(db: AsyncIOMotorDatabase, coll: str, field_name: str, seconds: int) -> None:
++    name = f"{field_name}_ttl"
++    try:
++        await db[coll].create_index([(field_name, ASCENDING)], name=name, expireAfterSeconds=seconds)
++    except OperationFailure:
++        # RESEARCH_TRACE_TTL_DAYS changed since the index was built: createIndex refuses, collMod updates in place.
++        await db.command("collMod", coll, index={"name": name, "expireAfterSeconds": seconds})
+diff --git a/apps/ai-service/tests/research/test_store_contract.py b/apps/ai-service/tests/research/test_store_contract.py
+new file mode 100644
+index 0000000..24b1794
+--- /dev/null
++++ b/apps/ai-service/tests/research/test_store_contract.py
+@@ -0,0 +1,174 @@
++"""One behavioural contract, two stores. The Mongo half runs only when RESEARCH_TEST_MONGO_URL points
++at a server you can create throwaway databases on (e.g. the Atlas dev cluster):
++
++    RESEARCH_TEST_MONGO_URL='mongodb+srv://…' .venv/bin/python -m pytest tests/research/test_store_contract.py -q
++"""
++import asyncio
++import os
++import uuid
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++from app.research.memory_store import InMemoryResearchStore
++from app.research.store import LEVEL_RANK, EventFilter, MongoResearchStore, ensure_research_indexes
++
++T0 = datetime(2026, 10, 2, 10, 0, tzinfo=timezone.utc)
++
++
++async def _noop() -> None:
++    return None
++
++
++@pytest.fixture(params=["memory", "mongo"])
++def make_store(request):
++    if request.param == "memory":
++        async def make_memory():
++            return InMemoryResearchStore(), _noop
++        return make_memory
++    url = os.environ.get("RESEARCH_TEST_MONGO_URL")
++    if not url:
++        pytest.skip("RESEARCH_TEST_MONGO_URL not set")
++
++    async def make_mongo():
++        from motor.motor_asyncio import AsyncIOMotorClient
++        client = AsyncIOMotorClient(url, tz_aware=True)
++        db = client[f"research_contract_{uuid.uuid4().hex[:10]}"]
++        await ensure_research_indexes(db, ttl_days=1)
++
++        async def cleanup():
++            await client.drop_database(db.name)
++            client.close()
++        return MongoResearchStore(db), cleanup
++    return make_mongo
++
++
++def _run(make_store, scenario):
++    async def go():
++        store, cleanup = await make_store()
++        try:
++            await scenario(store)
++        finally:
++            await cleanup()
++    asyncio.run(go())
++
++
++def _run_doc(run_id, status="running", created_at=T0):
++    return {"run_id": run_id, "status": status, "control": "none", "created_at": created_at,
++            "counters": {"done": 0}, "budget": {"exa_used": 0}, "last_seq": 0, "targets": [{"id": "c1"}]}
++
++
++def _event(seq, *, level="info", type_="log", message="hello", span_id=None, company_id=None, node=None):
++    return {"run_id": "r1", "seq": seq, "ts": T0, "level": level, "level_rank": LEVEL_RANK[level],
++            "type": type_, "message": message, "span_id": span_id, "company_id": company_id, "node": node}
++
++
++def test_runs_support_dotted_updates_and_never_leak_mongo_ids(make_store):
++    async def scenario(store):
++        await store.insert_run(_run_doc("r1"))
++        updated = await store.update_run("r1", fields={"status": "paused", "budget.exa_cap": 9}, inc={"counters.done": 2})
++        assert updated["status"] == "paused"
++        assert updated["budget"] == {"exa_used": 0, "exa_cap": 9}
++        assert updated["counters"]["done"] == 2
++        assert "_id" not in (await store.get_run("r1"))
++        assert await store.get_run("nope") is None
++        assert await store.update_run("nope", fields={"status": "x"}) is None
++    _run(make_store, scenario)
++
++
++def test_active_run_and_listing_orders(make_store):
++    async def scenario(store):
++        await store.insert_run(_run_doc("old", status="completed", created_at=T0))
++        await store.insert_run(_run_doc("new", status="paused", created_at=T0 + timedelta(minutes=1)))
++        assert (await store.find_active_run())["run_id"] == "new"
++        listed = await store.list_runs(10)
++        assert [r["run_id"] for r in listed] == ["new", "old"]
++        assert all("targets" not in r for r in listed)
++        assert [r["run_id"] for r in await store.find_runs_by_status(["completed", "paused"])] == ["old", "new"]
++    _run(make_store, scenario)
++
++
++def test_items_keep_queue_order_and_take_dotted_updates(make_store):
++    async def scenario(store):
++        await store.insert_items([
++            {"run_id": "r1", "company_id": "b", "position": 1, "status": "queued", "nodes": {}},
++            {"run_id": "r1", "company_id": "a", "position": 0, "status": "queued", "nodes": {}},
++            {"run_id": "r2", "company_id": "a", "position": 0, "status": "queued", "nodes": {}},
++        ])
++        await store.update_item("r1", "a", fields={"nodes.resolve.status": "ok"}, inc={"nodes.resolve.llm_calls": 1})
++        items = await store.list_items("r1")
++        assert [i["company_id"] for i in items] == ["a", "b"]
++        assert items[0]["nodes"] == {"resolve": {"status": "ok", "llm_calls": 1}}
++        assert all("_id" not in i for i in items)
++    _run(make_store, scenario)
++
++
++def test_spans_upsert_and_list_without_payloads(make_store):
++    async def scenario(store):
++        base = {"span_id": "s1", "run_id": "r1", "company_id": "c1", "parent_id": None, "kind": "node",
++                "name": "resolve", "status": "running", "started_at": T0, "input": {"q": 1}, "output": None}
++        await store.put_span(base)
++        await store.put_span({**base, "status": "ok", "output": {"ok": True}})
++        full = await store.get_span("s1")
++        assert full["status"] == "ok" and full["input"] == {"q": 1} and full["output"] == {"ok": True}
++        listed = await store.list_spans("r1")
++        assert len(listed) == 1 and "input" not in listed[0] and "output" not in listed[0]
++        assert await store.list_spans("r1", company_id="other") == []
++    _run(make_store, scenario)
++
++
++def test_event_filters_and_pages(make_store):
++    async def scenario(store):
++        await store.insert_events([
++            _event(1, type_="run.started", message="starting run"),
++            _event(2, level="debug", type_="span.start", span_id="s1", company_id="c1", node="resolve"),
++            _event(3, level="warn", message="Meesho is slow", company_id="c1", node="resolve"),
++            _event(4, level="error", type_="span.end", span_id="s1", company_id="c1", node="resolve"),
++            _event(5, message="other company", company_id="c2"),
++        ])
++        seqs = lambda rows: [e["seq"] for e in rows]  # noqa: E731
++        assert seqs(await store.list_events("r1", EventFilter(after_seq=2))) == [3, 4, 5]
++        assert seqs(await store.list_events("r1", EventFilter(before_seq=5, limit=2))) == [3, 4]
++        assert seqs(await store.list_events("r1", EventFilter(min_level="warn"))) == [3, 4]
++        assert seqs(await store.list_events("r1", EventFilter(type_prefix="span."))) == [2, 4]
++        assert seqs(await store.list_events("r1", EventFilter(q="MEESHO"))) == [3]
++        assert seqs(await store.list_events("r1", EventFilter(span_id="s1"))) == [2, 4]
++        assert seqs(await store.list_events("r1", EventFilter(company_id="c1", node="resolve"))) == [2, 3, 4]
++        assert seqs(await store.list_events("r1", EventFilter(limit=2))) == [1, 2]
++    _run(make_store, scenario)
++
++
++def test_drafts_latest_by_version_and_supersede(make_store):
++    async def scenario(store):
++        await store.insert_draft({"draft_id": "d1", "company_id": "c1", "version": 1, "status": "approved"})
++        await store.insert_draft({"draft_id": "d2", "company_id": "c1", "version": 2, "status": "pending_review"})
++        assert (await store.latest_draft("c1"))["draft_id"] == "d2"
++        assert (await store.latest_draft("c1", status="approved"))["draft_id"] == "d1"
++        assert await store.supersede_pending_drafts("c1") == 1
++        assert (await store.latest_draft("c1"))["status"] == "superseded"
++        assert await store.latest_draft("nope") is None
++    _run(make_store, scenario)
++
++
++def test_company_state_upsert_and_filter(make_store):
++    async def scenario(store):
++        await store.upsert_company_state("c1", fields={"last_status": "queued"})
++        await store.upsert_company_state("c1", fields={"last_status": "done", "last_researched_at": T0})
++        await store.upsert_company_state("c2", fields={"last_status": "failed"})
++        one = await store.list_company_states(["c1"])
++        assert one == [{"company_id": "c1", "last_status": "done", "last_researched_at": T0}]
++        assert len(await store.list_company_states()) == 2
++    _run(make_store, scenario)
++
++
++def test_sources_merge_kinds_and_extract_cache_roundtrip(make_store):
++    async def scenario(store):
++        await store.upsert_source({"url": "https://a.com", "text": "v1", "kinds": ["resolve"]})
++        await store.upsert_source({"url": "https://a.com", "text": "v2", "kinds": ["resolve", "profile"]})
++        await store.put_payload({"payload_id": "p1", "run_id": "r1", "body": {"big": True}, "created_at": T0})
++        assert (await store.get_payload("p1"))["body"] == {"big": True}
++        await store.put_extract({"key": "k1", "output": {"a": 1}, "created_at": T0})
++        await store.put_extract({"key": "k1", "output": {"a": 2}, "created_at": T0})
++        assert (await store.get_extract("k1"))["output"] == {"a": 2}
++        assert await store.get_extract("missing") is None
++    _run(make_store, scenario)

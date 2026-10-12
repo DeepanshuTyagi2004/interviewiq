@@ -1,0 +1,36 @@
+## Global Constraints
+
+- **No new runtime dependencies** in any app.
+- **Git: do not commit.** Leave every change in the working tree; the user commits themselves. Skip any "commit" habit. Never `git add` files outside this plan.
+- **File ownership (agreed with HUD session `interviewiq-50`):**
+  - Never edit `components/layout/app-shell/AccountMenu.tsx`, `AppTopBar.tsx`, `AppShell.tsx`, `CommandMenu.tsx`, or anything in `components/hud/**`, `components/layout/useThemeSwitch.ts` or `components/layout/ThemeToggle.tsx`.
+  - `nav.ts` may get the one Settings entry (Task 9).
+- **Phase gate:** Tasks 1–8 (Phase A) start now. Tasks 9–16 (Phase B) start only after `interviewiq-50` reports its HUD Tasks 8 (profile) and 12 (stubs) done. Before each Phase B task, re-read every file it modifies; the HUD sweep may have changed them.
+- **Error codes (verbatim):**
+  - `invalid_preferences` (400), `invalid_name` (400), `invalid_request` (400)
+  - `confirmation_mismatch` (400), `invalid_password` (403)
+  - `interview_in_progress` (409), `deletion_unavailable` (502)
+- **Preference defaults (verbatim from spec §3.1):**
+  - **locale:** `en` / `null` / `DD/MM/YYYY` / `12h` / `monday`
+  - **interview:** `en` / `neutral` / `normal` / captions `true` / showTimer `true` / deviceCheck `true` / `1h`
+  - **notifications:** `emailPaused false`
+    - email: all `true` except `productUpdates false`
+    - inApp: all `true` except `weeklyDigest false` and `productUpdates false`
+  - **privacy:** `anonymous` / `false` / `false` / `false`
+- **Styling:**
+  - Token classes only (`bg-card`, `border-line-2`, `text-muted-foreground`, `bg-brand`, …), Geist fonts, `font-mono` for numerals/pills/codes.
+  - The **only** exception is the theme preview tiles (Task 11), which illustrate a fixed light/dark look with Tailwind neutrals (`bg-white`, `bg-neutral-900`, …).
+  - Never raw hex.
+- **Copy:**
+  - Always "resume", never "résumé".
+  - No badges / endorsement wording.
+  - Settings not wired yet carry a hint: `Applies once email delivery is live` / `Applies once notifications ship` / `Applies once leaderboards ship` / `Your AI interviewer uses this from its next update`.
+- **Scoring untouched:** nothing here reads or writes scores, thresholds, cooldowns or readiness.
+- **Commands:**
+  - API tests: `pnpm --filter @interviewiq/api exec vitest run <file>`
+  - API typecheck: `pnpm --filter @interviewiq/api typecheck`
+  - AI service: `cd apps/ai-service && .venv/bin/python -m pytest -q <file>`
+  - Web: `pnpm --filter @interviewiq/web exec vitest run <file>` and `pnpm --filter @interviewiq/web typecheck`
+  - Contract types: `pnpm contracts:types`
+- **Deviation from spec, deliberate:** Accessibility "Reduce motion" offers `Match system` · `Reduce` only. An "Allow" option can't override the OS setting, because `motion-reduce:` utilities follow the media query, so offering it would lie.
+

@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 3cc995d1f3a5e39b3070da7a62efefb7528cc64f sdd-shadow <sdd@local> 1790950103 +0530	commit (initial): baseline before Task 1
+3cc995d1f3a5e39b3070da7a62efefb7528cc64f 37782f01e2a17574b3a762a69419364a60f064ac sdd-shadow <sdd@local> 1790950226 +0530	commit: after Task 1
+37782f01e2a17574b3a762a69419364a60f064ac e5ef36ea51de89b273f992de5b0da96284eedd5f sdd-shadow <sdd@local> 1790950434 +0530	commit: after Task 2
+e5ef36ea51de89b273f992de5b0da96284eedd5f d63c2fc96f1299a8b6698357dea050da0514a2fb sdd-shadow <sdd@local> 1790950672 +0530	commit: after Task 3
+d63c2fc96f1299a8b6698357dea050da0514a2fb 5bfe79e4425eb62ca85c3b76ffb63a13d9dcc068 sdd-shadow <sdd@local> 1790950872 +0530	commit: after Task 4
+5bfe79e4425eb62ca85c3b76ffb63a13d9dcc068 37a7ccabe56cd011866b2f5f1d6ef0f7ca4e6d26 sdd-shadow <sdd@local> 1790951010 +0530	commit: after Task 5
+37a7ccabe56cd011866b2f5f1d6ef0f7ca4e6d26 3aec7b3f2ea3204227c291f2b9abdf52d9a5c0cf sdd-shadow <sdd@local> 1790951164 +0530	commit: Task 6 killed mid-way
+3aec7b3f2ea3204227c291f2b9abdf52d9a5c0cf 7fc9b190c807824ddf903e516f92676c5b21540c sdd-shadow <sdd@local> 1790951462 +0530	commit: after Task 6

@@ -1,0 +1,9 @@
+Global constraints (verbatim from the plan / spec):
+- No commits. The user commits their own work (standing rule). No Docker. No new runtime dependencies.
+- Error envelope everywhere: { "code": string, "message": string }.
+- JSON casing: research proxy payloads stay snake_case (the API passes ai-service JSON through, the same as the existing /intelligence/* proxies); admin company payloads are camelCase (API-owned).
+- Contract first: packages/contracts/openapi.yaml is the source of truth; web types come from `pnpm contracts:types`.
+- Slugs must be identical in Python and TypeScript: NFKD-fold, drop non-ASCII, lowercase, & → " and ", non-alphanumerics → -, trim -.
+- LEVELS is unchanged in Phase 1.
+- Spec §4.1: students see only companies with published_at set and status = active; migration backfills published_at = created_at for pre-existing rows so nothing disappears; the seeder only upserts and never deletes; admin-added companies start unpublished with origin "admin"; the slug is fixed at creation (it joins JDs, briefs and research).
+- Spec §8.1: all admin routes are ADMIN-only (security middleware on /api/v1/admin/**); internal routes require X-Internal-Api-Key; the AI-service research-state lookup never throws (companies list still works when the AI service is down).

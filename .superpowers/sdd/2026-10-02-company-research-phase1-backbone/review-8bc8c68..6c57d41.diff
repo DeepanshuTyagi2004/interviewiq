@@ -1,0 +1,814 @@
+# Review package: 8bc8c6868cd07eae4c21ddc50b4d989214ecc962..6c57d41bb2df192d26227d056cf4d6cdd2d2adea
+
+## Commits
+6c57d41 sdd snapshot 2026-10-02T11:55:48Z
+
+## Files changed
+ apps/api/src/integrations/aiService/client.ts      |  52 +++++
+ apps/api/src/routes/admin.ts                       | 226 ++++++++++++---------
+ apps/api/src/routes/catalogue.ts                   |  15 +-
+ apps/api/src/routes/internal.ts                    |   6 +
+ .../api/test/routes/adminCompanyController.test.ts | 177 +++++++---------
+ .../test/routes/internalResearchTargets.test.ts    |  25 +++
+ apps/api/test/routes/jdHiddenCompanies.test.ts     |  49 +++++
+ 7 files changed, 345 insertions(+), 205 deletions(-)
+
+## Diff
+diff --git a/apps/api/src/integrations/aiService/client.ts b/apps/api/src/integrations/aiService/client.ts
+index 582fa03..ce42fe4 100644
+--- a/apps/api/src/integrations/aiService/client.ts
++++ b/apps/api/src/integrations/aiService/client.ts
+@@ -182,20 +182,72 @@ export class AiServiceClient {
+   }
+ 
+   listAgentRuns(): Promise<unknown> {
+     return this.getJson("/admin/interview-agent/runs");
+   }
+ 
+   endAgentRun(runId: string): Promise<unknown> {
+     return this.postJson(`/admin/interview-agent/runs/${seg(runId)}/end`);
+   }
+ 
++  // --- company research (Phase 1) -------------------------------------------------------------
++
++  /** Research state per company `{states: [...]}`; null when the AI service is unreachable (lookup: never throws). */
++  async companyResearchStates(ids: string[]): Promise<unknown | null> {
++    try {
++      return await this.getJson(`/research/companies/state?ids=${ids.map(encodeURIComponent).join(",")}`);
++    } catch (err) {
++      if (err instanceof UpstreamError) {
++        this.log.warn({ err: err.message }, "AI service research-state lookup failed");
++        return null;
++      }
++      throw err;
++    }
++  }
++
++  startResearchRun(body: unknown): Promise<unknown> {
++    return this.postJson("/research/runs", body);
++  }
++
++  listResearchRuns(limit: number): Promise<unknown> {
++    return this.getJson(`/research/runs?limit=${limit}`);
++  }
++
++  getResearchRun(runId: string): Promise<unknown> {
++    return this.getJson(`/research/runs/${seg(runId)}`);
++  }
++
++  controlResearchRun(runId: string, action: "pause" | "resume" | "stop"): Promise<unknown> {
++    return this.postJson(`/research/runs/${seg(runId)}/${action}`);
++  }
++
++  async patchResearchBudget(runId: string, body: unknown): Promise<unknown> {
++    const path = `/research/runs/${seg(runId)}/budget`;
++    return this.nonEmptyJson(
++      await this.send({ method: "PATCH", url: this.url(path), body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
++      path,
++    );
++  }
++
++  listResearchEvents(runId: string, query: URLSearchParams): Promise<unknown> {
++    const qs = query.toString();
++    return this.getJson(`/research/runs/${seg(runId)}/events${qs ? `?${qs}` : ""}`);
++  }
++
++  listResearchSpans(runId: string, companyId: string | null): Promise<unknown> {
++    return this.getJson(`/research/runs/${seg(runId)}/spans${companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""}`);
++  }
++
++  getResearchSpan(spanId: string): Promise<unknown> {
++    return this.getJson(`/research/spans/${seg(spanId)}`);
++  }
++
+   // --- transport -----------------------------------------------------------------------------
+ 
+   private url(pathAndQuery: string): string {
+     return `${this.baseUrl}${pathAndQuery}`;
+   }
+ 
+   private send(req: OutboundRequest): Promise<string> {
+     return requestText(this.fetchImpl, {
+       ...req,
+       timeoutMs: req.timeoutMs ?? this.timeoutMs,
+diff --git a/apps/api/src/routes/admin.ts b/apps/api/src/routes/admin.ts
+index 79fcb58..3b4c7bd 100644
+--- a/apps/api/src/routes/admin.ts
++++ b/apps/api/src/routes/admin.ts
+@@ -1,129 +1,173 @@
+ import type { Router } from "express";
+ import type { Container } from "../container.js";
+-import { LEVELS, ROLES, type Role } from "../domain/enums.js";
++import { ROLES, type Role } from "../domain/enums.js";
+ import { str } from "../domain/candidateProfile.js";
+-import { UpstreamError } from "../lib/http.js";
+-import { isBlank, isObject, items } from "../lib/json.js";
+-import { sendError, stringParam, uuidParam, router } from "../http/support.js";
++import { COMPANY_STATUSES, companies, type CompanyRow, type CompanyStatus } from "../db/pg/schema.js";
++import { slugify } from "../domain/slug.js";
++import { ApiError } from "../lib/errors.js";
++import { isObject, items, path } from "../lib/json.js";
++import { sendError, uuidParam, router } from "../http/support.js";
+ import { toUserResponse } from "../services/userService.js";
+ 
+-const DEFAULT_ROLE = "software-engineer";
+-const DEFAULT_SPECIALIZATION = "general";
++const MAX_ALIASES = 10;
++const MAX_ALIAS_LENGTH = 100;
++
++/** The AI service's per-company research state (spec §4.2 company_research_state). */
++interface ResearchState {
++  company_id: string;
++  last_run_id?: string | null;
++  last_researched_at?: string | null;
++  last_status?: string | null;
++  latest_draft_id?: string | null;
++  latest_draft_status?: string | null;
++}
++
++function toAdminCompany(row: CompanyRow, state: ResearchState | undefined) {
++  return {
++    id: row.id,
++    name: row.name,
++    slug: row.slug,
++    website: row.website,
++    aliases: row.aliases,
++    status: row.status,
++    origin: row.origin,
++    tier: row.tier,
++    publishedVersion: row.publishedVersion,
++    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
++    createdAt: row.createdAt.toISOString(),
++    research: state
++      ? {
++          lastRunId: state.last_run_id ?? null,
++          lastResearchedAt: state.last_researched_at ?? null,
++          lastStatus: state.last_status ?? null,
++          latestDraftId: state.latest_draft_id ?? null,
++          latestDraftStatus: state.latest_draft_status ?? null,
++        }
++      : null,
++  };
++}
++
++function parseName(raw: unknown): { name: string; slug: string } {
++  const name = typeof raw === "string" ? raw.trim().replace(/\s+/g, " ") : "";
++  const slug = slugify(name);
++  if (!name || name.length > 255 || !slug) {
++    throw new ApiError(400, "invalid_company", "name is required (up to 255 characters, with at least one letter or digit)");
++  }
++  return { name, slug };
++}
+ 
+-const slug = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "-");
++function parseWebsite(raw: unknown): string | null {
++  if (raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "")) return null;
++  const invalid = new ApiError(400, "invalid_website", "website must be an http(s) URL like https://meesho.com");
++  if (typeof raw !== "string") throw invalid;
++  const trimmed = raw.trim();
++  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
++  let url: URL;
++  try {
++    url = new URL(withScheme);
++  } catch {
++    throw invalid;
++  }
++  if (!["http:", "https:"].includes(url.protocol) || !url.hostname.includes(".") || /\s/.test(trimmed) || withScheme.length > 255) {
++    throw invalid;
++  }
++  return withScheme;
++}
++
++function parseAliases(raw: unknown): string[] {
++  if (raw === undefined || raw === null) return [];
++  if (!Array.isArray(raw) || raw.some((a) => typeof a !== "string")) {
++    throw new ApiError(400, "invalid_aliases", "aliases must be a list of strings");
++  }
++  const seen = new Set<string>();
++  const out: string[] = [];
++  for (const alias of raw as string[]) {
++    const clean = alias.trim().replace(/\s+/g, " ");
++    if (!clean) continue;
++    if (clean.length > MAX_ALIAS_LENGTH) throw new ApiError(400, "invalid_aliases", `each alias is at most ${MAX_ALIAS_LENGTH} characters`);
++    const key = clean.toLowerCase();
++    if (seen.has(key)) continue;
++    seen.add(key);
++    out.push(clean);
++  }
++  if (out.length > MAX_ALIASES) throw new ApiError(400, "invalid_aliases", `at most ${MAX_ALIASES} aliases`);
++  return out;
++}
+ 
+ /**
+- * Admin catalogue management (ingestion page): add a company + its JDs, list, delete, and load the
+- * starter catalogue. The catalogue IS the job_descriptions table the student Jobs page shows.
++ * Admin company catalogue (Intelligence → Companies): the curated list the research job works
++ * through. A new company starts unpublished: students see it only after an admin approves its
++ * first research draft (Phase 2). The slug is fixed at creation; it joins JDs, briefs and research.
+  */
+ export function adminCompaniesRouter(c: Container): Router {
+   const r = router();
+ 
+-  /** Load the starter catalogue on demand. Idempotent. Does NOT trigger ingestion. */
++  /** Load the starter catalogue on demand. Idempotent, upsert-only. Does NOT trigger research. */
+   r.post("/seed", async (_req, res) => {
+     res.json(await c.seeder.seed());
+   });
+ 
+   r.get("/", async (_req, res) => {
+-    const byCompany = new Map<string, unknown[]>();
+-    for (const j of await c.repos.jds.findAllActiveOrdered()) {
+-      if (!byCompany.has(j.company)) byCompany.set(j.company, []);
+-      byCompany.get(j.company)!.push({
+-        id: j.id,
+-        role: j.role,
+-        level: j.level,
+-        specialization: j.specialization,
+-        title: j.title,
+-        jdUrl: j.sourceUrl,
+-        description: j.description,
+-        enabled: j.active,
+-      });
++    const rows = await c.repos.companies.findAll();
++    const states = rows.length > 0 ? await c.aiService.companyResearchStates(rows.map((row) => row.id)) : { states: [] };
++    const byId = new Map<string, ResearchState>();
++    for (const s of items(path(states, "states"))) {
++      if (isObject(s) && typeof s.company_id === "string") byId.set(s.company_id, s as unknown as ResearchState);
+     }
+-    res.json([...byCompany.entries()].map(([company, jds]) => ({ company, jds })));
++    res.json({ companies: rows.map((row) => toAdminCompany(row, byId.get(row.id))), researchAvailable: states !== null });
+   });
+ 
+   r.post("/", async (req, res) => {
+-    const b = isObject(req.body) ? req.body : null;
+-    const companyRaw = str(b?.company);
+-    const jdsRaw = b && Array.isArray(b.jds) ? b.jds : null;
+-    if (isBlank(companyRaw) || !jdsRaw || jdsRaw.length === 0) {
+-      sendError(res, 400, "invalid_company", "company and at least one JD are required");
++    const b = isObject(req.body) ? req.body : {};
++    const { name, slug } = parseName(b.name);
++    const website = parseWebsite(b.website);
++    const aliases = parseAliases(b.aliases);
++    if (await c.repos.companies.findBySlug(slug)) {
++      sendError(res, 409, "company_exists", `a company with the slug "${slug}" already exists`);
+       return;
+     }
+-    const company = slug(companyRaw);
+-
+-    // Validate everything first so a bad JD doesn't leave a half-saved company behind.
+-    const toSave = [];
+-    for (const raw of items(jdsRaw)) {
+-      const jd = isObject(raw) ? raw : null;
+-      const title = str(jd?.title);
+-      const levelRaw = str(jd?.level);
+-      if (jd === null || isBlank(title) || isBlank(levelRaw)) {
+-        sendError(res, 400, "invalid_jd", "each JD needs a title and a level");
+-        return;
+-      }
+-      const level = levelRaw.trim().toLowerCase();
+-      if (!(LEVELS as readonly string[]).includes(level)) {
+-        sendError(res, 400, "invalid_level", `level must be one of [${LEVELS.join(", ")}]`);
+-        return;
+-      }
+-      const role = str(jd.role);
+-      const specialization = str(jd.specialization);
+-      const description = str(jd.description);
+-      const jdUrl = str(jd.jdUrl);
+-      toSave.push({
+-        company,
+-        role: isBlank(role) ? DEFAULT_ROLE : slug(role),
+-        level,
+-        title: title.trim(),
+-        specialization: isBlank(specialization) ? DEFAULT_SPECIALIZATION : specialization.trim().toLowerCase(),
+-        description: isBlank(description) ? null : description.trim(),
+-        techStack: null,
+-        sourceUrl: isBlank(jdUrl) ? null : jdUrl.trim(),
+-        source: "seed",
+-        active: true,
+-      });
+-    }
++    const row = await c.repos.companies.create({ name, slug, website, aliases, origin: "admin" });
++    res.status(201).json(toAdminCompany(row, undefined));
++  });
+ 
+-    const saved = [];
+-    for (const row of toSave) {
+-      const p = await c.repos.jds.insert(row);
+-      saved.push({
+-        id: p.id,
+-        role: p.role,
+-        level: p.level,
+-        specialization: p.specialization,
+-        title: p.title,
+-        jdUrl: p.sourceUrl,
+-        description: p.description,
+-        enabled: true,
+-      });
++  r.patch("/:id", async (req, res) => {
++    const id = uuidParam(req, "id");
++    const b = isObject(req.body) ? req.body : {};
++    const patch: Partial<typeof companies.$inferInsert> = {};
++    if ("name" in b) patch.name = parseName(b.name).name;
++    if ("website" in b) patch.website = parseWebsite(b.website);
++    if ("aliases" in b) patch.aliases = parseAliases(b.aliases);
++    if ("status" in b) {
++      if (typeof b.status !== "string" || !(COMPANY_STATUSES as readonly string[]).includes(b.status)) {
++        throw new ApiError(400, "invalid_status", `status must be one of [${COMPANY_STATUSES.join(", ")}]`);
++      }
++      patch.status = b.status as CompanyStatus;
+     }
+-
+-    // Kick off ingestion for the new JDs; non-fatal if the AI service is down.
+-    let ingestionTriggered = true;
+-    try {
+-      await c.aiService.triggerScrape();
+-    } catch (err) {
+-      if (!(err instanceof UpstreamError)) throw err;
+-      ingestionTriggered = false;
+-      c.log.warn(`Added ${saved.length} JD(s) for ${company} but could not trigger ingestion: ${err.message}`);
++    const row = Object.keys(patch).length > 0 ? await c.repos.companies.update(id, patch) : await c.repos.companies.findById(id);
++    if (!row) {
++      sendError(res, 404, "company_not_found", "no company with that id");
++      return;
+     }
+-
+-    res.status(201).json({ company, jds: saved, ingestion_triggered: ingestionTriggered });
++    res.json(toAdminCompany(row, undefined));
+   });
+ 
+-  r.delete("/:company", async (req, res) => {
+-    const s = slug(stringParam(req, "company"));
+-    await c.repos.jds.deleteByCompany(s);
+-    await c.repos.companies.deleteBySlug(s);
++  r.delete("/:id", async (req, res) => {
++    const id = uuidParam(req, "id");
++    const row = await c.repos.companies.findById(id);
++    if (!row) {
++      sendError(res, 404, "company_not_found", "no company with that id");
++      return;
++    }
++    await c.repos.jds.deleteByCompany(row.slug);
++    await c.repos.roleConfigs.deleteByCompany(row.slug);
++    await c.repos.companies.deleteById(id);
+     res.status(204).end();
+   });
+ 
+   return r;
+ }
+ 
+ /** Admin user management — list users and promote/demote their role. */
+ export function adminUsersRouter(c: Container): Router {
+   const r = router();
+ 
+diff --git a/apps/api/src/routes/catalogue.ts b/apps/api/src/routes/catalogue.ts
+index 7a3f2bc..6b20a4d 100644
+--- a/apps/api/src/routes/catalogue.ts
++++ b/apps/api/src/routes/catalogue.ts
+@@ -1,12 +1,13 @@
+ import type { Router } from "express";
+ import type { Container } from "../container.js";
++import type { CompanyRow } from "../db/pg/schema.js";
+ import { isBlank, isObject, items, path, textOrNull, asString } from "../lib/json.js";
+ import { UpstreamError } from "../lib/http.js";
+ import { queryString, routerErrors, sendError, uuidParam, router } from "../http/support.js";
+ import { str } from "../domain/candidateProfile.js";
+ 
+ /** Supported companies for the JD library. */
+ export function companiesRouter(c: Container): Router {
+   const r = router();
+   r.get("/", async (_req, res) => {
+     const rows = await c.repos.companies.findPublished();
+@@ -18,42 +19,48 @@ export function companiesRouter(c: Container): Router {
+         tier: co.tier,
+         logoUrl: co.logoUrl,
+         headquarterLocation: co.headquarterLocation,
+         companySize: co.companySize,
+       })),
+     );
+   });
+   return r;
+ }
+ 
++/** A company students must not see: its row exists and is unpublished or archived. */
++const isHidden = (co: CompanyRow) => co.publishedAt === null || co.status === "archived";
++const hiddenSlugs = (rows: CompanyRow[]) => new Set(rows.filter(isHidden).map((co) => co.slug));
++
+ /**
+  * Student-facing JD library. Lists the postings (shown level-wise); the detail embeds the interview
+  * process from the AI-service brief keyed per JD by (company, role, level, specialization).
+  */
+ export function jdsRouter(c: Container): Router {
+   const r = router();
+ 
+   r.get("/", async (req, res) => {
+     const company = queryString(req, "company");
+     const level = queryString(req, "level");
+     const specialization = queryString(req, "specialization");
+     const [companies, jds, summaries] = await Promise.all([
+       c.repos.companies.findAll(),
+       c.repos.jds.findAllActiveOrdered(),
+       c.aiService.listBriefSummaries(),
+     ]);
+     const names = new Map<string, string>();
+     for (const co of companies) if (!names.has(co.slug)) names.set(co.slug, co.name);
++    const hidden = hiddenSlugs(companies);
+     const confidence = confidenceByKey(summaries);
+ 
+     res.json(
+       jds
++        .filter((j) => !hidden.has(j.company))
+         .filter((j) => company === null || eqIgnoreCase(company, j.company))
+         .filter((j) => level === null || eqIgnoreCase(level, j.level))
+         .filter((j) => specialization === null || eqIgnoreCase(specialization, j.specialization))
+         .map((j) => {
+           const conf = confidence.get(key(j.company, j.role, j.level, j.specialization)) ?? null;
+           return {
+             id: j.id,
+             company: j.company,
+             companyName: names.get(j.company) ?? j.company,
+             role: j.role,
+@@ -62,28 +69,26 @@ export function jdsRouter(c: Container): Router {
+             specialization: j.specialization,
+             dataConfidence: conf,
+             dataAvailability: availability(conf),
+           };
+         }),
+     );
+   });
+ 
+   r.get("/:id", async (req, res) => {
+     const j = await c.repos.jds.findById(uuidParam(req, "id"));
+-    if (!j) {
++    const company = j ? await c.repos.companies.findBySlug(j.company) : null;
++    if (!j || (company !== null && isHidden(company))) {
+       sendError(res, 404, "jd_not_found", "no JD with that id");
+       return;
+     }
+-    const [company, brief] = await Promise.all([
+-      c.repos.companies.findBySlug(j.company),
+-      c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization),
+-    ]);
++    const brief = await c.aiService.fetchBrief(j.company, j.role, j.level, j.specialization);
+     let interviewProcess: unknown = null;
+     let conf: string | null = null;
+     let sources: string[] = [];
+     if (brief !== null) {
+       interviewProcess = interviewProcessOf(brief);
+       conf = textOrNull(path(brief, "data_confidence"));
+       sources = items(path(brief, "sources")).map((s) => asString(s, ""));
+     }
+     res.json({
+       id: j.id,
+diff --git a/apps/api/src/routes/internal.ts b/apps/api/src/routes/internal.ts
+index ca4da18..ea59846 100644
+--- a/apps/api/src/routes/internal.ts
++++ b/apps/api/src/routes/internal.ts
+@@ -22,20 +22,26 @@ export function internalRouter(c: Container): Router {
+         role: j.role,
+         level: j.level,
+         specialization: j.specialization,
+         title: j.title,
+         jdUrl: j.sourceUrl,
+         description: j.description,
+       })),
+     );
+   });
+ 
++  /** Company research targets: every ACTIVE company, published or not (spec §8.1). */
++  r.get("/research-targets", async (_req, res) => {
++    const rows = await c.repos.companies.findActive();
++    res.json(rows.map((co) => ({ id: co.id, name: co.name, slug: co.slug, website: co.website, aliases: co.aliases })));
++  });
++
+   /** Called once when an interview ends: persist the SessionOutcome and finalize the session. */
+   r.post("/sessions/:sessionId/outcome", async (req, res) => {
+     const sessionId = uuidParam(req, "sessionId");
+     const outcome = requiredBody(req);
+     if (!isObject(outcome)) throw new BadRequestError("the SessionOutcome must be a JSON object");
+     await c.liveSessions.recordOutcome(sessionId, outcome);
+     res.status(204).end();
+   });
+ 
+   return r;
+diff --git a/apps/api/test/routes/adminCompanyController.test.ts b/apps/api/test/routes/adminCompanyController.test.ts
+index 1257c04..f47d689 100644
+--- a/apps/api/test/routes/adminCompanyController.test.ts
++++ b/apps/api/test/routes/adminCompanyController.test.ts
+@@ -1,12 +1,11 @@
+ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+-import { status } from "../support/fakeFetch.js";
+ import { bearer, createUser, createTestEnv, type TestEnv } from "../support/harness.js";
+ import { AI, aiCalls, seedCompany, seedJd, seedRoleConfig } from "./helpers.js";
+ 
+ /**
+  * Admin catalogue management (/api/v1/admin/companies) — no Java controller test existed. Asserts
+  * AdminCompanyController's contract: seed result shape, create validation codes, 201 with
+  * ingestion_triggered, list grouping and 204 delete.
+  */
+ 
+ const BASE = "/api/v1/admin/companies";
+@@ -43,150 +42,110 @@ describe("POST /admin/companies/seed", () => {
+     expect(res.body).toEqual({ companies: 0, inserted: 0, backfilled: 0, total: 3 });
+   });
+ 
+   it("ADMIN-only", async () => {
+     const user = await bearer(env, await createUser(env));
+     expect((await env.http.post(`${BASE}/seed`).set("Authorization", user)).status).toBe(403);
+     expect((await env.http.post(`${BASE}/seed`)).status).toBe(401);
+   });
+ });
+ 
+-describe("catalogue CRUD", () => {
++describe("company CRUD", () => {
+   let env: TestEnv;
+   let admin: string;
+   beforeAll(async () => {
+     env = await createTestEnv();
+     admin = await bearer(env, await createUser(env, { role: "ADMIN" }));
+   });
+   afterAll(() => env.close());
+   beforeEach(() => env.fetch.reset());
+ 
+-  it("POST 201: slugifies, defaults role/specialization, trims, and triggers ingestion", async () => {
+-    env.fetch.on("POST", `${AI}/admin/scrape/run`, { run_id: "r", status: "running" });
++  it("POST 201: slugs the name, normalises website + aliases, starts unpublished, triggers nothing", async () => {
+     const res = await env.http
+       .post(BASE)
+       .set("Authorization", admin)
+-      .send({
+-        company: "  Big   Co ",
+-        jds: [
+-          { title: "  SDE 1  ", level: " SDE1 " },
+-          {
+-            title: "Backend Engineer",
+-            level: "sde2",
+-            role: " Backend Engineer ",
+-            specialization: " Backend ",
+-            jdUrl: " https://big.co/jobs/1 ",
+-            description: "  Build APIs.  ",
+-          },
+-        ],
+-      });
++      .send({ name: "  Tata   Consultancy Services (TCS) ", website: "tcs.com", aliases: [" TCS ", "tcs", "Tata CS"] });
+     expect(res.status).toBe(201);
+-    expect(Object.keys(res.body).sort()).toEqual(["company", "ingestion_triggered", "jds"]);
+-    expect(res.body.company).toBe("big-co");
+-    expect(res.body.ingestion_triggered).toBe(true);
+-    expect(res.body.jds).toEqual([
+-      {
+-        id: expect.stringMatching(UUID_RE),
+-        role: "software-engineer",
+-        level: "sde1",
+-        specialization: "general",
+-        title: "SDE 1",
+-        jdUrl: null,
+-        description: null,
+-        enabled: true,
+-      },
+-      {
+-        id: expect.stringMatching(UUID_RE),
+-        role: "backend-engineer",
+-        level: "sde2",
+-        specialization: "backend",
+-        title: "Backend Engineer",
+-        jdUrl: "https://big.co/jobs/1",
+-        description: "Build APIs.",
+-        enabled: true,
+-      },
+-    ]);
+-    expect(aiCalls(env).map((c) => `${c.method} ${c.url}`)).toEqual([`POST ${AI}/admin/scrape/run`]);
+-
+-    // persisted as active JDs, visible to students
+-    const jd = await env.c.repos.jds.findById(res.body.jds[1].id);
+-    expect(jd).toMatchObject({ company: "big-co", role: "backend-engineer", source: "seed", active: true, sourceUrl: "https://big.co/jobs/1" });
+-  });
+-
+-  it("POST 201 with ingestion_triggered=false when the AI service is down (JDs still saved)", async () => {
+-    env.fetch.on("POST", `${AI}/admin/scrape/run`, () => status(503));
+-    const res = await env.http.post(BASE).set("Authorization", admin).send({ company: "Down Co", jds: [{ title: "SDE", level: "fresher" }] });
+-    expect(res.status).toBe(201);
+-    expect(res.body.ingestion_triggered).toBe(false);
+-    expect(res.body.company).toBe("down-co");
+-    expect(await env.c.repos.jds.findById(res.body.jds[0].id)).not.toBeNull();
++    expect(res.body).toMatchObject({
++      name: "Tata Consultancy Services (TCS)",
++      slug: "tata-consultancy-services-tcs",
++      website: "https://tcs.com",
++      aliases: ["TCS", "Tata CS"],
++      status: "active",
++      origin: "admin",
++      publishedAt: null,
++      publishedVersion: null,
++      research: null,
++    });
++    expect(res.body.id).toMatch(UUID_RE);
++    expect(aiCalls(env)).toHaveLength(0);
++    const student = await env.http.get("/api/v1/companies").set("Authorization", admin);
++    expect(student.body.map((c: { slug: string }) => c.slug)).not.toContain("tata-consultancy-services-tcs");
+   });
+ 
+-  it.each([
+-    ["invalid_company", "no company", { jds: [{ title: "SDE", level: "sde1" }] }],
+-    ["invalid_company", "a blank company", { company: "   ", jds: [{ title: "SDE", level: "sde1" }] }],
+-    ["invalid_company", "no jds", { company: "X" }],
+-    ["invalid_company", "an empty jds list", { company: "X", jds: [] }],
+-    ["invalid_company", "an empty body", {}],
+-    ["invalid_jd", "a JD without a title", { company: "X", jds: [{ level: "sde1" }] }],
+-    ["invalid_jd", "a JD with a blank level", { company: "X", jds: [{ title: "SDE", level: " " }] }],
+-    ["invalid_jd", "a null JD entry", { company: "X", jds: [null] }],
+-    ["invalid_level", "an unknown level", { company: "X", jds: [{ title: "SDE", level: "principal" }] }],
+-  ])("400 %s for %s (no ingestion)", async (code, _label, body) => {
+-    const res = await env.http.post(BASE).set("Authorization", admin).send(body);
+-    expect(res.status).toBe(400);
+-    expect(res.body.code).toBe(code);
+-    expect(typeof res.body.message).toBe("string");
+-    expect(aiCalls(env)).toHaveLength(0);
++  it("POST validation: 400 codes and 409 on a duplicate slug", async () => {
++    const post = (body: unknown) => env.http.post(BASE).set("Authorization", admin).send(body as object);
++    expect((await post({ name: "  " })).body.code).toBe("invalid_company");
++    expect((await post({ name: "!!!" })).body.code).toBe("invalid_company");
++    expect((await post({ name: "Acme", website: "not a url" })).body.code).toBe("invalid_website");
++    expect((await post({ name: "Acme", website: "ftp://acme.com" })).body.code).toBe("invalid_website");
++    expect((await post({ name: "Acme", aliases: "Acme Inc" })).body.code).toBe("invalid_aliases");
++    expect((await post({ name: "Acme", aliases: Array.from({ length: 11 }, (_, i) => `a${i}`) })).body.code).toBe("invalid_aliases");
++    expect((await post({ name: "Zeta" })).status).toBe(201);
++    const dup = await post({ name: "ZETA" });
++    expect(dup.status).toBe(409);
++    expect(dup.body.code).toBe("company_exists");
+   });
+ 
+-  it("the invalid_* messages match the Java controller", async () => {
+-    const a = await env.http.post(BASE).set("Authorization", admin).send({});
+-    expect(a.body.message).toBe("company and at least one JD are required");
+-    const b = await env.http.post(BASE).set("Authorization", admin).send({ company: "X", jds: [{}] });
+-    expect(b.body.message).toBe("each JD needs a title and a level");
+-    const c = await env.http.post(BASE).set("Authorization", admin).send({ company: "X", jds: [{ title: "t", level: "l9" }] });
+-    expect(c.body.message).toMatch(/^level must be one of \[.*\]$/);
+-    for (const level of ["fresher", "sde1", "sde2", "sde3"]) expect(c.body.message).toContain(level);
++  it("GET merges each company's research state from the AI service", async () => {
++    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Groww" });
++    env.fetch.on("GET", `${AI}/research/companies/state`, {
++      states: [{ company_id: created.body.id, last_run_id: "r1", last_researched_at: "2026-10-02T10:00:00Z",
++                 last_status: "done", latest_draft_id: "d1", latest_draft_status: "pending_review" }],
++    });
++    const res = await env.http.get(BASE).set("Authorization", admin);
++    expect(res.status).toBe(200);
++    expect(res.body.researchAvailable).toBe(true);
++    const groww = res.body.companies.find((c: { slug: string }) => c.slug === "groww");
++    expect(groww.research).toEqual({ lastRunId: "r1", lastResearchedAt: "2026-10-02T10:00:00Z", lastStatus: "done",
++                                     latestDraftId: "d1", latestDraftStatus: "pending_review" });
++    expect(aiCalls(env)[0]!.url).toContain(created.body.id);
+   });
+ 
+-  it("GET lists active JDs grouped by company (company asc)", async () => {
+-    await seedJd(env, { company: "zz-listco", level: "sde1", title: "B", specialization: "backend", sourceUrl: "https://zz/1", description: "d" });
+-    await seedJd(env, { company: "zz-listco", level: "fresher", title: "A", specialization: null });
+-    await seedJd(env, { company: "zz-listco", level: "sde3", title: "Hidden", active: false });
++  it("GET still lists companies when the AI service is down (research null, researchAvailable false)", async () => {
+     const res = await env.http.get(BASE).set("Authorization", admin);
+     expect(res.status).toBe(200);
+-    const companies = res.body.map((c: { company: string }) => c.company);
+-    expect(companies).toEqual([...companies].sort());
+-    const group = res.body.find((c: { company: string }) => c.company === "zz-listco");
+-    expect(Object.keys(group).sort()).toEqual(["company", "jds"]);
+-    expect(group.jds).toEqual([
+-      { id: expect.stringMatching(UUID_RE), role: "software-engineer", level: "fresher", specialization: null, title: "A", jdUrl: null, description: "Build things", enabled: true },
+-      { id: expect.stringMatching(UUID_RE), role: "software-engineer", level: "sde1", specialization: "backend", title: "B", jdUrl: "https://zz/1", description: "d", enabled: true },
+-    ]);
++    expect(res.body.researchAvailable).toBe(false);
++    expect(res.body.companies.every((c: { research: unknown }) => c.research === null)).toBe(true);
+   });
+ 
+-  it("DELETE /:company → 204; removes its JDs and company row (path is slugified)", async () => {
+-    env.fetch.on("POST", `${AI}/admin/scrape/run`, {});
+-    const created = await env.http.post(BASE).set("Authorization", admin).send({ company: "Gone Co", jds: [{ title: "SDE", level: "sde1" }] });
+-    await seedCompany(env, "gone-co", "Gone Co");
++  it("PATCH archives, renames without changing the slug, and 404s unknown ids", async () => {
++    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Swiggy" });
++    const res = await env.http.patch(`${BASE}/${created.body.id}`).set("Authorization", admin)
++      .send({ name: "Swiggy Ltd", status: "archived", website: null });
++    expect(res.status).toBe(200);
++    expect(res.body).toMatchObject({ name: "Swiggy Ltd", slug: "swiggy", status: "archived", website: null });
++    expect((await env.http.patch(`${BASE}/${created.body.id}`).set("Authorization", admin).send({ status: "gone" })).body.code)
++      .toBe("invalid_status");
++    const missing = await env.http.patch(`${BASE}/00000000-0000-4000-8000-000000000000`).set("Authorization", admin).send({ name: "X" });
++    expect(missing.status).toBe(404);
++    expect(missing.body.code).toBe("company_not_found");
++  });
+ 
+-    const res = await env.http.delete(`${BASE}/${encodeURIComponent(" Gone Co ")}`).set("Authorization", admin);
++  it("DELETE removes the company with its JDs and role configs", async () => {
++    const created = await env.http.post(BASE).set("Authorization", admin).send({ name: "Delete Me" });
++    await seedJd(env, { company: "delete-me" });
++    await seedRoleConfig(env, { company: "delete-me" });
++    const res = await env.http.delete(`${BASE}/${created.body.id}`).set("Authorization", admin);
+     expect(res.status).toBe(204);
+-    expect(res.text).toBe("");
+-    expect(await env.c.repos.jds.findById(created.body.jds[0].id)).toBeNull();
+-    expect(await env.c.repos.companies.findBySlug("gone-co")).toBeNull();
+-    const list = await env.http.get(BASE).set("Authorization", admin);
+-    expect(list.body.map((c: { company: string }) => c.company)).not.toContain("gone-co");
+-
+-    // deleting an unknown company is still 204
+-    expect((await env.http.delete(`${BASE}/never-existed`).set("Authorization", admin)).status).toBe(204);
++    expect(await env.c.repos.companies.findById(created.body.id)).toBeNull();
++    expect((await env.c.repos.jds.findAllActiveOrdered()).some((j) => j.company === "delete-me")).toBe(false);
++    expect(await env.c.repos.roleConfigs.findByCompanyAndRoleAndLevel("delete-me", "software-engineer", "sde1")).toBeNull();
++    expect((await env.http.delete(`${BASE}/${created.body.id}`).set("Authorization", admin)).status).toBe(404);
+   });
+ 
+   it("ADMIN-only", async () => {
+     const user = await bearer(env, await createUser(env));
+     expect((await env.http.get(BASE).set("Authorization", user)).status).toBe(403);
+-    expect((await env.http.post(BASE).set("Authorization", user).send({ company: "X", jds: [{ title: "t", level: "sde1" }] })).status).toBe(403);
+-    expect((await env.http.delete(`${BASE}/x`).set("Authorization", user)).status).toBe(403);
+-    expect(aiCalls(env)).toHaveLength(0);
++    expect((await env.http.post(BASE).send({ name: "X" })).status).toBe(401);
+   });
+ });
+diff --git a/apps/api/test/routes/internalResearchTargets.test.ts b/apps/api/test/routes/internalResearchTargets.test.ts
+new file mode 100644
+index 0000000..5e6fddf
+--- /dev/null
++++ b/apps/api/test/routes/internalResearchTargets.test.ts
+@@ -0,0 +1,25 @@
++import { afterAll, beforeAll, describe, expect, it } from "vitest";
++import { createTestEnv, TEST_INTERNAL_KEY, type TestEnv } from "../support/harness.js";
++import { seedCompany } from "./helpers.js";
++
++describe("GET /api/v1/internal/research-targets", () => {
++  let env: TestEnv;
++  beforeAll(async () => {
++    env = await createTestEnv();
++    await seedCompany(env, "meesho", "Meesho", { aliases: ["Fashnear"], website: "https://meesho.com" });
++    await seedCompany(env, "new-co", "New Co", { publishedAt: null });
++    await seedCompany(env, "old-co", "Old Co", { status: "archived" });
++  });
++  afterAll(() => env.close());
++
++  it("returns every ACTIVE company (published or not) for the research run", async () => {
++    const res = await env.http.get("/api/v1/internal/research-targets").set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
++    expect(res.status).toBe(200);
++    expect(res.body.map((t: { slug: string }) => t.slug)).toEqual(["meesho", "new-co"]);
++    expect(res.body[0]).toEqual({ id: expect.any(String), name: "Meesho", slug: "meesho", website: "https://meesho.com", aliases: ["Fashnear"] });
++  });
++
++  it("requires the internal key", async () => {
++    expect((await env.http.get("/api/v1/internal/research-targets")).status).toBe(401);
++  });
++});
+diff --git a/apps/api/test/routes/jdHiddenCompanies.test.ts b/apps/api/test/routes/jdHiddenCompanies.test.ts
+new file mode 100644
+index 0000000..ea031b6
+--- /dev/null
++++ b/apps/api/test/routes/jdHiddenCompanies.test.ts
+@@ -0,0 +1,49 @@
++import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
++import type { JobDescriptionRow } from "../../src/db/pg/schema.js";
++import { bearer, createUser, createTestEnv, type TestEnv } from "../support/harness.js";
++import { seedCompany, seedJd } from "./helpers.js";
++
++/** Students never see JDs of hidden companies (unpublished or archived); JDs with no company row stay visible. */
++
++let env: TestEnv;
++let authz: string;
++let pub: JobDescriptionRow;
++let unpub: JobDescriptionRow;
++let arch: JobDescriptionRow;
++let legacy: JobDescriptionRow;
++
++beforeAll(async () => {
++  env = await createTestEnv();
++  authz = await bearer(env, await createUser(env));
++  await seedCompany(env, "pubco", "Pub Co");
++  await seedCompany(env, "unpubco", "Unpub Co", { publishedAt: null });
++  await seedCompany(env, "archco", "Arch Co", { status: "archived" });
++  pub = await seedJd(env, { company: "pubco" });
++  unpub = await seedJd(env, { company: "unpubco" });
++  arch = await seedJd(env, { company: "archco" });
++  legacy = await seedJd(env, { company: "legacyco" });
++});
++afterAll(() => env.close());
++beforeEach(() => env.fetch.reset());
++
++describe("hidden companies' JDs", () => {
++  it("GET /jds omits unpublished and archived companies' JDs, keeps published and company-less ones", async () => {
++    const res = await env.http.get("/api/v1/jds").set("Authorization", authz);
++    expect(res.status).toBe(200);
++    const ids = res.body.map((j: { id: string }) => j.id);
++    expect(ids).toContain(pub.id);
++    expect(ids).toContain(legacy.id);
++    expect(ids).not.toContain(unpub.id);
++    expect(ids).not.toContain(arch.id);
++  });
++
++  it("GET /jds/:id 404s jd_not_found for hidden companies, 200 otherwise", async () => {
++    for (const hidden of [unpub, arch]) {
++      const res = await env.http.get(`/api/v1/jds/${hidden.id}`).set("Authorization", authz);
++      expect(res.status).toBe(404);
++      expect(res.body.code).toBe("jd_not_found");
++    }
++    expect((await env.http.get(`/api/v1/jds/${pub.id}`).set("Authorization", authz)).status).toBe(200);
++    expect((await env.http.get(`/api/v1/jds/${legacy.id}`).set("Authorization", authz)).status).toBe(200);
++  });
++});

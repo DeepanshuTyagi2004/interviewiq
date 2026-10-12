@@ -1,0 +1,171 @@
+# Review package: shadow snapshots 5bfe79e..37a7cca (working tree, no commits — the user commits)
+
+## Files changed
+ apps/ai-service/app/api/routes.py        | 17 ++++++++-
+ apps/ai-service/app/db/repositories.py   |  8 ++++
+ apps/ai-service/tests/test_user_purge.py | 64 ++++++++++++++++++++++++++++++++
+ 3 files changed, 88 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/apps/ai-service/app/api/routes.py b/apps/ai-service/app/api/routes.py
+index 18db1c2..84bb517 100644
+--- a/apps/ai-service/app/api/routes.py
++++ b/apps/ai-service/app/api/routes.py
+@@ -2,27 +2,28 @@
+ 
+ - GET  /health                               — public; mongo + LLM connectivity
+ - GET  /briefs                               — internal key; status summary of all briefs
+ - GET  /briefs/{company}/{role}/{level}      — internal key; the brief (404 if failed/missing)
+ - POST /briefs/{company}/{role}/{level}/refresh — internal key; regenerate now, return it
+ - GET  /experiences/{company}/{role}/{level} — internal key; paginated paste-in experiences
+ - POST /interview-plans                       — internal key; build/return the cached InterviewPlan (prep)
+ - POST /interview-plans/start                  — internal key; start plan gen in background, return run_id
+ - GET  /interview-plans/runs/{run_id}          — internal key; poll a started run (running|completed|failed)
+ - POST /resumes/parse                         — internal key; PDF body -> structured JSON (onboarding)
++- POST /users/purge                           — internal key; account deletion, drop the user's interview plans
+ """
+ from __future__ import annotations
+ 
+ import asyncio
+ 
+ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+-from pydantic import ValidationError
++from pydantic import BaseModel, Field, ValidationError
+ 
+ from app.api.deps import get_exa, require_internal_key
+ from app.config import get_settings
+ from app.db import mongo, repositories as repo
+ from app.llm.client import LLMError, build_llm_client
+ from app.jobs.brief_generation import generate_one
+ from app.exa.client import ExaClient, ExaConfigError
+ from app.interview_prep.async_runner import PLAN_RUNS, run_plan_async
+ from app.interview_prep.pipeline import PrepDataError, generate_interview_plan
+ from app.interview_prep.schema import GenerateInterviewPlanRequest
+@@ -181,10 +182,24 @@ async def parse_resume(request: Request) -> dict:
+     except LLMError as exc:
+         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                             detail=f"resume parsing failed: {exc}")
+ 
+     try:
+         parsed = ParsedResume.model_validate(data)
+     except ValidationError as exc:
+         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                             detail=f"resume parse produced invalid data: {exc.errors()[:3]}")
+     return restore_nesting(parsed, text).model_dump()
++
++
++class PurgeUserRequest(BaseModel):
++    """Every interview-session id the deleted account owned (the API batches in 1000s)."""
++
++    session_ids: list[str] = Field(default_factory=list, max_length=1000)
++
++
++@router.post("/users/purge", dependencies=[Depends(require_internal_key)])
++async def purge_user(req: PurgeUserRequest) -> dict:
++    """Account deletion: remove everything stored for these sessions (their interview plans).
++    Idempotent — purging already-deleted sessions removes nothing and still succeeds."""
++    deleted = await repo.delete_plans_for_sessions(req.session_ids)
++    return {"deleted_plans": deleted}
+diff --git a/apps/ai-service/app/db/repositories.py b/apps/ai-service/app/db/repositories.py
+index 83ecd73..31fdf28 100644
+--- a/apps/ai-service/app/db/repositories.py
++++ b/apps/ai-service/app/db/repositories.py
+@@ -169,20 +169,28 @@ async def upsert_plan(doc: dict) -> dict:
+     """Replace the plan for this session — idempotent upsert keyed on sessionId (mirrors upsert_brief)."""
+     await get_db()[INTERVIEW_PLANS].replace_one(_plan_key(doc), doc, upsert=True)
+     return doc
+ 
+ 
+ async def get_plan(session_id: str) -> dict | None:
+     """The stored plan for a session (clean camelCase doc, Mongo _id projected out), or None."""
+     return await get_db()[INTERVIEW_PLANS].find_one({"sessionId": session_id}, {"_id": 0})
+ 
+ 
++async def delete_plans_for_sessions(session_ids: list[str]) -> int:
++    """Account deletion: drop the stored plans for these sessions. Returns how many were removed."""
++    if not session_ids:
++        return 0
++    result = await get_db()[INTERVIEW_PLANS].delete_many({"sessionId": {"$in": session_ids}})
++    return result.deleted_count
++
++
+ def _with_id(doc: dict | None) -> dict:
+     if doc and "_id" in doc:
+         doc["id"] = str(doc.pop("_id"))
+     return doc
+ 
+ 
+ # Re-exported for callers that need the raw collection name / connection elsewhere.
+ __all__ = [
+     "upsert_experiences",
+     "paginate_experiences",
+diff --git a/apps/ai-service/tests/test_user_purge.py b/apps/ai-service/tests/test_user_purge.py
+new file mode 100644
+index 0000000..9614b09
+--- /dev/null
++++ b/apps/ai-service/tests/test_user_purge.py
+@@ -0,0 +1,64 @@
++"""POST /users/purge (account deletion): drops the user's interview plans by session id.
++
++Route called directly with the HTTP layer bypassed, same style as test_interview_plan_endpoint.
++"""
++import asyncio
++
++import pytest
++from pydantic import ValidationError
++
++import app.api.routes as routes
++from app.db import repositories as repo
++
++
++def test_purge_route_deletes_and_reports_count(monkeypatch):
++    seen = {}
++
++    async def _delete(ids):
++        seen["ids"] = ids
++        return 2
++
++    monkeypatch.setattr(repo, "delete_plans_for_sessions", _delete)
++    out = asyncio.run(routes.purge_user(routes.PurgeUserRequest(session_ids=["s1", "s2"])))
++    assert out == {"deleted_plans": 2}
++    assert seen["ids"] == ["s1", "s2"]
++
++
++def test_purge_request_caps_ids_at_1000():
++    routes.PurgeUserRequest(session_ids=[str(i) for i in range(1000)])
++    with pytest.raises(ValidationError):
++        routes.PurgeUserRequest(session_ids=[str(i) for i in range(1001)])
++
++
++def test_purge_route_requires_the_internal_key():
++    route = next(r for r in routes.router.routes if getattr(r, "path", "") == "/users/purge")
++    assert "POST" in route.methods
++    assert any(d.dependency is routes.require_internal_key for d in route.dependencies)
++
++
++class _FakePlans:
++    def __init__(self):
++        self.filter = None
++
++    async def delete_many(self, flt):
++        self.filter = flt
++
++        class _Result:
++            deleted_count = 3
++
++        return _Result()
++
++
++def test_delete_plans_filters_by_session_ids(monkeypatch):
++    plans = _FakePlans()
++    monkeypatch.setattr(repo, "get_db", lambda: {repo.INTERVIEW_PLANS: plans})
++    assert asyncio.run(repo.delete_plans_for_sessions(["a", "b"])) == 3
++    assert plans.filter == {"sessionId": {"$in": ["a", "b"]}}
++
++
++def test_delete_plans_is_a_noop_for_no_sessions(monkeypatch):
++    def _no_db():
++        raise AssertionError("the database must not be touched")
++
++    monkeypatch.setattr(repo, "get_db", _no_db)
++    assert asyncio.run(repo.delete_plans_for_sessions([])) == 0

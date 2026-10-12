@@ -1,0 +1,252 @@
+# Review package: working tree vs HEAD (the user commits themselves; nothing is committed)
+
+## Files in scope
+  apps/web/features/interview-live/proctor/localClipboard.ts
+  apps/web/features/interview-live/proctor/localClipboard.test.ts
+  apps/web/.env.example
+
+## git status for these files
+ M apps/web/.env.example
+?? apps/web/features/interview-live/proctor/localClipboard.test.ts
+?? apps/web/features/interview-live/proctor/localClipboard.ts
+
+## Diff (10 lines of context). Untracked files appear as whole-file additions.
+diff --git a/apps/web/features/interview-live/proctor/localClipboard.ts b/apps/web/features/interview-live/proctor/localClipboard.ts
+new file mode 100644
+index 0000000..2a30a1d
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/localClipboard.ts
+@@ -0,0 +1,77 @@
++/**
++ * The room's own clipboard (live integrity spec §6.1). Copy and cut inside the room keep their text here and leave only a
++ * marker on the OS clipboard, so nothing useful leaves the room; a paste inserts the text back. Anything else on the OS
++ * clipboard at paste time came from outside the room and is foreign.
++ */
++
++/** What the OS clipboard holds after a copy inside the room. Fixed on purpose: a page refresh loses the buffer, not this. */
++export const CLIPBOARD_MARKER = 'IQ-ROOM-CLIPBOARD'
++
++/** Dev builds keep native copy and paste (spec §4); production always enforces. `NEXT_PUBLIC_ENFORCE_CLIPBOARD=1`
++ * turns the rules on in dev to test them. */
++export function clipboardRulesActive(): boolean {
++  return process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_ENFORCE_CLIPBOARD === '1'
++}
++
++let buffer = ''
++let bufferIsLine = false
++let cleared = false
++
++export function getBuffer(): string {
++  return buffer
++}
++
++/** True when the last copy was an empty selection, which takes its whole line (the editor pastes those on a line of their own). */
++export function bufferIsWholeLine(): boolean {
++  return bufferIsLine
++}
++
++/** True once the Join click replaced the OS clipboard with the marker: only text copied during the round can be foreign. */
++export function wasCleared(): boolean {
++  return cleared
++}
++
++/** Forgets the room's text when the room closes. The cleared flag stays: the next Join sets it again either way (and a dev
++ * build's double-mounted effects must not lose it). */
++export function forgetBuffer(): void {
++  buffer = ''
++  bufferIsLine = false
++}
++
++/** Forgets everything (tests). */
++export function resetClipboard(): void {
++  forgetBuffer()
++  cleared = false
++}
++
++/** Keeps a copy or cut in the room and leaves only the marker on the OS clipboard. An empty copy changes nothing. */
++export function copyToRoom(text: string, event: ClipboardEvent, wholeLine = false): void {
++  event.preventDefault()
++  if (text === '') return
++  buffer = text
++  bufferIsLine = wholeLine
++  event.clipboardData?.setData('text/plain', CLIPBOARD_MARKER)
++}
++
++/** Replaces whatever is on the OS clipboard with the marker. Needs a user gesture, so call it from the Join click. A
++ * refusal is recorded (`wasCleared()` stays false) and never thrown: the worker then treats a foreign paste as a
++ * violation rather than an ending, because stale content cannot be told from new. */
++export async function clearSystemClipboard(): Promise<boolean> {
++  if (!clipboardRulesActive()) return false
++  try {
++    await navigator.clipboard.writeText(CLIPBOARD_MARKER)
++    cleared = true
++  } catch {
++    cleared = false
++  }
++  return cleared
++}
++
++export type PasteVerdict = 'local' | 'ignore' | 'foreign'
++
++/** What a paste means, given the text the browser says the OS clipboard holds. */
++export function judgePaste(osText: string): PasteVerdict {
++  if (osText === CLIPBOARD_MARKER) return buffer === '' ? 'ignore' : 'local'
++  if (osText.trim() === '') return 'ignore'
++  return 'foreign'
++}
+diff --git a/apps/web/features/interview-live/proctor/localClipboard.test.ts b/apps/web/features/interview-live/proctor/localClipboard.test.ts
+new file mode 100644
+index 0000000..d0a7fbc
+--- /dev/null
++++ b/apps/web/features/interview-live/proctor/localClipboard.test.ts
+@@ -0,0 +1,131 @@
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import {
++  CLIPBOARD_MARKER, bufferIsWholeLine, clearSystemClipboard, clipboardRulesActive, copyToRoom, forgetBuffer, getBuffer, judgePaste, resetClipboard, wasCleared,
++} from './localClipboard'
++
++function copyEvent() {
++  const written: Record<string, string> = {}
++  const preventDefault = vi.fn()
++  const event = { preventDefault, clipboardData: { setData: (type: string, value: string) => { written[type] = value } } } as unknown as ClipboardEvent
++  return { event, written, preventDefault }
++}
++
++function stubClipboard(writeText: (text: string) => Promise<void>) {
++  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
++}
++
++afterEach(() => {
++  resetClipboard()
++  vi.unstubAllEnvs()
++  Reflect.deleteProperty(navigator, 'clipboard')
++})
++
++describe('clipboardRulesActive', () => {
++  it('is off in dev and test builds, on in production, and can be forced on', () => {
++    vi.stubEnv('NODE_ENV', 'development')
++    vi.stubEnv('NEXT_PUBLIC_ENFORCE_CLIPBOARD', '')
++    expect(clipboardRulesActive()).toBe(false)
++    vi.stubEnv('NEXT_PUBLIC_ENFORCE_CLIPBOARD', '1')
++    expect(clipboardRulesActive()).toBe(true)
++    vi.stubEnv('NEXT_PUBLIC_ENFORCE_CLIPBOARD', '0')
++    expect(clipboardRulesActive()).toBe(false)
++    vi.stubEnv('NODE_ENV', 'production')
++    expect(clipboardRulesActive()).toBe(true)
++  })
++})
++
++describe('copyToRoom', () => {
++  it('keeps the text in the room and leaves only the marker on the OS clipboard', () => {
++    const { event, written, preventDefault } = copyEvent()
++    copyToRoom('x = 1', event)
++    expect(preventDefault).toHaveBeenCalled()
++    expect(getBuffer()).toBe('x = 1')
++    expect(bufferIsWholeLine()).toBe(false)
++    expect(written['text/plain']).toBe(CLIPBOARD_MARKER)
++  })
++
++  it('remembers that the copy was a whole line', () => {
++    copyToRoom('x = 1\n', copyEvent().event, true)
++    expect(bufferIsWholeLine()).toBe(true)
++  })
++
++  it('cancels an empty copy and keeps what was copied before', () => {
++    copyToRoom('first', copyEvent().event)
++    const { event, written, preventDefault } = copyEvent()
++    copyToRoom('', event)
++    expect(preventDefault).toHaveBeenCalled()
++    expect(getBuffer()).toBe('first')
++    expect(written).toEqual({})
++  })
++})
++
++describe('judgePaste', () => {
++  it('inserts the room buffer when the OS clipboard holds the marker', () => {
++    copyToRoom('x = 1', copyEvent().event)
++    expect(judgePaste(CLIPBOARD_MARKER)).toBe('local')
++  })
++
++  it('does nothing with the marker after a page refresh, when the buffer is gone', () => {
++    expect(judgePaste(CLIPBOARD_MARKER)).toBe('ignore')
++  })
++
++  it('ignores an empty or blank clipboard', () => {
++    copyToRoom('x = 1', copyEvent().event)
++    expect(judgePaste('')).toBe('ignore')
++    expect(judgePaste(' \n\t')).toBe('ignore')
++  })
++
++  it('calls anything else foreign, even when the room has a buffer', () => {
++    copyToRoom('x = 1', copyEvent().event)
++    expect(judgePaste('def solve(): pass')).toBe('foreign')
++    expect(judgePaste(`${CLIPBOARD_MARKER} and more`)).toBe('foreign')
++  })
++})
++
++describe('clearSystemClipboard', () => {
++  it('writes the marker and records that the clipboard was cleared', async () => {
++    vi.stubEnv('NODE_ENV', 'production')
++    const writeText = vi.fn(async () => {})
++    stubClipboard(writeText)
++    await expect(clearSystemClipboard()).resolves.toBe(true)
++    expect(writeText).toHaveBeenCalledWith(CLIPBOARD_MARKER)
++    expect(wasCleared()).toBe(true)
++  })
++
++  it('records a refusal instead of throwing', async () => {
++    vi.stubEnv('NODE_ENV', 'production')
++    stubClipboard(async () => { throw new Error('denied') })
++    await expect(clearSystemClipboard()).resolves.toBe(false)
++    expect(wasCleared()).toBe(false)
++  })
++
++  it('does nothing while the rules are off (dev)', async () => {
++    vi.stubEnv('NODE_ENV', 'development')
++    vi.stubEnv('NEXT_PUBLIC_ENFORCE_CLIPBOARD', '')
++    const writeText = vi.fn(async () => {})
++    stubClipboard(writeText)
++    await expect(clearSystemClipboard()).resolves.toBe(false)
++    expect(writeText).not.toHaveBeenCalled()
++  })
++
++  it('is forgotten when the room is reset', async () => {
++    vi.stubEnv('NODE_ENV', 'production')
++    stubClipboard(async () => {})
++    await clearSystemClipboard()
++    resetClipboard()
++    expect(wasCleared()).toBe(false)
++  })
++})
++
++describe('forgetBuffer', () => {
++  it('drops the room text but keeps the record that the clipboard was cleared at Join', async () => {
++    vi.stubEnv('NODE_ENV', 'production')
++    stubClipboard(async () => {})
++    await clearSystemClipboard()
++    copyToRoom('x = 1\n', copyEvent().event, true)
++    forgetBuffer()
++    expect(getBuffer()).toBe('')
++    expect(bufferIsWholeLine()).toBe(false)
++    expect(wasCleared()).toBe(true)
++  })
++})
+diff --git a/apps/web/.env.example b/apps/web/.env.example
+index c75f60d..c29b76b 100644
+--- a/apps/web/.env.example
++++ b/apps/web/.env.example
+@@ -15,10 +15,14 @@ RAZORPAY_KEY_ID=
+ RAZORPAY_KEY_SECRET=
+ RAZORPAY_WEBHOOK_SECRET=
+ GITHUB_WEBHOOK_SECRET=
+ 
+ # Where the marketing Contact page sends demo requests and support mail (mailto:). Unset = the page says an address is coming.
+ # NEXT_PUBLIC_CONTACT_EMAIL=hello@example.com
+ 
+ # Local development only: run the live interview room against a scripted mock interviewer
+ # (no API, LiveKit or AI service). Open /interviews/<any-id>/live while signed in.
+ NEXT_PUBLIC_LIVE_MOCK=0
++
++# Local development only: copy and paste work natively in dev. Set 1 to turn the live room's clipboard rules on (blocked
++# foreign pastes, the room clipboard) to test them. Production builds always enforce them.
++NEXT_PUBLIC_ENFORCE_CLIPBOARD=0

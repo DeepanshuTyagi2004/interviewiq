@@ -1,0 +1,50 @@
+--- /Users/salescode/Desktop/project/interviewiq/.superpowers/sdd/2026-10-12-live-integrity-web-protocol/task-3-review.diff	2026-10-12 01:44:31
++++ /Users/salescode/Desktop/project/interviewiq/.superpowers/sdd/2026-10-12-live-integrity-web-protocol/task-3-review-r1.diff	2026-10-12 10:26:47
+@@ -11,7 +11,7 @@
+ ## Diff (10 lines of context). Untracked files appear as whole-file additions.
+ diff --git a/apps/web/features/interview-live/proctor/editorClipboard.ts b/apps/web/features/interview-live/proctor/editorClipboard.ts
+ new file mode 100644
+-index 0000000..e7b27ac
++index 0000000..9a1de59
+ --- /dev/null
+ +++ b/apps/web/features/interview-live/proctor/editorClipboard.ts
+ @@ -0,0 +1,119 @@
+@@ -100,10 +100,10 @@
+ +    }
+ +  }
+ +  const onDragOver = (e: Event) => {
+++    // dragover must stay cancelable so the drop event fires; the drop handler refuses it and reports its size.
+ +    const event = e as DragEvent
+ +    event.preventDefault()
+ +    event.stopPropagation()
+-+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'
+ +  }
+ +  const onDrop = (e: Event) => {
+ +    const event = e as DragEvent
+@@ -136,10 +136,10 @@
+ +}
+ diff --git a/apps/web/features/interview-live/proctor/editorClipboard.test.ts b/apps/web/features/interview-live/proctor/editorClipboard.test.ts
+ new file mode 100644
+-index 0000000..1ab38d3
++index 0000000..42e0388
+ --- /dev/null
+ +++ b/apps/web/features/interview-live/proctor/editorClipboard.test.ts
+-@@ -0,0 +1,201 @@
++@@ -0,0 +1,203 @@
+ +import { afterEach, describe, expect, it, vi } from 'vitest'
+ +import { attachEditorClipboard, attachRoomCopyGuard, selectedText, type ClipRange, type ClipSelection, type ClipboardEditor } from './editorClipboard'
+ +import { CLIPBOARD_MARKER, bufferIsWholeLine, getBuffer, resetClipboard } from './localClipboard'
+@@ -284,10 +284,12 @@
+ +
+ +  it('treats dropped text as foreign and refuses the drop', () => {
+ +    const { inner, deps } = setup(CODE, [sel(1, 1, 1, 1)])
+++    const seen = vi.fn()
+++    inner.addEventListener('dragover', seen)
+ +    const over = dragEvent('dragover')
+ +    inner.dispatchEvent(over.event)
+ +    expect(over.event.defaultPrevented).toBe(true)
+-+    expect(over.dataTransfer.dropEffect).toBe('none')
+++    expect(seen).not.toHaveBeenCalled()
+ +    const drop = dragEvent('drop', 'answer = 42')
+ +    inner.dispatchEvent(drop.event)
+ +    expect(drop.event.defaultPrevented).toBe(true)

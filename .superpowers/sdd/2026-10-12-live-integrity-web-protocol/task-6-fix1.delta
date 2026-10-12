@@ -1,0 +1,51 @@
+--- /Users/salescode/Desktop/project/interviewiq/.superpowers/sdd/2026-10-12-live-integrity-web-protocol/task-6-review.diff	2026-10-12 10:39:49
++++ /Users/salescode/Desktop/project/interviewiq/.superpowers/sdd/2026-10-12-live-integrity-web-protocol/task-6-review-r1.diff	2026-10-12 10:48:10
+@@ -192,10 +192,10 @@
+ +})
+ diff --git a/apps/web/features/interview-live/proctor/useAwayCountdown.ts b/apps/web/features/interview-live/proctor/useAwayCountdown.ts
+ new file mode 100644
+-index 0000000..356a916
++index 0000000..c919490
+ --- /dev/null
+ +++ b/apps/web/features/interview-live/proctor/useAwayCountdown.ts
+-@@ -0,0 +1,31 @@
++@@ -0,0 +1,33 @@
+ +'use client'
+ +import { useEffect, useState } from 'react'
+ +import { countdown, type AwayEpisode, type Countdown } from './awayEpisode'
+@@ -210,6 +210,8 @@
+ +  const [now, setNow] = useState(() => Date.now())
+ +  useEffect(() => {
+ +    if (!away) return
+++    // Re-read the clock the moment an episode opens or changes, so the first frame is not a stale tick; the interval only covers later seconds.
+++    // eslint-disable-next-line react-hooks/set-state-in-effect
+ +    setNow(Date.now())
+ +    const tick = setInterval(() => setNow(Date.now()), 1000)
+ +    return () => clearInterval(tick)
+@@ -276,7 +278,7 @@
+ +  })
+ +})
+ diff --git a/apps/web/features/interview-live/proctor/useProctor.ts b/apps/web/features/interview-live/proctor/useProctor.ts
+-index d25a08f..9a74e55 100644
++index d25a08f..e80dd36 100644
+ --- a/apps/web/features/interview-live/proctor/useProctor.ts
+ +++ b/apps/web/features/interview-live/proctor/useProctor.ts
+ @@ -1,28 +1,36 @@
+@@ -351,7 +353,7 @@
+        window.removeEventListener('blur', onBlur)
+        window.removeEventListener('focus', onFocus)
+      }
+-@@ -76,34 +97,64 @@ export function useProctor({ session, enabled }: { session: LiveSession; enabled
++@@ -76,34 +97,66 @@ export function useProctor({ session, enabled }: { session: LiveSession; enabled
+        const l = ledgerRef.current
+        const entry = l.entries[index]
+        if (!entry) return
+@@ -377,6 +379,8 @@
+      if (!enabled) {
+        prev.current = null
+ +      awayRef.current = null
+++      // Switching proctoring off must clear the episode state together with its ref.
+++      // eslint-disable-next-line react-hooks/set-state-in-effect
+ +      setAway(null)
+        return
+      }

@@ -1,0 +1,525 @@
+## Task 4: Tracer, context and log handler
+
+**Files:**
+- Create: `apps/ai-service/app/research/trace/context.py`, `apps/ai-service/app/research/trace/tracer.py`, `apps/ai-service/app/research/trace/log_handler.py`
+- Test: `apps/ai-service/tests/research/test_tracer.py`
+
+**Interfaces:**
+- Consumes: `ResearchStore`, `EventFilter`, `LEVEL_RANK` (Task 3); `redact` and `error_info` (Task 2); `InMemoryResearchStore` in tests.
+- Produces:
+  - `CURRENT_TRACER`, `CURRENT_SPAN`, `CURRENT_COMPANY`, `CURRENT_NODE` (`ContextVar`s).
+  - `utcnow()` and `new_id()` (32-character hex).
+  - `INLINE_LIMIT_BYTES = 32768`.
+  - `Tracer(store, run_id, *, secrets, start_seq=0, flush_interval=0.25, flush_max=200, echo=None)`, with:
+    - `.start()` and `.close()` (async);
+    - `.emit(type_, message, *, level="info", data=None, span_id=None, company_id=None, node=None) -> dict` (sync);
+    - `.flush()` (async);
+    - `.span(kind, name, *, input=None, attrs=None, company_id=None, node=None)`, an async context manager yielding a `SpanHandle` with `.span_id`, `.set_output(value)` and `.set_attrs(**kw)`;
+    - `.last_seq`.
+  - `hydrate_span(store, span) -> dict` (resolves `input_ref`/`output_ref`).
+  - `ResearchLogHandler`.
+- **Span document:** `{span_id, parent_id, run_id, company_id, node, kind, name, status: running|ok|error|cancelled, started_at, ended_at, duration_ms, attrs, input, input_ref, output, output_ref, error}`.
+- **Event document:** `{run_id, seq, ts, level, level_rank, type, message, span_id, company_id, node, data? | data_ref?}`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`apps/ai-service/tests/research/test_tracer.py`:
+
+```python
+import asyncio
+import json
+import logging
+
+import pytest
+
+from app.research.memory_store import InMemoryResearchStore
+from app.research.store import EventFilter
+from app.research.trace.context import CURRENT_TRACER
+from app.research.trace.log_handler import ResearchLogHandler
+from app.research.trace.tracer import INLINE_LIMIT_BYTES, Tracer, hydrate_span, utcnow
+
+SECRET = "exa-secret-123"
+
+
+async def _setup(start_seq=0):
+    store = InMemoryResearchStore()
+    await store.insert_run({"run_id": "run1", "status": "running", "last_seq": start_seq, "created_at": utcnow()})
+    tracer = Tracer(store, "run1", secrets={"EXA_API_KEY": SECRET}, start_seq=start_seq, flush_interval=0.01)
+    await tracer.start()
+    return store, tracer
+
+
+def test_spans_nest_inherit_company_and_record_output():
+    async def go():
+        store, t = await _setup()
+        async with t.span("company", "Meesho", company_id="c1"):
+            async with t.span("node", "resolve", node="resolve", input={"q": 1}) as inner:
+                inner.set_output({"ok": True})
+                inner.set_attrs(model="gemma")
+        await t.close()
+        spans = {s["name"]: s for s in await store.list_spans("run1")}
+        assert spans["resolve"]["parent_id"] == spans["Meesho"]["span_id"]
+        assert spans["resolve"]["company_id"] == "c1"
+        full = await store.get_span(spans["resolve"]["span_id"])
+        assert full["input"] == {"q": 1} and full["output"] == {"ok": True}
+        assert full["status"] == "ok" and full["attrs"]["model"] == "gemma" and full["duration_ms"] >= 0
+        types = [e["type"] for e in await store.list_events("run1", EventFilter())]
+        assert types == ["span.start", "span.start", "span.end", "span.end"]
+    asyncio.run(go())
+
+
+def test_errors_are_recorded_redacted_and_reraised():
+    async def go():
+        store, t = await _setup()
+        with pytest.raises(RuntimeError):
+            async with t.span("exa", "search"):
+                raise RuntimeError(f"401 for key {SECRET}")
+        await t.close()
+        (span,) = await store.list_spans("run1")
+        full = await store.get_span(span["span_id"])
+        assert full["status"] == "error"
+        assert full["error"]["type"] == "RuntimeError"
+        assert "«redacted:EXA_API_KEY»" in full["error"]["message"]
+        events = await store.list_events("run1", EventFilter())
+        end = next(e for e in events if e["type"] == "span.end")
+        assert end["level"] == "error"
+        dumped = json.dumps([full, events], default=str)
+        assert SECRET not in dumped
+    asyncio.run(go())
+
+
+def test_emit_assigns_monotonic_seq_and_flush_records_last_seq():
+    async def go():
+        store, t = await _setup(start_seq=41)
+        t.emit("log", "a")
+        t.emit("log", "b", level="warn", data={"k": SECRET})
+        await t.flush()
+        events = await store.list_events("run1", EventFilter())
+        assert [e["seq"] for e in events] == [42, 43]
+        assert events[1]["level_rank"] == 30 and events[1]["data"] == {"k": "«redacted:EXA_API_KEY»"}
+        assert (await store.get_run("run1"))["last_seq"] == 43
+        assert t.last_seq == 43
+        await t.close()
+    asyncio.run(go())
+
+
+def test_large_values_are_offloaded_and_hydrated_back():
+    async def go():
+        store, t = await _setup()
+        big = {"text": "x" * (INLINE_LIMIT_BYTES + 10)}
+        async with t.span("llm", "prompt", input=big) as sp:
+            sp.set_output(big)
+        t.emit("log", "big data", data=big)
+        await t.close()
+        (span,) = await store.list_spans("run1")
+        full = await store.get_span(span["span_id"])
+        assert full["input"] is None and full["input_ref"] and full["output_ref"]
+        assert (await store.get_payload(full["input_ref"]))["body"] == big
+        hydrated = await hydrate_span(store, full)
+        assert hydrated["input"] == big and hydrated["output"] == big
+        log = next(e for e in await store.list_events("run1", EventFilter()) if e["type"] == "log")
+        assert "data" not in log and (await store.get_payload(log["data_ref"]))["body"] == big
+    asyncio.run(go())
+
+
+def test_cancelled_span_is_marked_cancelled():
+    async def go():
+        store, t = await _setup()
+
+        async def body():
+            async with t.span("node", "slow"):
+                await asyncio.sleep(10)
+        task = asyncio.create_task(body())
+        await asyncio.sleep(0.02)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await t.close()
+        (span,) = await store.list_spans("run1")
+        assert span["status"] == "cancelled"
+    asyncio.run(go())
+
+
+def test_log_handler_forwards_only_inside_a_bound_run():
+    async def go():
+        store, t = await _setup()
+        handler = ResearchLogHandler()
+        log = logging.getLogger("app.research.test_logger")
+        log.setLevel(logging.DEBUG)
+        log.addHandler(handler)
+        log.propagate = False
+        try:
+            log.info("outside any run")
+            token = CURRENT_TRACER.set(t)
+            try:
+                async with t.span("node", "resolve", node="resolve"):
+                    log.debug("inside %s", "node")
+                    try:
+                        raise ValueError("bad")
+                    except ValueError:
+                        log.exception("it failed")
+            finally:
+                CURRENT_TRACER.reset(token)
+            await t.flush()
+        finally:
+            log.removeHandler(handler)
+        logs = [e for e in await store.list_events("run1", EventFilter()) if e["type"] == "log"]
+        assert [e["message"] for e in logs] == ["inside node", "it failed"]
+        assert logs[0]["level"] == "debug" and logs[0]["node"] == "resolve"
+        assert logs[0]["data"]["logger"] == "app.research.test_logger"
+        assert logs[1]["level"] == "error" and "ValueError: bad" in logs[1]["data"]["exc"]
+        await t.close()
+    asyncio.run(go())
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `.venv/bin/python -m pytest tests/research/test_tracer.py -q`
+Expected: FAIL with `ModuleNotFoundError: No module named 'app.research.trace.context'`.
+
+- [ ] **Step 3: Implement the context variables**
+
+`apps/ai-service/app/research/trace/context.py`:
+
+```python
+"""Context for the research tracer. The runner binds the tracer for a run and the company for each
+item; Tracer.span() binds span/company/node for its body. Read by the tracer (parent links), the log
+handler (attribution) and Budget (per-node call counters). asyncio tasks copy the context when
+created, so LangGraph's node tasks inherit whatever was bound around graph.astream()."""
+from __future__ import annotations
+
+from contextvars import ContextVar
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.research.trace.tracer import Tracer
+
+CURRENT_TRACER: ContextVar["Tracer | None"] = ContextVar("research_tracer", default=None)
+CURRENT_SPAN: ContextVar[str | None] = ContextVar("research_span", default=None)
+CURRENT_COMPANY: ContextVar[str | None] = ContextVar("research_company", default=None)
+CURRENT_NODE: ContextVar[str | None] = ContextVar("research_node", default=None)
+```
+
+- [ ] **Step 4: Implement the tracer**
+
+`apps/ai-service/app/research/trace/tracer.py`:
+
+```python
+"""Full-verbosity trace for research runs (spec §10): spans carrying their complete input and
+output, an append-only event log with a per-run monotonic `seq`, large values offloaded to
+research_payloads, and redaction applied before anything is persisted.
+
+Spans are written immediately (at start and at end) so the debugger shows work in flight. Events
+are buffered and flushed every `flush_interval` seconds or every `flush_max` events, so a chatty
+node never costs one Mongo write per log line."""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+import uuid
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any
+
+from app.research.store import LEVEL_RANK, ResearchStore
+from app.research.trace.context import CURRENT_COMPANY, CURRENT_NODE, CURRENT_SPAN
+from app.research.trace.errors import error_info
+from app.research.trace.redact import redact
+
+# app.research.trace.* records are NOT forwarded by ResearchLogHandler: a failing flush that logged
+# into the trace would just retry forever.
+logger = logging.getLogger(__name__)
+
+INLINE_LIMIT_BYTES = 32 * 1024
+_MAX_MESSAGE_CHARS = 4000
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def new_id() -> str:
+    return uuid.uuid4().hex
+
+
+def _size(value: Any) -> int:
+    return len(json.dumps(value, default=str, ensure_ascii=False).encode())
+
+
+class SpanHandle:
+    """Yielded by Tracer.span(): the body attaches its output and any extra attributes."""
+
+    def __init__(self, span_id: str):
+        self.span_id = span_id
+        self.output: Any = None
+        self.has_output = False
+        self.attrs: dict[str, Any] = {}
+
+    def set_output(self, value: Any) -> None:
+        self.output = value
+        self.has_output = True
+
+    def set_attrs(self, **attrs: Any) -> None:
+        self.attrs.update(attrs)
+
+
+class Tracer:
+    def __init__(self, store: ResearchStore, run_id: str, *, secrets: dict[str, str], start_seq: int = 0,
+                 flush_interval: float = 0.25, flush_max: int = 200,
+                 echo: Callable[[dict], None] | None = None):
+        self._store = store
+        self.run_id = run_id
+        self._secrets = secrets
+        self._seq = start_seq
+        self._flush_interval = flush_interval
+        self._flush_max = flush_max
+        self._echo = echo
+        self._buffer: list[dict] = []
+        self._pending_payloads: list[dict] = []
+        self._lock = asyncio.Lock()
+        self._task: asyncio.Task | None = None
+        self._kick_pending = False
+
+    @property
+    def last_seq(self) -> int:
+        return self._seq
+
+    def _redact(self, value: Any) -> Any:
+        return redact(value, self._secrets)
+
+    # --- lifecycle -------------------------------------------------------------------------------
+    async def start(self) -> None:
+        if self._task is None:
+            self._task = asyncio.create_task(self._flush_loop(), name=f"research-trace-flush-{self.run_id}")
+
+    async def close(self) -> None:
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        await self.flush()
+
+    async def _flush_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self._flush_interval)
+            try:
+                await self.flush()
+            except Exception:  # noqa: BLE001 — a failed flush is retried on the next tick
+                logger.exception("research trace flush failed (run %s)", self.run_id)
+
+    async def flush(self) -> None:
+        async with self._lock:
+            payloads, self._pending_payloads = self._pending_payloads, []
+            for p in payloads:
+                await self._store.put_payload(p)
+            batch, self._buffer = self._buffer, []
+            if not batch:
+                return
+            try:
+                await self._store.insert_events(batch)
+                await self._store.update_run(self.run_id, fields={"last_seq": batch[-1]["seq"]})
+            except Exception:
+                self._buffer = batch + self._buffer   # keep them for the next tick
+                raise
+
+    # --- events ----------------------------------------------------------------------------------
+    def emit(self, type_: str, message: str, *, level: str = "info", data: Any = None,
+             span_id: str | None = None, company_id: str | None = None, node: str | None = None) -> dict:
+        self._seq += 1
+        event: dict[str, Any] = {
+            "run_id": self.run_id,
+            "seq": self._seq,
+            "ts": utcnow(),
+            "level": level,
+            "level_rank": LEVEL_RANK[level],
+            "type": type_,
+            "message": self._redact(str(message))[:_MAX_MESSAGE_CHARS],
+            "span_id": span_id or CURRENT_SPAN.get(),
+            "company_id": company_id or CURRENT_COMPANY.get(),
+            "node": node or CURRENT_NODE.get(),
+        }
+        if data is not None:
+            clean = self._redact(data)
+            if _size(clean) <= INLINE_LIMIT_BYTES:
+                event["data"] = clean
+            else:
+                payload_id = new_id()
+                event["data_ref"] = payload_id
+                self._pending_payloads.append(self._payload_doc(payload_id, event["span_id"], clean))
+        self._buffer.append(event)
+        if self._echo is not None:
+            self._echo(event)
+        if len(self._buffer) >= self._flush_max and not self._kick_pending:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return event   # emitted from a thread with no loop: the timer flush picks it up
+            self._kick_pending = True
+            loop.create_task(self._kicked_flush())
+        return event
+
+    async def _kicked_flush(self) -> None:
+        try:
+            await self.flush()
+        except Exception:  # noqa: BLE001
+            logger.exception("research trace flush failed (run %s)", self.run_id)
+        finally:
+            self._kick_pending = False
+
+    # --- spans -----------------------------------------------------------------------------------
+    @asynccontextmanager
+    async def span(self, kind: str, name: str, *, input: Any = None,  # noqa: A002 — mirrors the UI's Input tab
+                   attrs: dict | None = None, company_id: str | None = None,
+                   node: str | None = None) -> AsyncIterator[SpanHandle]:
+        span_id = new_id()
+        company = company_id or CURRENT_COMPANY.get()
+        node_name = node or CURRENT_NODE.get()
+        doc: dict[str, Any] = {
+            "span_id": span_id,
+            "parent_id": CURRENT_SPAN.get(),
+            "run_id": self.run_id,
+            "company_id": company,
+            "node": node_name,
+            "kind": kind,
+            "name": name,
+            "status": "running",
+            "started_at": utcnow(),
+            "ended_at": None,
+            "duration_ms": None,
+            "attrs": self._redact(attrs or {}),
+            "error": None,
+            "output": None,
+            "output_ref": None,
+        }
+        doc["input"], doc["input_ref"] = await self._inline_or_payload(span_id, input)
+        await self._store.put_span(doc)
+        self.emit("span.start", f"{kind} · {name}", level="debug", span_id=span_id, company_id=company, node=node_name)
+
+        handle = SpanHandle(span_id)
+        span_token = CURRENT_SPAN.set(span_id)
+        company_token = CURRENT_COMPANY.set(company)
+        node_token = CURRENT_NODE.set(node_name)
+        started = time.monotonic()
+        try:
+            yield handle
+            doc["status"] = "ok"
+        except asyncio.CancelledError:
+            doc["status"] = "cancelled"
+            raise
+        except Exception as exc:
+            doc["status"] = "error"
+            doc["error"] = self._redact(error_info(exc))
+            raise
+        finally:
+            CURRENT_NODE.reset(node_token)
+            CURRENT_COMPANY.reset(company_token)
+            CURRENT_SPAN.reset(span_token)
+            await self._finish_span(doc, handle, started)
+
+    async def _finish_span(self, doc: dict, handle: SpanHandle, started: float) -> None:
+        doc["ended_at"] = utcnow()
+        doc["duration_ms"] = int((time.monotonic() - started) * 1000)
+        if handle.attrs:
+            doc["attrs"] = {**doc["attrs"], **self._redact(handle.attrs)}
+        try:
+            if handle.has_output:
+                doc["output"], doc["output_ref"] = await self._inline_or_payload(doc["span_id"], handle.output)
+            await self._store.put_span(doc)
+        except Exception:  # noqa: BLE001 — never mask the body's own outcome
+            logger.exception("could not persist span %s", doc["span_id"])
+        message = f"{doc['kind']} · {doc['name']} · {doc['status']} · {doc['duration_ms']}ms"
+        if doc["error"]:
+            message += f" · {doc['error']['type']}: {doc['error']['message'][:300]}"
+        self.emit(
+            "span.end", message, level="error" if doc["status"] == "error" else "debug",
+            span_id=doc["span_id"], company_id=doc["company_id"], node=doc["node"],
+            data={"status": doc["status"], "duration_ms": doc["duration_ms"]},
+        )
+
+    # --- payload offload -------------------------------------------------------------------------
+    def _payload_doc(self, payload_id: str, span_id: str | None, body: Any) -> dict:
+        return {"payload_id": payload_id, "run_id": self.run_id, "span_id": span_id,
+                "content_type": "application/json", "size_bytes": _size(body), "body": body,
+                "created_at": utcnow()}
+
+    async def _inline_or_payload(self, span_id: str, value: Any) -> tuple[Any, str | None]:
+        if value is None:
+            return None, None
+        clean = self._redact(value)
+        if _size(clean) <= INLINE_LIMIT_BYTES:
+            return clean, None
+        payload_id = new_id()
+        await self._store.put_payload(self._payload_doc(payload_id, span_id, clean))
+        return None, payload_id
+
+
+async def hydrate_span(store: ResearchStore, span: dict) -> dict:
+    """Return the span with offloaded input/output read back from research_payloads."""
+    out = dict(span)
+    for key in ("input", "output"):
+        ref = out.get(f"{key}_ref")
+        if ref:
+            payload = await store.get_payload(ref)
+            out[key] = payload["body"] if payload else {"missing_payload": ref}
+    return out
+```
+
+- [ ] **Step 5: Implement the log handler**
+
+`apps/ai-service/app/research/trace/log_handler.py`:
+
+```python
+"""Forward Python log records into the bound research run as `log` events (spec §10.2), so every
+logger.debug/info/warning inside the pipeline (including app.llm.client's 429 cooldown lines) shows
+in the debugger console under the right company, node and span. A no-op unless a run is bound."""
+from __future__ import annotations
+
+import logging
+import traceback
+
+from app.research.trace.context import CURRENT_TRACER
+
+_IGNORED_PREFIX = "app.research.trace"   # the tracer's own logs must not feed back into it
+
+
+def _level(levelno: int) -> str:
+    if levelno >= logging.ERROR:
+        return "error"
+    if levelno >= logging.WARNING:
+        return "warn"
+    if levelno >= logging.INFO:
+        return "info"
+    return "debug"
+
+
+class ResearchLogHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        tracer = CURRENT_TRACER.get()
+        if tracer is None or record.name.startswith(_IGNORED_PREFIX):
+            return
+        try:
+            data: dict = {"logger": record.name, "where": f"{record.pathname}:{record.lineno}"}
+            if record.exc_info:
+                data["exc"] = "".join(traceback.format_exception(*record.exc_info))
+            tracer.emit("log", record.getMessage(), level=_level(record.levelno), data=data)
+        except Exception:  # noqa: BLE001 — logging must never break the caller
+            pass
+```
+
+- [ ] **Step 6: Run the tests to verify they pass**
+
+Run: `.venv/bin/python -m pytest tests/research -q`
+Expected: PASS.
+
+- [ ] **Step 7: Checkpoint**
+
+Run `git status`; leave the changes uncommitted.
+
+---
+

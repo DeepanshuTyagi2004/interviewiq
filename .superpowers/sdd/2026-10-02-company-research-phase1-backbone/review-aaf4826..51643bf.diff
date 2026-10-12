@@ -1,0 +1,672 @@
+# Review package: aaf482671e22735fd7e1a647d3b35e8da4d2c9e0..51643bf5169c388dcd0c34a4ab97cfe7c399a911
+
+## Commits
+51643bf sdd snapshot 2026-10-02T11:44:23Z
+
+## Files changed
+ apps/ai-service/app/jobs/scheduler.py              |  24 ++-
+ apps/ai-service/app/main.py                        |  24 ++-
+ apps/ai-service/app/research/api.py                | 186 +++++++++++++++++++++
+ apps/ai-service/app/research/cli.py                | 101 +++++++++++
+ apps/ai-service/app/research/wiring.py             |  33 ++++
+ .../ai-service/tests/research/test_research_api.py |  91 ++++++++++
+ .../tests/research/test_scheduler_research.py      |  38 +++++
+ 7 files changed, 495 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/apps/ai-service/app/jobs/scheduler.py b/apps/ai-service/app/jobs/scheduler.py
+index 7551e32..bb259ae 100644
+--- a/apps/ai-service/app/jobs/scheduler.py
++++ b/apps/ai-service/app/jobs/scheduler.py
+@@ -1,46 +1,68 @@
+ """In-process scheduler (APScheduler, AsyncIOScheduler).
+ 
+ Runs Exa brief generation every BRIEF_REFRESH_INTERVAL_DAYS. Cadence comes
+ from config. Runs go through RUN_STORE so the live admin console can watch them.
+ """
+ from __future__ import annotations
+ 
+ import logging
+ 
+ from apscheduler.schedulers.asyncio import AsyncIOScheduler
++from apscheduler.triggers.cron import CronTrigger
+ from apscheduler.triggers.interval import IntervalTrigger
+ 
+ from app.config import Settings
+ from app.jobs.brief_generation import execute_tracked_run
+ from app.jobs.run_store import RUN_STORE, new_run_id
+ from app.exa.client import ExaClient
++from app.research.runner import RunActive
+ 
+ logger = logging.getLogger(__name__)
+ 
+ 
+ async def _brief_job(exa: ExaClient, settings: Settings) -> None:
+     run_id = new_run_id()
+     if not RUN_STORE.start(run_id, trigger="scheduler"):
+         logger.info("Scheduled run skipped: a brief generation run is already in progress")
+         return
+     try:
+         await execute_tracked_run(exa, settings, run_id)
+     except Exception:  # noqa: BLE001 — a scheduled run must never kill the scheduler
+         logger.exception("Scheduled brief generation failed")
+ 
+ 
+-def create_scheduler(exa: ExaClient, settings: Settings) -> AsyncIOScheduler:
++async def _research_job(research) -> None:
++    try:
++        await research.start_run(trigger="cron", scope="all")
++    except RunActive as exc:
++        logger.info("Scheduled research run skipped: run %s is still active", exc.run_id)
++    except Exception:  # noqa: BLE001 — a scheduled run must never kill the scheduler
++        logger.exception("Scheduled research run failed to start")
++
++
++def create_scheduler(exa: ExaClient, settings: Settings, research=None) -> AsyncIOScheduler:
+     scheduler = AsyncIOScheduler(timezone="UTC")
+     scheduler.add_job(
+         _brief_job,
+         IntervalTrigger(days=settings.brief_refresh_interval_days),
+         args=[exa, settings],
+         id="brief-generation",
+         replace_existing=True,
+         max_instances=1,
+         coalesce=True,
+     )
+     logger.info(
+         "Scheduler configured: brief generation every %d day(s)", settings.brief_refresh_interval_days
+     )
++    if research is not None:
++        scheduler.add_job(
++            _research_job,
++            CronTrigger.from_crontab(settings.research_cron, timezone="Asia/Kolkata"),
++            args=[research],
++            id="company-research",
++            replace_existing=True,
++            max_instances=1,
++            coalesce=True,
++        )
++        logger.info("Scheduler configured: company research on cron %r (Asia/Kolkata)", settings.research_cron)
+     return scheduler
+diff --git a/apps/ai-service/app/main.py b/apps/ai-service/app/main.py
+index 995fbb0..76a6937 100644
+--- a/apps/ai-service/app/main.py
++++ b/apps/ai-service/app/main.py
+@@ -1,36 +1,41 @@
+ """FastAPI application factory + lifespan.
+ 
+ Startup order, all fail-fast:
+   1. load settings (missing required env -> pydantic ValidationError, process exits)
+   2. connect MongoDB (unreachable -> RuntimeError, process exits)
+   3. build the Exa client (missing key -> error, process exits)
+   4. start the scheduler (if enabled) + generate briefs on startup if any are missing
++  5. research runner: indexes, crash recovery, weekly cron
+ """
+ from __future__ import annotations
+ 
+ import asyncio
+ import logging
+ from contextlib import asynccontextmanager
+ 
+ from fastapi import FastAPI
+ 
+ from app.api.admin import router as admin_router
+ from app.api.routes import router
+ from app.config import Settings, get_settings
+ from app.db import mongo
+ from app.jobs.brief_generation import any_combination_missing_brief, execute_tracked_run
+ from app.interview_agent.diagnostics_emit import AgentDiagLogHandler
+ from app.jobs.pipeline_runs import PipelineRunLogHandler
+ from app.jobs.run_store import RUN_STORE, RunLogHandler, new_run_id
+ from app.jobs.scheduler import create_scheduler
+ from app.exa.client import ExaClient, build_exa_client
++from app.research.api import router as research_router
++from app.research.store import MongoResearchStore, ensure_research_indexes
++from app.research.trace.log_handler import ResearchLogHandler
++from app.research.wiring import build_research_runner
+ 
+ logging.basicConfig(
+     level=logging.INFO,
+     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+ )
+ logger = logging.getLogger(__name__)
+ 
+ 
+ @asynccontextmanager
+ async def lifespan(app: FastAPI):
+@@ -43,27 +48,43 @@ async def lifespan(app: FastAPI):
+     if not any(isinstance(h, RunLogHandler) for h in root.handlers):
+         root.addHandler(RunLogHandler())
+     # Same idea for the keyed observability consoles (résumé parse, interview-prep): routes logs
+     # to the run bound to the current task's context. No-op unless a run is bound.
+     if not any(isinstance(h, PipelineRunLogHandler) for h in root.handlers):
+         root.addHandler(PipelineRunLogHandler())
+     # And the agent-diagnostics console: routes logs to the bound diagnostic session (keyed by the
+     # emitter contextvar). No-op unless an agent-diag session is bound.
+     if not any(isinstance(h, AgentDiagLogHandler) for h in root.handlers):
+         root.addHandler(AgentDiagLogHandler())
++    # Research traces: forward every log record emitted inside a research run into its trace.
++    if not any(isinstance(h, ResearchLogHandler) for h in root.handlers):
++        root.addHandler(ResearchLogHandler())
++    # The debugger wants DEBUG from the pipeline even when the console runs at LOG_LEVEL. The console
++    # StreamHandler keeps LOG_LEVEL, so stdout stays as quiet as before.
++    logging.getLogger("app.research").setLevel(logging.DEBUG)
++    for h in root.handlers:
++        if type(h) is logging.StreamHandler:
++            h.setLevel(settings.log_level.upper())
+ 
+     await mongo.connect(settings)
+     app.state.exa = build_exa_client(settings)
+ 
++    research = None
++    if settings.research_enabled:
++        await ensure_research_indexes(mongo.get_db(), ttl_days=settings.research_trace_ttl_days)
++        research = build_research_runner(settings, store=MongoResearchStore(mongo.get_db()))
++        await research.recover_on_startup()
++    app.state.research = research
++
+     scheduler = None
+     if settings.scheduler_enabled:
+-        scheduler = create_scheduler(app.state.exa, settings)
++        scheduler = create_scheduler(app.state.exa, settings, research=research)
+         scheduler.start()
+         # Populate briefs on a fresh deploy rather than waiting for the schedule.
+         # Gated with the scheduler so SCHEDULER_ENABLED=false => fully manual (UI-only).
+         asyncio.create_task(_startup_generate_if_needed(app.state.exa, settings))
+     app.state.scheduler = scheduler
+ 
+     logger.info("interviewiq-ai-service started (scheduler=%s)", bool(scheduler))
+     try:
+         yield
+     finally:
+@@ -80,10 +101,11 @@ async def _startup_generate_if_needed(exa: ExaClient, settings: Settings) -> Non
+         if RUN_STORE.start(run_id, trigger="startup"):
+             logger.info("Startup: combinations without briefs detected — generating now")
+             await execute_tracked_run(exa, settings, run_id)
+     except Exception:  # noqa: BLE001 — startup generation must never crash the service
+         logger.exception("Startup brief generation failed")
+ 
+ 
+ app = FastAPI(title="interviewiq-ai-service", version="0.1.0", lifespan=lifespan)
+ app.include_router(router)
+ app.include_router(admin_router)
++app.include_router(research_router)
+diff --git a/apps/ai-service/app/research/api.py b/apps/ai-service/app/research/api.py
+new file mode 100644
+index 0000000..7bd1612
+--- /dev/null
++++ b/apps/ai-service/app/research/api.py
+@@ -0,0 +1,186 @@
++"""Internal HTTP surface of the research pipeline (spec §8.2). Called only by interviewiq-api with
++the internal key, on behalf of an authenticated ADMIN. Errors use the {code, message} envelope,
++which the API forwards as-is."""
++from __future__ import annotations
++
++from typing import Annotated, Literal
++
++from fastapi import APIRouter, Depends, Query, Request
++from fastapi.responses import JSONResponse
++from pydantic import BaseModel, Field
++
++from app.api.deps import require_internal_key
++from app.research.models import InvalidTransition
++from app.research.runner import NoCompaniesSelected, ResearchRunner, RunActive, RunNotFound
++from app.research.store import EventFilter
++from app.research.targets import TargetsUnavailable
++from app.research.trace.tracer import hydrate_span
++
++router = APIRouter(prefix="/research", dependencies=[Depends(require_internal_key)])
++
++Level = Literal["trace", "debug", "info", "warn", "error"]
++_ITEM_HIDDEN = ("state", "target")
++
++
++def get_runner(request: Request) -> ResearchRunner | None:
++    return getattr(request.app.state, "research", None)
++
++
++RunnerDep = Annotated[ResearchRunner | None, Depends(get_runner)]
++
++
++def error(status: int, code: str, message: str, **extra) -> JSONResponse:
++    return JSONResponse(status_code=status, content={"code": code, "message": message, **extra})
++
++
++def _disabled() -> JSONResponse:
++    return error(503, "research_disabled", "the research pipeline is disabled (RESEARCH_ENABLED=false)")
++
++
++def _public_run(run: dict) -> dict:
++    return {k: v for k, v in run.items() if k != "targets"}
++
++
++def _public_item(item: dict) -> dict:
++    return {k: v for k, v in item.items() if k not in _ITEM_HIDDEN}
++
++
++class StartRunBody(BaseModel):
++    scope: Literal["all", "selected"] = "all"
++    company_ids: list[str] = []
++    mode: Literal["live", "record", "replay"] | None = None
++    requested_by: str | None = None
++
++
++class BudgetBody(BaseModel):
++    exa_cap: int | None = Field(None, ge=0)
++    llm_cap: int | None = Field(None, ge=0)
++
++
++@router.post("/runs", status_code=201)
++async def start_run(body: StartRunBody, runner: RunnerDep):
++    if runner is None:
++        return _disabled()
++    try:
++        run = await runner.start_run(trigger="admin", scope=body.scope, company_ids=body.company_ids,
++                                     mode=body.mode, requested_by=body.requested_by)
++    except RunActive as exc:
++        return error(409, "run_active", str(exc), run_id=exc.run_id)
++    except NoCompaniesSelected as exc:
++        return error(400, "no_companies", str(exc))
++    except TargetsUnavailable as exc:
++        return error(503, "targets_unavailable", str(exc))
++    return _public_run(run)
++
++
++@router.get("/runs")
++async def list_runs(runner: RunnerDep, limit: Annotated[int, Query(ge=1, le=100)] = 20):
++    if runner is None:
++        return _disabled()
++    return {"runs": await runner.store.list_runs(limit)}
++
++
++@router.get("/runs/{run_id}")
++async def get_run(run_id: str, runner: RunnerDep):
++    if runner is None:
++        return _disabled()
++    run = await runner.store.get_run(run_id)
++    if run is None:
++        return error(404, "run_not_found", f"no research run {run_id}")
++    items = await runner.store.list_items(run_id)
++    return {"run": _public_run(run), "items": [_public_item(i) for i in items]}
++
++
++async def _control(runner: ResearchRunner | None, run_id: str, action: str):
++    if runner is None:
++        return _disabled()
++    try:
++        run = await getattr(runner, action)(run_id)
++    except RunNotFound as exc:
++        return error(404, "run_not_found", str(exc))
++    except InvalidTransition as exc:
++        return error(409, "invalid_transition", str(exc))
++    return _public_run(run)
++
++
++@router.post("/runs/{run_id}/pause")
++async def pause_run(run_id: str, runner: RunnerDep):
++    return await _control(runner, run_id, "pause")
++
++
++@router.post("/runs/{run_id}/resume")
++async def resume_run(run_id: str, runner: RunnerDep):
++    return await _control(runner, run_id, "resume")
++
++
++@router.post("/runs/{run_id}/stop")
++async def stop_run(run_id: str, runner: RunnerDep):
++    return await _control(runner, run_id, "stop")
++
++
++@router.patch("/runs/{run_id}/budget")
++async def patch_budget(run_id: str, body: BudgetBody, runner: RunnerDep):
++    if runner is None:
++        return _disabled()
++    try:
++        run = await runner.raise_budget(run_id, exa_cap=body.exa_cap, llm_cap=body.llm_cap)
++    except RunNotFound as exc:
++        return error(404, "run_not_found", str(exc))
++    except ValueError as exc:
++        return error(400, "invalid_budget", str(exc))
++    return _public_run(run)
++
++
++@router.get("/runs/{run_id}/events")
++async def run_events(
++    run_id: str,
++    runner: RunnerDep,
++    after_seq: Annotated[int, Query(ge=0)] = 0,
++    before_seq: Annotated[int | None, Query(ge=1)] = None,
++    limit: Annotated[int, Query(ge=1, le=500)] = 500,
++    level: Annotated[Level | None, Query()] = None,
++    company_id: Annotated[str | None, Query()] = None,
++    node: Annotated[str | None, Query()] = None,
++    type_: Annotated[str | None, Query(alias="type")] = None,
++    span_id: Annotated[str | None, Query()] = None,
++    q: Annotated[str | None, Query(max_length=200)] = None,
++):
++    if runner is None:
++        return _disabled()
++    run = await runner.store.get_run(run_id)
++    if run is None:
++        return error(404, "run_not_found", f"no research run {run_id}")
++    events = await runner.store.list_events(run_id, EventFilter(
++        after_seq=after_seq, before_seq=before_seq, limit=limit, min_level=level, company_id=company_id,
++        node=node, type_prefix=type_, span_id=span_id, q=q,
++    ))
++    return {"events": events, "last_seq": run.get("last_seq", 0)}
++
++
++@router.get("/runs/{run_id}/spans")
++async def run_spans(run_id: str, runner: RunnerDep, company_id: Annotated[str | None, Query()] = None):
++    if runner is None:
++        return _disabled()
++    if await runner.store.get_run(run_id) is None:
++        return error(404, "run_not_found", f"no research run {run_id}")
++    return {"spans": await runner.store.list_spans(run_id, company_id)}
++
++
++@router.get("/spans/{span_id}")
++async def get_span(span_id: str, runner: RunnerDep):
++    if runner is None:
++        return _disabled()
++    span = await runner.store.get_span(span_id)
++    if span is None:
++        return error(404, "span_not_found", f"no span {span_id}")
++    span = await hydrate_span(runner.store, span)
++    logs = await runner.store.list_events(span["run_id"], EventFilter(span_id=span_id, limit=500))
++    return {"span": span, "logs": logs}
++
++
++@router.get("/companies/state")
++async def companies_state(runner: RunnerDep, ids: Annotated[str, Query(max_length=20_000)] = ""):
++    if runner is None:
++        return _disabled()
++    wanted = [i for i in ids.split(",") if i]
++    return {"states": await runner.store.list_company_states(wanted or None)}
+diff --git a/apps/ai-service/app/research/cli.py b/apps/ai-service/app/research/cli.py
+new file mode 100644
+index 0000000..4fc6edc
+--- /dev/null
++++ b/apps/ai-service/app/research/cli.py
+@@ -0,0 +1,101 @@
++"""Run the research pipeline from a terminal, streaming every trace event (spec §12.2).
++
++    # ad-hoc company, nothing else running: no API, no Mongo, free replay
++    python -m app.research.cli run --name "Meesho" --mode replay --memory --verbose
++
++    # record real responses once (costs Exa + LLM calls), then replay them for free
++    python -m app.research.cli run --name "Meesho" --mode record --memory
++
++    # catalogue companies by slug (needs interviewiq-api running); writes to MONGODB_DB
++    python -m app.research.cli run --company meesho --company razorpay --mode live
++
++Exit code: 0 all companies done/skipped, 1 any failed, 2 bad arguments / nothing to run."""
++from __future__ import annotations
++
++import argparse
++import asyncio
++import logging
++import sys
++
++from app.config import get_settings
++from app.db import mongo
++from app.research.memory_store import InMemoryResearchStore
++from app.research.normalize.identity import slugify
++from app.research.store import LEVEL_RANK, MongoResearchStore, ensure_research_indexes
++from app.research.targets import ResearchTarget, fetch_research_targets
++from app.research.trace.log_handler import ResearchLogHandler
++from app.research.wiring import build_research_runner
++
++
++def _echo(min_rank: int):
++    def echo(ev: dict) -> None:
++        if ev["level_rank"] < min_rank:
++            return
++        print(f"{ev['seq']:>6} {ev['ts']:%H:%M:%S} {ev['level']:<5} {(ev.get('node') or '-'):<12} "
++              f"{ev['type']:<18} {ev['message']}", flush=True)
++    return echo
++
++
++async def _run(args: argparse.Namespace) -> int:
++    settings = get_settings()
++    if args.mode:
++        settings = settings.model_copy(update={"research_mode": args.mode})
++    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
++    logging.getLogger("app.research").setLevel(logging.DEBUG)
++    logging.getLogger().addHandler(ResearchLogHandler())
++
++    if args.memory:
++        store = InMemoryResearchStore()
++    else:
++        db = await mongo.connect(settings)
++        await ensure_research_indexes(db, ttl_days=settings.research_trace_ttl_days)
++        store = MongoResearchStore(db)
++
++    if args.name:
++        slug = slugify(args.name)
++        targets = [ResearchTarget(id=f"cli-{slug}", name=args.name, slug=slug, website=args.website)]
++    else:
++        wanted = set(args.company or [])
++        targets = [t for t in await fetch_research_targets(settings) if t.slug in wanted]
++        if not targets:
++            print(f"no active catalogue company matches {sorted(wanted)}", file=sys.stderr)
++            return 2
++
++    async def fixed_targets() -> list[ResearchTarget]:
++        return targets
++
++    runner = build_research_runner(settings, store=store, targets=fixed_targets,
++                                   echo=_echo(LEVEL_RANK["trace" if args.verbose else "info"]))
++    try:
++        run = await runner.start_run(trigger="cli", scope="selected", company_ids=[t.id for t in targets],
++                                     mode=settings.research_mode)
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        items = await store.list_items(run["run_id"])
++        print(f"\nrun {run['run_id']} · {run['status']} · mode={run['mode']} · budget {run['budget']}")
++        for item in items:
++            err = f" · {item['error']['type']}: {item['error']['message']}" if item.get("error") else ""
++            print(f"  {item['company_name']:<24} {item['status']}{err}")
++        return 1 if any(i["status"] == "failed" for i in items) else 0
++    finally:
++        if not args.memory:
++            await mongo.close()
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(prog="python -m app.research.cli")
++    sub = parser.add_subparsers(dest="cmd", required=True)
++    run = sub.add_parser("run", help="research one or more companies and stream the trace")
++    who = run.add_mutually_exclusive_group(required=True)
++    who.add_argument("--name", help="ad-hoc company name (no API needed)")
++    who.add_argument("--company", action="append", help="catalogue slug (repeatable; needs interviewiq-api)")
++    run.add_argument("--website", help="website hint for --name")
++    run.add_argument("--mode", choices=["live", "record", "replay"])
++    run.add_argument("--memory", action="store_true", help="keep all state in memory (no Mongo)")
++    run.add_argument("--verbose", action="store_true", help="print trace/debug events too")
++    args = parser.parse_args()
++    sys.exit(asyncio.run(_run(args)))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/apps/ai-service/app/research/wiring.py b/apps/ai-service/app/research/wiring.py
+new file mode 100644
+index 0000000..de81fcf
+--- /dev/null
++++ b/apps/ai-service/app/research/wiring.py
+@@ -0,0 +1,33 @@
++"""Build a production ResearchRunner: real Exa + LLM clients per run, targets from interviewiq-api,
++secrets from settings. The CLI passes its own store / targets / echo."""
++from __future__ import annotations
++
++from collections.abc import Awaitable, Callable
++from contextlib import asynccontextmanager
++
++from app.config import Settings
++from app.exa.client import build_exa_client
++from app.llm.client import build_llm_client
++from app.research.runner import ResearchRunner
++from app.research.store import ResearchStore
++from app.research.targets import ResearchTarget, fetch_research_targets
++from app.research.trace.redact import secrets_from_settings
++
++
++def build_research_runner(settings: Settings, *, store: ResearchStore,
++                          targets: Callable[[], Awaitable[list[ResearchTarget]]] | None = None,
++                          echo: Callable[[dict], None] | None = None) -> ResearchRunner:
++    @asynccontextmanager
++    async def clients():
++        exa = build_exa_client(settings)
++        llm = build_llm_client(settings)
++        try:
++            yield exa, llm
++        finally:
++            await llm.aclose()
++
++    async def fetch() -> list[ResearchTarget]:
++        return await fetch_research_targets(settings)
++
++    return ResearchRunner(store=store, settings=settings, targets=targets or fetch, clients=clients,
++                          secrets=secrets_from_settings(settings), echo=echo)
+diff --git a/apps/ai-service/tests/research/test_research_api.py b/apps/ai-service/tests/research/test_research_api.py
+new file mode 100644
+index 0000000..5dd2db7
+--- /dev/null
++++ b/apps/ai-service/tests/research/test_research_api.py
+@@ -0,0 +1,91 @@
++"""Route functions are called directly (the repo's pattern: no TestClient, so no lifespan / Mongo).
++Annotated[...] parameters keep plain-Python defaults, so a direct call needs only what it sets."""
++import asyncio
++import json
++
++from fastapi.responses import JSONResponse
++
++import app.research.api as api
++from app.research.memory_store import InMemoryResearchStore
++from tests.research.helpers import make_runner
++
++
++def _body(resp):
++    assert isinstance(resp, JSONResponse)
++    return resp.status_code, json.loads(resp.body)
++
++
++def test_start_then_conflict_then_detail(tmp_path):
++    async def go():
++        runner, _ = make_runner(InMemoryResearchStore(), tmp_path)
++        run = await api.start_run(api.StartRunBody(scope="all"), runner=runner)
++        assert run["status"] == "queued" and "targets" not in run
++        status, body = _body(await api.start_run(api.StartRunBody(scope="all"), runner=runner))
++        assert status == 409 and body["code"] == "run_active" and body["run_id"] == run["run_id"]
++        await runner.wait_idle()
++        detail = await api.get_run(run["run_id"], runner=runner)
++        assert detail["run"]["status"] == "completed"
++        assert all("state" not in i and "target" not in i for i in detail["items"])
++        listed = await api.list_runs(runner=runner)
++        assert [r["run_id"] for r in listed["runs"]] == [run["run_id"]]
++    asyncio.run(go())
++
++
++def test_selected_scope_with_unknown_ids_is_400(tmp_path):
++    async def go():
++        runner, _ = make_runner(InMemoryResearchStore(), tmp_path)
++        status, body = _body(await api.start_run(api.StartRunBody(scope="selected", company_ids=["nope"]), runner=runner))
++        assert status == 400 and body["code"] == "no_companies"
++    asyncio.run(go())
++
++
++def test_controls_map_errors_to_404_and_409(tmp_path):
++    async def go():
++        runner, _ = make_runner(InMemoryResearchStore(), tmp_path)
++        status, body = _body(await api.pause_run("0" * 32, runner=runner))
++        assert status == 404 and body["code"] == "run_not_found"
++        run = await api.start_run(api.StartRunBody(), runner=runner)
++        await runner.wait_idle()
++        status, body = _body(await api.resume_run(run["run_id"], runner=runner))
++        assert status == 409 and body["code"] == "invalid_transition"
++        status, body = _body(await api.patch_budget(run["run_id"], api.BudgetBody(llm_cap=0), runner=runner))
++        assert status == 400 and body["code"] == "invalid_budget"
++    asyncio.run(go())
++
++
++def test_events_spans_and_span_detail(tmp_path):
++    async def go():
++        runner, _ = make_runner(InMemoryResearchStore(), tmp_path)
++        run = await api.start_run(api.StartRunBody(), runner=runner)
++        await runner.wait_idle()
++        page = await api.run_events(run["run_id"], runner=runner, level="info")
++        assert page["last_seq"] >= len(page["events"]) > 0
++        assert all(e["level_rank"] >= 20 for e in page["events"])
++        older = await api.run_events(run["run_id"], runner=runner, before_seq=page["last_seq"], limit=3)
++        assert len(older["events"]) == 3 and older["events"][-1]["seq"] == page["last_seq"] - 1
++        spans = (await api.run_spans(run["run_id"], runner=runner, company_id="c-meesho"))["spans"]
++        llm = next(s for s in spans if s["kind"] == "llm")
++        detail = await api.get_span(llm["span_id"], runner=runner)
++        assert detail["span"]["input"]["prompt_name"] == "resolve_company"
++        assert [e["type"] for e in detail["logs"]][0] == "span.start"
++        status, body = _body(await api.get_span("f" * 32, runner=runner))
++        assert status == 404 and body["code"] == "span_not_found"
++    asyncio.run(go())
++
++
++def test_company_states_endpoint(tmp_path):
++    async def go():
++        runner, _ = make_runner(InMemoryResearchStore(), tmp_path)
++        await api.start_run(api.StartRunBody(), runner=runner)
++        await runner.wait_idle()
++        got = await api.companies_state(runner=runner, ids="c-meesho")
++        assert [s["company_id"] for s in got["states"]] == ["c-meesho"]
++        assert got["states"][0]["latest_draft_status"] == "pending_review"
++    asyncio.run(go())
++
++
++def test_disabled_research_is_503():
++    async def go():
++        status, body = _body(await api.list_runs(runner=None))
++        assert status == 503 and body["code"] == "research_disabled"
++    asyncio.run(go())
+diff --git a/apps/ai-service/tests/research/test_scheduler_research.py b/apps/ai-service/tests/research/test_scheduler_research.py
+new file mode 100644
+index 0000000..d5bb599
+--- /dev/null
++++ b/apps/ai-service/tests/research/test_scheduler_research.py
+@@ -0,0 +1,38 @@
++import asyncio
++
++from apscheduler.triggers.cron import CronTrigger
++
++from app.config import Settings
++from app.jobs.scheduler import _research_job, create_scheduler
++from app.research.runner import RunActive
++
++
++class _Runner:
++    def __init__(self, exc=None):
++        self.calls, self.exc = [], exc
++
++    async def start_run(self, **kw):
++        self.calls.append(kw)
++        if self.exc:
++            raise self.exc
++        return {"run_id": "r"}
++
++
++def test_research_job_is_scheduled_weekly_on_the_configured_cron():
++    sched = create_scheduler(exa=object(), settings=Settings(_env_file=None), research=_Runner())
++    job = sched.get_job("company-research")
++    assert isinstance(job.trigger, CronTrigger)
++    assert str(job.trigger.timezone) == "Asia/Kolkata"
++    assert sched.get_job("brief-generation") is not None
++
++
++def test_no_research_job_without_a_runner():
++    sched = create_scheduler(exa=object(), settings=Settings(_env_file=None))
++    assert sched.get_job("company-research") is None
++
++
++def test_research_job_starts_an_all_scope_cron_run_and_swallows_run_active():
++    runner = _Runner()
++    asyncio.run(_research_job(runner))
++    assert runner.calls == [{"trigger": "cron", "scope": "all"}]
++    asyncio.run(_research_job(_Runner(exc=RunActive("busy"))))   # must not raise

@@ -1,0 +1,458 @@
+# Review package: shadow snapshots e5ef36e..d63c2fc (working tree, no commits — the user commits)
+
+## Files changed
+ apps/api/src/auth/refreshTokens.ts                 |  5 ++
+ apps/api/src/repositories/pg.ts                    |  9 ++-
+ apps/api/src/routes/account.ts                     | 39 ++++++++++
+ apps/api/src/routes/auth.ts                        |  8 +-
+ apps/api/src/services/userService.ts               |  7 ++
+ apps/api/test/app.test.ts                          |  1 +
+ apps/api/test/routes/accountController.test.ts     | 89 ++++++++++++++++++++++
+ .../api/test/routes/passwordAuthController.test.ts |  1 +
+ 8 files changed, 156 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/apps/api/src/auth/refreshTokens.ts b/apps/api/src/auth/refreshTokens.ts
+index df2b26d..93972bb 100644
+--- a/apps/api/src/auth/refreshTokens.ts
++++ b/apps/api/src/auth/refreshTokens.ts
+@@ -43,11 +43,16 @@ export class RefreshTokenService {
+       if (!user) throw new InvalidRefreshTokenError("Refresh token user no longer exists");
+       const newRefreshToken = await this.createRefreshToken(user.id, txDb);
+       const accessToken = await this.jwt.createAccessToken(user);
+       return { accessToken, newRefreshToken };
+     });
+   }
+ 
+   async revoke(rawToken: string): Promise<void> {
+     await new RefreshTokenRepository(this.db).revoke(sha256Base64Url(rawToken), new Date());
+   }
++
++  /** "Log out of all devices": revoke every live refresh token the user has. */
++  async revokeAll(userId: string): Promise<void> {
++    await new RefreshTokenRepository(this.db).revokeAllForUser(userId, new Date());
++  }
+ }
+diff --git a/apps/api/src/repositories/pg.ts b/apps/api/src/repositories/pg.ts
+index fc5790a..b7fc9cd 100644
+--- a/apps/api/src/repositories/pg.ts
++++ b/apps/api/src/repositories/pg.ts
+@@ -92,23 +92,23 @@ export class UserRepository {
+       .insert(users)
+       .values({
+         googleSub: input.googleSub,
+         email: input.email,
+         name: input.name,
+         role: input.promoteToAdmin ? "ADMIN" : "USER",
+         emailVerifiedAt: input.emailVerified ? now : null,
+       })
+       .onConflictDoUpdate({
+         target: users.googleSub,
++        // `name` is set once, at sign-up: afterwards it's the user's own display name (Settings → Account).
+         set: {
+           email: input.email,
+-          name: input.name,
+           updatedAt: now,
+           ...(input.promoteToAdmin ? { role: "ADMIN" as const } : {}),
+           ...(input.emailVerified ? { emailVerifiedAt: coalesceNow(users.emailVerifiedAt, now) } : {}),
+         },
+       })
+       .returning();
+     return rows[0]!;
+   }
+ 
+   /**
+@@ -119,21 +119,22 @@ export class UserRepository {
+    */
+   linkGoogle(
+     id: string,
+     input: { googleSub: string; email: string; name: string; promoteToAdmin: boolean; clearPassword: boolean; now: Date },
+   ): Promise<UserRow | null> {
+     return this.db
+       .update(users)
+       .set({
+         googleSub: input.googleSub,
+         email: input.email,
+-        name: input.name,
++        // Only an unverified account (clearPassword) takes Google's name: it may come from a squatter. Otherwise the user owns it.
++        ...(input.clearPassword ? { name: input.name } : {}),
+         updatedAt: input.now,
+         emailVerifiedAt: coalesceNow(users.emailVerifiedAt, input.now),
+         ...(input.clearPassword ? { passwordHash: null } : {}),
+         ...(input.promoteToAdmin ? { role: "ADMIN" as const } : {}),
+       })
+       .where(and(eq(users.id, id), isNull(users.googleSub)))
+       .returning()
+       .then(one);
+   }
+ 
+@@ -150,20 +151,24 @@ export class UserRepository {
+     await this.db
+       .update(users)
+       .set({ passwordHash, emailVerifiedAt: coalesceNow(users.emailVerifiedAt, now), updatedAt: now })
+       .where(eq(users.id, id));
+   }
+ 
+   updateRole(id: string, role: Role): Promise<UserRow | null> {
+     return this.db.update(users).set({ role }).where(eq(users.id, id)).returning().then(one);
+   }
+ 
++  updateName(id: string, name: string): Promise<UserRow | null> {
++    return this.db.update(users).set({ name }).where(eq(users.id, id)).returning().then(one);
++  }
++
+   markOnboardingComplete(id: string): Promise<UserRow | null> {
+     return this.db.update(users).set({ onboardingComplete: true }).where(eq(users.id, id)).returning().then(one);
+   }
+ }
+ 
+ export class RefreshTokenRepository {
+   constructor(private readonly db: Database) {}
+ 
+   async insert(row: Insert<typeof refreshTokens>): Promise<void> {
+     await this.db.insert(refreshTokens).values(row);
+diff --git a/apps/api/src/routes/account.ts b/apps/api/src/routes/account.ts
+index 434b908..866c389 100644
+--- a/apps/api/src/routes/account.ts
++++ b/apps/api/src/routes/account.ts
+@@ -1,23 +1,62 @@
+ import type { Router } from "express";
++import { z } from "zod";
+ import type { Container } from "../container.js";
+ import { requiredBody, router, routerErrors, userId } from "../http/support.js";
++import { BadRequestError } from "../lib/errors.js";
++import { toUserResponse } from "../services/userService.js";
++import { clearRefreshTokenCookie } from "./auth.js";
++
++const UpdateUserBody = z.object(
++  {
++    name: z
++      .string({ error: "Enter your name." })
++      .trim()
++      .min(1, { error: "Enter your name." })
++      .max(80, { error: "Name must be at most 80 characters." }),
++  },
++  { error: "The request body must be a JSON object." },
++);
++
++function parse<T>(schema: z.ZodType<T>, value: unknown, code: string): T {
++  const r = schema.safeParse(value);
++  if (!r.success) throw new BadRequestError(r.error.issues[0]?.message ?? "Invalid request.", code);
++  return r.data;
++}
+ 
+ /**
+  * Settings under /api/v1/users/me: preferences, display name, sessions, data export and account
+  * deletion. Mounted before the candidate-profile and users routers; paths it doesn't own fall
+  * through to them.
+  */
+ export function accountRouter(c: Container): Router {
+   const r = router();
+ 
+   r.get("/preferences", async (req, res) => {
+     res.json(await c.preferences.get(userId(req)));
+   });
+ 
+   r.patch("/preferences", async (req, res) => {
+     res.json(await c.preferences.update(userId(req), requiredBody(req)));
+   });
+ 
++  /** Display name. Google sign-ins no longer overwrite it (UserRepository.upsertByGoogleSub). */
++  r.patch("/", async (req, res) => {
++    const { name } = parse(UpdateUserBody, requiredBody(req), "invalid_name");
++    const user = await c.users.rename(userId(req), name);
++    if (!user) {
++      res.status(404).end();
++      return;
++    }
++    res.json(toUserResponse(user));
++  });
++
++  /** "Log out of all devices" — this one included. */
++  r.post("/sessions/revoke", async (req, res) => {
++    await c.refreshTokens.revokeAll(userId(req));
++    clearRefreshTokenCookie(res, c.config);
++    res.status(204).end();
++  });
++
+   r.use(routerErrors(() => undefined));
+   return r;
+ }
+diff --git a/apps/api/src/routes/auth.ts b/apps/api/src/routes/auth.ts
+index 3bb4e65..1e0a2bb 100644
+--- a/apps/api/src/routes/auth.ts
++++ b/apps/api/src/routes/auth.ts
+@@ -1,22 +1,28 @@
+ import type { CookieOptions, NextFunction, Request, Response, Router } from "express";
+ import { z } from "zod";
+ import { decodePending, encodePending } from "../auth/googleOAuth.js";
+ import { EmailTakenError, InvalidAuthTokenError, InvalidCredentialsError, type IssuedSession, UseGoogleError } from "../auth/passwordAuth.js";
+ import { InvalidRefreshTokenError } from "../auth/refreshTokens.js";
++import type { Config } from "../config.js";
+ import type { Container } from "../container.js";
+ import { clientIp, enforceRateLimit, rateLimitErrors } from "../http/rateLimit.js";
+ import { router, routerErrors, sendError, userId } from "../http/support.js";
+ import { BadRequestError, safeErrorMessage } from "../lib/errors.js";
+ 
+ const REFRESH_COOKIE = "refresh_token";
+ const REFRESH_COOKIE_PATH = "/api/v1/auth";
++
++/** Expire the refresh cookie (same attributes it was set with). Shared with the account routes. */
++export function clearRefreshTokenCookie(res: Response, config: Pick<Config, "cookieSecure" | "cookieSameSite">): void {
++  res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: config.cookieSecure, sameSite: config.cookieSameSite, path: REFRESH_COOKIE_PATH });
++}
+ const OAUTH_COOKIE = "oauth2_google";
+ const OAUTH_COOKIE_PATH = "/login/oauth2";
+ 
+ // --- request bodies ------------------------------------------------------------------------------
+ 
+ const email = z
+   .string({ error: "Enter your email address." })
+   .trim()
+   .toLowerCase()
+   .max(254, { error: "Enter a valid email address." })
+@@ -68,21 +74,21 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  * The refresh token lives in an httpOnly cookie scoped to /api/v1/auth; the short-lived access
+  * token is returned in JSON.
+  */
+ export function authRouter(c: Container): Router {
+   const r = router();
+   const { config, log, rateLimiters: limits } = c;
+ 
+   const cookieBase = (): CookieOptions => ({ httpOnly: true, secure: config.cookieSecure, sameSite: config.cookieSameSite });
+   const setRefreshCookie = (res: Response, token: string) =>
+     res.cookie(REFRESH_COOKIE, token, { ...cookieBase(), path: REFRESH_COOKIE_PATH, maxAge: config.refreshTokenDays * 24 * 60 * 60 * 1000 });
+-  const clearRefreshCookie = (res: Response) => res.clearCookie(REFRESH_COOKIE, { ...cookieBase(), path: REFRESH_COOKIE_PATH });
++  const clearRefreshCookie = (res: Response) => clearRefreshTokenCookie(res, config);
+   const tokenResponse = (res: Response, accessToken: string) => res.json({ accessToken, tokenType: "Bearer", expiresIn: c.jwt.accessTokenSeconds });
+   const sendSession = (res: Response, status: number, session: IssuedSession) => {
+     setRefreshCookie(res, session.refreshToken);
+     tokenResponse(res.status(status), session.accessToken);
+   };
+ 
+   // Leg 1: start Google login.
+   r.get("/oauth2/authorization/google", (_req, res) => {
+     const { url, pending } = c.googleOAuth.begin();
+     // The handshake cookie must survive the top-level redirect back from Google, so it is Lax.
+diff --git a/apps/api/src/services/userService.ts b/apps/api/src/services/userService.ts
+index c1c5bb3..ee0adb6 100644
+--- a/apps/api/src/services/userService.ts
++++ b/apps/api/src/services/userService.ts
+@@ -6,31 +6,34 @@ import { RefreshTokenRepository, UserRepository } from "../repositories/pg.js";
+ export interface UserResponse {
+   id: string;
+   email: string;
+   name: string;
+   role: Role;
+   onboardingComplete: boolean;
+   /** The user has proved control of `email` (verify link, reset link, or Google). */
+   emailVerified: boolean;
+   /** The account can sign in with email + password (false = Google-only). */
+   hasPassword: boolean;
++  /** A Google account is linked (can sign in with Google). */
++  hasGoogle: boolean;
+ }
+ 
+ export function toUserResponse(u: UserRow): UserResponse {
+   return {
+     id: u.id,
+     email: u.email,
+     name: u.name,
+     role: u.role,
+     onboardingComplete: u.onboardingComplete,
+     emailVerified: u.emailVerifiedAt !== null,
+     hasPassword: u.passwordHash !== null,
++    hasGoogle: u.googleSub !== null,
+   };
+ }
+ 
+ export interface GoogleIdentity {
+   sub: string;
+   email: string;
+   name: string;
+   /** Google's `email_verified` claim. Only a verified Google email may claim an existing account. */
+   emailVerified: boolean;
+ }
+@@ -121,11 +124,15 @@ export class UserService {
+     return this.users.findById(id);
+   }
+ 
+   listUsers(): Promise<UserRow[]> {
+     return this.users.findAll();
+   }
+ 
+   updateRole(id: string, role: Role): Promise<UserRow | null> {
+     return this.users.updateRole(id, role);
+   }
++
++  rename(id: string, name: string): Promise<UserRow | null> {
++    return this.users.updateName(id, name);
++  }
+ }
+diff --git a/apps/api/test/app.test.ts b/apps/api/test/app.test.ts
+index 381ba15..a56c389 100644
+--- a/apps/api/test/app.test.ts
++++ b/apps/api/test/app.test.ts
+@@ -62,20 +62,21 @@ describe("users", () => {
+     const res = await env.http.get("/api/v1/users/me").set("Authorization", await bearer(env, user));
+     expect(res.status).toBe(200);
+     expect(res.body).toEqual({
+       id: user.id,
+       email: user.email,
+       name: "Asha",
+       role: "USER",
+       onboardingComplete: false,
+       emailVerified: false,
+       hasPassword: false,
++      hasGoogle: true,
+     });
+   });
+ 
+   it("bootstrap admin emails are promoted on Google login, never demoted", async () => {
+     const u = await env.c.users.upsertFromGoogle({ sub: "g-boss", email: "Boss@Example.com", name: "Boss", emailVerified: true });
+     expect(u.role).toBe("ADMIN");
+     await env.c.users.updateRole(u.id, "USER"); // explicit admin action
+     const again = await env.c.users.upsertFromGoogle({ sub: "g-other", email: "someone@example.com", name: "X", emailVerified: true });
+     expect(again.role).toBe("USER");
+   });
+diff --git a/apps/api/test/routes/accountController.test.ts b/apps/api/test/routes/accountController.test.ts
+index 8d2f3fc..0a06793 100644
+--- a/apps/api/test/routes/accountController.test.ts
++++ b/apps/api/test/routes/accountController.test.ts
+@@ -1,10 +1,12 @@
++import { randomUUID } from "node:crypto";
++import type { Response } from "supertest";
+ import { afterAll, beforeAll, describe, expect, it } from "vitest";
+ import { DEFAULT_PREFERENCES } from "../../src/domain/preferences.js";
+ import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
+ 
+ /** Settings endpoints under /api/v1/users/me (preferences, name, sessions). */
+ 
+ let env: TestEnv;
+ beforeAll(async () => {
+   env = await createTestEnv();
+ });
+@@ -82,10 +84,97 @@ describe("GET/PATCH /users/me/preferences", () => {
+     const { token } = await auth();
+     expect((await env.http.patch(PREFS).set("Authorization", token)).status).toBe(400);
+   });
+ 
+   it("does not shadow the existing /users/me routes", async () => {
+     const { token } = await auth();
+     expect((await env.http.get("/api/v1/users/me").set("Authorization", token)).status).toBe(200);
+     expect((await env.http.get("/api/v1/users/me/candidate-profile").set("Authorization", token)).status).toBe(204);
+   });
+ });
++
++const PW = "correct-horse-battery";
++const uniqueEmail = (p: string) => `${p}-${randomUUID().slice(0, 8)}@example.com`;
++function setCookies(res: Response): string {
++  const raw = res.headers["set-cookie"] as unknown as string[] | string | undefined;
++  return ([] as string[]).concat(raw ?? []).join(";");
++}
++const refreshCookie = (res: Response) => /refresh_token=([^;]*)/.exec(setCookies(res))?.[1] ?? "";
++const refresh = (cookie: string) => env.http.post("/api/v1/auth/refresh").set("Cookie", `refresh_token=${cookie}`);
++
++describe("PATCH /users/me (display name)", () => {
++  it("renames, trimmed, and /users/me shows it", async () => {
++    const { token } = await auth();
++    const res = await env.http.patch("/api/v1/users/me").set("Authorization", token).send({ name: "  Asha R.  " });
++    expect(res.status).toBe(200);
++    expect(res.body.name).toBe("Asha R.");
++    expect((await env.http.get("/api/v1/users/me").set("Authorization", token)).body.name).toBe("Asha R.");
++  });
++
++  it.each([{ name: "" }, { name: "   " }, { name: "x".repeat(81) }, { name: 42 }, {}])("400 invalid_name for %j", async (body) => {
++    const { token } = await auth();
++    const res = await env.http.patch("/api/v1/users/me").set("Authorization", token).send(body);
++    expect(res.status).toBe(400);
++    expect(res.body.code).toBe("invalid_name");
++  });
++
++  it("a later Google sign-in keeps the renamed display name", async () => {
++    const email = uniqueEmail("g");
++    const sub = `g-${randomUUID()}`;
++    const google = await env.c.users.upsertFromGoogle({ sub, email, name: "Google Name", emailVerified: true });
++    await env.http.patch("/api/v1/users/me").set("Authorization", await bearer(env, google)).send({ name: "Chosen Name" });
++    const again = await env.c.users.upsertFromGoogle({ sub, email, name: "Google Name", emailVerified: true });
++    expect(again.name).toBe("Chosen Name");
++  });
++});
++
++describe("linking Google to a password account", () => {
++  it("a verified account keeps its chosen name", async () => {
++    const email = uniqueEmail("lv");
++    const { user } = await env.c.passwordAuth.register({ name: "P", email, password: PW });
++    await env.c.repos.users.markEmailVerified(user.id, new Date());
++    await env.http.patch("/api/v1/users/me").set("Authorization", await bearer(env, user)).send({ name: "Chosen Name" });
++    const linked = await env.c.users.upsertFromGoogle({ sub: `g-${randomUUID()}`, email, name: "Google Name", emailVerified: true });
++    expect(linked.id).toBe(user.id);
++    expect(linked.name).toBe("Chosen Name");
++  });
++
++  it("a never-verified account takes Google's name", async () => {
++    const email = uniqueEmail("lu");
++    const { user } = await env.c.passwordAuth.register({ name: "Squatter", email, password: PW });
++    const linked = await env.c.users.upsertFromGoogle({ sub: `g-${randomUUID()}`, email, name: "Google Name", emailVerified: true });
++    expect(linked.id).toBe(user.id);
++    expect(linked.name).toBe("Google Name");
++  });
++});
++
++describe("hasGoogle on /users/me", () => {
++  it("is true for Google accounts and false for password-only ones", async () => {
++    const g = await createUser(env);
++    expect((await env.http.get("/api/v1/users/me").set("Authorization", await bearer(env, g))).body.hasGoogle).toBe(true);
++    const { user } = await env.c.passwordAuth.register({ name: "P", email: uniqueEmail("p"), password: PW });
++    expect((await env.http.get("/api/v1/users/me").set("Authorization", await bearer(env, user))).body.hasGoogle).toBe(false);
++  });
++});
++
++describe("POST /users/me/sessions/revoke", () => {
++  it("revokes every refresh token of the user and clears the cookie", async () => {
++    const email = uniqueEmail("s");
++    const first = await env.c.passwordAuth.register({ name: "S", email, password: PW });
++    const login = await env.http.post("/api/v1/auth/login").send({ email, password: PW });
++    const secondCookie = refreshCookie(login);
++    expect(secondCookie).not.toBe("");
++
++    const res = await env.http.post("/api/v1/users/me/sessions/revoke").set("Authorization", await bearer(env, first.user));
++    expect(res.status).toBe(204);
++    expect(setCookies(res)).toMatch(/refresh_token=;/);
++    expect((await refresh(first.refreshToken)).status).toBe(401);
++    expect((await refresh(secondCookie)).status).toBe(401);
++  });
++
++  it("leaves other users' sessions alone", async () => {
++    const mine = await env.c.passwordAuth.register({ name: "A", email: uniqueEmail("a"), password: PW });
++    const theirs = await env.c.passwordAuth.register({ name: "B", email: uniqueEmail("b"), password: PW });
++    await env.http.post("/api/v1/users/me/sessions/revoke").set("Authorization", await bearer(env, mine.user));
++    expect((await refresh(theirs.refreshToken)).status).toBe(200);
++  });
++});
+diff --git a/apps/api/test/routes/passwordAuthController.test.ts b/apps/api/test/routes/passwordAuthController.test.ts
+index ebd83a9..3479751 100644
+--- a/apps/api/test/routes/passwordAuthController.test.ts
++++ b/apps/api/test/routes/passwordAuthController.test.ts
+@@ -60,20 +60,21 @@ describe("POST /api/v1/auth/register", () => {
+     const profile = await me(res.body.accessToken);
+     expect(profile.status).toBe(200);
+     expect(profile.body).toEqual({
+       id: expect.any(String),
+       email, // trimmed + lowercased
+       name: "Asha Rao", // trimmed
+       role: "USER",
+       onboardingComplete: false,
+       emailVerified: false,
+       hasPassword: true,
++      hasGoogle: false,
+     });
+ 
+     // the refresh cookie is a real session
+     expect((await refresh(refreshCookie(res))).status).toBe(200);
+ 
+     // the password is stored only as a scrypt hash
+     const row = (await env.db.select().from(users).where(eq(users.email, email)))[0]!;
+     expect(row.passwordHash).toMatch(/^scrypt\$32768\$8\$3\$/);
+     expect(row.googleSub).toBeNull();
+   });

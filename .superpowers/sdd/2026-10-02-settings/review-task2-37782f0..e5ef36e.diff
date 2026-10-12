@@ -1,0 +1,448 @@
+# Review package: shadow snapshots 37782f0..e5ef36e (working tree, no commits — the user commits)
+
+## Files changed
+ apps/api/src/app.ts                            |  2 +
+ apps/api/src/container.ts                      | 11 +++-
+ apps/api/src/db/mongo/client.ts                | 14 ++++
+ apps/api/src/repositories/mongo.ts             | 21 ++++++
+ apps/api/src/routes/account.ts                 | 23 +++++++
+ apps/api/src/services/preferencesService.ts    | 22 +++++++
+ apps/api/test/routes/accountController.test.ts | 91 ++++++++++++++++++++++++++
+ 7 files changed, 183 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/apps/api/src/app.ts b/apps/api/src/app.ts
+index ed4aa02..b86fedc 100644
+--- a/apps/api/src/app.ts
++++ b/apps/api/src/app.ts
+@@ -1,20 +1,21 @@
+ import cookieParser from "cookie-parser";
+ import cors from "cors";
+ import express, { type NextFunction, type Request, type Response } from "express";
+ import multer from "multer";
+ import { pinoHttp } from "pino-http";
+ import type { Container } from "./container.js";
+ import { ApiError, InvalidArgumentError } from "./lib/errors.js";
+ import { security } from "./http/security.js";
+ import { router, sendError, userId } from "./http/support.js";
+ import { adminCompaniesRouter, adminUsersRouter } from "./routes/admin.js";
++import { accountRouter } from "./routes/account.js";
+ import { adminResearchRouter } from "./routes/research.js";
+ import { authRouter } from "./routes/auth.js";
+ import { companiesRouter, experiencesRouter, jdsRouter } from "./routes/catalogue.js";
+ import { githubConnectionRouter, leetcodeConnectionRouter } from "./routes/connections.js";
+ import { intelligenceRouter, interviewAgentBenchRouter, interviewPrepBenchRouter, resumeBenchRouter } from "./routes/intelligence.js";
+ import { internalRouter } from "./routes/internal.js";
+ import { interviewsRouter } from "./routes/interviews.js";
+ import { candidateProfileRouter, usersRouter } from "./routes/users.js";
+ import { UnknownUserError } from "./services/profileService.js";
+ 
+@@ -60,20 +61,21 @@ export function createApp(c: Container): express.Express {
+   // Session outcomes and agent plans can be large.
+   app.use(express.json({ limit: "5mb" }));
+ 
+   // --- routes (all mounted exactly where the Spring controllers were) ---
+   app.get("/api/v1/main/healthcheck", (_req, res) => {
+     res.type("text/plain").send("Server Up");
+   });
+   app.use(authRouter(c));
+ 
+   const v1 = router();
++  v1.use("/users/me", accountRouter(c));
+   v1.use("/users/me", candidateProfileRouter(c));
+   v1.use("/users", usersRouter(c));
+   v1.get("/profile/me", async (req, res) => {
+     try {
+       res.json(await c.profiles.getProfile(userId(req)));
+     } catch (err) {
+       if (err instanceof UnknownUserError) {
+         sendError(res, 404, "user_not_found", err.message);
+         return;
+       }
+diff --git a/apps/api/src/container.ts b/apps/api/src/container.ts
+index 9579644..3e9ae96 100644
+--- a/apps/api/src/container.ts
++++ b/apps/api/src/container.ts
+@@ -13,36 +13,42 @@ import { GitHubCollector } from "./integrations/github/collector.js";
+ import { GitHubOAuthService } from "./integrations/github/oauth.js";
+ import { OAuthStateService } from "./integrations/github/oauthState.js";
+ import { LeetCodeCollector } from "./integrations/leetcode/collector.js";
+ import { LeetCodeCollectionJob, LeetCodeService } from "./integrations/leetcode/service.js";
+ import { LiveKitTokenService } from "./integrations/livekit.js";
+ import { GitHubRefreshJob, InterviewPrepJob, LeetCodeRefreshJob } from "./jobs/jobs.js";
+ import { BackgroundTasks } from "./lib/background.js";
+ import { TokenCipher } from "./lib/crypto.js";
+ import type { FetchLike } from "./lib/http.js";
+ import type { Logger } from "./lib/logger.js";
+-import { CandidateProfileRepository, ProfileFragmentRepository, SessionOutcomeRepository } from "./repositories/mongo.js";
++import {
++  CandidateProfileRepository,
++  ProfileFragmentRepository,
++  SessionOutcomeRepository,
++  UserPreferencesRepository,
++} from "./repositories/mongo.js";
+ import {
+   CompanyRepository,
+   CompanyRoleConfigRepository,
+   GitHubConnectionRepository,
+   InterviewSessionRepository,
+   JobDescriptionRepository,
+   LeetCodeConnectionRepository,
+   UserRepository,
+ } from "./repositories/pg.js";
+ import { CandidateProfileService } from "./services/candidateProfileService.js";
+ import { CatalogueSeeder } from "./services/catalogueSeeder.js";
+ import { CodingSignalsProvider } from "./services/codingSignals.js";
+ import { InterviewPrepService } from "./services/interviewPrep.js";
+ import { InterviewSessionService } from "./services/interviewSessions.js";
+ import { LiveSessionService } from "./services/liveSessions.js";
++import { PreferencesService } from "./services/preferencesService.js";
+ import { ProfileService } from "./services/profileService.js";
+ import { UserService } from "./services/userService.js";
+ 
+ export interface ContainerDeps {
+   config: Config;
+   log: Logger;
+   db: Database;
+   mongo: MongoCollections;
+   /** Outbound HTTP — injectable so tests can stub the AI service, GitHub, LeetCode and Google. */
+   fetch?: FetchLike;
+@@ -60,36 +66,38 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
+     users: new UserRepository(db),
+     companies: new CompanyRepository(db),
+     roleConfigs: new CompanyRoleConfigRepository(db),
+     jds: new JobDescriptionRepository(db),
+     githubConnections: new GitHubConnectionRepository(db),
+     leetcodeConnections: new LeetCodeConnectionRepository(db),
+     sessions: new InterviewSessionRepository(db),
+     candidateProfiles: new CandidateProfileRepository(mongo),
+     fragments: new ProfileFragmentRepository(mongo),
+     outcomes: new SessionOutcomeRepository(mongo),
++    preferences: new UserPreferencesRepository(mongo),
+   };
+ 
+   const jwt = new JwtService(config.jwt.secret, config.jwt.accessTokenMinutes);
+   const refreshTokens = new RefreshTokenService(db, jwt, config.refreshTokenDays);
+   const googleOAuth = new GoogleOAuthService(config.google, fetchImpl);
+   const tokenCipher = new TokenCipher(config.github.tokenKey);
+ 
+   const aiService = new AiServiceClient(config.aiService.baseUrl, config.internalApiKey, fetchImpl, log, config.aiService.timeoutMs);
+   const githubCollector = new GitHubCollector(config.github.graphqlUrl, tokenCipher, repos.fragments, fetchImpl);
+   const githubOAuth = new GitHubOAuthService(config.github, new OAuthStateService(config.jwt.secret), tokenCipher, repos.githubConnections, fetchImpl);
+   const leetcodeCollector = new LeetCodeCollector(config.leetcode.graphqlUrl, repos.fragments, fetchImpl, log);
+   const leetcodeJob = new LeetCodeCollectionJob(repos.leetcodeConnections, leetcodeCollector, log);
+   const leetcode = new LeetCodeService(repos.leetcodeConnections, repos.fragments, leetcodeCollector, leetcodeJob, background);
+   const liveKit = new LiveKitTokenService(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret);
+ 
+   const users = new UserService(db, repos.users, config.adminEmails);
++  const preferences = new PreferencesService(repos.preferences);
+   if (!mailer && config.env === "production") {
+     log.warn("ConsoleMailer is active: email verification and password-reset links are written to the logs");
+   }
+   const passwordAuth = new PasswordAuthService(
+     db,
+     users,
+     new EmailTokenService(db),
+     refreshTokens,
+     jwt,
+     mailer ?? new ConsoleMailer(log),
+@@ -120,20 +128,21 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
+     log,
+     background,
+     repos,
+     jwt,
+     refreshTokens,
+     googleOAuth,
+     aiService,
+     githubOAuth,
+     leetcode,
+     users,
++    preferences,
+     passwordAuth,
+     rateLimiters,
+     candidateProfiles,
+     codingSignals,
+     profiles,
+     prep,
+     sessions,
+     liveSessions,
+     seeder,
+     jobs,
+diff --git a/apps/api/src/db/mongo/client.ts b/apps/api/src/db/mongo/client.ts
+index 3d71f52..d1427bf 100644
+--- a/apps/api/src/db/mongo/client.ts
++++ b/apps/api/src/db/mongo/client.ts
+@@ -4,20 +4,22 @@ import type { ProfileSource } from "../../domain/enums.js";
+ 
+ /**
+  * Document data in MongoDB (Atlas in production, the local container in dev):
+  *
+  *   candidate_profiles  one per user (_id = userId) — the onboarding/profile-page details, with
+  *                       native arrays instead of the old Postgres jsonb strings
+  *   profile_fragments   one per (user, source) — the normalized, hash-versioned Profile Builder
+  *                       inputs (GitHub / LeetCode)
+  *   session_outcomes    one per interview session (_id = sessionId) — the full SessionOutcome
+  *                       JSON the live-interview worker posts at the end
++ *   user_preferences    one per user (_id = userId) — only the settings the user changed; reads
++ *                       overlay them on DEFAULT_PREFERENCES (domain/preferences.ts)
+  *
+  * The API uses its own database (MONGODB_DATABASE, default `interviewiq`), separate from the AI
+  * service's `interviewiq_intelligence` — both can share one Atlas cluster.
+  */
+ 
+ export interface CandidateProfileDoc {
+   _id: string;
+   userId: string;
+   fullName: string | null;
+   email: string | null;
+@@ -51,31 +53,43 @@ export interface ProfileFragmentDoc {
+   fetchedAt: Date;
+ }
+ 
+ export interface SessionOutcomeDoc {
+   _id: string;
+   /** The worker's SessionOutcome, stored verbatim. */
+   outcome: Record<string, unknown>;
+   receivedAt: Date;
+ }
+ 
++export interface UserPreferencesDoc {
++  _id: string;
++  /** Partial sections: only the leaves the user changed. Validated on every read. */
++  locale?: Record<string, unknown>;
++  interview?: Record<string, unknown>;
++  notifications?: Record<string, unknown>;
++  privacy?: Record<string, unknown>;
++  updatedAt: Date;
++}
++
+ export interface MongoCollections {
+   candidateProfiles: Collection<CandidateProfileDoc>;
+   profileFragments: Collection<ProfileFragmentDoc>;
+   sessionOutcomes: Collection<SessionOutcomeDoc>;
++  userPreferences: Collection<UserPreferencesDoc>;
+ }
+ 
+ export function collections(db: Db): MongoCollections {
+   return {
+     candidateProfiles: db.collection<CandidateProfileDoc>("candidate_profiles"),
+     profileFragments: db.collection<ProfileFragmentDoc>("profile_fragments"),
+     sessionOutcomes: db.collection<SessionOutcomeDoc>("session_outcomes"),
++    userPreferences: db.collection<UserPreferencesDoc>("user_preferences"),
+   };
+ }
+ 
+ export async function ensureMongoIndexes(c: MongoCollections): Promise<void> {
+   await c.profileFragments.createIndex({ userId: 1, source: 1 }, { unique: true, name: "uq_fragment_user_source" });
+ }
+ 
+ export async function connectMongo(uri: string, database: string): Promise<{ client: MongoClient; db: Db }> {
+   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10_000, appName: "interviewiq-api" });
+   await client.connect();
+diff --git a/apps/api/src/repositories/mongo.ts b/apps/api/src/repositories/mongo.ts
+index 6ca0a4d..8666483 100644
+--- a/apps/api/src/repositories/mongo.ts
++++ b/apps/api/src/repositories/mongo.ts
+@@ -1,16 +1,18 @@
+ import { randomUUID } from "node:crypto";
++import type { UpdateFilter } from "mongodb";
+ import type {
+   CandidateProfileDoc,
+   MongoCollections,
+   ProfileFragmentDoc,
+   SessionOutcomeDoc,
++  UserPreferencesDoc,
+ } from "../db/mongo/client.js";
+ import type { ProfileSource } from "../domain/enums.js";
+ 
+ /** MongoDB repositories (native driver). */
+ 
+ export class CandidateProfileRepository {
+   constructor(private readonly c: MongoCollections) {}
+ 
+   findByUserId(userId: string): Promise<CandidateProfileDoc | null> {
+     return this.c.candidateProfiles.findOne({ _id: userId });
+@@ -62,10 +64,29 @@ export class SessionOutcomeRepository {
+ 
+   findBySessionId(sessionId: string): Promise<SessionOutcomeDoc | null> {
+     return this.c.sessionOutcomes.findOne({ _id: sessionId });
+   }
+ 
+   /** Idempotent: a re-delivered outcome overwrites the same document. */
+   async save(sessionId: string, outcome: Record<string, unknown>): Promise<void> {
+     await this.c.sessionOutcomes.replaceOne({ _id: sessionId }, { outcome, receivedAt: new Date() }, { upsert: true });
+   }
+ }
++
++export class UserPreferencesRepository {
++  constructor(private readonly c: MongoCollections) {}
++
++  findByUserId(userId: string): Promise<UserPreferencesDoc | null> {
++    return this.c.userPreferences.findOne({ _id: userId });
++  }
++
++  /** Upsert only the given dotted leaves (`"interview.pace"`), so concurrent edits of different settings never clobber each other. */
++  async setPaths(userId: string, paths: Record<string, unknown>, now: Date): Promise<UserPreferencesDoc> {
++    const update = { $set: { ...paths, updatedAt: now } } as UpdateFilter<UserPreferencesDoc>;
++    const saved = await this.c.userPreferences.findOneAndUpdate({ _id: userId }, update, { upsert: true, returnDocument: "after" });
++    return saved!;
++  }
++
++  async deleteByUserId(userId: string): Promise<void> {
++    await this.c.userPreferences.deleteOne({ _id: userId });
++  }
++}
+diff --git a/apps/api/src/routes/account.ts b/apps/api/src/routes/account.ts
+new file mode 100644
+index 0000000..434b908
+--- /dev/null
++++ b/apps/api/src/routes/account.ts
+@@ -0,0 +1,23 @@
++import type { Router } from "express";
++import type { Container } from "../container.js";
++import { requiredBody, router, routerErrors, userId } from "../http/support.js";
++
++/**
++ * Settings under /api/v1/users/me: preferences, display name, sessions, data export and account
++ * deletion. Mounted before the candidate-profile and users routers; paths it doesn't own fall
++ * through to them.
++ */
++export function accountRouter(c: Container): Router {
++  const r = router();
++
++  r.get("/preferences", async (req, res) => {
++    res.json(await c.preferences.get(userId(req)));
++  });
++
++  r.patch("/preferences", async (req, res) => {
++    res.json(await c.preferences.update(userId(req), requiredBody(req)));
++  });
++
++  r.use(routerErrors(() => undefined));
++  return r;
++}
+diff --git a/apps/api/src/services/preferencesService.ts b/apps/api/src/services/preferencesService.ts
+new file mode 100644
+index 0000000..f0b585e
+--- /dev/null
++++ b/apps/api/src/services/preferencesService.ts
+@@ -0,0 +1,22 @@
++import { parsePreferencesPatch, resolvePreferences, toSetPaths, type Preferences } from "../domain/preferences.js";
++import type { UserPreferencesRepository } from "../repositories/mongo.js";
++
++/** The wire shape: every setting resolved, plus when the user last changed one (null = never). */
++export type PreferencesResponse = Preferences & { updatedAt: string | null };
++
++export class PreferencesService {
++  constructor(private readonly repo: UserPreferencesRepository) {}
++
++  async get(userId: string): Promise<PreferencesResponse> {
++    const doc = await this.repo.findByUserId(userId);
++    return { ...resolvePreferences(doc), updatedAt: doc ? doc.updatedAt.toISOString() : null };
++  }
++
++  /** Validate a partial patch (400 invalid_preferences), persist only its leaves, return the full set. */
++  async update(userId: string, body: unknown): Promise<PreferencesResponse> {
++    const paths = toSetPaths(parsePreferencesPatch(body));
++    if (Object.keys(paths).length === 0) return this.get(userId);
++    const doc = await this.repo.setPaths(userId, paths, new Date());
++    return { ...resolvePreferences(doc), updatedAt: doc.updatedAt.toISOString() };
++  }
++}
+diff --git a/apps/api/test/routes/accountController.test.ts b/apps/api/test/routes/accountController.test.ts
+new file mode 100644
+index 0000000..8d2f3fc
+--- /dev/null
++++ b/apps/api/test/routes/accountController.test.ts
+@@ -0,0 +1,91 @@
++import { afterAll, beforeAll, describe, expect, it } from "vitest";
++import { DEFAULT_PREFERENCES } from "../../src/domain/preferences.js";
++import { bearer, createTestEnv, createUser, type TestEnv } from "../support/harness.js";
++
++/** Settings endpoints under /api/v1/users/me (preferences, name, sessions). */
++
++let env: TestEnv;
++beforeAll(async () => {
++  env = await createTestEnv();
++});
++afterAll(() => env.close());
++
++const PREFS = "/api/v1/users/me/preferences";
++
++async function auth() {
++  const user = await createUser(env);
++  return { user, token: await bearer(env, user) };
++}
++
++describe("GET/PATCH /users/me/preferences", () => {
++  it("401 without a token", async () => {
++    expect((await env.http.get(PREFS)).status).toBe(401);
++    expect((await env.http.patch(PREFS).send({})).status).toBe(401);
++  });
++
++  it("returns the defaults, with updatedAt null, before anything is saved", async () => {
++    const { token } = await auth();
++    const res = await env.http.get(PREFS).set("Authorization", token);
++    expect(res.status).toBe(200);
++    expect(res.body).toEqual({ ...DEFAULT_PREFERENCES, updatedAt: null });
++  });
++
++  it("PATCH changes only the sent leaves and persists them", async () => {
++    const { token } = await auth();
++    const first = await env.http.patch(PREFS).set("Authorization", token).send({ interview: { pace: "faster" } });
++    expect(first.status).toBe(200);
++    expect(first.body.interview).toEqual({ ...DEFAULT_PREFERENCES.interview, pace: "faster" });
++    expect(typeof first.body.updatedAt).toBe("string");
++
++    const second = await env.http
++      .patch(PREFS)
++      .set("Authorization", token)
++      .send({ interview: { captions: false }, notifications: { email: { productUpdates: true } }, locale: { timezone: "Asia/Kolkata" } });
++    expect(second.status).toBe(200);
++
++    const read = await env.http.get(PREFS).set("Authorization", token);
++    expect(read.body.interview).toEqual({ ...DEFAULT_PREFERENCES.interview, pace: "faster", captions: false });
++    expect(read.body.notifications.email).toEqual({ ...DEFAULT_PREFERENCES.notifications.email, productUpdates: true });
++    expect(read.body.notifications.inApp).toEqual(DEFAULT_PREFERENCES.notifications.inApp);
++    expect(read.body.locale.timezone).toBe("Asia/Kolkata");
++  });
++
++  it("can set the timezone back to automatic (null)", async () => {
++    const { token } = await auth();
++    await env.http.patch(PREFS).set("Authorization", token).send({ locale: { timezone: "Europe/London" } });
++    const res = await env.http.patch(PREFS).set("Authorization", token).send({ locale: { timezone: null } });
++    expect(res.status).toBe(200);
++    expect(res.body.locale.timezone).toBeNull();
++  });
++
++  it("keeps each user's preferences separate", async () => {
++    const a = await auth();
++    const b = await auth();
++    await env.http.patch(PREFS).set("Authorization", a.token).send({ privacy: { shareWithCollege: true } });
++    expect((await env.http.get(PREFS).set("Authorization", b.token)).body.privacy.shareWithCollege).toBe(false);
++  });
++
++  it.each([
++    { interview: { pace: "warp" } },
++    { privacy: { leaderboardVisibility: "public" } },
++    { locale: { timezone: "Mars/Olympus" } },
++    { theme: "dark" },
++    { notifications: { sms: { debriefReady: true } } },
++  ])("400 invalid_preferences for %j", async (body) => {
++    const { token } = await auth();
++    const res = await env.http.patch(PREFS).set("Authorization", token).send(body);
++    expect(res.status).toBe(400);
++    expect(res.body.code).toBe("invalid_preferences");
++  });
++
++  it("400 when the PATCH body is missing", async () => {
++    const { token } = await auth();
++    expect((await env.http.patch(PREFS).set("Authorization", token)).status).toBe(400);
++  });
++
++  it("does not shadow the existing /users/me routes", async () => {
++    const { token } = await auth();
++    expect((await env.http.get("/api/v1/users/me").set("Authorization", token)).status).toBe(200);
++    expect((await env.http.get("/api/v1/users/me/candidate-profile").set("Authorization", token)).status).toBe(204);
++  });
++});

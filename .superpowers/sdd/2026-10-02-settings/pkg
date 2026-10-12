@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Review package from two shadow snapshots: pkg BASE HEAD OUTFILE [pathspec...]
+set -euo pipefail
+REPO=/Users/salescode/Desktop/project/interviewiq
+SG="git --git-dir=$REPO/.superpowers/sdd/2026-10-02-settings/shadow.git --work-tree=$REPO"
+base=$1; head=$2; out=$3; shift 3
+cd "$REPO"
+{
+  echo "# Review package: shadow snapshots ${base}..${head} (working tree, no commits — the user commits)"
+  echo
+  echo "## Files changed"
+  $SG diff --stat "$base" "$head" -- "$@"
+  echo
+  echo "## Diff"
+  $SG diff -U10 "$base" "$head" -- "$@"
+} > "$out"
+echo "wrote $out: $(wc -c < "$out" | tr -d ' ') bytes"

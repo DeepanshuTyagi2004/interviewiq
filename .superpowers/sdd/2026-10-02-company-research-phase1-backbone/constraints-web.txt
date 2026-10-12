@@ -1,0 +1,10 @@
+Global constraints (verbatim from the plan / spec):
+- No commits. No Docker. No new runtime dependencies (Monaco via @monaco-editor/react, React Flow via @xyflow/react and sonner are already installed).
+- Contract first: web types come from the generated apps/web/lib/api-client/generated/schema.d.ts (`components["schemas"][...]`), never hand-written DTO types.
+- JSON casing: research payloads are the ai-service's snake_case JSON passed through; admin company payloads are camelCase.
+- Copy rules: "resume" never "résumé"; no "badge"/"certified" wording. Orange (brand) is the only accent colour. Use existing HUD primitives (@/components/hud) and observability pieces (@/components/observability/*).
+- NODE_ORDER = ["resolve", "write_draft"] in apps/web/lib/constants/research/index.ts mirrors apps/ai-service/app/research/models.py.
+- Spec §9.1: Intelligence (admin only) gets Companies and Runs tabs; Runs is a debugger: trace tree (run → company → node → step, live status, durations, errors bubbling up, React Flow mini-map per company), span detail with Input/Output/Logs/Raw (Monaco, read-only), live console (filters, follow-tail, newest 2,000 rows, older pages), Copy JSON / Copy for Claude / Copy failure report / Export run JSON everywhere, deep links ?tab=&run=&company=&span=.
+- Review focus: opening a run with >2,000 events shows the NEWEST rows and "Load older" fetches the previous page.
+- Lint baseline: apps/web lint already reports 2 errors (tailwind.config.js require()) + 4 warnings; the task must add no new lint problems.
+- Another session is editing other web files (profile/*, components/observability/*, intelligence viewers.tsx and the existing page tab-bar classes) — do not modify those beyond what the task explicitly requires.

@@ -1,0 +1,310 @@
+# Review package: acefd0c4130ca0ba9941a4c3192b688eb4048392..2e72cb13adc4d47bfc036f16ffca33f5e2a2ecec
+
+## Commits
+2e72cb1 sdd snapshot 2026-10-02T12:30:47Z
+
+## Files changed
+ .../_components/research/RunControlBar.test.tsx        |  9 +++++++++
+ .../_components/research/RunControlBar.tsx             | 11 +++++++++--
+ .../intelligence/_components/research/RunsTab.test.tsx | 18 ++++++++++++++++++
+ .../intelligence/_components/research/RunsTab.tsx      | 16 +++++++++++-----
+ apps/web/features/research/hooks.ts                    |  5 +++++
+ 5 files changed, 52 insertions(+), 7 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/(app)/intelligence/_components/research/RunControlBar.test.tsx b/apps/web/app/(app)/intelligence/_components/research/RunControlBar.test.tsx
+index 6d04f49..ea639c9 100644
+--- a/apps/web/app/(app)/intelligence/_components/research/RunControlBar.test.tsx
++++ b/apps/web/app/(app)/intelligence/_components/research/RunControlBar.test.tsx
+@@ -39,20 +39,29 @@ describe("RunControlBar", () => {
+ 
+   it("Stop needs a second confirming click", async () => {
+     const run = makeRun({ status: "running" });
+     render(<RunControlBar runs={[run]} run={run} items={[]} onSelectRun={vi.fn()} />);
+     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+     expect(h.controlMutate).not.toHaveBeenCalled();
+     await userEvent.click(screen.getByRole("button", { name: "Confirm stop" }));
+     expect(h.controlMutate).toHaveBeenCalledWith({ runId: run.run_id, action: "stop" }, expect.any(Object));
+   });
+ 
++  it("moves focus to Confirm stop, and back to Stop on Cancel", async () => {
++    const run = makeRun({ status: "running" });
++    render(<RunControlBar runs={[run]} run={run} items={[]} onSelectRun={vi.fn()} />);
++    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
++    expect(screen.getByRole("button", { name: "Confirm stop" })).toHaveFocus();
++    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
++    expect(screen.getByRole("button", { name: "Stop" })).toHaveFocus();
++  });
++
+   it("says why a run paused itself", () => {
+     const run = makeRun({ status: "paused", pause_reason: "budget_exhausted" });
+     render(<RunControlBar runs={[run]} run={run} items={[]} onSelectRun={vi.fn()} />);
+     expect(screen.getByText(/budget cap reached/i)).toBeInTheDocument();
+   });
+ 
+   it("Start all uses the chosen mode", async () => {
+     render(<RunControlBar runs={[]} run={undefined} items={[]} onSelectRun={vi.fn()} />);
+     await userEvent.selectOptions(screen.getByLabelText("Mode"), "replay");
+     await userEvent.click(screen.getByRole("button", { name: "Start all" }));
+diff --git a/apps/web/app/(app)/intelligence/_components/research/RunControlBar.tsx b/apps/web/app/(app)/intelligence/_components/research/RunControlBar.tsx
+index 4d5c229..94240b5 100644
+--- a/apps/web/app/(app)/intelligence/_components/research/RunControlBar.tsx
++++ b/apps/web/app/(app)/intelligence/_components/research/RunControlBar.tsx
+@@ -32,20 +32,27 @@ export function RunControlBar({
+   onSelectRun,
+ }: {
+   runs: ResearchRun[];
+   run: ResearchRun | undefined;
+   items: ResearchItem[];
+   onSelectRun: (runId: string) => void;
+ }) {
+   const start = useStartRun();
+   const control = useRunControl();
+   const [confirmStop, setConfirmStop] = React.useState(false);
++  const stopRef = React.useRef<HTMLButtonElement | null>(null);
++  const wasConfirming = React.useRef(false);
++  React.useEffect(() => {
++    // The confirm button unmounts with focus; hand it back to Stop.
++    if (wasConfirming.current && !confirmStop) stopRef.current?.focus();
++    wasConfirming.current = confirmStop;
++  }, [confirmStop]);
+   const [mode, setMode] = React.useState<ResearchMode>("live");
+   const controls = runControls(run?.status, start.isPending || control.isPending);
+   const options = run && !runs.some((r) => r.run_id === run.run_id) ? [run, ...runs] : runs;
+ 
+   const startRun = (body: StartResearchRunRequest) =>
+     start.mutate(body, { onSuccess: (r) => onSelectRun(r.run_id), onError: (e) => toast.error(errorMessage(e)) });
+   const act = (action: RunAction) => {
+     if (run) control.mutate({ runId: run.run_id, action }, { onError: (e) => toast.error(errorMessage(e)) });
+   };
+   async function exportRun() {
+@@ -68,25 +75,25 @@ export function RunControlBar({
+           ) : null}
+           <select aria-label="Mode" className={SELECT} value={mode} onChange={(e) => setMode(e.target.value as ResearchMode)}>
+             {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+           </select>
+           <Button size="sm" disabled={!controls.start} onClick={() => startRun({ scope: "all", mode })}>Start all</Button>
+           <StartSelected disabled={!controls.start} onStart={(ids) => startRun({ scope: "selected", companyIds: ids, mode })} />
+           <Button size="sm" variant="strong" disabled={!controls.pause} onClick={() => act("pause")}>Pause</Button>
+           <Button size="sm" variant="strong" disabled={!controls.resume} onClick={() => act("resume")}>Resume</Button>
+           {confirmStop && controls.stop ? (
+             <>
+-              <Button size="sm" variant="destructive" onClick={() => { act("stop"); setConfirmStop(false); }}>Confirm stop</Button>
++              <Button size="sm" variant="destructive" autoFocus onClick={() => { act("stop"); setConfirmStop(false); }}>Confirm stop</Button>
+               <Button size="sm" variant="ghost" onClick={() => setConfirmStop(false)}>Cancel</Button>
+             </>
+           ) : (
+-            <Button size="sm" variant="ghost" disabled={!controls.stop} onClick={() => setConfirmStop(true)}>Stop</Button>
++            <Button ref={stopRef} size="sm" variant="ghost" disabled={!controls.stop} onClick={() => setConfirmStop(true)}>Stop</Button>
+           )}
+           <div className="ml-auto flex flex-wrap gap-1.5">
+             <Button size="sm" variant="ghost" disabled={!run} onClick={() => run && copyText(formatRunSummary(run, items), "Run summary copied")}>
+               Copy run summary
+             </Button>
+             <Button size="sm" variant="ghost" disabled={!run} onClick={exportRun}>Export run JSON</Button>
+           </div>
+         </div>
+         {run ? <RunFacts run={run} /> : null}
+       </div>
+diff --git a/apps/web/app/(app)/intelligence/_components/research/RunsTab.test.tsx b/apps/web/app/(app)/intelligence/_components/research/RunsTab.test.tsx
+index fb06bbd..9a4c400 100644
+--- a/apps/web/app/(app)/intelligence/_components/research/RunsTab.test.tsx
++++ b/apps/web/app/(app)/intelligence/_components/research/RunsTab.test.tsx
+@@ -71,20 +71,38 @@ describe("RunsTab", () => {
+     const { rerender } = render(<RunsTab />);
+     expect(h.refetchSpans).not.toHaveBeenCalled();
+     h.detail = ok({ run: { ...run1, status: "completed" }, items: [] });
+     rerender(<RunsTab />);
+     expect(h.refetchSpans).toHaveBeenCalledTimes(1);
+     expect(h.refetchEvents).toHaveBeenCalledTimes(1);
+     rerender(<RunsTab />);
+     expect(h.refetchSpans).toHaveBeenCalledTimes(1);
+   });
+ 
++  it("does not refetch events for a different run whose detail is still pending", () => {
++    const runB = "2".repeat(32);
++    const { rerender } = render(<RunsTab />);
++    h.search = `tab=runs&run=${runB}`;
++    h.detail = { data: undefined, isPending: true, isError: false, error: null };
++    rerender(<RunsTab />);
++    expect(h.refetchEvents).not.toHaveBeenCalled();
++    expect(h.refetchSpans).not.toHaveBeenCalled();
++  });
++
++  it("keeps the debugger and shows an inline alert when a background runs poll fails", () => {
++    h.search = `tab=runs&run=${run1.run_id}`;
++    h.runs = { data: { runs: [run1] }, isPending: false, isError: true, error: new h.Err(500, "poll failed") };
++    render(<RunsTab />);
++    expect(screen.getByRole("alert")).toHaveTextContent("poll failed");
++    expect(screen.getByTestId("controls")).toBeInTheDocument();
++  });
++
+   it("shows a loading line while runs load, not the empty state", () => {
+     h.runs = { data: undefined, isPending: true, isError: false, error: null };
+     render(<RunsTab />);
+     expect(screen.getByText(/loading research runs/i)).toBeInTheDocument();
+     expect(screen.queryByTestId("controls")).not.toBeInTheDocument();
+   });
+ 
+   it("alerts when the runs list fails", () => {
+     h.runs = { data: undefined, isPending: false, isError: true, error: new h.Err(500, "boom") };
+     render(<RunsTab />);
+diff --git a/apps/web/app/(app)/intelligence/_components/research/RunsTab.tsx b/apps/web/app/(app)/intelligence/_components/research/RunsTab.tsx
+index 2f41880..183316a 100644
+--- a/apps/web/app/(app)/intelligence/_components/research/RunsTab.tsx
++++ b/apps/web/app/(app)/intelligence/_components/research/RunsTab.tsx
+@@ -26,30 +26,33 @@ export function RunsTab() {
+   const runId = link.run ?? runs.data?.runs[0]?.run_id ?? null;
+   const detail = useResearchRun(runId);
+   const run = detail.data?.run;
+   const items = React.useMemo(() => detail.data?.items ?? [], [detail.data]);
+   const live = run ? isRunActive(run.status) : false;
+   const spans = useRunSpans(runId, live);
+   const roots = React.useMemo(() => buildSpanTree(spans.data?.spans ?? []), [spans.data]);
+   const events = useRunEvents(runId, { live, lastSeq: run?.last_seq });
+ 
+   // When the run stops being live, the polls stop too: fetch the final spans and event tail once.
+-  const wasLive = React.useRef(false);
++  const prev = React.useRef<{ runId: string | null; live: boolean }>({ runId: null, live: false });
++  const lastSeq = run?.last_seq;
+   const { refetch: refetchSpans } = spans;
+   const { refetch: refetchEvents } = events;
+   React.useEffect(() => {
+-    if (wasLive.current && !live) {
++    // Same run, live -> done, and its detail is loaded. Never on a run switch: the events query
++    // needs last_seq to open at the newest rows, and a manual refetch would otherwise scan from seq 0.
++    if (prev.current.runId === runId && prev.current.live && !live && lastSeq !== undefined) {
+       void refetchSpans();
+       void refetchEvents();
+     }
+-    wasLive.current = live;
+-  }, [live, refetchSpans, refetchEvents]);
++    prev.current = { runId, live };
++  }, [runId, live, lastSeq, refetchSpans, refetchEvents]);
+ 
+   // Always pin the resolved run so a newer run appearing later cannot swap the trace under a selected span.
+   const navigate = (patch: { run?: string | null; company?: string | null; span?: string | null }) =>
+     router.replace(deepLinkHref(new URLSearchParams(params.toString()), { tab: "runs", run: runId, ...patch }), { scroll: false });
+   const pickRun = (id: string) => navigate({ run: id, company: null, span: null });
+ 
+   async function loadOlder() {
+     try {
+       await events.loadOlder();
+     } catch (e) {
+@@ -68,25 +71,27 @@ export function RunsTab() {
+         okNodes.map(async (s) => ({ node: s.name, output: (await getSpan(s.span_id)).span.output ?? null })),
+       );
+       const logs = events.events.filter((e) => e.company_id === item.company_id).slice(-200);
+       await copyText(formatFailureReport({ run, item, failing, previousOutputs, logs }), "Failure report copied");
+     } catch {
+       toast.error("Could not build the failure report");
+     }
+   }
+ 
+   if (runs.isPending) return <p className="m-0 text-[13px] text-muted-foreground">Loading research runs…</p>;
+-  if (runs.isError && !link.run) return <ErrorLine>Could not load research runs: {errorText(runs.error, "unknown error")}</ErrorLine>;
++  if (runs.isError && !runs.data) return <ErrorLine>Could not load research runs: {errorText(runs.error, "unknown error")}</ErrorLine>;
++  const runsError = runs.isError ? <ErrorLine>Could not refresh research runs: {errorText(runs.error, "unknown error")}</ErrorLine> : null;
+ 
+   if (!runId) {
+     return (
+       <div className="flex flex-col gap-4">
++        {runsError}
+         <RunControlBar runs={[]} run={undefined} items={[]} onSelectRun={pickRun} />
+         <HudEmpty title="No research runs yet" hint="Start one above, or use Research now on the Companies tab." />
+       </div>
+     );
+   }
+ 
+   if (detail.isPending) return <p className="m-0 text-[13px] text-muted-foreground">Loading run…</p>;
+   if (detail.isError && !run) {
+     const notFound = detail.error instanceof ApiFetchError && detail.error.status === 404;
+     return (
+@@ -98,20 +103,21 @@ export function RunsTab() {
+           </Button>
+         </div>
+       </div>
+     );
+   }
+ 
+   const companyName = link.company ? (items.find((i) => i.company_id === link.company)?.company_name ?? null) : null;
+ 
+   return (
+     <div className="flex flex-col gap-4">
++      {runsError}
+       <RunControlBar runs={runs.data?.runs ?? []} run={run} items={items} onSelectRun={pickRun} />
+       {spans.isError ? <ErrorLine>Could not load the trace: {errorText(spans.error, "unknown error")}</ErrorLine> : null}
+       {events.error ? <ErrorLine>Could not load events: {errorText(events.error, "unknown error")}</ErrorLine> : null}
+       {run ? <BudgetMeters run={run} /> : null}
+       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
+         <TraceTree roots={roots} items={items} selectedSpanId={link.span} onSelectSpan={selectSpan} onCopyFailure={copyFailure} />
+         <SpanDetail spanId={link.span} run={run} companyName={companyName} />
+       </div>
+       <LiveConsole
+         events={events.events}
+diff --git a/apps/web/features/research/hooks.ts b/apps/web/features/research/hooks.ts
+index f602a7c..7bfb7d7 100644
+--- a/apps/web/features/research/hooks.ts
++++ b/apps/web/features/research/hooks.ts
+@@ -1,14 +1,15 @@
+ "use client";
+ 
+ import * as React from "react";
+ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
++import { ApiFetchError } from "@/lib/api-client/client";
+ import { CONSOLE_MAX_ROWS, EVENTS_PAGE_LIMIT, RESEARCH_POLLING, RESEARCH_QUERY_KEYS as K } from "@/lib/constants/research";
+ import {
+   controlRun, createCompany, deleteCompany, getRun, getSpan, listAdminCompanies, listRunEvents, listRunSpans,
+   listRuns, raiseBudget, seedCompanies, startRun, updateCompany,
+ } from "./api";
+ import { appendCapped, initialAfterSeq, olderPageQuery } from "./event-filters";
+ import { isRunActive } from "./status";
+ import type { ResearchEvent, RunAction, UpdateCompanyRequest } from "./types";
+ 
+ export function useAdminCompanies() {
+@@ -40,20 +41,22 @@ export function useSeedCompanies() {
+ 
+ export function useResearchRuns() {
+   return useQuery({ queryKey: K.runs, queryFn: () => listRuns(20), refetchInterval: RESEARCH_POLLING.listsMs });
+ }
+ 
+ export function useResearchRun(runId: string | null) {
+   return useQuery({
+     queryKey: K.run(runId ?? "none"),
+     queryFn: () => getRun(runId!),
+     enabled: !!runId,
++    // A missing run is a definite answer; show "not found" now instead of after the retry backoff.
++    retry: (count, err) => !(err instanceof ApiFetchError && err.status === 404) && count < 3,
+     refetchInterval: (q) => (q.state.data && isRunActive(q.state.data.run.status) ? RESEARCH_POLLING.liveMs : false),
+   });
+ }
+ 
+ export function useRunSpans(runId: string | null, live: boolean) {
+   return useQuery({
+     queryKey: K.spans(runId ?? "none"),
+     queryFn: () => listRunSpans(runId!),
+     enabled: !!runId,
+     refetchInterval: live ? RESEARCH_POLLING.spansMs : false,
+@@ -120,20 +123,22 @@ export function useRunEvents(runId: string | null, opts: { live: boolean; lastSe
+ 
+   const query = useQuery({
+     queryKey: K.events(runId ?? "none"),
+     enabled: !!runId && opts.lastSeq !== undefined,
+     refetchInterval: opts.live ? RESEARCH_POLLING.liveMs : false,
+     // The buffer lives in component state, so the cache must never skip a refill on mount or run switch.
+     staleTime: 0,
+     gcTime: 0,
+     refetchOnMount: "always",
+     queryFn: async () => {
++      // No tail position yet (e.g. a manual refetch before the run detail loaded): never scan from seq 0.
++      if (opts.lastSeq === undefined) return 0;
+       if (paging.current.runId !== runId) paging.current = { runId, cursor: null, keepAll: false };
+       const state = paging.current;
+       if (state.cursor === null) state.cursor = initialAfterSeq(opts.lastSeq ?? 0, CONSOLE_MAX_ROWS);
+       for (;;) {
+         const page = await listRunEvents(runId!, { afterSeq: state.cursor, limit: EVENTS_PAGE_LIMIT });
+         if (page.events.length > 0) {
+           state.cursor = page.events[page.events.length - 1]!.seq;
+           const batch = page.events;
+           setEvents((prev) => appendCapped(prev, batch, state.keepAll ? Number.POSITIVE_INFINITY : CONSOLE_MAX_ROWS));
+         }

@@ -1,0 +1,275 @@
+# Review package: 92ec639c8a419a773b2adcab365c24ee182db96b..aaf482671e22735fd7e1a647d3b35e8da4d2c9e0
+
+## Commits
+aaf4826 sdd snapshot 2026-10-02T11:40:00Z
+
+## Files changed
+ apps/ai-service/app/research/runner.py        | 30 ++++++++++-----
+ apps/ai-service/app/research/trace/tracer.py  |  4 +-
+ apps/ai-service/tests/research/test_runner.py | 53 ++++++++++++++++++++++-----
+ apps/ai-service/tests/research/test_tracer.py | 24 ++++++++++++
+ 4 files changed, 91 insertions(+), 20 deletions(-)
+
+## Diff
+diff --git a/apps/ai-service/app/research/runner.py b/apps/ai-service/app/research/runner.py
+index 2693ed5..42b58d5 100644
+--- a/apps/ai-service/app/research/runner.py
++++ b/apps/ai-service/app/research/runner.py
+@@ -237,39 +237,48 @@ class ResearchRunner:
+             self._budget = budget
+             active_ids = await self._active_target_ids()
+             async with tracer.span("run", "resume" if resumed else "run", attrs={"mode": run["mode"], "trigger": run["trigger"]}):
+                 async with self._clients() as (exa, llm):
+                     io = ResearchIO(mode=Mode(run["mode"]), exa=exa, llm=llm,
+                                     fixtures=FixtureStore(self._settings.research_fixtures_dir), tracer=tracer,
+                                     budget=budget, store=self._store, settings=self._settings)
+                     await self._process_items(run, io, tracer, active_ids)
+             async with self._control_lock:
+                 await self._finalize(run_id, tracer)
+-                self._driving_run_id = None
++                await self._teardown(run_id, tracer)
+         except Exception as exc:  # noqa: BLE001 — a failed run is recorded, never raised into the event loop
+             logger.exception("research run %s failed", run_id)
+             info = redact(error_info(exc), self._secrets)
+             async with self._control_lock:
+                 await self._store.update_run(run_id, fields={"status": RunStatus.FAILED.value, "control": Control.NONE.value,
+                                                              "error": info["message"], "finished_at": utcnow()})
+                 await self._fail_running_items(run_id, info["message"])
+                 tracer.emit("run.failed", f"run failed: {info['type']}: {info['message']}", level="error", data=info)
+-                self._driving_run_id = None
++                await self._teardown(run_id, tracer)
+         finally:
+             CURRENT_TRACER.reset(token)
+-            if self._driving_run_id == run_id:
+-                self._driving_run_id = None
++            if self._driving_run_id == run_id:      # neither path above got to tear down
++                await self._teardown(run_id, tracer)
++
++    async def _teardown(self, run_id: str, tracer: Tracer) -> None:
++        """Flush and close the tracer BEFORE the run stops counting as driven (callers hold the control
++        lock), so a control note arriving afterwards uses a detached tracer past a fully flushed seq."""
++        try:
+             await tracer.close()
+-            if self._tracer is tracer:
+-                self._tracer = None
+-                self._budget = None
+-                self._active_run_id = None
++        except Exception:  # noqa: BLE001
++            logger.exception("research run %s: closing the tracer failed", run_id)
++        if self._tracer is tracer:
++            self._tracer = None
++            self._budget = None
++            self._active_run_id = None
++        if self._driving_run_id == run_id:
++            self._driving_run_id = None
+ 
+     async def _fail_running_items(self, run_id: str, message: str) -> None:
+         """A failed run must not leave companies `running`: reconcile them (best effort)."""
+         try:
+             for item in await self._store.list_items(run_id):
+                 if item["status"] != ItemStatus.RUNNING:
+                     continue
+                 await self._set_item_status(run_id, item["company_id"], ItemStatus.RUNNING, ItemStatus.FAILED, extra={
+                     "current_node": None, "finished_at": utcnow(),
+                     "error": {"type": "RunFailed", "message": message, "traceback": "", "code_ref": None}})
+@@ -377,27 +386,30 @@ class ResearchRunner:
+                 outcome = ItemStatus.PAUSED
+             elif interrupted is Control.STOP:
+                 outcome = ItemStatus.CANCELLED
+             elif (state.get("draft") or {}).get("status") == "unchanged":
+                 outcome = ItemStatus.SKIPPED
+         except BudgetExhausted as exc:
+             async with self._control_lock:
+                 control = await self._control(run_id)
+                 if control is Control.STOP:
+                     outcome = ItemStatus.CANCELLED      # a stop wins: finalize will stop the run
++                    follow_up = "stopping the run"
+                 else:
+                     outcome = ItemStatus.PAUSED
++                    follow_up = "the run is already pausing; raise the cap, then resume"
+                     if control is Control.NONE:
++                        follow_up = "pausing the run; raise the cap, then resume"
+                         await self._store.update_run(run_id, fields={
+                             "control": Control.PAUSE.value, "status": RunStatus.PAUSING.value,
+                             "pause_reason": "budget_exhausted"})
+-            tracer.emit("budget.exhausted", f"{exc}: pausing the run; raise the cap, then resume", level="warn",
++            tracer.emit("budget.exhausted", f"{exc}: {follow_up}", level="warn",
+                         data={"kind": exc.kind, "used": exc.used, "cap": exc.cap})
+         except Exception as exc:  # noqa: BLE001 — one company's failure never stops the run
+             outcome, err = ItemStatus.FAILED, redact(error_info(exc), self._secrets)
+         finally:
+             CURRENT_COMPANY.reset(token)
+         await self._finish_item(run_id, item, outcome, state, err, tracer)
+ 
+     async def _finish_item(self, run_id: str, item: dict, outcome: ItemStatus, state: dict,
+                            err: dict | None, tracer: Tracer) -> None:
+         cid, name = item["company_id"], item["company_name"]
+diff --git a/apps/ai-service/app/research/trace/tracer.py b/apps/ai-service/app/research/trace/tracer.py
+index 52463a6..b015bce 100644
+--- a/apps/ai-service/app/research/trace/tracer.py
++++ b/apps/ai-service/app/research/trace/tracer.py
+@@ -99,21 +99,23 @@ class Tracer:
+                 await self._task
+             except asyncio.CancelledError:
+                 pass
+             self._task = None
+         await self.flush()
+ 
+     async def _flush_loop(self) -> None:
+         while True:
+             await asyncio.sleep(self._flush_interval)
+             try:
+-                await self.flush()
++                # Shielded: close() cancels this loop, and a cancel must never interrupt a flush that has
++                # already swapped out its batch (those events would be neither stored nor re-queued).
++                await asyncio.shield(self.flush())
+             except Exception:  # noqa: BLE001 — a failed flush is retried on the next tick
+                 logger.exception("research trace flush failed (run %s)", self.run_id)
+ 
+     async def flush(self) -> None:
+         async with self._lock:
+             # Payloads first (events reference them via data_ref); a payload leaves the queue only
+             # once written, so a failure keeps it and every later one pending and skips the events.
+             while self._pending_payloads:
+                 await self._store.put_payload(self._pending_payloads[0])
+                 self._pending_payloads.pop(0)
+diff --git a/apps/ai-service/tests/research/test_runner.py b/apps/ai-service/tests/research/test_runner.py
+index 2eb9497..b1308f0 100644
+--- a/apps/ai-service/tests/research/test_runner.py
++++ b/apps/ai-service/tests/research/test_runner.py
+@@ -384,53 +384,86 @@ def test_company_archived_after_queueing_is_skipped(tmp_path):
+ 
+ def test_nothing_to_research_completes_immediately(tmp_path):
+     async def go():
+         store = InMemoryResearchStore()
+         runner, _ = make_runner(store, tmp_path, targets=[])
+         run = await runner.start_run(trigger="cron", scope="all")
+         assert run["status"] == "completed" and not runner.busy
+     asyncio.run(go())
+ 
+ 
+-class _TeardownStopStore(InMemoryResearchStore):
+-    """Fires `hook` once, from the first events flush that happens after the run is already `paused`
+-    (i.e. while the drive is tearing down in tracer.close())."""
++class _SlowStore(InMemoryResearchStore):
++    """Adds latency to event flushes and fires `hook` once, from the first flush after the run is
++    already `paused`/`completed`, i.e. while the drive is tearing down."""
+     hook = None
+ 
+     async def insert_events(self, events):
++        await asyncio.sleep(0.005)
+         await super().insert_events(events)
+         run_id = events[0]["run_id"] if events else None
+-        if self.hook and run_id in self.runs and self.runs[run_id]["status"] == "paused":
++        if self.hook and run_id in self.runs and self.runs[run_id]["status"] in ("paused", "completed"):
+             hook, self.hook = self.hook, None
+-            await hook()
++            hook()
++
++
++def _assert_contiguous_seqs(events):
++    seqs = sorted(e["seq"] for e in events)
++    assert seqs == list(range(1, len(seqs) + 1))
+ 
+ 
+ def test_stop_during_drive_teardown_is_not_lost(tmp_path):
+     async def go():
+-        store = _TeardownStopStore()
++        store = _SlowStore()
+         holder = {}
+ 
+         async def pause_once(label):
+             if "p" not in holder:
+                 holder["p"] = True
+                 await runner.pause(holder["run_id"])
+-
+-        async def stop_now():
+-            await runner.stop(holder["run_id"])
+-        store.hook = stop_now
++        store.hook = lambda: holder.__setitem__("stop", asyncio.ensure_future(runner.stop(holder["run_id"])))
+         runner, _ = make_runner(store, tmp_path, llm=company_llm(on_call=pause_once))
+         run = await runner.start_run(trigger="admin", scope="all")
+         holder["run_id"] = run["run_id"]
+         await runner.wait_idle()
++        await holder["stop"]
+         run = await store.get_run(run["run_id"])
+         assert run["status"] == "stopped" and run["control"] == "none"
+         assert all(i["status"] == "cancelled" for i in await store.list_items(run["run_id"]))
++        events = await store.list_events(run["run_id"], EventFilter(limit=10_000))
++        assert len([e for e in events if e["type"] == "control.stop"]) == 1
++        _assert_contiguous_seqs(events)
++        assert run["last_seq"] == len(events)
++    asyncio.run(go())
++
++
++def test_resume_during_drive_teardown_is_recorded_and_runs(tmp_path):
++    async def go():
++        store = _SlowStore()
++        holder = {}
++
++        async def pause_once(label):
++            if "p" not in holder:
++                holder["p"] = True
++                await runner.pause(holder["run_id"])
++        store.hook = lambda: holder.__setitem__("resume", asyncio.ensure_future(runner.resume(holder["run_id"])))
++        runner, _ = make_runner(store, tmp_path, llm=company_llm(on_call=pause_once))
++        run = await runner.start_run(trigger="admin", scope="all")
++        holder["run_id"] = run["run_id"]
++        await runner.wait_idle()
++        await holder["resume"]
++        await runner.wait_idle()
++        run = await store.get_run(run["run_id"])
++        assert run["status"] == "completed"
++        events = await store.list_events(run["run_id"], EventFilter(limit=10_000))
++        assert len([e for e in events if e["type"] == "control.resume"]) == 1
++        _assert_contiguous_seqs(events)
++        assert run["last_seq"] == len(events)
+     asyncio.run(go())
+ 
+ 
+ class _ItemHookStore(InMemoryResearchStore):
+     on_update = None
+ 
+     async def update_item(self, run_id, company_id, *, fields=None, inc=None):
+         if self.on_update:
+             await self.on_update(company_id, fields or {})
+         return await super().update_item(run_id, company_id, fields=fields, inc=inc)
+diff --git a/apps/ai-service/tests/research/test_tracer.py b/apps/ai-service/tests/research/test_tracer.py
+index 6481f7a..eb873df 100644
+--- a/apps/ai-service/tests/research/test_tracer.py
++++ b/apps/ai-service/tests/research/test_tracer.py
+@@ -216,10 +216,34 @@ def test_failed_event_insert_requeues_batch_with_same_seqs():
+         await store.insert_run({"run_id": "run1", "status": "running", "last_seq": 0, "created_at": utcnow()})
+         t = Tracer(store, "run1", secrets={}, flush_interval=10)
+         t.emit("log", "a")
+         t.emit("log", "b")
+         with pytest.raises(RuntimeError):
+             await t.flush()
+         await t.flush()
+         events = await store.list_events("run1", EventFilter())
+         assert [e["seq"] for e in events] == [1, 2]
+     asyncio.run(go())
++
++
++def test_close_mid_flush_stores_every_event_exactly_once(caplog):
++    class SlowStore(InMemoryResearchStore):
++        async def insert_events(self, events):
++            await asyncio.sleep(0.05)
++            await super().insert_events(events)
++
++    async def go():
++        store = SlowStore()
++        await store.insert_run({"run_id": "run1", "status": "running", "last_seq": 0, "created_at": utcnow()})
++        t = Tracer(store, "run1", secrets={}, flush_interval=0.01)
++        await t.start()
++        for i in range(15):
++            t.emit("x", f"event {i}")
++        await asyncio.sleep(0.03)             # the loop is now inside a slow insert_events
++        t.emit("x", "late")
++        await t.close()
++        events = await store.list_events("run1", EventFilter(limit=10_000))
++        assert sorted(e["seq"] for e in events) == list(range(1, 17))
++        assert (await store.get_run("run1"))["last_seq"] == 16
++    with caplog.at_level(logging.ERROR):
++        asyncio.run(go())
++    assert "duplicate" not in caplog.text

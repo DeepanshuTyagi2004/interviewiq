@@ -1,0 +1,381 @@
+# Review package: working tree vs HEAD (the user commits themselves; nothing is committed)
+
+## Files in scope
+  apps/web/features/interview-live/activity/provenance.ts
+  apps/web/features/interview-live/activity/provenance.test.ts
+  apps/web/features/interview-live/activity/codeActivity.via.test.ts
+  apps/web/features/interview-live/activity/batcher.via.test.ts
+  apps/web/features/interview-live/activity/codeActivity.ts
+  apps/web/features/interview-live/activity/batcher.ts
+
+## git status for these files
+ M apps/web/features/interview-live/activity/batcher.ts
+ M apps/web/features/interview-live/activity/codeActivity.ts
+?? apps/web/features/interview-live/activity/batcher.via.test.ts
+?? apps/web/features/interview-live/activity/codeActivity.via.test.ts
+?? apps/web/features/interview-live/activity/provenance.test.ts
+?? apps/web/features/interview-live/activity/provenance.ts
+
+## Diff (10 lines of context). Untracked files appear as whole-file additions.
+diff --git a/apps/web/features/interview-live/activity/provenance.ts b/apps/web/features/interview-live/activity/provenance.ts
+new file mode 100644
+index 0000000..c4116ab
+--- /dev/null
++++ b/apps/web/features/interview-live/activity/provenance.ts
+@@ -0,0 +1,62 @@
++/**
++ * How each change to the code arrived (live integrity spec §6.1). A change is "typed" when a key was pressed a moment
++ * before it and it is short enough to be that key's work: the character, an auto-closed pair, an auto-indent.
++ */
++import type { EditVia } from '../protocol/messages'
++
++export const TYPED_WINDOW_MS = 150
++export const TYPED_MAX_CHARS = 16
++/** A change this long with no known source is an unattributed insert (an extension, dictation, an input method). */
++export const UNATTRIBUTED_MIN_CHARS = 30
++
++export interface ChangeFacts {
++  text: string
++  isUndoing?: boolean
++  isRedoing?: boolean
++}
++
++export interface ProvenanceState {
++  lastKeyAt: number | null
++  localPasting: boolean
++  interviewerEditing: boolean
++}
++
++export function classifyChange(c: ChangeFacts, s: ProvenanceState, now: number): EditVia {
++  if (s.interviewerEditing) return 'interviewer'
++  if (s.localPasting) return 'local_paste'
++  if (c.isUndoing || c.isRedoing) return 'undo'
++  if (s.lastKeyAt !== null && now - s.lastKeyAt <= TYPED_WINDOW_MS && c.text.length <= TYPED_MAX_CHARS) return 'typed'
++  return 'other'
++}
++
++export function isUnattributed(via: EditVia, text: string): boolean {
++  return via === 'other' && text.length >= UNATTRIBUTED_MIN_CHARS
++}
++
++export interface ProvenanceDeps {
++  now(): number
++  /** True while the interviewer's own edit is being applied (the code adapter's `isApplying`). */
++  interviewerEditing(): boolean
++}
++
++/** One per editor: the key listener and the paste guard set the flags, the change handlers read them. */
++export function createProvenance(deps: ProvenanceDeps) {
++  let lastKeyAt: number | null = null
++  let localPasting = false
++  return {
++    keyPressed(): void {
++      lastKeyAt = deps.now()
++    },
++    asLocalPaste(fn: () => void): void {
++      localPasting = true
++      try {
++        fn()
++      } finally {
++        localPasting = false
++      }
++    },
++    classify(c: ChangeFacts): EditVia {
++      return classifyChange(c, { lastKeyAt, localPasting, interviewerEditing: deps.interviewerEditing() }, deps.now())
++    },
++  }
++}
+diff --git a/apps/web/features/interview-live/activity/provenance.test.ts b/apps/web/features/interview-live/activity/provenance.test.ts
+new file mode 100644
+index 0000000..3ac914c
+--- /dev/null
++++ b/apps/web/features/interview-live/activity/provenance.test.ts
+@@ -0,0 +1,70 @@
++import { describe, expect, it } from 'vitest'
++import { TYPED_WINDOW_MS, classifyChange, createProvenance, isUnattributed, type ProvenanceState } from './provenance'
++
++const idle: ProvenanceState = { lastKeyAt: null, localPasting: false, interviewerEditing: false }
++
++describe('classifyChange', () => {
++  it('calls a short change right after a key press typed', () => {
++    expect(classifyChange({ text: 'x' }, { ...idle, lastKeyAt: 1000 }, 1000 + TYPED_WINDOW_MS)).toBe('typed')
++    expect(classifyChange({ text: '()' }, { ...idle, lastKeyAt: 1000 }, 1050)).toBe('typed')        // an auto-closed pair
++    expect(classifyChange({ text: '\n    ' }, { ...idle, lastKeyAt: 1000 }, 1050)).toBe('typed')    // Enter with auto-indent
++  })
++
++  it('calls a change with no key shortly before it other', () => {
++    expect(classifyChange({ text: 'x' }, idle, 5000)).toBe('other')
++    expect(classifyChange({ text: 'x' }, { ...idle, lastKeyAt: 1000 }, 1000 + TYPED_WINDOW_MS + 1)).toBe('other')
++  })
++
++  it('does not call a long change typed even right after a key press', () => {
++    expect(classifyChange({ text: 'x'.repeat(40) }, { ...idle, lastKeyAt: 1000 }, 1010)).toBe('other')
++  })
++
++  it('names the known sources first, whatever keys were pressed', () => {
++    const keyed = { ...idle, lastKeyAt: 1000 }
++    expect(classifyChange({ text: 'x' }, { ...keyed, interviewerEditing: true }, 1010)).toBe('interviewer')
++    expect(classifyChange({ text: 'x'.repeat(50) }, { ...keyed, localPasting: true }, 1010)).toBe('local_paste')
++    expect(classifyChange({ text: 'x', isUndoing: true }, keyed, 1010)).toBe('undo')
++    expect(classifyChange({ text: 'x', isRedoing: true }, keyed, 1010)).toBe('undo')
++  })
++})
++
++describe('isUnattributed', () => {
++  it('is an unexplained change of 30 or more characters', () => {
++    expect(isUnattributed('other', 'x'.repeat(30))).toBe(true)
++    expect(isUnattributed('other', 'x'.repeat(29))).toBe(false)
++    expect(isUnattributed('typed', 'x'.repeat(100))).toBe(false)
++    expect(isUnattributed('local_paste', 'x'.repeat(100))).toBe(false)
++  })
++})
++
++describe('createProvenance', () => {
++  function make() {
++    let now = 1000
++    let interviewer = false
++    const p = createProvenance({ now: () => now, interviewerEditing: () => interviewer })
++    return { p, at: (t: number) => { now = t }, interviewer: (on: boolean) => { interviewer = on } }
++  }
++
++  it('remembers the last key press', () => {
++    const { p, at } = make()
++    p.keyPressed()
++    at(1100)
++    expect(p.classify({ text: 'a' })).toBe('typed')
++    at(1400)
++    expect(p.classify({ text: 'a' })).toBe('other')
++  })
++
++  it('tags changes made inside asLocalPaste, and only those, even if the paste throws', () => {
++    const { p } = make()
++    let during = ''
++    expect(() => p.asLocalPaste(() => { during = p.classify({ text: 'pasted' }); throw new Error('boom') })).toThrow('boom')
++    expect(during).toBe('local_paste')
++    expect(p.classify({ text: 'pasted' })).toBe('other')
++  })
++
++  it('asks the editor adapter whether the interviewer is editing', () => {
++    const { p, interviewer } = make()
++    interviewer(true)
++    expect(p.classify({ text: 'stub' })).toBe('interviewer')
++  })
++})
+diff --git a/apps/web/features/interview-live/activity/codeActivity.via.test.ts b/apps/web/features/interview-live/activity/codeActivity.via.test.ts
+new file mode 100644
+index 0000000..5171ae2
+--- /dev/null
++++ b/apps/web/features/interview-live/activity/codeActivity.via.test.ts
+@@ -0,0 +1,31 @@
++import { describe, expect, it, vi } from 'vitest'
++import type { ActivityEventBody } from '../protocol/messages'
++import { attachCodeActivity, editEvents, type ActivityEditor, type ChangeLike, type ContentEvent } from './codeActivity'
++
++const change: ChangeLike = { range: { startLineNumber: 3, endLineNumber: 3 }, text: 'x', rangeLength: 0 }
++
++describe('edit events carry how they arrived', () => {
++  it('adds via when asked and leaves old callers untouched', () => {
++    expect(editEvents([change], false, () => 'typed')).toEqual([{ k: 'edit', from_line: 3, to_line: 3, ins: 'x', removed: 0, via: 'typed' }])
++    expect(editEvents([change], false)).toEqual([{ k: 'edit', from_line: 3, to_line: 3, ins: 'x', removed: 0 }])
++  })
++
++  it('passes the change and the editor event to the classifier when attached', () => {
++    const handlers: { content?: (e: ContentEvent) => void } = {}
++    const none = () => ({ dispose() {} })
++    const editor: ActivityEditor = {
++      getModel: () => null,
++      getSelection: () => null,
++      onDidChangeModelContent: (cb) => { handlers.content = cb; return { dispose() {} } },
++      onDidChangeCursorSelection: none,
++      onMouseMove: none,
++      onDidFocusEditorText: none,
++    }
++    const seen: ActivityEventBody[] = []
++    const classify = vi.fn(() => 'undo' as const)
++    attachCodeActivity(editor, (e) => seen.push(e), () => false, classify)
++    handlers.content!({ changes: [change], isFlush: false, isUndoing: true })
++    expect(classify).toHaveBeenCalledWith(change, expect.objectContaining({ isUndoing: true }))
++    expect(seen).toEqual([expect.objectContaining({ k: 'edit', via: 'undo' })])
++  })
++})
+diff --git a/apps/web/features/interview-live/activity/batcher.via.test.ts b/apps/web/features/interview-live/activity/batcher.via.test.ts
+new file mode 100644
+index 0000000..a754526
+--- /dev/null
++++ b/apps/web/features/interview-live/activity/batcher.via.test.ts
+@@ -0,0 +1,39 @@
++import { describe, expect, it } from 'vitest'
++import { ActivityBatcher, type BatchOut } from './batcher'
++
++function make() {
++  let t = 1_000
++  const sent: BatchOut[] = []
++  const batcher = new ActivityBatcher({ now: () => t, send: (b) => sent.push(b) })
++  return { batcher, advance: (ms: number) => { t += ms }, sent }
++}
++const edit = (via?: 'typed' | 'other') => ({ k: 'edit' as const, from_line: 3, to_line: 3, ins: 'ab', removed: 0, ...(via ? { via } : {}) })
++
++describe('merging edits', () => {
++  it('merges consecutive edits that arrived the same way', () => {
++    const { batcher, advance, sent } = make()
++    batcher.record(edit('typed'))
++    advance(100)
++    batcher.record(edit('typed'))
++    batcher.flush()
++    expect(sent[0].events).toEqual([expect.objectContaining({ k: 'edit', ins: 'abab', via: 'typed' })])
++  })
++
++  it('keeps edits that arrived differently apart, so a paste is never hidden inside typing', () => {
++    const { batcher, advance, sent } = make()
++    batcher.record(edit('typed'))
++    advance(100)
++    batcher.record(edit('other'))
++    batcher.flush()
++    expect(sent[0].events.map((e) => (e.k === 'edit' ? e.via : null))).toEqual(['typed', 'other'])
++  })
++
++  it('still merges edits that carry no tag', () => {
++    const { batcher, advance, sent } = make()
++    batcher.record(edit())
++    advance(100)
++    batcher.record(edit())
++    batcher.flush()
++    expect(sent[0].events).toHaveLength(1)
++  })
++})
+diff --git a/apps/web/features/interview-live/activity/codeActivity.ts b/apps/web/features/interview-live/activity/codeActivity.ts
+index 4e985e4..fd7fcc1 100644
+--- a/apps/web/features/interview-live/activity/codeActivity.ts
++++ b/apps/web/features/interview-live/activity/codeActivity.ts
+@@ -1,16 +1,16 @@
+ /**
+  * Monaco → activity events (spec §5.1): what the candidate types, where the caret and selection are, and the
+  * line under the pointer. Typed against the slice of the editor it uses, so tests drive it with a fake editor.
+  * The interviewer's own edits (`isApplying`) and whole-model replacements (`isFlush`) are never the candidate's.
+  */
+-import type { ActivityEventBody } from '../protocol/messages'
++import type { ActivityEventBody, EditVia } from '../protocol/messages'
+ import { capCodePoints } from './text'
+ 
+ export const MAX_INS = 200
+ const MAX_LINE_TEXT = 80
+ const MAX_SELECTED = 120
+ 
+ export interface ChangeLike {
+   range: { startLineNumber: number; endLineNumber: number }
+   text: string
+   rangeLength: number
+@@ -25,24 +25,31 @@ export interface SelectionLike {
+   positionColumn: number
+ }
+ export interface PositionLike {
+   lineNumber: number
+   column: number
+ }
+ interface Disposable {
+   dispose(): void
+ }
+ 
++export interface ContentEvent {
++  changes: readonly ChangeLike[]
++  isFlush: boolean
++  isUndoing?: boolean
++  isRedoing?: boolean
++}
++
+ export interface ActivityEditor {
+   getModel(): { getLineContent(line: number): string; getValueInRange(range: SelectionLike): string } | null
+   getSelection(): SelectionLike | null
+-  onDidChangeModelContent(cb: (e: { changes: readonly ChangeLike[]; isFlush: boolean }) => void): Disposable
++  onDidChangeModelContent(cb: (e: ContentEvent) => void): Disposable
+   onDidChangeCursorSelection(cb: () => void): Disposable
+   onMouseMove(cb: (e: { target: { position: PositionLike | null } }) => void): Disposable
+   onDidFocusEditorText(cb: () => void): Disposable
+ }
+ 
+ /** The editor swaps its starter text when the candidate changes language before writing anything. The wrapper applies that
+  * as an ordinary edit (not a flush), so without this it would be reported as the candidate typing a whole class. The
+  * caller announces the swap with `expect`; `matches` is true while the editor still holds exactly that text (the swap's
+  * own change and the cursor move after it) and turns false, for good, once the candidate changes it. */
+ export function createStarterSwapGuard() {
+@@ -53,44 +60,50 @@ export function createStarterSwapGuard() {
+     },
+     matches(current: string): boolean {
+       if (pending === null) return false
+       if (current === pending) return true
+       pending = null
+       return false
+     },
+   }
+ }
+ 
+-export function editEvents(changes: readonly ChangeLike[], isFlush: boolean): ActivityEventBody[] {
++export function editEvents(changes: readonly ChangeLike[], isFlush: boolean, via?: (change: ChangeLike) => EditVia): ActivityEventBody[] {
+   if (isFlush) return []
+   return changes.map((c) => ({
+     k: 'edit' as const, from_line: c.range.startLineNumber, to_line: c.range.endLineNumber, ins: capCodePoints(c.text, MAX_INS), removed: c.rangeLength,
++    ...(via ? { via: via(c) } : {}),
+   }))
+ }
+ 
+ export function codePointer(position: PositionLike | null | undefined, lineText: (line: number) => string): ActivityEventBody | null {
+   if (!position) return null
+   return { k: 'ptr', s: 'code', line: position.lineNumber, col: position.column, text: capCodePoints(lineText(position.lineNumber).trim(), MAX_LINE_TEXT) }
+ }
+ 
+ export function caretEvent(sel: SelectionLike, textOf: (range: SelectionLike) => string): ActivityEventBody {
+   const caret = { k: 'caret' as const, line: sel.positionLineNumber, col: sel.positionColumn }
+   if (sel.isEmpty()) return caret
+   return { ...caret, sel: [sel.startLineNumber, sel.endLineNumber], text: capCodePoints(textOf(sel), MAX_SELECTED) }
+ }
+ 
+ /** Starts reporting; the returned function stops. */
+-export function attachCodeActivity(editor: ActivityEditor, record: (e: ActivityEventBody) => void, isApplying: () => boolean): () => void {
++export function attachCodeActivity(
++  editor: ActivityEditor,
++  record: (e: ActivityEventBody) => void,
++  isApplying: () => boolean,
++  classify?: (change: ChangeLike, event: ContentEvent) => EditVia,
++): () => void {
+   const subs = [
+     editor.onDidChangeModelContent((e) => {
+       if (isApplying()) return
+-      for (const ev of editEvents(e.changes, e.isFlush)) record(ev)
++      for (const ev of editEvents(e.changes, e.isFlush, classify && ((c) => classify(c, e)))) record(ev)
+     }),
+     editor.onDidChangeCursorSelection(() => {
+       if (isApplying()) return
+       const sel = editor.getSelection()
+       const model = editor.getModel()
+       if (sel && model) record(caretEvent(sel, (r) => model.getValueInRange(r)))
+     }),
+     editor.onMouseMove((e) => {
+       const model = editor.getModel()
+       const ev = model ? codePointer(e.target.position, (n) => model.getLineContent(n)) : null
+diff --git a/apps/web/features/interview-live/activity/batcher.ts b/apps/web/features/interview-live/activity/batcher.ts
+index dd91063..992f868 100644
+--- a/apps/web/features/interview-live/activity/batcher.ts
++++ b/apps/web/features/interview-live/activity/batcher.ts
+@@ -133,21 +133,21 @@ export class ActivityBatcher {
+   private emitCaret(e: Caret): void {
+     this.heldCaret = null
+     const key = `${e.line}:${e.col}:${e.sel?.join('-') ?? ''}`
+     if (key === this.lastCaretKey) return
+     this.buffer.push(e)
+     this.lastCaretKey = key
+   }
+ 
+   private edit(e: Extract<ActivityEvent, { k: 'edit' }>): void {
+     const last = this.buffer.findLast((b) => b.k === 'edit') // the most recent edit, whatever else was reported since
+-    if (last?.k === 'edit' && last.from_line === e.from_line && last.to_line === e.to_line && e.t - last.t < EDIT_MERGE_MS) {
++    if (last?.k === 'edit' && last.from_line === e.from_line && last.to_line === e.to_line && last.via === e.via && e.t - last.t < EDIT_MERGE_MS) {
+       last.ins = capCodePoints(last.ins + e.ins, MAX_INS)
+       last.removed += e.removed
+       last.t = e.t
+       return
+     }
+     this.buffer.push(e)
+   }
+ 
+   private shape(e: Shape): void {
+     const key = `${e.id}:${e.op}`
