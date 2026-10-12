@@ -3,7 +3,6 @@
  * five seconds. No key identity and no character is ever kept or sent; the worker decides what the rhythm means.
  */
 import type { EditVia } from '../protocol/messages'
-import { UNATTRIBUTED_MIN_CHARS } from '../activity/provenance'
 
 export const WINDOW_MS = 5000
 /** A gap longer than this is a pause, not part of the rhythm. */
@@ -121,13 +120,14 @@ export class CadenceAggregator {
     if (held <= MAX_DWELL_MS) this.dwells.push(held)
   }
 
-  /** A change to the code: typed characters and jumps back count as typing; a long unexplained insert is "no keys". */
-  inserted(chars: number, via: EditVia, line: number): void {
+  /** A change to the code: typed characters and jumps back count as typing; characters that arrived with no key in the same
+   * moment (`keyed` false) and no known source are "no keys", whatever the size of each change. */
+  inserted(chars: number, via: EditVia, line: number, keyed = false): void {
     if (via === 'typed') {
       this.chars += chars
       if (this.lastLine !== null && line < this.lastLine) this.jumps += 1
       this.lastLine = line
-    } else if (via === 'other' && chars >= UNATTRIBUTED_MIN_CHARS) {
+    } else if (via === 'other' && !keyed) {
       this.charless += chars
     }
   }
@@ -170,7 +170,7 @@ export function createCadence(deps: CadenceDeps) {
   return {
     keyDown: (k: KeyDown) => aggregator.keyDown(k),
     keyUp: (code: string) => aggregator.keyUp(code, deps.now()),
-    inserted: (chars: number, via: EditVia, line: number) => aggregator.inserted(chars, via, line),
+    inserted: (chars: number, via: EditVia, line: number, keyed = false) => aggregator.inserted(chars, via, line, keyed),
     stop() {
       clearInterval(timer)
       emit()

@@ -81,14 +81,21 @@ describe('CadenceAggregator', () => {
     expect(agg.flush(100)).toMatchObject({ keys: 0, untrusted: 1 })
   })
 
-  it('counts only unattributed inserts of 30 or more characters as characters with no keys', () => {
+  it('counts the characters of every keyless unattributed change, whatever its size, and not key-driven ones', () => {
     const agg = new CadenceAggregator()
     agg.inserted(35, 'other', 1)
-    agg.inserted(29, 'other', 1)
+    agg.inserted(1, 'other', 1)
+    agg.inserted(60, 'other', 1, true)
     agg.inserted(500, 'local_paste', 1)
     agg.inserted(500, 'undo', 1)
     agg.inserted(500, 'interviewer', 1)
-    expect(agg.flush(100)).toMatchObject({ keys: 0, chars: 0, charless: 35 })
+    expect(agg.flush(100)).toMatchObject({ keys: 0, chars: 0, charless: 36 })
+  })
+
+  it('does not drop a window as quiet when only keyless characters arrived', () => {
+    const agg = new CadenceAggregator()
+    agg.inserted(1, 'other', 1)
+    expect(agg.flush(100)).toMatchObject({ keys: 0, charless: 1 })
   })
 
   it('counts typed characters and jumps back to earlier lines', () => {
@@ -135,5 +142,17 @@ describe('createCadence', () => {
     expect(send).toHaveBeenCalledTimes(2)
     vi.advanceTimersByTime(WINDOW_MS * 3)
     expect(send).toHaveBeenCalledTimes(2)   // the timer is gone
+  })
+  it('passes keyed through: a keyless long change is reported, a key-driven one is not', () => {
+    const send = vi.fn()
+    const cadence = createCadence({ now: () => Date.now(), send })
+    cadence.inserted(35, 'other', 1, true)
+    vi.advanceTimersByTime(WINDOW_MS)
+    expect(send).not.toHaveBeenCalled()   // key-driven: nothing to say
+    cadence.inserted(35, 'other', 1, false)
+    vi.advanceTimersByTime(WINDOW_MS)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toMatchObject({ charless: 35 })
+    cadence.stop()
   })
 })

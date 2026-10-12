@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TYPED_WINDOW_MS, classifyChange, createProvenance, isUnattributed, type ProvenanceState } from './provenance'
+import { TYPED_WINDOW_MS, classifyChange, createProvenance, hadRecentInput, isUnattributed, type ProvenanceState } from './provenance'
 
 const idle: ProvenanceState = { lastKeyAt: null, localPasting: false, interviewerEditing: false }
 
@@ -25,6 +25,15 @@ describe('classifyChange', () => {
     expect(classifyChange({ text: 'x'.repeat(50) }, { ...keyed, localPasting: true }, 1010)).toBe('local_paste')
     expect(classifyChange({ text: 'x', isUndoing: true }, keyed, 1010)).toBe('undo')
     expect(classifyChange({ text: 'x', isRedoing: true }, keyed, 1010)).toBe('undo')
+  })
+})
+
+describe('hadRecentInput', () => {
+  it('is true within the window after a key press or a native paste, whatever the change size', () => {
+    expect(hadRecentInput({ ...idle, lastKeyAt: 1000 }, 1000 + TYPED_WINDOW_MS)).toBe(true)
+    expect(hadRecentInput({ ...idle, lastKeyAt: 1000 }, 1000 + TYPED_WINDOW_MS + 1)).toBe(false)
+    expect(hadRecentInput({ ...idle, lastDomInsertAt: 1000 }, 1050)).toBe(true)
+    expect(hadRecentInput(idle, 1050)).toBe(false)
   })
 })
 
@@ -60,6 +69,24 @@ describe('createProvenance', () => {
     expect(() => p.asLocalPaste(() => { during = p.classify({ text: 'pasted' }); throw new Error('boom') })).toThrow('boom')
     expect(during).toBe('local_paste')
     expect(p.classify({ text: 'pasted' })).toBe('other')
+  })
+
+  it('analyze reports whether a key was recent, even when the long change is not "typed"', () => {
+    const { p, at } = make()
+    expect(p.analyze({ text: 'x' })).toEqual({ via: 'other', keyed: false })
+    p.keyPressed()
+    at(1050)
+    expect(p.analyze({ text: 'x'.repeat(40) })).toEqual({ via: 'other', keyed: true })
+    expect(p.analyze({ text: 'x' })).toEqual({ via: 'typed', keyed: true })
+    at(1400)
+    expect(p.analyze({ text: 'x' })).toEqual({ via: 'other', keyed: false })
+  })
+
+  it('analyze counts a native paste or drop as input', () => {
+    const { p, at } = make()
+    p.domInserted()
+    at(1050)
+    expect(p.analyze({ text: 'x'.repeat(100) })).toEqual({ via: 'other', keyed: true })
   })
 
   it('asks the editor adapter whether the interviewer is editing', () => {

@@ -17,8 +17,16 @@ export interface ChangeFacts {
 
 export interface ProvenanceState {
   lastKeyAt: number | null
+  /** When the browser last delivered a paste or drop into the editor (only seen when the clipboard rules are off). */
+  lastDomInsertAt?: number | null
   localPasting: boolean
   interviewerEditing: boolean
+}
+
+/** True when something the candidate did (a key press, or in dev a native paste or drop) happened a moment before `now`. */
+export function hadRecentInput(s: ProvenanceState, now: number): boolean {
+  const recent = (at: number | null | undefined) => at !== null && at !== undefined && now - at <= TYPED_WINDOW_MS
+  return recent(s.lastKeyAt) || recent(s.lastDomInsertAt)
 }
 
 export function classifyChange(c: ChangeFacts, s: ProvenanceState, now: number): EditVia {
@@ -42,10 +50,16 @@ export interface ProvenanceDeps {
 /** One per editor: the key listener and the paste guard set the flags, the change handlers read them. */
 export function createProvenance(deps: ProvenanceDeps) {
   let lastKeyAt: number | null = null
+  let lastDomInsertAt: number | null = null
   let localPasting = false
+  const state = (): ProvenanceState => ({ lastKeyAt, lastDomInsertAt, localPasting, interviewerEditing: deps.interviewerEditing() })
   return {
     keyPressed(): void {
       lastKeyAt = deps.now()
+    },
+    /** A paste or drop reached the editor natively (dev builds): the text is not "inserted with no key". */
+    domInserted(): void {
+      lastDomInsertAt = deps.now()
     },
     asLocalPaste(fn: () => void): void {
       localPasting = true
@@ -56,7 +70,13 @@ export function createProvenance(deps: ProvenanceDeps) {
       }
     },
     classify(c: ChangeFacts): EditVia {
-      return classifyChange(c, { lastKeyAt, localPasting, interviewerEditing: deps.interviewerEditing() }, deps.now())
+      return classifyChange(c, state(), deps.now())
+    },
+    /** How the change arrived, and whether a key (or native paste) came just before it, whatever its size. */
+    analyze(c: ChangeFacts): { via: EditVia; keyed: boolean } {
+      const s = state()
+      const now = deps.now()
+      return { via: classifyChange(c, s, now), keyed: hadRecentInput(s, now) }
     },
   }
 }
