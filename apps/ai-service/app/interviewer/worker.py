@@ -17,6 +17,7 @@ from livekit.plugins import deepgram
 from app.blueprint import store as bp_store
 from app.config import Settings, get_settings
 from app.db import mongo
+from app.interviewer import lifecycle
 from app.interviewer.agent import TURN_HANDLING, InterviewerAgent, LiveKitSpeaker, PlaceholderLLM, wire_session_events
 from app.interviewer.api_client import ApiClient
 from app.interviewer.llm import build_chats
@@ -286,6 +287,11 @@ def main() -> None:
     missing = missing_live_settings(settings)
     if missing:
         raise SystemExit(f"interviewer worker: set {', '.join(missing)} in apps/ai-service/.env")
+    try:
+        _lock = lifecycle.single_instance(settings.interviewer_agent_name)    # held until this process ends
+    except lifecycle.AlreadyRunning as exc:
+        raise SystemExit(f"interviewer worker: {exc}") from None
+    lifecycle.start_watchdog(settings.interviewer_stop_when_down)
     cli.run_app(build_worker_options(settings))
 
 
