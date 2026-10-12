@@ -25,6 +25,13 @@ export const Author = z.enum(['interviewer', 'candidate'])
 export const CodeLanguage = z.enum(['python', 'javascript', 'typescript', 'java', 'cpp', 'go'])
 export const EndReason = z.enum(['completed', 'ended_by_interviewer', 'candidate_ended', 'technical'])
 export const ProctorKind = z.enum(['tab_hidden', 'window_blur', 'external_display', 'fullscreen_exit', 'share_stopped'])
+/** What a `proctor.event` can report: the five ledger kinds, plus text pasted or dropped in from outside the room
+ * (live integrity spec §6.1). The ledger itself only knows `ProctorKind`. */
+export const ProctorEventKind = z.enum(['tab_hidden', 'window_blur', 'external_display', 'fullscreen_exit', 'share_stopped', 'foreign_paste'])
+/** The signals that put a candidate "away" and that coming back undoes. A second display is not one (spec §7.1). */
+export const AwayKind = z.enum(['tab_hidden', 'window_blur', 'fullscreen_exit', 'share_stopped'])
+/** How a change to the code arrived (spec §6.1). */
+export const EditVia = z.enum(['typed', 'local_paste', 'interviewer', 'undo', 'other'])
 
 export const Example = z.object({
   input: z.string().max(4000),
@@ -131,12 +138,23 @@ export const CodeSnapshot = z.object({
 })
 export const BoardSummary = z.object({ ...header, type: z.literal('board.summary'), version: z.number().int().min(0), text: z.string().max(20000) })
 export const ProctorEventMessage = z.object({
-  ...header, type: z.literal('proctor.event'), kind: ProctorKind, weight: z.union([z.literal(1), z.literal(0.5)]),
+  ...header, type: z.literal('proctor.event'), kind: ProctorEventKind, weight: z.union([z.literal(1), z.literal(0.5)]),
   at: z.number().int().min(0),
   counts: z.object({ tab_changes: z.number().int().min(0), screen_changes: z.number().min(0), full_violations: z.number().int().min(0) }),
+  /** `foreign_paste` only: how it arrived, its size (never its text), and whether the clipboard was cleared at Join. */
+  source: z.enum(['paste', 'drop']).optional(),
+  chars: z.number().int().min(0).optional(),
+  lines: z.number().int().min(0).optional(),
+  clipboard_cleared: z.boolean().optional(),
 })
 export const Hello = z.object({ ...header, type: z.literal('workspace.hello'), has_content: z.boolean() })
 export const EndRequest = z.object({ ...header, type: z.literal('session.end_request') })
+/** The candidate is away: `kinds` is every away signal active now, sent at the start and whenever the set changes. */
+export const ProctorAway = z.object({
+  ...header, type: z.literal('proctor.away'), kinds: z.array(AwayKind).min(1).max(4), at: z.number().int().min(0),
+})
+/** Everything is back: visible, focused, full screen, sharing. */
+export const ProctorBack = z.object({ ...header, type: z.literal('proctor.back'), at: z.number().int().min(0) })
 
 // ---------------------------------------------------------------- activity (web → agent)
 
@@ -153,6 +171,7 @@ const Caret = z.object({
 })
 const Edit = z.object({
   k: z.literal('edit'), t: At, from_line: Line, to_line: Line, ins: z.string().max(200), removed: z.number().int().min(0),
+  via: EditVia.optional(),
 })
 const Shape = z.object({
   k: z.literal('shape'), t: At, op: z.enum(['add', 'move', 'edit', 'delete']), id: Id, kind: z.string().regex(/^[a-z]+$/).max(30), label: z.string().max(60).optional(),
@@ -164,9 +183,18 @@ export const ActivityBatch = z.object({
   ...header, type: z.literal('activity.batch'), sent_at: At, events: z.array(ActivityEvent).min(1).max(ACTIVITY_MAX_EVENTS),
 })
 
+const Stat = z.object({ median: z.number().min(0), cv: z.number().min(0) })
+const Count = z.number().int().min(0)
+/** Typing cadence for one stretch of typing (live integrity spec §6.2): counts and timing statistics, never characters. */
+export const TypingWindow = z.object({
+  ...header, type: z.literal('typing.window'), t0: At, t1: At, keys: Count, chars: Count,
+  iki: Stat.optional(), dwell: Stat.optional(),
+  backspaces: Count, nav: Count, longest_pause: z.number().min(0), jumps: Count, untrusted: Count, charless: Count,
+})
+
 export const WebMessage = z.discriminatedUnion('type', [
   Ack, SectionAdded, HighlightAdded, CodeHighlightAdded, AskSelection, CodeSnapshot, BoardSummary,
-  ProctorEventMessage, Hello, EndRequest, ActivityBatch,
+  ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, ActivityBatch, TypingWindow,
 ])
 
 export const WorkspaceMessage = z.union([AgentMessage, WebMessage])
@@ -180,6 +208,9 @@ export type SectionKind = z.infer<typeof SectionKind>
 export type CodeLanguage = z.infer<typeof CodeLanguage>
 export type EndReason = z.infer<typeof EndReason>
 export type ProctorKind = z.infer<typeof ProctorKind>
+export type ProctorEventKind = z.infer<typeof ProctorEventKind>
+export type AwayKind = z.infer<typeof AwayKind>
+export type EditVia = z.infer<typeof EditVia>
 export type LineAnchor = z.infer<typeof LineAnchor>
 export type DrawElement = z.infer<typeof DrawElement>
 export type WireCard = z.infer<typeof Card>

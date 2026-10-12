@@ -70,3 +70,23 @@ describe('ScriptedLiveSession room state', () => {
     expect(rooms.at(-1)).toMatchObject({ layout: 'work', slow: false })
   })
 })
+
+describe('ScriptedLiveSession integrity', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('ends the round at once, saying why, after a foreign paste', () => {
+    const session = new ScriptedLiveSession({ speed: 1 })
+    const endings: Extract<AgentMessage, { type: 'session.ending' }>[] = []
+    session.onMessage((m) => { if (m.type === 'session.ending') endings.push(m) })
+    session.send({
+      type: 'proctor.event', kind: 'foreign_paste', weight: 1, at: 1,
+      counts: { tab_changes: 0, screen_changes: 0, full_violations: 0 },
+      source: 'paste', chars: 80, lines: 4, clipboard_cleared: true,
+    })
+    vi.advanceTimersByTime(2000)
+    expect(endings).toHaveLength(1)
+    expect(endings[0]).toMatchObject({ reason: 'ended_by_interviewer' })
+    expect(endings[0].message).toMatch(/pasted/i)
+  })
+})

@@ -264,7 +264,8 @@
         "from_line": 3,
         "to_line": 3,
         "ins": "for i in range(n):",
-        "removed": 0
+        "removed": 0,
+        "via": "typed"
       },
       {
         "k": "caret",
@@ -319,5 +320,35 @@
         "s": "out"
       }
     ]
+  },
+  "proctor.away": {
+    "v": 1,
+    "id": "w_away",
+    "type": "proctor.away",
+    "kinds": ["tab_hidden", "fullscreen_exit"],
+    "at": 1760000002000
+  },
+  "proctor.back": {
+    "v": 1,
+    "id": "w_back",
+    "type": "proctor.back",
+    "at": 1760000012000
+  },
+  "typing.window": {
+    "v": 1,
+    "id": "w_typing",
+    "type": "typing.window",
+    "t0": 1760000000000,
+    "t1": 1760000005000,
+    "keys": 42,
+    "chars": 44,
+    "iki": { "median": 118, "cv": 0.71 },
+    "dwell": { "median": 92, "cv": 0.38 },
+    "backspaces": 3,
+    "nav": 1,
+    "longest_pause": 2400,
+    "jumps": 1,
+    "untrusted": 0,
+    "charless": 0
   }
 }

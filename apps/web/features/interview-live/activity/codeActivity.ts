@@ -3,7 +3,7 @@
  * line under the pointer. Typed against the slice of the editor it uses, so tests drive it with a fake editor.
  * The interviewer's own edits (`isApplying`) and whole-model replacements (`isFlush`) are never the candidate's.
  */
-import type { ActivityEventBody } from '../protocol/messages'
+import type { ActivityEventBody, EditVia } from '../protocol/messages'
 import { capCodePoints } from './text'
 
 export const MAX_INS = 200
@@ -32,10 +32,17 @@ interface Disposable {
   dispose(): void
 }
 
+export interface ContentEvent {
+  changes: readonly ChangeLike[]
+  isFlush: boolean
+  isUndoing?: boolean
+  isRedoing?: boolean
+}
+
 export interface ActivityEditor {
   getModel(): { getLineContent(line: number): string; getValueInRange(range: SelectionLike): string } | null
   getSelection(): SelectionLike | null
-  onDidChangeModelContent(cb: (e: { changes: readonly ChangeLike[]; isFlush: boolean }) => void): Disposable
+  onDidChangeModelContent(cb: (e: ContentEvent) => void): Disposable
   onDidChangeCursorSelection(cb: () => void): Disposable
   onMouseMove(cb: (e: { target: { position: PositionLike | null } }) => void): Disposable
   onDidFocusEditorText(cb: () => void): Disposable
@@ -60,10 +67,11 @@ export function createStarterSwapGuard() {
   }
 }
 
-export function editEvents(changes: readonly ChangeLike[], isFlush: boolean): ActivityEventBody[] {
+export function editEvents(changes: readonly ChangeLike[], isFlush: boolean, via?: (change: ChangeLike) => EditVia): ActivityEventBody[] {
   if (isFlush) return []
   return changes.map((c) => ({
     k: 'edit' as const, from_line: c.range.startLineNumber, to_line: c.range.endLineNumber, ins: capCodePoints(c.text, MAX_INS), removed: c.rangeLength,
+    ...(via ? { via: via(c) } : {}),
   }))
 }
 
@@ -79,11 +87,16 @@ export function caretEvent(sel: SelectionLike, textOf: (range: SelectionLike) =>
 }
 
 /** Starts reporting; the returned function stops. */
-export function attachCodeActivity(editor: ActivityEditor, record: (e: ActivityEventBody) => void, isApplying: () => boolean): () => void {
+export function attachCodeActivity(
+  editor: ActivityEditor,
+  record: (e: ActivityEventBody) => void,
+  isApplying: () => boolean,
+  classify?: (change: ChangeLike, event: ContentEvent) => EditVia,
+): () => void {
   const subs = [
     editor.onDidChangeModelContent((e) => {
       if (isApplying()) return
-      for (const ev of editEvents(e.changes, e.isFlush)) record(ev)
+      for (const ev of editEvents(e.changes, e.isFlush, classify && ((c) => classify(c, e)))) record(ev)
     }),
     editor.onDidChangeCursorSelection(() => {
       if (isApplying()) return

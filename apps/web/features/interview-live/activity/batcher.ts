@@ -140,7 +140,7 @@ export class ActivityBatcher {
 
   private edit(e: Extract<ActivityEvent, { k: 'edit' }>): void {
     const last = this.buffer.findLast((b) => b.k === 'edit') // the most recent edit, whatever else was reported since
-    if (last?.k === 'edit' && last.from_line === e.from_line && last.to_line === e.to_line && e.t - last.t < EDIT_MERGE_MS) {
+    if (last?.k === 'edit' && last.from_line === e.from_line && last.to_line === e.to_line && last.via === e.via && e.t - last.t < EDIT_MERGE_MS) {
       last.ins = capCodePoints(last.ins + e.ins, MAX_INS)
       last.removed += e.removed
       last.t = e.t

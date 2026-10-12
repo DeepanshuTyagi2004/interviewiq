@@ -70,7 +70,7 @@ export function askReply(quote: string, itemId: string = DEMO_ITEM): Step[] {
   ]
 }
 
-const MENTION: Record<Extract<WebMessage, { type: 'proctor.event' }>['kind'], string> = {
+const MENTION: Record<Exclude<Extract<WebMessage, { type: 'proctor.event' }>['kind'], 'foreign_paste'>, string> = {
   tab_hidden: 'I noticed you switched tabs. Please stay on this screen.',
   window_blur: 'I noticed you moved to another window. Please stay on this screen.',
   external_display: 'I can see a second display. Please disconnect it.',
@@ -78,8 +78,16 @@ const MENTION: Record<Extract<WebMessage, { type: 'proctor.event' }>['kind'], st
   share_stopped: 'Your screen share stopped. Please share your entire screen again.',
 }
 
-/** Mirrors the spec §7 rule: mention every event; the 2nd full violation gets a final warning; the 3rd ends the round. */
+/** Mirrors the spec §7 rule: mention every event; the 2nd full violation gets a final warning; the 3rd ends the round.
+ * Text pasted from outside the editor ends the round at once (live integrity spec §2). */
 export function proctorReply(event: Extract<WebMessage, { type: 'proctor.event' }>): Step[] {
+  if (event.kind === 'foreign_paste') {
+    return [
+      { after: 400, say: "That text didn't come from this editor, and pasting outside text isn't allowed. I'm ending the interview here." },
+      { after: 300, message: { type: 'session.ending', reason: 'ended_by_interviewer', message: "I'm ending the interview here because text was pasted from outside the editor." } },
+      { after: 300, disconnect: true },
+    ]
+  }
   if (event.weight !== 1) return [{ after: 400, say: MENTION[event.kind] }]
   if (event.counts.full_violations >= 3) {
     return [

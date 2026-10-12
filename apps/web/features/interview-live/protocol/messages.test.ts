@@ -71,4 +71,43 @@ describe('workspace protocol', () => {
     expect(a.id).not.toBe(b.id)
     expect(stampAgent({ type: 'panel.clear_highlight', highlight_id: 'h' }).id).toMatch(/^a_/)
   })
+
+  it('accepts a foreign-paste proctor event and rejects unknown kinds and negative sizes', () => {
+    const base = examples['proctor.event'] as Record<string, unknown>
+    const paste = { ...base, kind: 'foreign_paste', source: 'paste', chars: 120, lines: 6, clipboard_cleared: true }
+    expect(WebMessage.safeParse(paste).success).toBe(true)
+    expect(WebMessage.safeParse({ ...paste, source: 'drop' }).success).toBe(true)
+    expect(WebMessage.safeParse({ ...paste, source: 'clipboard' }).success).toBe(false)
+    expect(WebMessage.safeParse({ ...paste, chars: -1 }).success).toBe(false)
+    expect(WebMessage.safeParse({ ...base, kind: 'teleport' }).success).toBe(false)
+  })
+
+  it('accepts an away set and rejects an empty one or a signal that cannot be undone', () => {
+    const away = examples['proctor.away'] as Record<string, unknown>
+    expect(WebMessage.safeParse(away).success).toBe(true)
+    expect(WebMessage.safeParse({ ...away, kinds: [] }).success).toBe(false)
+    expect(WebMessage.safeParse({ ...away, kinds: ['external_display'] }).success).toBe(false)
+    expect(WebMessage.safeParse(examples['proctor.back']).success).toBe(true)
+  })
+
+  it('accepts a typing window with or without timing statistics and rejects bad counts', () => {
+    const ok = examples['typing.window'] as Record<string, unknown>
+    expect(WebMessage.safeParse(ok).success).toBe(true)
+    const bare = { ...ok }
+    delete bare.iki
+    delete bare.dwell
+    expect(WebMessage.safeParse(bare).success).toBe(true)
+    expect(WebMessage.safeParse({ ...ok, keys: -1 }).success).toBe(false)
+    expect(WebMessage.safeParse({ ...ok, untrusted: 1.5 }).success).toBe(false)
+    expect(WebMessage.safeParse({ ...ok, iki: { median: 100 } }).success).toBe(false)
+  })
+
+  it('tags an edit with how it arrived', () => {
+    const batch = examples['activity.batch'] as { events: Record<string, unknown>[] }
+    const edit = batch.events.find((e) => e.k === 'edit')!
+    expect(edit.via).toBe('typed')
+    const withVia = (via: unknown) => WebMessage.safeParse({ ...batch, events: [{ ...edit, via }] }).success
+    expect(withVia('local_paste')).toBe(true)
+    expect(withVia('magic')).toBe(false)
+  })
 })
