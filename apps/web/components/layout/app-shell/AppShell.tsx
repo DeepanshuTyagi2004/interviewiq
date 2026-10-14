@@ -19,6 +19,9 @@ const MENU_ID = "app-menu";
 /** Card slides right (never further than leaves a sliver on phones) and shrinks to reveal the menu. */
 const CARD_OPEN = "translate(min(300px, calc(100vw - 88px)), 7%) scale(0.84)";
 
+/** The live interview screen: no shell shortcut may fire there (M, ⌘K, Esc). */
+const LIVE_INTERVIEW_PATH = /^\/interviews\/[^/]+\/live(\/|$)/;
+
 /** Keys typed into a field, or into an open dropdown (its typeahead), aren't shell shortcuts. */
 function ownsKeys(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -59,9 +62,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const readiness = readinessSummary(loops.data ?? []);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const inLiveInterview = LIVE_INTERVIEW_PATH.test(pathname ?? "");
 
   // Keyboard: M toggles the menu, Esc closes it, ⌘K / Ctrl+K toggles search.
   useEffect(() => {
+    if (inLiveInterview) return;
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -75,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [searchOpen]);
+  }, [searchOpen, inLiveInterview]);
 
   // Focus follows the menu: into the first link on open, back to the toggle on close.
   useEffect(() => {
