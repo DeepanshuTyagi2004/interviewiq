@@ -79,3 +79,13 @@ def test_the_line_that_puts_a_problem_up_is_said_the_same_way_every_time_and_is_
     assert said.repeat_of(first) is None
     said.add("Take your time with it, there is no rush at all.", "2")
     assert said.repeat_of("Take your time with it, there is no rush at all.") is not None
+
+
+def test_a_cut_off_turn_keeps_only_what_was_heard():
+    said = SaidTracker()
+    said.add("While you do, let me tell you how this round will run.", "6")
+    said.add("It's a forty-five minute round with two problems.", "6")
+    said.add("Does that sound good to you?", "6")
+    said.keep_only("6", "While you do, let me tell you how this round will run. It's a forty-five minute")
+    assert said.repeat_of("Does that sound good to you?") is None                         # never heard: may be said
+    assert said.repeat_of("While you do, let me tell you how this round will run.") is not None   # heard: a repeat

@@ -90,3 +90,26 @@ def test_the_line_that_puts_a_problem_up_does_not_count_as_inviting_their_questi
     assert not invites_questions_now(line) and says_the_problem_line(line)
     assert invites_questions_now("Do you have any questions for me?") and not says_the_problem_line("Any questions for me?")
     assert says_the_problem_line("Here's your second problem, it is up.") and not says_the_problem_line("Tell me about the project.")
+
+
+def test_a_request_for_a_moment_a_line_check_and_a_granted_pause_are_told_apart():
+    from app.interviewer.closing import asks_for_a_moment, grants_a_pause, is_line_check
+    for line in ("I want a minute to settle in.", "Give me a sec.", "Hold on.", "Can I take a moment to think?", "I need some time to read this."):
+        assert asks_for_a_moment(line), line
+    for line in ("It takes a minute to run.", "I'm ready.", "Yes.", "My name is Bala."):
+        assert not asks_for_a_moment(line), line
+    for line in ("Hello?", "Are you there?", "Can you hear me?", "hello"):
+        assert is_line_check(line), line
+    for line in ("Hello, my name is Bala.", "Yes.", "Okay, I'm ready."):
+        assert not is_line_check(line), line
+    for line in ("Of course, take a minute.", "I'm here. Nothing new from my side — take the minute, I'll wait.", "No rush."):
+        assert grants_a_pause(line), line
+    for line in ("Tell me about yourself.", "Let me tell you how this round will run."):
+        assert not grants_a_pause(line), line
+
+
+def test_a_mention_of_the_tab_switch_names_it_and_the_problem_on_the_screen_does_not_count():
+    from app.interviewer.closing import unsaid_warnings
+    assert unsaid_warnings(["mention_violation"], "Let's get back to the problem: what do you make of what's on your screen?")
+    assert not unsaid_warnings(["mention_violation"], "One quick thing: please stay on this screen for the rest of the interview.")
+    assert not unsaid_warnings(["mention_violation"], "I saw you switch tabs just now; please keep this window up.")

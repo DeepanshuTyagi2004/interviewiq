@@ -7,7 +7,8 @@ import re
 _FAREWELL = re.compile(
     r"\b(take care|have a (?:great|good|nice|wonderful|lovely) (?:day|one|evening|week|weekend)|all the best|best of luck|"
     r"good ?bye|that'?s all from my side|that is all from my side|debrief will follow|we'?ll be in touch|"
-    r"we will be in touch|speak soon)\b", re.IGNORECASE)
+    r"we will be in touch|speak soon|thanks? (?:you )?for your time|thank you for your time|let'?s close out|i'?ll wrap up here|we'?ll close here|"
+    r"i'?ll end it here)\b", re.IGNORECASE)
 
 
 def is_farewell(text: str) -> bool:
@@ -73,10 +74,15 @@ _CODING_NOW = re.compile(
     r"\btime (?:for|to)\b[^.?!]{0,16}\b(?:technical|coding|problem[- ]solving)\b", re.IGNORECASE)
 
 
+_DESCRIBES_ROUND = re.compile(r"\bwe(?:'ll| will)\b[^.?!]*\b(?:then|after that|followed by)\b", re.IGNORECASE)
+
+
 def announces_coding_now(text: str) -> bool:
     """The text says the technical or coding part starts now ("let's get started with the technical part"), unlike a sentence that
     describes the round ("we'll start with some background, then the coding part, and finish with your questions")."""
     t = text or ""
+    if _DESCRIBES_ROUND.search(t):
+        return False          # "We'll start with a chat about you, then get into a coding problem" describes the round, it starts nothing
     return bool(_CODING_NOW.search(t)) and len(_OUTLINE_MARKERS.findall(t)) < 2
 
 
@@ -92,10 +98,16 @@ def says_the_problem_line(text: str) -> bool:
     return bool(_PROBLEM_LINE.search(text or ""))
 
 
+_NO_PROBLEM_YET = re.compile(r"\b(?:no|not|isn'?t|nothing|haven'?t|hasn'?t|without)\b[^.?!]{0,40}\b(?:on|up on|onto) your screen\b|"
+                             r"\bno (?:coding )?(?:problem|question)\b[^.?!]{0,20}\b(?:yet|up)\b|\bnot (?:up )?yet\b", re.IGNORECASE)
+
+
 def announces_problem(text: str) -> bool:
     """The sentence announces or promises the coding problem now ("let's get you onto the problem", "it's on your screen", "here's your
     first question, give it a read") as opposed to describing how the round will run ("one coding problem, then your questions at the end")."""
     t = text or ""
+    if _NO_PROBLEM_YET.search(t):
+        return False          # "There's no problem on your screen yet" says the opposite: it must never put one up
     if _GIVE_IT_A_READ.search(t):
         return True
     if not (_PROBLEM_WORD.search(t) and _NOW_CUE.search(t)):
@@ -108,7 +120,10 @@ def announces_problem(text: str) -> bool:
 _LEAVES = re.compile(
     r"\bmove (?:on|us on)\b|\bmoving on\b|\b(?:putting|put|pulling|pull|bringing|bring)\b[^.?!]{0,16}\bup\b|\blet'?s do one more\b|\bsecond (?:problem|one|question)\b|\bwe(?:'ll| will) do (?:one|another)\b|\banother (?:problem|one|question)\b|\bone more (?:problem|question|one)\b|\btry one more\b|\bnext (?:problem|question|one|part)\b|\bswitch (?:gears|to)\b|"
     r"\bwe(?:'ll| will) leave it there\b|\bleave it there\b|\blet'?s (?:leave|park|wrap|stop)\b|\bwell done on this one\b|\bthat'?s (?:all|enough) (?:on|for) this\b|"
-    r"\bout of time\b|\bwe(?:'re| are) (?:done|good) (?:on|with) this\b", re.IGNORECASE)
+    r"\bout of time\b|\bwe(?:'re| are) (?:done|good) (?:on|with) this\b|"
+    r"\bwraps? up\b|\bwrapped up\b|\bwe(?:'re| are) done with (?:that|this|the)\b|\bdone with (?:that|this|the) (?:coding|problem|one|part)\b|"
+    r"\blet'?s (?:use|spend) the rest\b|\blet'?s (?:go|dive|get) (?:deeper|into|to)\b|\blet'?s (?:talk|chat) (?:a bit |more )?(?:about|on) your\b|"
+    r"\blet'?s (?:turn|shift) to\b|\bmove (?:over )?to your (?:projects?|background)\b", re.IGNORECASE)
 
 
 def leaves_the_part(text: str) -> bool:
@@ -119,7 +134,7 @@ def leaves_the_part(text: str) -> bool:
 _ANOTHER_PROBLEM = re.compile(r"\b(?:fresh|new|another|different|next|second|one more)\s+(?:coding\s+)?problem\b", re.IGNORECASE)
 
 
-_FORWARD = re.compile(r"\blet'?s\b|\blet us\b|\bi'?ll\b|\bi will\b|\bwe'?ll\b|\bi have\b|\bi'?ve got\b|\bi want to\b|\bmov(?:e|ing)\b|"
+_FORWARD = re.compile(r"\blet'?s\b|\blet me\b|\bhere'?s your\b|\bput\b|\blet us\b|\bi'?ll\b|\bi will\b|\bwe'?ll\b|\bi have\b|\bi'?ve got\b|\bi want to\b|\bmov(?:e|ing)\b|"
                       r"\bhow about\b|\btime for\b|\bgoing to\b|\btry\b|\bgive you\b", re.IGNORECASE)
 
 
@@ -217,3 +232,132 @@ def asks_interviewer_to_edit(text: str) -> bool:
     """The candidate asks the interviewer to write something into their editor ("can you add a comment in the editor?"). Not part of an
     interview. Asking for the solution itself is a different request (the ask_solution policy)."""
     return bool(_EDIT_FOR_ME.search(text or ""))
+
+
+# ------------------------------------------------------------ warnings that must be said
+
+_SCREEN_WORD = r"\b(?:tab|tabs|window|screen|stay|leave|left|leaving|switch\w*|away)\b"
+# A mention of the tab switch names it (tab, window, switching, leaving, staying), not merely "screen": "what do you make of what's
+# on your screen" is about the problem, and a live round counted it as the warning said.
+_SCREEN_MENTION = r"\b(?:tab|tabs|window|windows|stay|leave|left|leaving|switch\w*|away|back on)\b"
+_WARNING_SAID = {
+    "mention_violation": re.compile(_SCREEN_MENTION, re.IGNORECASE),
+    "final_warning": re.compile(rf"(?=.*{_SCREEN_WORD})(?=.*\b(?:final|last|once more|one more|again|end the interview)\b)", re.IGNORECASE | re.DOTALL),
+    "conduct_warning": re.compile(r"\b(?:appropriate|acceptable|not okay|must not happen|won'?t tolerate)\b", re.IGNORECASE),
+}
+WARNING_LINES = {
+    "mention_violation": "One quick thing: please stay on this screen for the rest of the interview.",
+    "final_warning": "This is your final warning: please stay on this screen. If you leave it once more, I will have to end the interview.",
+    "conduct_warning": "That isn't appropriate in an interview, and it must not happen again.",
+}
+
+
+def unsaid_warnings(order_kinds: list[str], spoken: str) -> list[str]:
+    """The fixed lines for the warning orders this turn's speech did not carry out. A candidate is never ended for something
+    they were not told about: the model may skip an order, the warning is still said."""
+    return [WARNING_LINES[k] for k in dict.fromkeys(order_kinds) if k in _WARNING_SAID and not _WARNING_SAID[k].search(spoken or "")]
+
+
+_CONSTRAINTS_ASK = re.compile(
+    r"\b(?:constraints?|limits?|upper bounds?|bounds?|range of (?:the )?(?:values?|numbers?|inputs?|elements?)|"
+    r"(?:how (?:big|large|many|long)|size of)\b[^.?!]{0,40}\b(?:input|array|list|elements?|numbers?|values?|string))\b", re.IGNORECASE)
+_FORMAT_ASK = re.compile(
+    r"\b(?:input (?:and|or) output format|input format|output format|function signature|return type|"
+    r"what (?:is|are) the (?:input|output)s?\b|what (?:does|do) (?:it|the function) (?:take|return))", re.IGNORECASE)
+
+
+_HINT_ASK = re.compile(r"\b(?:hints?|clues?|nudge)\b", re.IGNORECASE)
+_NO_HINT = re.compile(r"\b(?:no|without|don'?t|do not|not|never)\b[^.?!]{0,20}\b(?:hints?|clues?|nudge)\b", re.IGNORECASE)
+
+
+def asks_for_hint(text: str) -> bool:
+    """The candidate asks for a hint ("can you give me a hint?", "any clue?"); "I'd like to try it without a hint" is not one."""
+    t = text or ""
+    return bool(_HINT_ASK.search(t) and not _NO_HINT.search(t))
+
+
+def asks_for_constraints(text: str) -> bool:
+    """The candidate asks what the limits of the problem's input are: they are shown on screen, never read out."""
+    return bool(_CONSTRAINTS_ASK.search(text or ""))
+
+
+def asks_for_format(text: str) -> bool:
+    return bool(_FORMAT_ASK.search(text or ""))
+
+
+_CLARIFY_INVITE = re.compile(
+    r"\banything (?:else )?(?:you(?:'d| would)? (?:like|want) to (?:clarify|ask)|to (?:clarify|ask))\b|"
+    r"\bany (?:other |more |further |remaining )?(?:questions?|clarifications?)\b|"
+    r"\b(?:questions?|clarifications?) before (?:we|you) (?:begin|start|go on|code|write)\b|\bdo you have (?:any )?questions\b", re.IGNORECASE)
+
+
+def invites_clarifying(text: str) -> bool:
+    """Asks the candidate whether they have questions about the problem. The line that puts a problem up already does, once."""
+    t = text or ""
+    return bool(_CLARIFY_INVITE.search(t)) and not _GIVE_IT_A_READ.search(t)
+
+
+# ------------------------------------------------------------ not answering a candidate who is still going
+
+# "One decision I would", "and we", "uh": a modal, a pronoun or a filler is never where a finished thought stops (a live round answered
+# "One decision I would" before the rest came).
+_TRAILS_OFF = re.compile(r"(?:\.\.\.|\u2026|\b(?:the|a|an|and|or|to|of|then|which|if|because|but|would|could|should|might|must|i|we|my|our|"
+                         r"their|um+|uh+|er+|hmm+)\s*[.!?,]*)\s*$", re.IGNORECASE)
+_WALKTHROUGH = re.compile(r"\b(?:dry[- ]?run|trace|run (?:it|through)|(?:walk|talk|go) (?:me |us )?(?:through|over) [^.?!]{0,30}\b(?:code|example|sample|array|input)|walk your code)\b", re.IGNORECASE)
+_CONCLUDES = re.compile(r"\b(?:final|total|returns?|output|answer|result|solution|gives?|equals?|we get|comes? (?:out )?to|that'?s (?:it|all)|i'?m done|finished|in total|so (?:the|it|that))\b", re.IGNORECASE)
+_ASKS_HELP = re.compile(r"\?|\b(?:help|stuck|confused|not sure|don'?t (?:know|understand)|can you|could you|how do|what (?:is|do|does|should)|done|finished|written|completed|ready|that'?s it)\b", re.IGNORECASE)
+
+
+def trails_off(text: str) -> bool:
+    """The candidate's speech breaks off mid-thought ("...and then the"): the rest is coming, a reply now would be talked over."""
+    return bool(_TRAILS_OFF.search((text or "").strip()))
+
+
+# ------------------------------------------------------------ a pause the candidate asked for
+
+_ASKS_MOMENT = re.compile(
+    r"\b(?:(?:give me|need|want|take|just|get)\s+(?:a|one|two|a couple of|a few|some|a bit of|a little)\s+(?:minutes?|mins?|moments?|secs?|seconds?|time)\b|"
+    r"\b(?:a|one) (?:minute|moment|sec|second) to (?:settle|think|get|gather|breathe|read|collect)\b|"
+    r"\b(?:hold on|hang on|bear with me|one (?:sec|second|moment|minute)|just a (?:sec|second|moment|minute)|settle in)\b)", re.IGNORECASE)
+_LINE_CHECK = re.compile(r"^\W*(?:hello|hi|hey|hallo|are you (?:still )?there|you there|still there|can you hear me|do you hear me|"
+                         r"am i audible|is (?:this|it) working)\W*$", re.IGNORECASE)
+_GRANTS_PAUSE = re.compile(r"\b(?:take (?:your|a|the|all the) (?:time|minute|moment)|i'?ll wait|no rush|no hurry|whenever you'?re ready|"
+                           r"take as long as|in your own time)\b", re.IGNORECASE)
+
+
+def asks_for_a_moment(text: str) -> bool:
+    """The candidate asked for a pause ("I want a minute to settle in", "hold on"): the interviewer acknowledges it and waits."""
+    return bool(_ASKS_MOMENT.search(text or ""))
+
+
+def is_line_check(text: str) -> bool:
+    """Only a check that the line is alive ("Hello?", "are you there?"): not the end of a pause they asked for."""
+    return bool(_LINE_CHECK.match((text or "").strip()))
+
+
+def grants_a_pause(interviewer_text: str) -> bool:
+    """The interviewer told them to take their time: a reply that asks nothing on purpose, and a pause the plan must respect."""
+    return bool(_GRANTS_PAUSE.search(interviewer_text or ""))
+
+
+def asked_for_walkthrough(interviewer_text: str) -> bool:
+    return bool(_WALKTHROUGH.search(interviewer_text or ""))
+
+
+def narrating_a_walkthrough(candidate_text: str, interviewer_text: str) -> bool:
+    """They were asked to talk through an example and this is one more step of it, not its conclusion: a person nods and lets them go on."""
+    t = candidate_text or ""
+    return (asked_for_walkthrough(interviewer_text) and len(t.split()) >= 5 and "?" not in t and not _CONCLUDES.search(t))
+
+
+def asks_for_help(text: str) -> bool:
+    return bool(_ASKS_HELP.search(text or ""))
+
+
+_ASK_VERBS = re.compile(r"\b(?:walk me|tell me|talk me|take me|explain|describe|show me|run it|trace)\b", re.IGNORECASE)
+
+
+def awaiting_answer(interviewer_text: str) -> bool:
+    """What the interviewer last said asks the candidate something, as a question or as "walk me through...": their next words answer it."""
+    sentences = [x for x in re.split(r"(?<=[.?!])\s+", (interviewer_text or "").strip()) if x]
+    return bool(sentences and (asks_a_question(interviewer_text) or _ASK_VERBS.search(sentences[-1])))

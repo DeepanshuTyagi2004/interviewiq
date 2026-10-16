@@ -19,6 +19,17 @@ NEUTRAL_LINES = (NEUTRAL_LINE, "What's your thinking there?", "Where would you t
 REPEATABLE = re.compile(r"\bgive it a read\b|^here(?:['\u2019]s| is) your (?:first|second|third|fourth) question\b", re.IGNORECASE)
 
 
+_STOP = frozenset("""about above after again also another because before being between could does doing each else ever from have here into just
+    like make many more most much only other over same should some such than that their them then there these they this those through
+    under very want what when where which while will with would your yours actually really still tell mean""".split())
+LOOP_SHARED = 2          # content words two questions share for the later one to be the earlier one asked again
+LOOP_AT = 2              # earlier questions a new one must repeat (so it would be the third ask) before it is held back
+
+
+def _topic_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{5,}", text.lower()) if w not in _STOP}
+
+
 def words_of(text: str) -> list[str]:
     return _WORD.findall(text.lower().replace("'", "").replace("’", ""))
 
@@ -50,6 +61,18 @@ class SaidTracker:
                 return earlier.text
         return None
 
+    def has(self, pattern: "re.Pattern[str]") -> bool:
+        """Whether anything already said in this interview matches (a line that is said once in a round: "take your time")."""
+        return any(pattern.search(s.text) for s in self._said)
+
+    def question_loop(self, text: str, last: int = 6) -> list[str]:
+        """The earlier questions (of the last few) this question asks again in other words: a third ask of the same thing is a loop."""
+        if not text.rstrip().endswith("?") or len(words_of(text)) < 5:
+            return []
+        mine = _topic_words(text)
+        asked = [s.text for s in self._said if s.text.rstrip().endswith("?")][-last:]
+        return [q for q in asked if len(mine & _topic_words(q)) >= LOOP_SHARED]
+
     def add(self, text: str, turn_id: str) -> None:
         words = words_of(text)
         if len(words) >= MIN_WORDS and not REPEATABLE.search(text):
@@ -58,6 +81,13 @@ class SaidTracker:
     def forget(self, turn_id: str) -> None:
         """An interrupted turn: the candidate may not have heard it to the end, so it may be said again."""
         self._said = [s for s in self._said if s.turn_id != turn_id]
+
+    def keep_only(self, turn_id: str, heard: str) -> None:
+        """The voice was cut off: of this turn only what was played counts as said (the rest may be said again). A live round
+        held back "does that sound good to you?" as a repeat when the candidate had only heard "It's a forty-five minute"."""
+        self.forget(turn_id)
+        for sentence in _SENTENCE_END.split(heard or ""):
+            self.add(sentence, turn_id)
 
     def seed(self, texts: Iterable[str]) -> None:
         """A resumed interview: what the stored conversation already said."""

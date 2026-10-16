@@ -56,12 +56,37 @@ _NEXT_ONE = re.compile(r"\bnow (?:a|an) [a-z\- ]{0,30}(?:problem|question)\b|\b(
                        re.IGNORECASE)
 
 
+_STEM_WORD = re.compile(r"[a-z]{6,}")
+_GENERIC_STEMS = frozenset({"optima", "strate", "global", "theref", "proble", "allows", "yields", "equals", "linear", "better", "should"})
+
+
+_NUMBER_WORDS = {"1": "one", "2": "two", "3": "three", "4": "four", "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten"}
+
+
+def name_pattern(title: str) -> re.Pattern[str] | None:
+    """A problem's name however it is spoken: "4Sum" is also "four-sum", "four sum" and "4 sum" (a live round confirmed "it is a
+    four-sum problem" because only the written "4sum" was checked)."""
+    parts = re.findall(r"[a-z]+|\d+", title.lower())
+    if not parts:
+        return None
+    alts = [f"(?:{p}|{_NUMBER_WORDS[p]})" if p in _NUMBER_WORDS else re.escape(p) for p in parts]
+    return re.compile(r"\b" + r"[\s\-_]*".join(alts) + r"\b", re.IGNORECASE)
+
+
+def _stems(text: str) -> set[str]:
+    """Words of six letters or more, cut to six: "adding", "positive" and "differences" stay distinctive, "adds" or "difference" match them."""
+    return {w[:6] for w in _STEM_WORD.findall((text or "").lower())}
+
+
 class LeakGuard:
     def __init__(self, blueprint: dict[str, Any]) -> None:
         self.solutions: dict[str, set[tuple[str, ...]]] = {}
         self.examples: dict[str, list[str]] = {}
         self.titles: list[str] = []
+        self.names: list[tuple[str, re.Pattern[str]]] = []    # each problem's name as it may be spoken
         self.statements: dict[str, set[tuple[str, ...]]] = {}    # each problem's statement as runs of STATEMENT_GRAM words
+        self.insights: dict[str, set[str]] = {}      # per problem: distinctive words of the key insights and the optimal approach
+        self.ladders: dict[str, list[tuple[int, set[str]]]] = {}
         self.title_words: set[str] = set()      # distinctive words of the problems' original names (see check_sentence)
         for slot in blueprint.get("slots", []):
             sid = slot["slot_id"]
@@ -77,11 +102,17 @@ class LeakGuard:
                     if len(lit) >= 4 or lit.startswith("["):
                         literals.append(lit)
             self.examples[sid] = literals
+            optimal = " ".join(str(a.get("idea") or "") for a in key.get("approaches") or [] if "brute" not in str(a.get("name") or "").lower())
+            shown_text = (content.get("statement") or content.get("question") or "") + " " + ((slot.get("ask") or {}).get("opening") or "")
+            self.insights[sid] = _stems(" ".join(str(i) for i in key.get("key_insights") or []) + " " + optimal) - _stems(shown_text) - _GENERIC_STEMS
+            self.ladders[sid] = [(int(h.get("step") or 0), _stems(h.get("hint") or "")) for h in slot.get("hint_ladder") or []]
             self.statements[sid] = _word_grams(content.get("statement") or content.get("question") or "") \
                 | _word_grams((slot.get("ask") or {}).get("opening") or "")
             title = ((slot.get("problem") or {}).get("title") or "").strip().lower()
             if len(title) >= 4:
                 self.titles.append(title)
+                if (pattern := name_pattern(title)) is not None:
+                    self.names.append((title, pattern))
             shown = set(_WORD.findall((content.get("statement") or content.get("question") or "").lower()))
             shown = {w.rstrip("s") for w in shown}
             self.title_words |= {w.rstrip("s") for w in _WORD.findall(title)
@@ -107,8 +138,8 @@ class LeakGuard:
             if any(len(grams & statement) >= STATEMENT_MIN_GRAMS for statement in self.statements.values()):
                 return Verdict(False, "statement_read_aloud", text[:60])
         low, said = text.lower(), candidate_said.lower()
-        for title in self.titles:
-            if title in low and title not in said:
+        for title, pattern in self.names:
+            if pattern.search(low) and not pattern.search(said):
                 return Verdict(False, "name_or_topic", title)
         # A paraphrase of the original problem ("a list of daily stock prices") gives away what the problem is even when
         # the exact name is never said: a distinctive word of the name that neither the screen nor the candidate used.
@@ -126,6 +157,19 @@ class LeakGuard:
         if (m := _DIFFICULTY.search(text)) is not None:
             return Verdict(False, "difficulty", m.group(0))
         return Verdict(True)
+
+    def check_insight(self, text: str, *, current_slot: str | None, candidate_said: str = "", hint_step: int = 0) -> Verdict:
+        """The interviewer says the candidate's half-formed idea back more completely than they said it: two or more distinctive words of the
+        key insight that neither they, the statement nor a hint already given has used."""
+        words = self.insights.get(current_slot or "")
+        if not words:
+            return Verdict(True)
+        given: set[str] = set()
+        for step, stems in self.ladders.get(current_slot or "", []):
+            if step <= hint_step + 1:          # the hint being given in this very turn is the next one
+                given |= stems
+        hits = {w for w in _stems(text) if w in words} - _stems(candidate_said) - given
+        return Verdict(False, "insight_completed", ",".join(sorted(hits))) if len(hits) >= 2 else Verdict(True)
 
     def check_text(self, text: str, candidate_said: str = "") -> Verdict:
         """Text the talker puts on the candidate's screen (sections, notes, comments, labels): the sentence
