@@ -145,7 +145,7 @@ def test_an_end_order_made_while_the_agent_speaks_is_delivered_on_a_later_tick()
     assert run.speaker.replies == 1
 
 
-def test_an_end_order_that_never_gets_spoken_ends_the_round_anyway():
+def test_an_end_order_that_never_gets_spoken_ends_the_round_anyway_and_the_fixed_line_is_said():
     async def go():
         run, deps, clock = make([])
         await run.start(None)
@@ -153,13 +153,152 @@ def test_an_end_order_that_never_gets_spoken_ends_the_round_anyway():
         for n in (1, 2, 3):
             await run.on_web_message(web({"type": "proctor.event", "kind": "tab_hidden", "weight": 1, "at": n,
                                           "counts": {"tab_changes": n, "screen_changes": 0, "full_violations": n}}))
+        run.on_agent_state("listening")                   # the floor is free, and the talker never says the ending
         clock.advance(25)
+        await run.tick()
+        await asyncio.wait_for(run.finished.wait(), 1)
+        return run, deps
+
+    run, deps = asyncio.run(go())
+    assert deps.api.ended[0][1] == "ended_by_interviewer"
+    line = "I'm going to end the interview here, because of repeated screen switching. Thank you for your time."
+    assert run.speaker.said == [line]                     # the candidate hears why, rather than silence
+    assert deps.workspace.of("session.ending")[0]["message"] == line   # and the page shows the ending, not the last unrelated line
+
+
+def test_the_endings_grace_counts_from_when_the_floor_was_free_so_the_reply_saying_it_is_never_cut_off():
+    async def go():
+        run, deps, clock = make([say("I'm ending the interview here.")])
+        await run.start(None)
+        run.on_agent_state("speaking")                    # the voice is still on the turn before
+        for n in (1, 2, 3):
+            await run.on_web_message(web({"type": "proctor.event", "kind": "tab_hidden", "weight": 1, "at": n,
+                                          "counts": {"tab_changes": n, "screen_changes": 0, "full_violations": n}}))
+        clock.advance(19)
+        run.on_agent_state("listening")                   # the floor is free only now
+        clock.advance(5)
+        await run.tick()                                  # 24 s after the order, 5 s after the floor was free
+        assert not run.finishing and run.speaker.replies == 1
+        await speak(run)                                  # the reply says the ending
+        await asyncio.wait_for(run.finished.wait(), 1)
+        return run, deps
+
+    run, deps = asyncio.run(go())
+    assert deps.api.ended[0][1] == "ended_by_interviewer" and run.speaker.said == []
+
+
+def test_an_ending_the_voice_never_frees_the_floor_for_is_carried_out_after_the_hard_cap():
+    async def go():
+        run, deps, clock = make([])
+        await run.start(None)
+        run.on_agent_state("speaking")
+        for n in (1, 2, 3):
+            await run.on_web_message(web({"type": "proctor.event", "kind": "tab_hidden", "weight": 1, "at": n,
+                                          "counts": {"tab_changes": n, "screen_changes": 0, "full_violations": n}}))
+        clock.advance(60)
+        await run.tick()
+        assert not run.finishing                          # still speaking, as far as the voice says
+        clock.advance(31)
         await run.tick()
         await asyncio.wait_for(run.finished.wait(), 1)
         return deps
 
     deps = asyncio.run(go())
     assert deps.api.ended[0][1] == "ended_by_interviewer"
+
+
+def test_a_turn_never_played_does_not_re_arm_the_move_on_of_the_part_it_left():
+    async def go():
+        run, _, clock = make([say("Hello."), say("Tell me about yourself?"), say("Thanks. And what are you working on?")])
+        await run.start(None)
+        await speak(run)                                  # the greeting, confirmed by the voice
+        clock.advance(61)
+        await run.tick()                                  # the greeting's time is up: move_on
+        run.on_user_text("Hi.")
+        pieces = [p async for p in run.reply("Hi.")]      # carries move_on: the plan moves to the introduction
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert pieces and run.conductor.current().item_id == "candidate_intro"
+        clock.advance(9)
+        await run.tick()                                  # the voice never confirmed it: dropped (they kept talking)
+        assert not any(o.kind == "move_on" for o in run.conductor.pending_orders())
+        await speak(run)                                  # asked again
+        return run
+
+    run = asyncio.run(go())
+    assert run.conductor.current().item_id == "candidate_intro"      # not moved on a second time by the spent order
+
+
+def test_asking_for_a_minute_holds_the_next_part_and_the_check_in_until_they_speak_again():
+    async def go():
+        run, deps, clock = make([say("Hello."), say("Of course, take a minute.", tools=(("next_item", {}),)),
+                                 say("Alright, let's start with you. Tell me about yourself?")])
+        await run.start(None)
+        await speak(run)
+        out = await speak(run, "I want a minute to settle in.")
+        assert out == ["Of course, take a minute."] and run.conductor.current().item_id == "candidate_intro"
+        assert "[hold]" in json.dumps(deps.talker_chat.calls[1]) and "[open_item]" not in json.dumps(deps.talker_chat.calls[1])
+        clock.advance(5)
+        await run.tick()
+        assert run.speaker.replies == 0                   # the order to open the next part waits for them
+        clock.advance(25)
+        await run.tick()
+        assert run.speaker.replies == 0                   # and there is no silence check-in during their moment
+        run.on_user_text("Hello?")                        # only checking the line: the moment goes on
+        assert run.conductor.held()
+        out = await speak(run, "Okay, I'm ready.")
+        assert "[open_item]" in json.dumps(deps.talker_chat.calls[2])
+        return out
+
+    assert asyncio.run(go()) == ["Alright, let's start with you.", "Tell me about yourself?"]
+
+
+def test_a_reply_that_grants_a_pause_is_not_followed_by_a_forced_question():
+    async def go():
+        run, _, clock = make([say("I'm here, take the minute, I'll wait.")])
+        await run.start(None)
+        _go_to(run, "candidate_intro")                    # a conversation part: a reply that asks nothing is normally followed up
+        run.conductor.consume(run.conductor.pending_orders())
+        await speak(run, "Hello?")
+        assert run.conductor.held() and not any(o.kind == "open_item" for o in run.conductor.pending_orders())
+        clock.advance(5)
+        await run.tick()
+        return run
+
+    assert asyncio.run(go()).speaker.replies == 0
+
+
+def test_a_turn_the_candidate_cut_off_counts_only_what_they_heard():
+    async def go():
+        run, deps, _ = make([say("Of course.", "Let me tell you how this round will run.", "Does that sound good to you?"),
+                             say("Does that sound good to you?")])
+        await run.start(None)
+        pieces = [p async for p in run.reply(None)]
+        assert len(pieces) == 3
+        run.on_conversation_item("assistant", "Of course. Let me tell you how", True)   # they cut in
+        for _ in range(5):
+            await asyncio.sleep(0)
+        out = await speak(run, "Hello?")
+        return out, deps
+
+    out, deps = asyncio.run(go())
+    assert out == ["Does that sound good to you?"]           # not held back as a repeat: they never heard it
+    turn = next(t for t in deps.store.turns if t["speaker"] == "interviewer")
+    assert turn["cut_off"] is True and turn["heard"] == "Of course. Let me tell you how"
+
+
+def test_an_outline_cut_off_by_the_candidate_does_not_count_as_given():
+    async def go():
+        run, _, _ = make([])
+        await run.start(None)
+        outline = ("It's about forty-five minutes, we'll do a bit of background, then some problem solving together, "
+                   "and we'll keep time at the end for your questions.")
+        run.conductor.outline_said = True
+        run._unconfirmed[7] = {"key": "its about forty five minu", "at": 0.0, "outline": True, "orders": [], "spoken": [outline]}
+        run.on_conversation_item("assistant", "It's about forty-five minutes, we'll do a bit", True)
+        return run
+
+    assert asyncio.run(go()).conductor.outline_said is False
 
 
 def test_a_candidate_end_request_or_a_dropped_connection_cannot_launder_a_misconduct_ending(monkeypatch):

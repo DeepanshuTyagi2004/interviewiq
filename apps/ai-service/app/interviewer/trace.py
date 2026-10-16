@@ -1,6 +1,8 @@
 """Replay a live interview's decisions (spec §9.3):
     .venv/bin/python -m app.interviewer.trace <session_id>
-Prints every turn with its decision, orders, guard blocks, tool calls and timings, and every brief."""
+Prints every turn with its decision, orders, guard blocks, tool calls and timings, and every brief. An interviewer turn shows
+what was meant; when the voice reported otherwise it also shows what the candidate heard: "(never played)" for a turn dropped
+before its audio started, and a HEARD line with the part played of a turn that was cut off."""
 from __future__ import annotations
 
 import argparse
@@ -36,7 +38,10 @@ def render(run: dict[str, Any] | None, turns: list[dict[str, Any]], briefs: list
                                         f"first audio {doc['first_audio_ms']}ms" if doc.get("first_audio_ms") is not None else "") if x)
         lines.append(f"#{doc['seq']} INTERVIEWER: {doc.get('text', '')}"
                      + (f"  [{decision.get('condition')} → {decision.get('action')}: {decision.get('reason')}]" if decision else "")
-                     + (f"  ({timing})" if timing else "") + ("  (interrupted)" if doc.get("interrupted") else ""))
+                     + (f"  ({timing})" if timing else "") + ("  (interrupted)" if doc.get("interrupted") else "")
+                     + ("  (never played)" if doc.get("spoken") is False else ""))
+        if doc.get("cut_off"):
+            lines.append(f"    HEARD (cut off): {doc.get('heard', '')}")
         lines += [f"    order [{o['kind']}] {o['text']}" for o in doc.get("orders", [])]
         lines += [f"    blocked ({b['rule']}): {b['sentence']}" for b in doc.get("blocked", [])]
         lines += [f"    tool {c['name']} {c.get('arguments')} → {c.get('result')}" for c in doc.get("tool_calls", [])]

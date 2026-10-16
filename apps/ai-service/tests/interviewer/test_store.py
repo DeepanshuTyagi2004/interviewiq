@@ -33,6 +33,12 @@ def test_memory_store_and_the_timeline():
                              "blocked": [], "tool_calls": [], "first_token_ms": 640})
         await s.update_turn("s1", 1, {"first_audio_ms": 900})
         await s.append_turn({"session_id": "s1", "seq": 2, "speaker": "candidate", "text": "Hello!", "at": 3.0})
+        await s.append_turn({"session_id": "s1", "seq": 3, "speaker": "interviewer", "text": "Take a minute. Let me tell you how this will run.",
+                             "at": 5.0, "orders": [], "blocked": [], "tool_calls": []})
+        await s.update_turn("s1", 3, {"heard": "Take a minute.", "cut_off": True})
+        await s.append_turn({"session_id": "s1", "seq": 4, "speaker": "interviewer", "text": "And what are you working on?", "at": 7.0,
+                             "orders": [], "blocked": [], "tool_calls": []})
+        await s.update_turn("s1", 4, {"spoken": False})
         await s.append_brief({"session_id": "s1", "brief": {"for_position": 1, "goal": "build rapport"}, "outcome": {"stale": False}, "at": 4.0})
         await s.finalize_run("s1", {"end_reason": "completed"})
         return render(await s.load_run("s1"), s.turns, s.briefs)
@@ -42,6 +48,8 @@ def test_memory_store_and_the_timeline():
     assert any("INTERVIEWER: Hi there." in l and "none → greet" in l and "640ms" in l and "900ms" in l for l in lines)
     assert any("CANDIDATE: Hello!" in l for l in lines)
     assert any("BRIEF (position 1): build rapport" in l for l in lines)
+    assert any("HEARD (cut off): Take a minute." in l for l in lines)                 # what was meant and what they heard, both shown
+    assert any("INTERVIEWER: And what are you working on?" in l and "(never played)" in l for l in lines)
 
 
 def test_max_seq_is_the_highest_stored_turn_number_of_that_session():
