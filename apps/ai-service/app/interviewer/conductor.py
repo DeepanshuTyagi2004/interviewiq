@@ -4,19 +4,28 @@ orders the talker must follow on its next turn. Clock-injected and pure, so ever
 it checkpoints to a dict after every turn (spec §11)."""
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Literal
 
 from app.interviewer.plan import (BACKGROUND_PHASES, BRIDGES, MIN_BACKGROUND_TURNS, MIN_TURNS, PROTECTED_PHASES, Item, build_items,
-                                  opening_hint, problem_intro, reserve_slots)
+                                  opening_hint, problem_intro, problem_put_up, reserve_slots, slot_by_id)
+from app.interviewer.plan import CODING_DONE
 
 OrderKind = Literal["converge", "move_on", "wrap_up_now", "nudge", "mention_violation", "final_warning",
-                    "conduct_warning", "closing", "open_item", "end", "keep_problem", "decline_request"]
+                    "conduct_warning", "closing", "open_item", "end", "keep_problem", "decline_request", "reveal_request", "problem_line",
+                    "hint_request", "hold"]
 
 # Orders the talker must act on at once; every other order waits for a pause so the interviewer never speaks twice in a row.
-URGENT_ORDERS = frozenset({"mention_violation", "final_warning", "conduct_warning", "wrap_up_now", "closing", "open_item", "end"})
+URGENT_ORDERS = frozenset({"mention_violation", "final_warning", "conduct_warning", "wrap_up_now", "closing", "open_item", "end", "problem_line"})
+# A part's timer orders: issued for one item and acted on when the plan leaves it. They never come back once that item is over
+# (a live round re-armed a framing's move_on after a dropped turn, and it ended the introduction and the first problem in turn).
+TIMER_ORDERS = frozenset({"converge", "move_on", "nudge", "wrap_up_now"})
+# While the candidate has asked for a moment, only these orders are spoken: the rest wait for them (or for the hold to run out).
+HOLD_BREAKERS = frozenset({"mention_violation", "final_warning", "conduct_warning", "wrap_up_now", "closing", "end", "problem_line", "hold"})
+HOLD_S = 75.0                   # how long "give me a minute" keeps the interviewer quiet, unless they speak first
 ORDER_SPACING_S = 12.0
 # A problem solved early with this much of the round to spare is followed by another (a reserve problem), so a 30-minute
 # round is used, not ended after twelve minutes.
@@ -46,6 +55,7 @@ class Order:
     end_reason: str | None = None
     speak: bool = True
     consumed: bool = False
+    line: str | None = None      # an ending's fixed sentence for the candidate, said by the run if the talker never gets to say it
 
 
 @dataclass
@@ -61,6 +71,12 @@ class Rules:
     conduct_end_at: int = 2
     off_topic_redirects: int = 3
     director_every_turns: int = 3
+
+
+SILENCE_NOT_CONDUCT_S = 20.0     # silence this long since their last words is never misconduct
+
+# A conduct flag whose quote is about the candidate leaving the interview screen: the proctor rules own that.
+_SCREEN_LEAVE = re.compile(r"\b(?:tab|tabs|window|windows|app|apps|screen|switch(?:ed|es|ing)?|proctor|tab_hidden|window_blur)\b", re.IGNORECASE)
 
 
 class Conductor:
@@ -81,12 +97,16 @@ class Conductor:
         self.full_violations = 0
         self.conduct: list[dict[str, Any]] = []
         self.conduct_turns: set[str] = set()
+        self.candidate_turns = 0                 # how many times the candidate has spoken: one conduct incident per remark at most
+        self.hold_until = 0.0                    # the candidate asked for a moment: nothing but the hold breakers is said until then
         self.redirects: dict[str, int] = {}
         self.labels: dict[str, str] = {}
         self.follow_ups: dict[str, list[str]] = {}
         self.plan_changes: list[dict[str, Any]] = []
         self.last_activity = 0.0
         self.nudged_at = 0.0
+        self.last_candidate_at = float("-inf")   # when the candidate last finished speaking
+        self.nudges_in_a_row = 0                 # silence check-ins since they last spoke: each waits twice as long as the one before
         self.candidate_speaking = False
         self.agent_speaking = False
         self.reply_owed = False   # the candidate spoke and the interviewer has not answered yet (set by the run)
@@ -118,8 +138,12 @@ class Conductor:
         return 1 + sum(1 for i in self.items[:at] if i.kind == "slot" and i.status in ("done", "active"))
 
     def _activate(self, index: int, now: float, open_text: str | None = None) -> None:
+        previous = self.items[self.index] if 0 <= self.index < len(self.items) else None
         self.index = index
         item = self.items[index]
+        for o in self.orders:
+            if not o.consumed and o.kind in ("move_on", "converge", "nudge"):
+                o.consumed = True              # a timer order of the part just left never carries over into the next one
         if item.kind == "slot" and any(i.kind == "slot" and i.status == "done" for i in self.items[:index]):
             # A later problem gets the time that is really left, not more than its box.
             now_s = now - (self.started_at or now)
@@ -140,17 +164,22 @@ class Conductor:
                 self._order("open_item", open_text, now)
             elif item.kind == "slot":
                 self._order("open_item", "You have moved on to the next coding problem: start with a short connecting phrase (for example "
-                                         f"\"{BRIDGES['problem']}\"), put it on their screen now (show_problem), then say only this and nothing "
-                                         f"more about the problem: \"{problem_intro(self.problem_number(index))}\" If you just said you would talk "
+                                         f"\"{BRIDGES['problem']}\"), call show_problem, then say only this and nothing more about the problem: "
+                                         f"\"{problem_put_up(self.problem_number(index))}\" Stop there: the line that invites them to read it is said for "
+                                         "you once the screen has changed, so never say it yourself. If you just said you would talk "
                                          "about something else, say you have a problem for them first.", now)
             elif item.phase == "framing" and self.outline_said:
                 self._order("open_item", "You have moved on, and you already told them how the round will run: do not repeat it. "
                                          "Ask for a short introduction of their background (or follow up on what they just said).", now)
             elif (hint := opening_hint(self.blueprint, item.phase)) is not None:
                 bridge = BRIDGES.get(item.phase)
-                link = (f"Start with a short connecting phrase that links this to what came just before (something like \"{bridge}\"), "
+                after_coding = previous is not None and previous.kind == "slot"
+                done = (f"First say plainly, in a sentence of its own, that the coding part is done (for example \"{CODING_DONE}\"). " if after_coding else "")
+                link = (f"Then a short connecting phrase that links this to what came just before (something like \"{bridge}\"), "
                         "then continue: " if bridge else "")
-                self._order("open_item", f"You have moved on to {item.phase}: open it now. {link}{hint[0].upper() + hint[1:] if not link else hint}", now)
+                self._order("open_item", f"You have moved on to {item.phase}: open it now. {done}{link}{hint[0].upper() + hint[1:] if not link and not done else hint} "
+                                         "Ask ONE question only. If your last turn already said a connecting phrase or reacted to their last answer, "
+                                         "do not say either again: go straight to the content.", now)
 
     def _find(self, item_id: str) -> int | None:
         return next((i for i, it in enumerate(self.items) if it.item_id == item_id), None)
@@ -190,12 +219,12 @@ class Conductor:
         self.orders.append(order)
         return order
 
-    def _end(self, reason: str, text: str, now: float, speak: bool = True) -> Order:
+    def _end(self, reason: str, text: str, now: float, speak: bool = True, line: str | None = None) -> Order:
         if self.ended and self.end_order is not None:
             return self.end_order
         self.ended = True
         self.end_reason = reason
-        order = Order("end", text, now, end_reason=reason, speak=speak)
+        order = Order("end", text, now, end_reason=reason, speak=speak, line=line)
         self.orders.append(order)
         return order
 
@@ -216,9 +245,14 @@ class Conductor:
 
     # ------------------------------------------------------------ events
 
-    def on_candidate_turn(self) -> None:
+    def on_candidate_turn(self, keeps_hold: bool = False) -> None:
         self.current().turns += 1
+        self.candidate_turns += 1
+        if not keeps_hold:
+            self.hold_until = 0.0                # they spoke: the moment they asked for is over ("Hello?" alone is not that)
         self.last_activity = self.clock()
+        self.last_candidate_at = self.last_activity
+        self.nudges_in_a_row = 0
         self.turns_since_director += 1
         if self.turns_since_director >= self.rules.director_every_turns:
             self.turns_since_director = 0
@@ -240,6 +274,24 @@ class Conductor:
 
     def urgent_pending(self) -> bool:
         return any(o.kind in URGENT_ORDERS for o in self.pending_orders())
+
+    def hold(self, seconds: float = HOLD_S) -> Order:
+        """The candidate asked for a moment: the interviewer says they can take it and then waits. Until they speak again (or the
+        hold runs out) nothing else is said: no opening of the next part, no check-in, no explaining how the round will run."""
+        now = self.clock()
+        self.hold_until = now + seconds
+        self.nudged_at = now                     # the silence check-in counts from the end of their moment, not from before it
+        self.triggers.add("hold")
+        return self._order("hold", "The candidate asked for a moment. Say in one short sentence that they can take it, and stop: "
+                                   "no question, nothing about what comes next, no explaining the round, and do not call next_item.", now)
+
+    def held(self) -> bool:
+        return self.clock() < self.hold_until
+
+    def speakable_orders(self) -> list[Order]:
+        """The pending orders the talker may act on now: during a hold only the hold breakers; the rest wait."""
+        pending = self.pending_orders()
+        return [o for o in pending if o.kind in HOLD_BREAKERS] if self.held() else pending
 
     def can_advance(self) -> tuple[bool, str]:
         """Whether the talker may leave the current item now, and if not, why (told to the talker in the live state)."""
@@ -310,7 +362,27 @@ class Conductor:
             return False
         if not any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:]):
             return False
+        if self.gave_up(cur):
+            # Giving up on the first problem is not the end of the coding: the next one follows while the round has time for it.
+            return self._problems_given() >= STANDARD_PROBLEMS or self._time_for_next_problem() < MIN_SECOND_PROBLEM_S
         return self.performance(cur) == "struggled" or self._time_for_next_problem() < MIN_SECOND_PROBLEM_S
+
+    def gave_up(self, item: Item) -> bool:
+        """They asked twice for a different problem: this one is over (and counts as a struggle in the report)."""
+        return self.change_requests.get(item.item_id, 0) >= 2
+
+    def _problems_given(self) -> int:
+        return sum(1 for i in self.items if i.kind == "slot" and i.status in ("done", "active"))
+
+    def next_problem_after_give_up(self) -> bool:
+        """A candidate who gave up on a problem still gets the round's next one (a reserve when none is planned), while fewer than the
+        standard number have been given and the round has the time for it."""
+        cur = self.current()
+        if cur.kind != "slot" or self.ended or not self.gave_up(cur):
+            return False
+        ahead = any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:])
+        return ((ahead or bool(self.reserves)) and self._problems_given() < STANDARD_PROBLEMS
+                and self._time_for_next_problem() >= MIN_SECOND_PROBLEM_S)
 
     def slack_s(self) -> float:
         """Round time left once everything still planned after the current item has had its time."""
@@ -359,7 +431,8 @@ class Conductor:
 
     def on_change_request(self) -> Order | None:
         """The candidate asked for a different problem. A swap if they have barely started and a reserve is left; otherwise the first
-        ask is declined (a partial solution is fine); asking again ends the problem kindly and moves to the projects."""
+        ask is declined (a partial solution is fine); asking again ends the problem kindly and moves on: to the next problem while
+        the round has time for one (decided 2026-10-15), otherwise to the next part."""
         cur = self.current()
         if cur.kind != "slot" or self.ended:
             return None
@@ -372,7 +445,18 @@ class Conductor:
                                                "sentences that you would like them to stay with this one and that a partial solution is perfectly "
                                                "fine: you would like to see how far they get. Then stop: no question, no hint, and do not tell "
                                                "them to write the code.", now)
-        self.signals[cur.item_id] = "struggling"          # they gave up on it: no second problem follows
+        self.signals[cur.item_id] = "struggling"          # they gave up on it: the report reads it as a struggle
+        if self.next_problem_after_give_up():
+            if not any(i.kind == "slot" and i.status == "pending" for i in self.items[self.index + 1:]):
+                sid = next((k for k in self.reserves if "alternate" in k), None) or next(iter(self.reserves))
+                slot = self.reserves.pop(sid)
+                self.items.insert(self.index + 1, Item(slot["slot_id"], "slot", "core", int(slot["timebox_mins"]) * 60, slot_id=slot["slot_id"]))
+                self.plan_changes.append({"op": "problem_after_give_up", "target": slot["slot_id"], "at": now, "position": self.position})
+            return self._order("move_on", "The candidate asked again for a different problem. Do not argue. Say in one short sentence that it "
+                                          "is fine, with no blame, and that you have another problem for them; then in the same turn call "
+                                          "next_item and show_problem, and say only this about it: "
+                                          f"\"{problem_put_up(self.problem_number(self.index + 1))}\" Stop there: do not say the coding part "
+                                          "is done, and do not describe the new problem.", now)
         ahead = next((i for i in self.items[self.index + 1:] if i.status == "pending" and i.kind != "slot"), None)
         bridge = BRIDGES.get(ahead.phase) if ahead is not None else None
         opening = opening_hint(self.blueprint, ahead.phase) if ahead is not None else None
@@ -394,8 +478,33 @@ class Conductor:
         self.plan_changes.append({"op": "swap_on_request", "target": item.item_id, "at": now, "position": self.position})
         self._activate(self.index + 1, now, open_text=(
             "The candidate asked for a different problem and you are giving them one: say so in one short sentence (for example \"Sure, let me "
-            "give you a different one.\"), call show_problem, then say only this: " f"\"{problem_intro(self.problem_number())}\""))
+            "give you a different one.\"), call show_problem, then say only this and stop: " f"\"{problem_put_up(self.problem_number())}\""))
         return self.orders[-1]
+
+    def on_reveal_request(self, kind: str) -> Order:
+        """The candidate asked for the problem's constraints or input/output format: they go on the screen, they are not read out."""
+        return self._order("reveal_request", f"The candidate asked for the problem's {kind}. Call reveal with kind={kind} and say only a short "
+                                             "line such as \"Let me pull those up for you.\" Never say the values aloud: they read them on "
+                                             "their screen. Then stop: no question.", self.clock())
+
+    def on_hint_request(self) -> Order:
+        """The candidate asked for a hint: the next step of the ladder is given now, whatever the director's last brief suggested."""
+        cur = self.current()
+        steps = sorted(int(h.get("step") or 0) for h in (slot_by_id(self.blueprint, cur.slot_id) or {}).get("hint_ladder", []))
+        nxt = next((s for s in steps if s > cur.hint_step), None)
+        if nxt is None:
+            text = ("The candidate asked for a hint and every hint step has been given. Say kindly, in one or two short sentences, that you "
+                    "would like them to try with what they have, and suggest they start with the part they are surest of. No new hint.")
+        else:
+            text = (f"The candidate asked for a hint. Give it now: call give_hint with step {nxt} and say that hint in one or two short "
+                    "sentences, as a nudge, never the answer or the fix. Do not repeat back what they already said as if it were the hint, and "
+                    "do not tell them to write the code.")
+        return self._order("hint_request", text, self.clock())
+
+    def add_problem_line(self, number: int) -> Order:
+        """The screen has changed: the one line that invites them to read the problem is said now, after a pause."""
+        return self._order("problem_line", "The problem is on their screen now. Say only this line and nothing else: "
+                                           f"\"{problem_intro(number)}\"", self.clock())
 
     def on_edit_request(self) -> Order:
         """The candidate asked the interviewer to write something in their editor: not part of an interview."""
@@ -427,25 +536,36 @@ class Conductor:
             if self.full_violations >= self.rules.proctor_end_at:
                 return self._end("ended_by_interviewer",
                                  f"{mention} That is the third time. Say plainly that you are ending the interview "
-                                 "because of repeated screen switching.", now)
+                                 "because of repeated screen switching.", now,
+                                 line="I'm going to end the interview here, because of repeated screen switching. Thank you for your time.")
             if self.full_violations >= self.rules.proctor_final_warning_at:
                 return self._order("final_warning", f"{mention} Give a firm final warning: one more and you will end the interview.", now)
         return self._order("mention_violation", f"{mention} Mention it briefly and ask them to stay on this screen.", now)
 
     def on_conduct(self, kind: str, quote: str, turn_id: str, source: str) -> Order | None:
-        if turn_id in self.conduct_turns:
+        """One incident per remark. The talker flags the same words again on every turn it is still answering them (a live round
+        counted "weird lady..." three times and ended on it), so a remark is counted once: by the interviewer turn that flagged it
+        and by the candidate turn it came in. A second incident needs the candidate to have spoken again."""
+        remark = f"candidate:{self.candidate_turns}"
+        if turn_id in self.conduct_turns or remark in self.conduct_turns:
             return None
-        self.conduct_turns.add(turn_id)
+        if kind == "refuses_to_engage" and self.clock() - self.last_candidate_at >= SILENCE_NOT_CONDUCT_S:
+            return None          # a candidate who has said nothing for a while is quiet, not refusing: there is no remark to warn about
+        if _SCREEN_LEAVE.search(quote or ""):
+            return None          # leaving the screen is the proctor ledger's (it already has its own orders), never a conduct incident
+        self.conduct_turns.update((turn_id, remark))
         now = self.clock()
         self.conduct.append({"kind": kind, "quote": (quote or "")[:300], "turn_id": turn_id, "source": source, "at": now})
         self.triggers.add("conduct")
         if len(self.conduct) >= self.rules.conduct_end_at:
             return self._end("ended_by_interviewer",
                              f"The candidate repeated unacceptable conduct ({kind}). Say firmly, without insults, that you "
-                             "are ending the interview because of it.", now)
+                             "are ending the interview because of it.", now,
+                             line="I'm going to end the interview here, because of repeated unacceptable conduct. Thank you for your time.")
         return self._order("conduct_warning",
                            f"The candidate's last remark was not acceptable ({kind}). Say plainly and firmly that it isn't "
-                           "appropriate in an interview and must not happen again, then continue.", now)
+                           "appropriate in an interview and must not happen again, then continue. It is reported: do not call "
+                           "flag_conduct again for the same remark; only for a new one.", now)
 
     def on_redirect(self, turn_id: str) -> Order | None:
         item_id = self.current().item_id
@@ -501,12 +621,16 @@ class Conductor:
                             if item.kind in ("slot", "filler") else
                             "This part's time is up. First acknowledge what the candidate just said in a few words, "
                             "then link to the next part with a short connecting phrase, open it with its first question and call next_item.")
+                    ahead_item = next((i for i in self.items[self.index + 1:] if i.status == "pending"), None)
+                    if item.kind == "slot" and ahead_item is not None and ahead_item.kind != "slot":
+                        text += " Say plainly, in a sentence of its own, that the coding part is done."
                     new.append(self._order("move_on", text, now))
-        if not self.candidate_speaking and not self.agent_speaking and not self.reply_owed and item.phase != "wrap_up":
+        if not self.candidate_speaking and not self.agent_speaking and not self.reply_owed and item.phase != "wrap_up" and not self.held():
             coding = item.kind == "slot"
             limit = self.rules.silence_coding_s if coding else self.rules.silence_talking_s
-            if now - max(self.last_activity, self.nudged_at) >= limit:
+            if now - max(self.last_activity, self.nudged_at) >= limit * min(4, 2 ** self.nudges_in_a_row):
                 self.nudged_at = now
+                self.nudges_in_a_row += 1
                 new.append(self._order("nudge", (
                     "The candidate has been quiet with no code changes for a while. Ask how it's going and invite them to "
                     "talk through their thinking." if coding else
@@ -612,7 +736,7 @@ class Conductor:
             "conduct_turns": sorted(self.conduct_turns), "redirects": self.redirects, "labels": self.labels,
             "follow_ups": self.follow_ups, "plan_changes": self.plan_changes, "fired": {k: sorted(v) for k, v in self.fired.items()},
             "ended": self.ended, "end_reason": self.end_reason, "signals": self.signals, "no_more_problems": self.no_more_problems,
-            "change_requests": self.change_requests,
+            "change_requests": self.change_requests, "candidate_turns": self.candidate_turns, "hold_until": self.hold_until,
         }
 
     @classmethod
@@ -631,6 +755,7 @@ class Conductor:
         c.ended, c.end_reason = data.get("ended", False), data.get("end_reason")
         c.signals, c.no_more_problems = data.get("signals", {}), data.get("no_more_problems", False)
         c.change_requests = data.get("change_requests", {})
+        c.candidate_turns, c.hold_until = int(data.get("candidate_turns", 0)), float(data.get("hold_until", 0.0))
         now = clock()
         c.last_activity = now
         c.nudged_at = now

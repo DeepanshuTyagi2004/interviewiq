@@ -69,11 +69,43 @@ def test_proctor_rule_mentions_warns_then_ends_and_half_weights_never_end():
     assert order.kind == "end" and order.end_reason == "ended_by_interviewer" and c.ended
 
 
-def test_conduct_warns_then_ends_and_counts_one_incident_per_turn():
+def test_conduct_warns_then_ends_and_counts_one_incident_per_remark():
     c, _ = make()
-    assert c.on_conduct("inappropriate", "…", "t1", "talker").kind == "conduct_warning"
-    assert c.on_conduct("inappropriate", "…", "t1", "director") is None
-    assert c.on_conduct("abusive", "…", "t2", "talker").kind == "end"
+    c.on_candidate_turn()
+    assert c.on_conduct("inappropriate", "Weird lady asking me too many questions", "t1", "talker").kind == "conduct_warning"
+    assert c.on_conduct("inappropriate", "…", "t1", "director") is None               # the same interviewer turn
+    # The talker flags the same remark again on the next turns (it is still answering it): the candidate has not spoken since,
+    # so it is the same incident, not a second one that ends the round.
+    assert c.on_conduct("inappropriate", "Weird lady asking me too many questions.", "t2", "talker") is None
+    assert c.on_conduct("inappropriate", "Weird lady asking me too many questions.", "t3", "talker") is None
+    assert len(c.conduct) == 1 and not c.ended
+    c.on_candidate_turn()
+    end = c.on_conduct("abusive", "Something worse.", "t4", "talker")
+    assert end.kind == "end" and "unacceptable conduct" in end.line and len(c.conduct) == 2
+
+
+def test_a_hold_keeps_the_check_in_and_the_opening_of_the_next_part_back_until_they_speak_again():
+    c, clock = make()
+    order = c.hold()
+    assert order.kind == "hold" and c.held()
+    c.next_item("done")                                  # the talker moved on anyway: the order to open the next part waits
+    assert [o.kind for o in c.speakable_orders()] == ["hold"]
+    clock.advance(30)
+    assert c.tick() == []                                # no silence check-in during their moment
+    c.on_candidate_turn(keeps_hold=True)                 # "Hello?" only checks the line
+    assert c.held()
+    c.on_candidate_turn()                                # they are back
+    assert not c.held() and [o.kind for o in c.speakable_orders()] == ["hold", "open_item"]
+
+
+def test_a_hold_runs_out_on_its_own_and_the_check_in_follows():
+    c, clock = make()
+    c.next_item("done")                                  # the introduction: two minutes, so no timer order fires meanwhile
+    c.hold()
+    clock.advance(76)
+    assert not c.held() and [o.kind for o in c.tick()] == ["nudge"]
+    restored = Conductor.restore(blueprint(), 3600, c.checkpoint(), None, clock, ["Java"])
+    assert restored.candidate_turns == c.candidate_turns and restored.hold_until == c.hold_until
 
 
 def test_three_redirects_in_one_item_make_an_incident():
@@ -502,15 +534,51 @@ def test_a_candidate_who_has_barely_started_gets_a_different_problem_which_is_st
     assert c.labels["reserve-alternate"] == "Problem 1"
 
 
-def test_asking_again_ends_the_problem_kindly_skips_the_second_and_links_to_the_next_part():
+def test_asking_again_with_time_left_ends_the_problem_kindly_and_gives_the_next_one():
     c, clock = make()
     _worked_on_core_1(c, clock)
     c.on_change_request()
     order = c.on_change_request()
-    assert order.kind == "move_on" and "Do not argue" in order.text and "connecting phrase" in order.text
-    assert c.signals["core-1"] == "struggling" and c.will_skip_next_problem() is True
+    assert order.kind == "move_on" and "Do not argue" in order.text and "another problem" in order.text
+    assert "Let me put the second problem on your screen." in order.text and "coding part is done" in order.text   # "do not say ..."
+    assert c.signals["core-1"] == "struggling" and c.will_skip_next_problem() is False and c.next_problem_after_give_up() is True
     c.next_item("move_on")
-    assert next(i for i in c.items if i.item_id == "core-2").status == "skipped" and c.current().item_id == "candidate_questions"
+    assert next(i for i in c.items if i.item_id == "core-1").status == "done" and c.current().item_id == "core-2"
+
+
+def test_asking_again_with_no_time_for_another_problem_skips_it_and_links_to_the_next_part():
+    c, clock = make()
+    _worked_on_core_1(c, clock, seconds=3000)
+    c.on_change_request()
+    order = c.on_change_request()
+    assert order.kind == "move_on" and "connecting phrase" in order.text and "another problem" not in order.text
+    assert c.will_skip_next_problem() is True
+    c.next_item("move_on")
+    assert next(i for i in c.items if i.item_id == "core-2").status == "skipped" and c.current().kind != "slot"
+
+
+def test_giving_up_on_the_second_problem_ends_the_coding():
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    c.on_change_request()
+    c.on_change_request()
+    c.next_item("move_on")
+    c.current().turns = 4
+    clock.advance(120)
+    c.on_change_request()
+    order = c.on_change_request()
+    assert order.kind == "move_on" and "another problem" not in order.text and c.next_problem_after_give_up() is False
+    c.next_item("move_on")
+    assert c.current().kind != "slot"
+
+
+def test_a_hint_request_orders_the_next_ladder_step():
+    c, _ = make()
+    to_core(c)
+    order = c.on_hint_request()
+    assert order.kind == "hint_request" and "give_hint with step 1" in order.text
+    c.record_hint(1)
+    assert "step 2" in c.on_hint_request().text
 
 
 def test_a_request_to_write_in_their_editor_is_declined_in_one_sentence_with_no_follow_up():

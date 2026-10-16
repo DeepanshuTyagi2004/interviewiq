@@ -2,6 +2,7 @@
 §6.3): the statement and two examples under a generic label. Never names, topics or difficulty."""
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -143,6 +144,8 @@ def deep_dive_probes(personal: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 ORDINALS = ("first", "second", "third", "fourth")
+# Said in its own sentence when the coding part is over, before the link to what comes next.
+CODING_DONE = "That wraps up the coding part."
 # One short line, the same every time, when a problem goes up: no "think aloud", no "ask me anything that isn't clear".
 PROBLEM_INTRO = "Here's your {ordinal} question. Give it a read, and let me know if you have any questions."
 # A move to a new part always starts with a short link to what came before, so no topic ever arrives out of nowhere.
@@ -153,6 +156,30 @@ BRIDGES: dict[str, str] = {
     "candidate_questions": "That's everything I wanted to ask, so now it's your turn.",
     "problem": "Alright, let's get into the coding now.",
 }
+
+
+# The chat before the round: what the interviewer asks first (the greeting) and then (the small talk), one pair per session so no two
+# interviews open the same way. Only what an interviewer asks a candidate at the start of a call (hearing each other, getting settled,
+# being ready): nothing personal, and nothing that makes the interviewer invent a day of their own.
+ICEBREAKERS: tuple[tuple[str, str], ...] = (
+    ("ask how they are doing", "check that they can hear you clearly and the connection is fine on their side"),
+    ("check that they can hear you clearly", "ask whether they got into the room without any trouble"),
+    ("ask how they are doing today", "ask whether they are somewhere quiet where they can talk comfortably for the round"),
+    ("ask whether they got into the room without any trouble", "ask whether they have everything they need before you start, like some water"),
+    ("ask how they are doing today", "ask whether they are all set and comfortable before you begin"),
+    ("check that your audio is coming through clearly on their side", "ask whether they are ready to get started or would like a minute"),
+)
+
+
+def icebreaker(blueprint: dict[str, Any]) -> tuple[str, str]:
+    """The pair for this interview, fixed by the session so a restart keeps it."""
+    seed = str(blueprint.get("session_id") or blueprint.get("blueprint_id") or "")
+    return ICEBREAKERS[int(hashlib.sha256(seed.encode()).hexdigest(), 16) % len(ICEBREAKERS)]
+
+
+def problem_put_up(number: int) -> str:
+    """The sentence said while the problem goes up; the intro line follows once the screen has changed."""
+    return f"Let me put the {ORDINALS[min(max(number, 1), len(ORDINALS)) - 1]} problem on your screen."
 
 
 def problem_intro(number: int) -> str:
@@ -167,8 +194,8 @@ def opening_hint(blueprint: dict[str, Any], phase: str) -> str | None:
     """What to say first when the interview moves on to this part, so the move is a question and not an announcement."""
     personal = blueprint.get("personalization") or {}
     if phase == "framing":
-        return ("say how the round will run (from the outline), then link on with a short connecting phrase and ask for a short introduction "
-                "of their background and one project they would like to talk about. Say nothing about their projects, resume or background "
+        return ("say how the round will run (from the outline) and end by asking whether that sounds good to them. Do not ask for their "
+                "introduction in this turn: that comes next, once they have answered. Say nothing about their projects, resume or background "
                 "until you have said how the round will run.")
     if phase == "candidate_intro":
         return "ask for a short introduction, then what they are working on now."
