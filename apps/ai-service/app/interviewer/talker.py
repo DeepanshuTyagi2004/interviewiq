@@ -15,11 +15,11 @@ from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 
-from app.interviewer.closing import announces_coding_now, announces_problem, invites_questions_now
+from app.interviewer.closing import announces_coding_now, announces_problem, invites_clarifying, invites_questions_now
 from app.interviewer.fillers import Fillers
 from app.interviewer.guard import LeakGuard
 from app.interviewer.llm import LLMUnavailable, StreamEvent, ToolCall
-from app.interviewer.said import SaidTracker
+from app.interviewer.said import LOOP_AT, SaidTracker
 from app.interviewer.tools import TOOLS, ToolExecutor
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
@@ -42,6 +42,72 @@ INTERNAL_WORDS = re.compile(
 SCREEN_CLAIM = re.compile(r"\bhere(?:'s| is) your (?:first|second|third|next) (?:question|problem)\b|\b(?:on|up on|onto) (?:your|the) screen\b|\bput (?:it|the problem|that|one) (?:up|on)\b|\bpull (?:it|the problem) up\b|\bhave a read\b|\bread (?:it|through it|the problem)\b|\btake a moment to read\b|"
                           r"\b(?:jump|get|move|dive|go|turn)\s+(?:on\s+)?(?:in)?to\s+(?:the|a|our)\s+(?:(?:coding|first|actual|technical)\s+(?:problem|part|question|exercise)|(?:problems?|exercise))\b|"
                           r"\b(?:start|begin|do|tackle)\s+(?:the|a|our)\s+(?:(?:coding\s+)?(?:problem|exercise)|coding\s+part)\b", re.IGNORECASE)
+VALUES_ALOUD = re.compile(r"\d|\b(?:hundred|thousand|million|billion|zero)\b", re.IGNORECASE)
+# Claims about what is on their screen that the interviewer cannot know (it sees the problem it showed, their code and a digest of the pointer).
+SCREEN_GUESS = re.compile(r"\b(?:whatever|what(?:ever)?) you(?:'re| are| have|'ve) (?:seeing|looking at|highlighted|selected)\b|"
+                          r"\bwhat(?:ever)? you (?:highlighted|selected)\b", re.IGNORECASE)
+ASKS_RESTATE = re.compile(r"\b(?:restate|re-state|(?:hear|say|tell me|give me) (?:it|the problem|that)? ?back|back in your own words|\bproblem\b[^.?!]{0,30}\bin your (?:own )?words|\bin your (?:own )?words\b[^.?!]{0,30}\bproblem\b|\bhear(?:d)? the problem\b|\bunderstood the problem\b|\bunderstanding of the problem\b|say (?:it|the problem|that) back|repeat (?:the|that) problem|(?:put|say) (?:the problem|it|that) in your own words)\b", re.IGNORECASE)
+INSIGHT_PRAISE = re.compile(r"\b(?:that'?s|exactly|precisely) (?:exactly |precisely )?the (?:idea|insight|key)\b|\bthat'?s the (?:right|key) (?:idea|insight)\b", re.IGNORECASE)
+VERDICT = re.compile(r"^\W*(?:yes|right|exactly|correct|perfect|great|good|nice|well done)\b|\b(?:that'?s (?:right|correct|exactly|it)|is correct|looks (?:right|correct)|spot on)\b", re.IGNORECASE)
+ASKS_CODE_AGAIN = re.compile(r"\bimplement\b|\blet'?s see (?:it|that) as code\b|\bwrite (?:out )?(?:the|your|a) (?:whole |full )?(?:function|solution|code)\b", re.IGNORECASE)
+ANNOUNCES_SILENCE = re.compile(r"\bi(?:'ll| will|'m going to) (?:stay|keep|be) (?:quiet|silent)\b|\bi(?:'ll| will) (?:just )?(?:be )?watch(?:ing)?\b|"
+                               r"\bi(?:'ll| will) (?:let you|leave you to)\b", re.IGNORECASE)
+GO_AHEAD = re.compile(r"\bgo ahead and (?:start |begin )?(?:writ|cod|typ)\w*|\bstart (?:writing|coding)\b", re.IGNORECASE)
+TAKE_YOUR_TIME = re.compile(r"\btake your time\b", re.IGNORECASE)
+# Time pressure the round does not have: a live round said "we're nearly out of time" at ten minutes of 45 (the director scripted it).
+TIME_PRESSURE = re.compile(r"\b(?:(?:nearly|almost|running|about|close to) out of time|out of time|short (?:on|of) time|(?:running|run|pressed) (?:short|low) "
+                           r"(?:on|of) time|tight on time|(?:not|isn'?t) (?:much|a lot of) time(?: left)?|(?:little|limited) time left|time is (?:almost |nearly )?up|"
+                           r"coming up on (?:time|the end)|(?:nearly|almost) (?:at|out of) (?:time|the end))\b", re.IGNORECASE)
+# A verdict on the whole interview ("the clearest thing you gave today"): the report gives that, never the interviewer.
+ROUND_VERDICT = re.compile(r"\b(?:clearest|best|strongest|weakest)\b[^.?!]{0,50}\b(?:you(?:'ve)? (?:gave|given|said|shown|showed|did|done)|today|"
+                           r"in this (?:interview|round))\b|\byou(?:'ve)? (?:did|done|been doing) (?:really |very |pretty )?(?:well|great|good|fine)\b"
+                           r"[^.?!]{0,30}\b(?:today|so far|overall|in this (?:interview|round))\b|\b(?:overall|all in all),? you(?:'ve)? (?:did|done)\b",
+                           re.IGNORECASE)
+RE_INTRODUCES = re.compile(r"^\W*(?:hi|hello|hey)\b[^.?!]{0,20}\b(?:i'?m|i am|my name is)\b", re.IGNORECASE)
+UNHEARD = re.compile(r"\byou (?:mentioned|said|told me|talked about|described|brought up|spoke about)\b([^.?!]{0,140})", re.IGNORECASE)
+_INDEX = re.compile(r"\b([A-Za-z_]\w*)\[([^\[\]]{1,40})\]")
+_METHOD = re.compile(r"\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\(\)")
+
+
+def speakable(text: str) -> str:
+    """Code in a sentence as a person would say it: "prices[i - 1]" is "prices at i minus 1", never "pricesi - 1"."""
+    def index(m: "re.Match[str]") -> str:
+        inner = re.sub(r"\s*-\s*", " minus ", re.sub(r"\s*\+\s*", " plus ", m.group(2).strip()))
+        return f"{m.group(1)} at {inner}"
+    return _METHOD.sub(r"\1 dot \2", _INDEX.sub(index, text))
+
+
+_COMPOUND_Q = re.compile(r",?\s+and\s+(?:then\s+|also\s+)?(?=(?:what|how|where|when|why|which|who|does|do|did|is|are|can|could|would|will|should|tell|walk|explain|describe|show)\b)", re.IGNORECASE)
+_IMPERATIVE_ASK = re.compile(r"^(?:(?:now|then|so|okay|alright|and),?\s+)?(?:walk|tell|talk|explain|describe|show|trace|dry)\b", re.IGNORECASE)
+_IMPERATIVE_JOIN = re.compile(r",?\s+(?:and|then)\s+(?=(?:tell|walk|explain|describe|show|finish|run|trace|write|give|say|what|how|where)\b)", re.IGNORECASE)
+
+
+def one_ask(text: str) -> str:
+    """A sentence that asks two things ("what is added, and what does the total come to?") keeps its first ask: they answer the last part of a
+    double question and skip the rest, so the second is asked on its own turn."""
+    t = text.strip()
+    if t.endswith("?"):
+        m = _COMPOUND_Q.search(t)
+        if m and len(t[:m.start()].split()) >= 4:
+            return t[:m.start()].rstrip(",") + "?"
+    elif _IMPERATIVE_ASK.match(t):
+        m = _IMPERATIVE_JOIN.search(t)
+        if m and len(t[:m.start()].split()) >= 4:
+            return t[:m.start()].rstrip(",") + "."
+    return t
+
+
+def _overlap(a: str, b: str) -> float:
+    wa, wb = set(re.findall(r"[a-z]{4,}", a.lower())), set(re.findall(r"[a-z]{4,}", b.lower()))
+    return len(wa & wb) / min(len(wa), len(wb)) if min(len(wa), len(wb)) >= 4 else 0.0
+
+
+def _clean(text: str) -> str:
+    text = re.sub(r"(?<=[A-Za-z0-9])_+(?=[A-Za-z0-9])", " ", text)    # DENSE_RANK is spoken "DENSE RANK", not "DENSERANK"
+    return re.sub(r"\s+", " ", MARKUP.sub("", text)).strip()      # stray markdown or tag characters are never spoken
+
+
+THIRD_PERSON = re.compile(r"^\s*the candidate\b", re.IGNORECASE)    # the interviewer speaks to them, never about them
 SILENT = "<silent>"
 MARKUP = re.compile(r"[<>{}\[\]|`*_~^#]")
 FILLER_AT = (1.15, 2.65, 4.65, 7.3)   # when each filler stage is said, as a multiple of the hedge time
@@ -111,16 +177,34 @@ class TalkerTurn:
         self._block_qa = False
         self._fillers_on = True
         self._quiet = False
+        self._block_values = False
+        self._block_clarify = False
+        self._heard = ""
+        self._hint_step = 0
+        self._has_code = False
+        self._time_talk_ok = True
+        self._verdicts = 0
+        self._questions = 0
         self._remarks = 0
 
     async def run(self, messages: list[dict[str, Any]], *, turn_id: str, current_slot: str | None,
                   candidate_said: str, tools: list[dict[str, Any]] | None = None, block_screen_claims: bool = False,
                   neutral_on_blocked: bool = True, block_qa_invites: bool = False, fillers_allowed: bool = True,
-                  quiet_coding: bool = False) -> AsyncIterator[str]:
+                  quiet_coding: bool = False, block_values: bool = False,
+                  block_clarify: bool = False, heard: str = "", hint_step: int = 0, has_code: bool = False,
+                  time_talk_ok: bool = True) -> AsyncIterator[str]:
         self._offered = tools if tools is not None else TOOLS
         self._turn_id = turn_id
         self._block_claims = block_screen_claims
         self._block_qa = block_qa_invites
+        self._block_clarify = block_clarify         # a problem is on screen: it already invited their questions, once
+        self._hint_step = hint_step                 # hints already given: their words may be used again
+        self._has_code = has_code                   # they have written code: never ask them to write it
+        self._time_talk_ok = time_talk_ok           # the round really is short of time: only then may it be said
+        self._verdicts = 0                          # sentences that judge what they said, in this turn: at most one
+        self._heard = heard.lower()                 # everything the candidate has said, for "you mentioned..." claims
+        self._questions = 0                         # question sentences spoken in this turn: one question per turn
+        self._block_values = block_values           # they asked for the constraints: they go on the screen, never into speech
         self._quiet = quiet_coding                  # they are about to type: one short remark at most, never a hint
         self._remarks = 0
         self._fillers_on = fillers_allowed          # off for the greeting: nobody has asked for anything, so "give me a second" means nothing
@@ -329,9 +413,51 @@ class TalkerTurn:
         text = sentence.strip()
         if not text or text == SILENT:
             return None
-        text = re.sub(r"(?<=[A-Za-z0-9])_+(?=[A-Za-z0-9])", " ", text)    # DENSE_RANK is spoken "DENSE RANK", not "DENSERANK"
-        text = re.sub(r"\s+", " ", MARKUP.sub("", text)).strip()      # stray markdown or tag characters are never spoken
+        original = text
+        text = _clean(text)
         if not re.search(r"[A-Za-z0-9]", text):
+            return None
+        if ASKS_RESTATE.search(text):
+            result.blocked.append({"sentence": text, "rule": "asks_restate", "match": ASKS_RESTATE.search(text).group(0)})
+            return None
+        if ANNOUNCES_SILENCE.search(text):
+            result.blocked.append({"sentence": text, "rule": "announces_silence", "match": ANNOUNCES_SILENCE.search(text).group(0)})
+            return None
+        if GO_AHEAD.search(text) and self.said.has(GO_AHEAD):
+            result.blocked.append({"sentence": text, "rule": "repeat_instruction", "match": GO_AHEAD.search(text).group(0)})
+            return None
+        if TAKE_YOUR_TIME.search(text) and self.said.has(TAKE_YOUR_TIME):
+            result.blocked.append({"sentence": text, "rule": "repeat_instruction", "match": "take your time"})
+            return None
+        if not self._time_talk_ok and TIME_PRESSURE.search(text):
+            result.blocked.append({"sentence": text, "rule": "time_claim", "match": TIME_PRESSURE.search(text).group(0)})
+            return None
+        if ROUND_VERDICT.search(text):
+            result.blocked.append({"sentence": text, "rule": "round_verdict", "match": ROUND_VERDICT.search(text).group(0)})
+            return None
+        if self._fillers_on and RE_INTRODUCES.search(text):
+            result.blocked.append({"sentence": text, "rule": "reintroduces", "match": "introduces themselves again"})
+            return None
+        if self._heard and (m := UNHEARD.search(text)) is not None:
+            topic = {w for w in re.findall(r"[a-z]{5,}", m.group(1).lower())}
+            names = {w.lower() for w in re.findall(r"\b[A-Z][a-z]{3,}\b", m.group(1))}      # "Experience Portal": names they must have said
+            if (topic and not any(w in self._heard for w in topic)) or any(w not in self._heard for w in names):
+                result.blocked.append({"sentence": text, "rule": "unheard_claim", "match": m.group(0)[:60]})
+                return None
+        if text.rstrip().endswith("?") and self._questions >= 1:
+            result.blocked.append({"sentence": text, "rule": "one_question", "match": "a second question in the same turn"})
+            return None
+        if THIRD_PERSON.search(text):
+            result.blocked.append({"sentence": text, "rule": "internal_words", "match": "speaks about the candidate in the third person"})
+            return None
+        if SCREEN_GUESS.search(text):
+            result.blocked.append({"sentence": text, "rule": "screen_guess", "match": SCREEN_GUESS.search(text).group(0)})
+            return None
+        if self._block_clarify and invites_clarifying(text):
+            result.blocked.append({"sentence": text, "rule": "questions_repeated", "match": "invites their questions again"})
+            return None
+        if self._block_values and VALUES_ALOUD.search(text):
+            result.blocked.append({"sentence": text, "rule": "values_aloud", "match": VALUES_ALOUD.search(text).group(0)})
             return None
         if INTERNAL_WORDS.search(text):
             result.blocked.append({"sentence": text, "rule": "internal_words", "match": INTERNAL_WORDS.search(text).group(0)})
@@ -353,6 +479,24 @@ class TalkerTurn:
         if not verdict.ok:
             result.blocked.append({"sentence": text, "rule": verdict.rule, "match": verdict.match})
             return None
+        if len(again := self.said.question_loop(text)) >= LOOP_AT:
+            result.blocked.append({"sentence": text, "rule": "question_loop", "match": again[-1]})
+            return None
+        v2 = self.guard.check_insight(text, current_slot=current_slot, candidate_said=candidate_said, hint_step=self._hint_step)
+        if not v2.ok or INSIGHT_PRAISE.search(text):
+            result.blocked.append({"sentence": text, "rule": "insight_completed", "match": v2.match or INSIGHT_PRAISE.search(text).group(0)})
+            return None
+        if self._has_code and ASKS_CODE_AGAIN.search(text):
+            result.blocked.append({"sentence": text, "rule": "asks_code_again", "match": ASKS_CODE_AGAIN.search(text).group(0)})
+            return None
+        if any(_overlap(text, prev) >= 0.6 for prev in result.spoken):
+            result.blocked.append({"sentence": text, "rule": "repeat_in_turn", "match": "says again what this turn already said"})
+            return None
+        if VERDICT.search(text):
+            if self._verdicts >= 1:
+                result.blocked.append({"sentence": text, "rule": "second_verdict", "match": "a second verdict in the same turn"})
+                return None
+            self._verdicts += 1
         if (earlier := self.said.repeat_of(text)) is not None:
             result.blocked.append({"sentence": text, "rule": "repeat", "match": earlier})
             return None
@@ -363,6 +507,9 @@ class TalkerTurn:
             if self._remarks >= 1:
                 return None                      # one short remark is enough while they type: the rest is dropped, not held against it
             self._remarks += 1
-        result.spoken.append(text)
-        self.said.add(text, self._turn_id)
-        return text
+        if text.rstrip().endswith("?"):
+            self._questions += 1
+        spoken = one_ask(_clean(speakable(original)) or text)      # what the voice says: code read as a person says it, one ask per sentence
+        result.spoken.append(spoken)
+        self.said.add(spoken, self._turn_id)
+        return spoken
