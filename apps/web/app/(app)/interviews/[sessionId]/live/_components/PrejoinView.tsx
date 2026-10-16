@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCameraPreview } from "@/features/interview-live/media/useCameraPreview";
+import { CameraCheckStatus } from "@/features/interview-live/proctor/camera/CameraCheckStatus";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import { roomEyebrow, type RoomMeta } from "./roomMeta";
 
@@ -23,6 +24,7 @@ const DONTS = [
   "Don't paste text from anywhere else. Copy and paste work only inside this room, your clipboard is cleared when you join, and pasting outside text ends the interview.",
   "Don't use automated typing or scripts. Your code must be typed by you, and automated typing ends the interview.",
   "Don't use a phone, second monitor, or another person for help.",
+  "Stay alone and in view of your camera, looking at the screen. Your camera is checked on your device (nothing is recorded or sent); another person, a different person, no one in view or looking away for a while is logged as a camera flag.",
   "Don't refresh or close this tab once the interview has started.",
 ];
 
@@ -136,6 +138,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
 
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-0">
           <p className="iq-eyebrow m-0">Your camera</p>
+          <CameraCheckStatus />
           <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-inv">
             <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
             {!camOn ? (

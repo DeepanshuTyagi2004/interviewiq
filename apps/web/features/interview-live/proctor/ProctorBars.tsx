@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { StatusDot } from '@/components/hud'
 import { Button } from '@/components/ui/button'
 import type { AwayEpisode } from './awayEpisode'
+import { CAMERA_TEXT, type CameraFlagKind } from './camera/monitor'
 import { enterFullscreen } from './keyboardLock'
 import { requestEntireScreen } from './screenShare'
 import { useAwayCountdown } from './useAwayCountdown'
@@ -27,12 +28,15 @@ export function ProctorBars({
   toast,
   away = null,
   presence = 'present',
+  camera = null,
 }: {
   outOfFullscreen: boolean
   shareStopped: boolean
   toast: string | null
   away?: AwayEpisode | null
   presence?: 'present' | 'joining' | 'reconnecting'
+  /** A camera-check violation that is still going on: a bar saying what to fix. */
+  camera?: CameraFlagKind | null
 }) {
   const [shareError, setShareError] = useState<string | null>(null)
   const clock = useAwayCountdown(away)
@@ -64,6 +68,12 @@ export function ProctorBars({
               ? `Return to the interview within ${clock.seconds} s. After that it counts as another violation.`
               : `Return now. The interview ends in ${clock.seconds} s.`}
           </span>
+        </div>
+      ) : null}
+      {camera ? (
+        <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
+          <StatusDot state="error" srLabel="Camera check" />
+          <span className="min-w-0 flex-1">{CAMERA_TEXT[camera]}</span>
         </div>
       ) : null}
       {outOfFullscreen ? (

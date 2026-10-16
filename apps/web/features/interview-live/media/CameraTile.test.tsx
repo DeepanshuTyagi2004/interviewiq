@@ -21,4 +21,16 @@ describe('CameraTile', () => {
     render(<CameraTile stream={null} label="You" />)
     expect(screen.getByText('You')).toBeInTheDocument()
   })
+
+  it('draws the camera check as a green, amber or red border, and none while it starts', () => {
+    const { rerender } = render(<CameraTile stream={null} check="ok" />)
+    expect(screen.getByTestId('camera-check')).toHaveAttribute('data-check', 'ok')
+    expect(screen.getByText('Camera check: OK')).toBeInTheDocument()
+    rerender(<CameraTile stream={null} check="violation" />)
+    expect(screen.getByTestId('camera-check')).toHaveClass('border-destructive')
+    rerender(<CameraTile stream={null} check="starting" />)
+    expect(screen.queryByTestId('camera-check')).not.toBeInTheDocument()
+    rerender(<CameraTile stream={null} check="unavailable" />)
+    expect(screen.queryByTestId('camera-check')).not.toBeInTheDocument()
+  })
 })
