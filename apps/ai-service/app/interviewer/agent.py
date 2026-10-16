@@ -15,8 +15,10 @@ from app.interviewer.run import InterviewRun
 # started early would answer as if the candidate had said nothing. No preemptive generation.
 # Candidates think aloud and pause mid-sentence; LiveKit's default 0.5 s of silence ended their turn in the middle of a thought
 # (a live round heard "...and most of the" as a finished answer and replied). A second of silence is still quick for a reply.
+# Dynamic: the wait learns each candidate's own pauses (from 1 s up to the ceiling). A slow, pausy speaker had five replies thrown
+# away in one round because a fixed 4 s ceiling ended their turn mid-sentence ("...didn't provide us granular" / "control over...").
 TURN_HANDLING: dict[str, Any] = {"preemptive_generation": {"enabled": False},
-                                 "endpointing": {"mode": "fixed", "min_delay": 1.0, "max_delay": 4.0}}
+                                 "endpointing": {"mode": "dynamic", "min_delay": 1.0, "max_delay": 6.0}}
 
 
 class PlaceholderLLM(llm.LLM):
