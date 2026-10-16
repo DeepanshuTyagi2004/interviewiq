@@ -23,6 +23,7 @@ const DONTS = [
   "Don't paste text from anywhere else. Copy and paste work only inside this room, your clipboard is cleared when you join, and pasting outside text ends the interview.",
   "Don't use automated typing or scripts. Your code must be typed by you, and automated typing ends the interview.",
   "Don't use a phone, second monitor, or another person for help.",
+  "Stay alone and in view of your camera, looking at the screen. Your camera is checked on your device (nothing is recorded or sent); another person, a different person, no one in view or looking away for a while is logged as a camera flag.",
   "Don't refresh or close this tab once the interview has started.",
 ];
 

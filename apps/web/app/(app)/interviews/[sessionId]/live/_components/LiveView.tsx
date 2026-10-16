@@ -6,6 +6,7 @@ import { getLive } from '@/features/interview/api'
 import { ActivityProvider } from '@/features/interview-live/activity/ActivityProvider'
 import { BottomBar } from '@/features/interview-live/controls/BottomBar'
 import { useLocalMedia } from '@/features/interview-live/media/useLocalMedia'
+import { useCameraProctor } from '@/features/interview-live/proctor/camera/useCameraProctor'
 import { attachRoomCopyGuard, attachRoomFieldGuard } from '@/features/interview-live/proctor/editorClipboard'
 import { clipboardRulesActive, forgetBuffer } from '@/features/interview-live/proctor/localClipboard'
 import { ProctorActionsProvider } from '@/features/interview-live/proctor/ProctorContext'
@@ -26,6 +27,8 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
   const { session, transcript, agentState, requestEnd } = useLiveSession()
   const { stream, micOn, toggleMic } = useLocalMedia(session)
   const proctor = useProctor({ session, enabled: true })
+  // On-device only (no frames leave the browser, no LLM): the tile's border and the camera ledger, nothing more.
+  const camera = useCameraProctor({ stream, enabled: true })
   const proctorActions = useMemo(() => ({ foreignPaste: proctor.foreignPaste }), [proctor.foreignPaste])
   // Copy and cut anywhere in the room stay in the room (the editor guards its own); only while the clipboard rules are on.
   const foreignRef = useRef(proctor.foreignPaste)
@@ -50,15 +53,15 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
       <ActivityProvider session={session}>
         <WorkspaceProvider session={session}>
           <div className="flex h-full min-h-0 w-full flex-col">
-            <RoomHeader meta={meta} ledger={proctor.ledger} />
+            <RoomHeader meta={meta} ledger={proctor.ledger} cameraFlags={camera.flags.length} />
             {reconnecting ? (
               <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
                 <StatusDot state="warn" srLabel="Reconnecting" />
                 <span>Connection lost. Reconnecting… what you have written is kept.</span>
               </div>
             ) : null}
-            <ProctorBars outOfFullscreen={proctor.outOfFullscreen} shareStopped={proctor.shareStopped} toast={proctor.toast} away={proctor.away} presence={presence} />
-            <RoomStage session={session} name={name} agentState={agentState} stream={stream} micOn={micOn} transcript={transcript} />
+            <ProctorBars outOfFullscreen={proctor.outOfFullscreen} shareStopped={proctor.shareStopped} toast={proctor.toast} away={proctor.away} presence={presence} camera={camera.status === 'violation' ? camera.reason : null} />
+            <RoomStage session={session} name={name} agentState={agentState} stream={stream} micOn={micOn} transcript={transcript} cameraCheck={camera.status} />
             <BottomBar micOn={micOn} stream={stream} onToggleMic={toggleMic} onEnd={requestEnd} />
           </div>
         </WorkspaceProvider>

@@ -1,6 +1,7 @@
 'use client'
 import { Waveform } from '@/components/visualizations/Waveform'
 import { cn } from '@/lib/utils/cn'
+import type { CameraStatus } from '../proctor/camera/monitor'
 import type { AgentState } from '../session/types'
 import type { RoomView } from '../workspace/WorkspaceProvider'
 import { AvatarBubble } from './AvatarBubble'
@@ -21,8 +22,8 @@ const MORPH = 'duration-500 ease-out motion-reduce:transition-none'
  * `work`: a compact strip with a small self-view. `talk`: two large tiles side by side, like a video call.
  * It is one set of elements in both layouts (only classes change), so the camera video never remounts. */
 export function InterviewerStrip({
-  name, agentState, stream, micOn, layout,
-}: { name: string; agentState: AgentState; stream: MediaStream | null; micOn: boolean; layout: RoomView['layout'] }) {
+  name, agentState, stream, micOn, layout, cameraCheck,
+}: { name: string; agentState: AgentState; stream: MediaStream | null; micOn: boolean; layout: RoomView['layout']; cameraCheck?: CameraStatus }) {
   const speaking = agentState === 'speaking'
   const talk = layout === 'talk'
   return (
@@ -46,7 +47,7 @@ export function InterviewerStrip({
       </div>
       {/* The candidate: 72x54 (work) or half the column (talk); width and height are animated lengths. */}
       <div className={cn('flex-none transition-[width,height]', MORPH, talk ? 'h-[clamp(176px,24vh,240px)] w-[calc(50%-8px)]' : 'h-[54px] w-[72px]')}>
-        <CameraTile stream={stream} micOn={micOn} label={talk ? 'You' : undefined} />
+        <CameraTile stream={stream} micOn={micOn} label={talk ? 'You' : undefined} check={cameraCheck} />
       </div>
     </div>
   )

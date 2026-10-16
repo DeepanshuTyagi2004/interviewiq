@@ -2,6 +2,7 @@
 import { cn } from '@/lib/utils/cn'
 import { ActivityPane } from '../activity/ActivityProvider'
 import { InterviewerStrip } from '../media/InterviewerStrip'
+import type { CameraStatus } from '../proctor/camera/monitor'
 import { ProblemPanel } from '../panel/ProblemPanel'
 import type { TranscriptSegment } from '../session/transcript'
 import type { AgentState, LiveSession } from '../session/types'
@@ -40,8 +41,11 @@ function SlowNotice({ slow, talk }: { slow: boolean; talk: boolean }) {
  * problem panel and the activity capture keep their state across `talk` -> `work` -> `talk`.
  */
 export function RoomStage({
-  session, name, agentState, stream, micOn, transcript,
-}: { session: LiveSession; name: string; agentState: AgentState; stream: MediaStream | null; micOn: boolean; transcript: TranscriptSegment[] }) {
+  session, name, agentState, stream, micOn, transcript, cameraCheck,
+}: {
+  session: LiveSession; name: string; agentState: AgentState; stream: MediaStream | null; micOn: boolean; transcript: TranscriptSegment[]
+  cameraCheck?: CameraStatus
+}) {
   const { layout, slow } = useRoomState()
   const talk = layout === 'talk'
 
@@ -58,7 +62,7 @@ export function RoomStage({
       <aside aria-label="Interviewer" className={cn('flex min-h-0 min-w-[260px] flex-col', !talk && 'border-r border-line-2')}>
         {/* Wide rooms: a centred column of comfortable reading width. In the narrow column it is simply full width. */}
         <div className="mx-auto flex min-h-0 w-full max-w-[760px] flex-1 flex-col">
-          <InterviewerStrip name={name} agentState={agentState} stream={stream} micOn={micOn} layout={layout} />
+          <InterviewerStrip name={name} agentState={agentState} stream={stream} micOn={micOn} layout={layout} cameraCheck={cameraCheck} />
           <AskPill />
           <div className={cn('min-h-0 flex-1 transition-[padding] duration-500 ease-out motion-reduce:transition-none', talk ? 'px-4' : 'px-3')}>
             <TranscriptBubbles segments={transcript} interviewerName={name} comfortable={talk} />

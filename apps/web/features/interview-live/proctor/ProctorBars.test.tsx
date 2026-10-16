@@ -27,3 +27,12 @@ describe('ProctorBars return clock', () => {
     expect(screen.getByText(/within 30 s/)).toBeInTheDocument()
   })
 })
+
+describe('ProctorBars camera check', () => {
+  it('says what to fix while a camera violation lasts, and nothing otherwise', () => {
+    const { rerender } = render(<ProctorBars outOfFullscreen={false} shareStopped={false} toast={null} camera="multiple_faces" />)
+    expect(screen.getByText('Someone else is in view. Only you should be on camera.')).toBeInTheDocument()
+    rerender(<ProctorBars outOfFullscreen={false} shareStopped={false} toast={null} camera={null} />)
+    expect(screen.queryByText(/on camera/)).not.toBeInTheDocument()
+  })
+})
