@@ -40,8 +40,9 @@ function Counter({ label, logged, children }: { label: string; logged: boolean; 
 }
 
 /** The live room's header (spec §10): the round, the live dot, the proctoring counters and the clock. No countdown.
- * Camera flags come from the on-device camera check; they are the candidate's record and change no result. */
-export function RoomHeader({ meta, ledger, cameraFlags = 0 }: { meta?: RoomMeta; ledger: Ledger; cameraFlags?: number }) {
+ * Camera flags come from the on-device camera check; they are the candidate's record and change no result. The
+ * counter is left out when the check isn't running (its files aren't on this device). */
+export function RoomHeader({ meta, ledger, cameraFlags }: { meta?: RoomMeta; ledger: Ledger; cameraFlags?: number }) {
   return (
     <header className="flex h-12 flex-none items-center gap-4 border-b border-line-2 px-4 text-[13px]">
       <span className="iq-eyebrow min-w-0 truncate">{roomEyebrow(meta)}</span>
@@ -54,9 +55,11 @@ export function RoomHeader({ meta, ledger, cameraFlags = 0 }: { meta?: RoomMeta;
           <span aria-hidden>{formatWeighted(ledger.screenChanges)}</span>
           <span className="sr-only">{`${ledger.screenChanges} screen changes`}</span>
         </Counter>
-        <Counter label="Camera flags" logged={cameraFlags > 0}>
-          <Count n={cameraFlags} label={`${cameraFlags} camera flags`} />
-        </Counter>
+        {cameraFlags !== undefined ? (
+          <Counter label="Camera flags" logged={cameraFlags > 0}>
+            <Count n={cameraFlags} label={`${cameraFlags} camera flags`} />
+          </Counter>
+        ) : null}
         <ElapsedClock />
       </div>
     </header>

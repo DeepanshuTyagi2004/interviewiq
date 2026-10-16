@@ -37,26 +37,40 @@ embedding leaves the device, and nothing is stored after the room closes.
 | MediaPipe Face Landmarker (float16) | face count, landmarks, eye blendshapes | 3.7 MB | Apache-2.0 |
 | OpenCV Zoo SFace, int8 | 128-number face embedding of an aligned 112x112 crop | 9.9 MB | Apache-2.0 |
 
-Plus the two WebAssembly runtimes (about 3 MB each compressed): about 19 MB on the first visit in all.
+Plus the two WebAssembly runtimes: five files, about 40 MB uncompressed and about 19 MB over the wire.
 
-**Downloaded once per device, not per interview.** The model files are kept in Cache Storage (`modelCache.ts`,
-cache `iq-vision-v1`) and checked against their SHA-256 before use and before caching, so a broken or tampered download
-is never kept. The runtimes are kept by the browser's HTTP cache (jsDelivr serves versioned files as immutable for a
-year). The instruction page (`PrejoinView.tsx`) prefetches the models, so even a first interview usually starts with
-them ready. Measured in Chromium: 19 MB on the first visit, 0 MB on the next ones. Bump `CACHE_NAME` when a model
-changes; older `iq-vision-*` caches are deleted on the next load. The browser may still evict the cache under storage
-pressure, in which case the files download again.
+**Downloaded once per device, in the background, never during an interview** (`visionAssets.ts`):
 
-They load from pinned public CDNs (jsDelivr, Google Storage, Hugging Face at a
-fixed revision) by default; `NEXT_PUBLIC_VISION_ASSETS_URL` switches to a self-hosted folder (layout in
-`features/interview-live/proctor/camera/vision.ts`). If anything fails to load, the check turns itself off and flags
-nothing; a failure of the identity model only turns that one check off.
+- **When.** Three seconds after any signed-in page loads (`VisionPrefetch` in the `(app)` layout), and again when
+  the instruction page mounts (to retry after an error). Files already on the device are skipped.
+- **Where.** Cache Storage, cache `iq-vision-v2`. Every file is checked against its SHA-256 before it is stored and
+  again when the room reads it, so a broken or tampered download is never kept or used. Bump `CACHE_NAME` when a file
+  changes; older `iq-vision-*` caches are deleted on the next load.
+- **Paused during the round.** The live room (`LiveView`) holds the download for its whole length: the file in
+  flight is aborted (it restarts from scratch when the hold is released, finished files are kept), so the
+  interview gets the bandwidth.
+- **The room never downloads.** `vision.ts` reads every file (runtimes included, as blob URLs and `wasmBinary`)
+  from the device copy only. If they aren't all there, the round runs without the camera check: no border, no
+  camera-flag counter, no camera bar.
+- **Shown before joining.** The instruction page shows, above the camera preview, a tick ("Camera check ready") or
+  a cross with the reason: downloading with a progress bar, paused, failed (with Retry), or not available in this
+  browser (no Cache Storage).
+- **Failures.** Each file is tried three times (5 s, then 20 s apart); then the state is `error` until the next
+  start, a Retry, or the browser coming back online.
+
+Measured in Chromium: the room with nothing on the device starts at once with the check off and fetches nothing;
+while held, 0 bytes in 5 s; after release the download finishes; the room with everything on the device runs the
+check and fetches nothing; a later visit finds everything on the device and downloads nothing. The browser may still
+evict the cache under storage pressure, in which case the files download again in the background.
+
+Self-hosting: `NEXT_PUBLIC_VISION_ASSETS_URL` points all five files at one folder (same file names, same bytes).
 
 ## 4. Code
 
 `apps/web/features/interview-live/proctor/camera/`: `face.ts` (landmark geometry, alignment, cosine),
 `attention.ts` (gaze baseline and threshold), `identity.ts` (enrolment and mismatch streak), `monitor.ts` (episodes,
-border state, ledger), `vision.ts` (model loading), `useCameraProctor.ts` (the hook). Wired in `LiveView.tsx` →
+border state, ledger), `visionAssets.ts` (background download and device cache), `vision.ts` (model loading from the
+device), `useCameraProctor.ts` (the hook), `CameraCheckStatus.tsx` and `VisionPrefetch.tsx`. Wired in `LiveView.tsx` →
 `RoomStage` → `InterviewerStrip` → `CameraTile`, plus `RoomHeader` (counter) and `ProctorBars` (bar). Disclosed on the
 instruction page (`PrejoinView.tsx`).
 

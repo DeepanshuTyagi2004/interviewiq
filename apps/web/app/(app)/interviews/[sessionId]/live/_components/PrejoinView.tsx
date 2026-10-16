@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCameraPreview } from "@/features/interview-live/media/useCameraPreview";
-import { prefetchVisionModels } from "@/features/interview-live/proctor/camera/vision";
+import { CameraCheckStatus } from "@/features/interview-live/proctor/camera/CameraCheckStatus";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import { roomEyebrow, type RoomMeta } from "./roomMeta";
 
@@ -88,11 +88,6 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
     if (videoRef.current) videoRef.current.srcObject = stream;
   }, [stream]);
 
-  // The camera check's models, fetched (or found on the device) while the candidate reads the rules.
-  useEffect(() => {
-    void prefetchVisionModels();
-  }, []);
-
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto grid w-full max-w-[1120px] items-start gap-8 px-5 py-8 sm:px-8 sm:py-12 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-10 lg:gap-14">
@@ -143,6 +138,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
 
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-0">
           <p className="iq-eyebrow m-0">Your camera</p>
+          <CameraCheckStatus />
           <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-inv">
             <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
             {!camOn ? (

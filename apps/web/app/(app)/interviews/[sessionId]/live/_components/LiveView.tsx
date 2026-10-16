@@ -7,6 +7,7 @@ import { ActivityProvider } from '@/features/interview-live/activity/ActivityPro
 import { BottomBar } from '@/features/interview-live/controls/BottomBar'
 import { useLocalMedia } from '@/features/interview-live/media/useLocalMedia'
 import { useCameraProctor } from '@/features/interview-live/proctor/camera/useCameraProctor'
+import { holdVisionDownload } from '@/features/interview-live/proctor/camera/visionAssets'
 import { attachRoomCopyGuard, attachRoomFieldGuard } from '@/features/interview-live/proctor/editorClipboard'
 import { clipboardRulesActive, forgetBuffer } from '@/features/interview-live/proctor/localClipboard'
 import { ProctorActionsProvider } from '@/features/interview-live/proctor/ProctorContext'
@@ -27,7 +28,10 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
   const { session, transcript, agentState, requestEnd } = useLiveSession()
   const { stream, micOn, toggleMic } = useLocalMedia(session)
   const proctor = useProctor({ session, enabled: true })
+  // The camera check's background download waits while the round runs, so the bandwidth goes to the interview.
+  useEffect(() => holdVisionDownload(), [])
   // On-device only (no frames leave the browser, no LLM): the tile's border and the camera ledger, nothing more.
+  // It uses the files already on the device; without them there is no check, no border and no counter.
   const camera = useCameraProctor({ stream, enabled: true })
   const proctorActions = useMemo(() => ({ foreignPaste: proctor.foreignPaste }), [proctor.foreignPaste])
   // Copy and cut anywhere in the room stay in the room (the editor guards its own); only while the clipboard rules are on.
@@ -53,7 +57,7 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
       <ActivityProvider session={session}>
         <WorkspaceProvider session={session}>
           <div className="flex h-full min-h-0 w-full flex-col">
-            <RoomHeader meta={meta} ledger={proctor.ledger} cameraFlags={camera.flags.length} />
+            <RoomHeader meta={meta} ledger={proctor.ledger} cameraFlags={camera.status === 'unavailable' ? undefined : camera.flags.length} />
             {reconnecting ? (
               <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
                 <StatusDot state="warn" srLabel="Reconnecting" />

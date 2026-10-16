@@ -58,10 +58,9 @@ class FakeAudioContext {
 ;(globalThis as unknown as { AudioContext: typeof AudioContext }).AudioContext =
   FakeAudioContext as unknown as typeof AudioContext
 
-// The on-device camera check's models never load in tests (they come from CDNs); tests that need them pass fakes.
+// The on-device camera check's models never load in tests; tests that need them pass fakes. (jsdom has no Cache
+// Storage, so the background download in visionAssets.ts reports `unsupported` and fetches nothing.)
 vi.mock('@/features/interview-live/proctor/camera/vision', () => ({
-  ASSETS: {},
   loadFaceLandmarker: () => Promise.reject(new Error('no vision models in tests')),
   loadFaceEmbedder: () => Promise.reject(new Error('no vision models in tests')),
-  prefetchVisionModels: () => Promise.resolve(),
 }))
