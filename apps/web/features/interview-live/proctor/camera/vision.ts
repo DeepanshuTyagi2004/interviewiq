@@ -5,12 +5,16 @@
  * - Face landmarker (MediaPipe, Apache-2.0): face count, landmarks and eye-direction blendshapes.
  * - SFace face recognition, int8 (OpenCV Zoo, Apache-2.0): a 128-number embedding of an aligned 112x112 face.
  *
+ * The model files are kept on the device after the first download (modelCache.ts), so later interviews fetch
+ * nothing; the WebAssembly runtimes are kept by the browser's HTTP cache (immutable on jsDelivr).
+ *
  * Files come from pinned public CDNs by default. Set NEXT_PUBLIC_VISION_ASSETS_URL to self-host them;
  * that folder must hold `mediapipe/` (the package's wasm/ folder), `face_landmarker.task`, `ort/` (the
  * onnxruntime-web dist/ *.wasm and *.mjs files) and `face_recognition_sface_2021dec_int8.onnx`.
  */
 import type { FaceLandmarker } from '@mediapipe/tasks-vision'
 import { ARCFACE_TEMPLATE, similarityTransform, type Point } from './face'
+import { loadModelFile } from './modelCache'
 
 // Keep these in step with package.json.
 const MEDIAPIPE_VERSION = '1.0.1'
@@ -33,14 +37,29 @@ export const ASSETS = SELF_HOSTED
       sface: `https://huggingface.co/opencv/face_recognition_sface/resolve/${SFACE_REVISION}/face_recognition_sface_2021dec_int8.onnx`,
     }
 
+/** SHA-256 of each model file: checked before it is used or kept on the device (self-hosted copies must match). */
+export const MODEL_SHA256 = {
+  landmarker: '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff',
+  sface: '2b0e941e6f16cc048c20aee0c8e31f569118f65d702914540f7bfdc14048d78a',
+} as const
+
+const landmarkerFile = () => loadModelFile(ASSETS.landmarker, MODEL_SHA256.landmarker)
+const sfaceFile = () => loadModelFile(ASSETS.sface, MODEL_SHA256.sface)
+
+/** Downloads (or finds on the device) both model files ahead of the round, e.g. on the instruction page, so the
+ * check starts at once in the room. Never throws. */
+export async function prefetchVisionModels(): Promise<void> {
+  await Promise.allSettled([landmarkerFile(), sfaceFile()])
+}
+
 /** Up to this many faces are found per frame; two is enough to know "more than one". */
 const MAX_FACES = 3
 
 export async function loadFaceLandmarker(): Promise<FaceLandmarker> {
   const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision')
-  const fileset = await FilesetResolver.forVisionTasks(ASSETS.mediapipeWasm)
+  const [fileset, model] = await Promise.all([FilesetResolver.forVisionTasks(ASSETS.mediapipeWasm), landmarkerFile()])
   const options = (delegate: 'GPU' | 'CPU') => ({
-    baseOptions: { modelAssetPath: ASSETS.landmarker, delegate },
+    baseOptions: { modelAssetBuffer: model, delegate },
     runningMode: 'VIDEO' as const,
     numFaces: MAX_FACES,
     outputFaceBlendshapes: true,
@@ -66,7 +85,7 @@ export async function loadFaceEmbedder(): Promise<FaceEmbedder> {
   // Threads need cross-origin isolation, which the app doesn't have; one thread is plenty every few seconds.
   ort.env.wasm.numThreads = 1
   ort.env.logLevel = 'error'
-  const session = await ort.InferenceSession.create(ASSETS.sface, { executionProviders: ['wasm'] })
+  const session = await ort.InferenceSession.create(await sfaceFile(), { executionProviders: ['wasm'] })
   const canvas = document.createElement('canvas')
   canvas.width = CROP
   canvas.height = CROP

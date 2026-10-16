@@ -63,4 +63,5 @@ vi.mock('@/features/interview-live/proctor/camera/vision', () => ({
   ASSETS: {},
   loadFaceLandmarker: () => Promise.reject(new Error('no vision models in tests')),
   loadFaceEmbedder: () => Promise.reject(new Error('no vision models in tests')),
+  prefetchVisionModels: () => Promise.resolve(),
 }))

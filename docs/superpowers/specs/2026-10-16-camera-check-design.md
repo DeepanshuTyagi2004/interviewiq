@@ -37,7 +37,17 @@ embedding leaves the device, and nothing is stored after the room closes.
 | MediaPipe Face Landmarker (float16) | face count, landmarks, eye blendshapes | 3.7 MB | Apache-2.0 |
 | OpenCV Zoo SFace, int8 | 128-number face embedding of an aligned 112x112 crop | 9.9 MB | Apache-2.0 |
 
-Plus the two WebAssembly runtimes. They load from pinned public CDNs (jsDelivr, Google Storage, Hugging Face at a
+Plus the two WebAssembly runtimes (about 3 MB each compressed): about 19 MB on the first visit in all.
+
+**Downloaded once per device, not per interview.** The model files are kept in Cache Storage (`modelCache.ts`,
+cache `iq-vision-v1`) and checked against their SHA-256 before use and before caching, so a broken or tampered download
+is never kept. The runtimes are kept by the browser's HTTP cache (jsDelivr serves versioned files as immutable for a
+year). The instruction page (`PrejoinView.tsx`) prefetches the models, so even a first interview usually starts with
+them ready. Measured in Chromium: 19 MB on the first visit, 0 MB on the next ones. Bump `CACHE_NAME` when a model
+changes; older `iq-vision-*` caches are deleted on the next load. The browser may still evict the cache under storage
+pressure, in which case the files download again.
+
+They load from pinned public CDNs (jsDelivr, Google Storage, Hugging Face at a
 fixed revision) by default; `NEXT_PUBLIC_VISION_ASSETS_URL` switches to a self-hosted folder (layout in
 `features/interview-live/proctor/camera/vision.ts`). If anything fails to load, the check turns itself off and flags
 nothing; a failure of the identity model only turns that one check off.
