@@ -15,8 +15,9 @@ vi.mock("@/features/jobs", () => ({ useJds: () => ({ data: [], isLoading: false 
 vi.mock("@/features/loops", async (original) => ({ ...(await original<typeof import("@/features/loops")>()), useLoops: () => ({ data: [] }) }));
 vi.mock("@/lib/auth/AuthProvider", () => ({ useAuth: () => ({ logout: vi.fn() }) }));
 vi.mock("@/components/layout/ThemeToggle", () => ({ ThemeToggle: () => null }));
+const pathname = { value: "/dashboard" };
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard",
+  usePathname: () => pathname.value,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
@@ -73,6 +74,21 @@ describe("AppShell", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     await user.keyboard("{Escape}");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("ignores M and Ctrl+K on the live interview screen", async () => {
+    const user = userEvent.setup();
+    pathname.value = "/interviews/abc123/live";
+    try {
+      renderShell();
+      const toggle = screen.getByRole("button", { name: /open menu/i });
+      await user.keyboard("m");
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await user.keyboard("{Control>}k{/Control}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally {
+      pathname.value = "/dashboard";
+    }
   });
 
   it("shows admin destinations only to admins", async () => {
