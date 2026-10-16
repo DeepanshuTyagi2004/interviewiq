@@ -203,6 +203,13 @@ class Settings(BaseSettings):
     # Candidates' speech is personal data: Deepgram's model-improvement programme is opted out of (speech-to-text and voice).
     deepgram_mip_opt_out: bool = Field(True, alias="DEEPGRAM_MIP_OPT_OUT")
     interviewer_female_tts_voice: str = Field("aura-2-athena-en", alias="INTERVIEWER_FEMALE_TTS_VOICE")
+    # Voice provider: "sarvam" (Bulbul v4 Flash, Indian-English voices) or "deepgram" (the voices above). With "sarvam" the two
+    # voices below are Sarvam speaker names, and a missing SARVAM_API_KEY keeps the worker from starting.
+    interviewer_tts_provider: str = Field("sarvam", alias="INTERVIEWER_TTS_PROVIDER")
+    sarvam_api_key: str = Field("", alias="SARVAM_API_KEY")
+    sarvam_tts_model: str = Field("bulbul:v4-flash", alias="SARVAM_TTS_MODEL")
+    sarvam_tts_voice: str = Field("shubh_enhi_ads", alias="SARVAM_TTS_VOICE")
+    sarvam_female_tts_voice: str = Field("roopa_en_conversational", alias="SARVAM_FEMALE_TTS_VOICE")
     # How long the talker model gets to start answering before the fallback is raced against it, and how long
     # the interviewer keeps trying (saying short fillers meanwhile) before giving up on a reply.
     interviewer_talker_timeout_seconds: float = Field(3.0, alias="INTERVIEWER_TALKER_TIMEOUT_SECONDS", gt=0)

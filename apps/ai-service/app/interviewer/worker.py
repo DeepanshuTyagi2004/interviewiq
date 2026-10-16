@@ -25,7 +25,7 @@ from app.interviewer.protocol import WORKSPACE_TOPIC, agent_message
 from app.interviewer.run import InterviewRun, RunDeps
 from app.interviewer.store import MongoStore
 from app.interviewer.talker import Pacing
-from app.interviewer.voices import build_tts, tts_voice
+from app.interviewer.voices import build_tts_for, tts_voice, uses_sarvam
 from app.interviewer.workspace import WorkspaceBridge
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,10 @@ _REQUIRED = {"livekit_url": "LIVEKIT_URL", "livekit_api_key": "LIVEKIT_API_KEY",
 
 
 def missing_live_settings(settings: Any) -> list[str]:
-    return [env for attr, env in _REQUIRED.items() if not getattr(settings, attr, "")]
+    missing = [env for attr, env in _REQUIRED.items() if not getattr(settings, attr, "")]
+    if uses_sarvam(settings) and not getattr(settings, "sarvam_api_key", ""):
+        missing.append("SARVAM_API_KEY")
+    return missing
 
 
 def session_id_from(job_metadata: str | None, room_name: str | None) -> str | None:
@@ -230,7 +233,7 @@ async def entrypoint(ctx: JobContext) -> None:
         session = AgentSession(
             stt=deepgram.STT(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key,
                              mip_opt_out=settings.deepgram_mip_opt_out),
-            tts=build_tts(voice, settings.deepgram_api_key, settings.deepgram_mip_opt_out),
+            tts=build_tts_for(settings, voice),
             llm=PlaceholderLLM(),
             turn_handling=TURN_HANDLING,
         )

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from livekit.plugins import deepgram
+from livekit.plugins import deepgram, sarvam
 
 FEMALE = frozenset({"female", "woman", "f"})
 MALE = frozenset({"male", "man", "m"})
@@ -30,8 +30,22 @@ def persona_gender(persona: dict[str, Any] | None) -> str:
     return "male"
 
 
+def uses_sarvam(settings: Any) -> bool:
+    return str(settings.interviewer_tts_provider).strip().lower() == "sarvam"
+
+
 def tts_voice(settings: Any, persona: dict[str, Any] | None) -> str:
-    return settings.interviewer_female_tts_voice if persona_gender(persona) == "female" else settings.interviewer_tts_voice
+    female = persona_gender(persona) == "female"
+    if uses_sarvam(settings):
+        return settings.sarvam_female_tts_voice if female else settings.sarvam_tts_voice
+    return settings.interviewer_female_tts_voice if female else settings.interviewer_tts_voice
+
+
+def build_tts_for(settings: Any, voice: str):
+    if uses_sarvam(settings):
+        return sarvam.TTS(model=settings.sarvam_tts_model, target_language_code="en-IN", speaker=voice,
+                          api_key=settings.sarvam_api_key, speech_sample_rate=24000)
+    return build_tts(voice, settings.deepgram_api_key, settings.deepgram_mip_opt_out)
 
 
 def build_tts(voice: str, api_key: str, mip_opt_out: bool = True):
