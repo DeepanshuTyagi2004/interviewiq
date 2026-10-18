@@ -1,0 +1,15 @@
+Hi, good morning! Thanks for having me, I'm doing well.
+Yes, sure, I'm ready.
+I'm a backend engineer, mostly Java. Actually, I also have a startup idea about food delivery for small hostels, where cooks list the day's menu and students pre-order. I think the market is big.
+Also last month I went to a developer conference in Bangalore. The talk on event-driven systems was really good, and I met a few people building payment tools.
+And on weekends I am building a side project, a small CLI tool that tracks my expenses from bank messages. I want to add charts to it later.
+#wait 20
+Okay, sorry for talking so much, I'm ready for the coding problem.
+Can you tell me the constraints on the input?
+Let me start with a brute force and then improve it.
+#code def solve(data):\n    # first pass: brute force, check every case\n    result = None\n    for item in data:\n        pass  # TODO: improve\n    return result
+I'll check the edge cases first, then the time and space cost.
+Let me test it on a small example and then on an edge case.
+#wait 30
+That is all from my side for now.
+#end

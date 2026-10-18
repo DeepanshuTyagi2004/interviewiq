@@ -1,0 +1,16 @@
+Hi, thanks for having me! I'm doing well, a bit nervous but excited.
+Sure, that sounds good, I'm ready.
+I'm a backend engineer with about two years of experience, mostly Java and SQL. In my last company I led a migration of our monolith to microservices. The cutover failed the first time and I lost a whole weekend rolling it back and fixing the database links.
+We had split the services but the shared database was the problem. Two services were writing to the same tables, so the rollback took very long.
+After that we added a feature flag for each service and moved the data step by step. The second cutover was smooth.
+#wait 20
+Okay, I'm ready for the problem.
+Can you tell me the constraints on the input?
+I think I would first write a brute force, and then look for a way to improve it.
+I'll check the edge cases first, like empty input and a single element.
+#code def solve(data):\n    # first pass: brute force, check every case\n    result = None\n    for item in data:\n        pass  # TODO: improve\n    return result
+Now I will walk through the time and space cost of this first version.
+Then I will see which part is slow and improve it.
+#wait 30
+I think that is all from my side for this problem.
+#end

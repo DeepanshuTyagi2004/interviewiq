@@ -1,0 +1,14 @@
+Hello, thank you for your time! I'm good, how are you?
+Yes, that is fine, I'm ready to start.
+I'm a final-year student and I like backend work. My main project is a bill-splitting app for hostel rooms. I designed it as a REST API in Node with a Postgres database, and a React front end. Each group has members and expenses, and a balance table is updated whenever an expense is added.
+My role was everything on the backend: the schema, the settle-up logic that reduces the number of payments, and deploying it. Around forty students from my college use it now.
+The hardest part was the settle-up logic, I used a greedy match between people who owe and people who are owed.
+#wait 20
+Okay, I'm ready for the coding problem.
+Could you tell me the constraints on the input size?
+Let me start with a brute force and then improve it.
+#code def solve(data):\n    # first pass: brute force, check every case\n    result = None\n    for item in data:\n        pass  # TODO: improve\n    return result
+Once it works I will go through the time and space cost and the edge cases.
+#wait 30
+No more from my side, thank you.
+#end

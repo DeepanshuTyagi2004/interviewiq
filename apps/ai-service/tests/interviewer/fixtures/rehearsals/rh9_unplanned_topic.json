@@ -1,0 +1,1675 @@
+{
+ "shape_id": "classic",
+ "arc": [
+  [
+   "greeting",
+   1,
+   ""
+  ],
+  [
+   "small_talk",
+   2,
+   ""
+  ],
+  [
+   "framing",
+   1,
+   ""
+  ],
+  [
+   "candidate_intro",
+   2,
+   ""
+  ],
+  [
+   "core",
+   34,
+   ""
+  ],
+  [
+   "candidate_questions",
+   4,
+   ""
+  ],
+  [
+   "wrap_up",
+   1,
+   ""
+  ]
+ ],
+ "turns": [
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 1,
+   "speaker": "interviewer",
+   "text": "Hi Faisal, I'm Faisal \u2014 good to meet you. Can you hear me clearly?",
+   "at": 1000000.0,
+   "item_id": "greeting",
+   "orders": [],
+   "decision": {
+    "condition": "Greeting phase, candidate silent.",
+    "action": "improvised",
+    "reason": "Opened the interview with name and a question, then advanced to small talk."
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Greeting done; moving to small talk."
+     },
+     "result": {
+      "ok": true,
+      "now": "small_talk"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 1147,
+   "end_to_first_token_ms": null,
+   "usage": {
+    "completion_tokens": 154,
+    "prompt_tokens": 5543,
+    "total_tokens": 5697,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 0,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.001829223,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.0018477,
+     "upstream_inference_prompt_cost": 0.0016629,
+     "upstream_inference_completions_cost": 0.0001848
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 1147,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 4,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 2,
+   "speaker": "candidate",
+   "text": "Hi, thanks for having me! I'm doing well, a bit nervous but excited.",
+   "at": 1000020.0,
+   "item_id": "small_talk",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 3,
+   "speaker": "interviewer",
+   "text": "Good to hear it, and nervous is normal \u2014 it settles once we start. Are you somewhere quiet where you can talk comfortably for the next while?",
+   "at": 1000020.0,
+   "item_id": "small_talk",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate greeted warmly, didn't confirm hearing clearly, sounds ready.",
+    "action": "improvised",
+    "reason": "Replied to their words and asked the settling question about quiet surroundings; stays in small_talk."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 539,
+   "end_to_first_token_ms": 539,
+   "usage": {
+    "completion_tokens": 131,
+    "prompt_tokens": 5890,
+    "total_tokens": 6021,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5120,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0004147308,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00041892,
+     "upstream_inference_prompt_cost": 0.00026172,
+     "upstream_inference_completions_cost": 0.0001572
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 539,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 3,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 4,
+   "speaker": "candidate",
+   "text": "Sure, that sounds good, I'm ready.",
+   "at": 1000040.0,
+   "item_id": "small_talk",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 5,
+   "speaker": "interviewer",
+   "text": "Then let me tell you how this round will run. We'll start with a couple of quick questions about you, then move into coding problems, and after that we'll dig into your projects and leave time for your questions at the end. But before the coding, let's start with you \u2014 can you walk me through your background?",
+   "at": 1000040.0,
+   "item_id": "small_talk",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate confirmed they are in a quiet place and ready to start.",
+    "action": "next_item",
+    "reason": "Small talk wrapped; laid out the round format and opened the background part in the same turn as required."
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Small talk done; candidate is settled and ready, moving to framing and opening the candidate intro in the same turn."
+     },
+     "result": {
+      "ok": true,
+      "now": "framing"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 569,
+   "end_to_first_token_ms": 569,
+   "usage": {
+    "completion_tokens": 225,
+    "prompt_tokens": 5934,
+    "total_tokens": 6159,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5632,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00039044808,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000394392,
+     "upstream_inference_prompt_cost": 0.000124392,
+     "upstream_inference_completions_cost": 0.00027
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 569,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 3,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 6,
+   "speaker": "candidate",
+   "text": "I'm a backend engineer with about two years of experience, mostly Java and SQL. In my last company I led a migration of our monolith to microservices. The cutover failed the first time and I lost a whole weekend rolling it back and fixing the database links.",
+   "at": 1000060.0,
+   "item_id": "framing",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 7,
+   "speaker": "interviewer",
+   "text": "Two years, and a monolith-to-microservices migration at that \u2014 that's a lot of responsibility for your level. Which of the two projects on your resume, Relay or Vibe, is the one you'd like to talk about?",
+   "at": 1000060.0,
+   "item_id": "framing",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 1708,
+   "end_to_first_token_ms": 1708,
+   "usage": {
+    "completion_tokens": 49,
+    "prompt_tokens": 5913,
+    "total_tokens": 5962,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5120,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0003241458,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00032742,
+     "upstream_inference_prompt_cost": 0.00026862,
+     "upstream_inference_completions_cost": 5.88e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 1708,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 3,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 8,
+   "speaker": "candidate",
+   "text": "We had split the services but the shared database was the problem. Two services were writing to the same tables, so the rollback took very long.",
+   "at": 1000080.0,
+   "item_id": "framing",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 9,
+   "speaker": "interviewer",
+   "text": "Shared tables across two services \u2014 that's a classic trap, and it explains the painful rollback. You didn't answer my last question though: Relay or Vibe, which one would you like to talk about?",
+   "at": 1000080.0,
+   "item_id": "framing",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate is describing the migration failure but has not answered which project he wants to discuss.",
+    "action": "repeat_question",
+    "reason": "He gave context on the migration but skipped the project pick I asked for; I acknowledged his point and re-asked the outstanding question once in different words."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 523,
+   "end_to_first_token_ms": 523,
+   "usage": {
+    "completion_tokens": 159,
+    "prompt_tokens": 5995,
+    "total_tokens": 6154,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5248,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00044192412,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000446388,
+     "upstream_inference_prompt_cost": 0.000255588,
+     "upstream_inference_completions_cost": 0.0001908
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 523,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 2,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 10,
+   "speaker": "candidate",
+   "text": "After that we added a feature flag for each service and moved the data step by step. The second cutover was smooth.",
+   "at": 1000100.0,
+   "item_id": "framing",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 11,
+   "speaker": "interviewer",
+   "text": "Feature flags with an incremental data move \u2014 that's the right way to de-risk a cutover. I still don't know which project you want to discuss, so let me ask it plainly one more time: Relay or Vibe?",
+   "at": 1000100.0,
+   "item_id": "framing",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate keeps describing the migration and has twice not answered which project they want to discuss.",
+    "action": "improvised",
+    "reason": "They are still on candidate_intro and I need one project named before moving to coding; asked the same question in different words a second time."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 644,
+   "end_to_first_token_ms": 644,
+   "usage": {
+    "completion_tokens": 160,
+    "prompt_tokens": 6819,
+    "total_tokens": 6979,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 4480,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0009113742,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00092058,
+     "upstream_inference_prompt_cost": 0.00072858,
+     "upstream_inference_completions_cost": 0.000192
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 643,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 2,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 12,
+   "speaker": "interviewer",
+   "text": "I'll leave the choice to you and pick it up when we get to that part. Let me put the first problem on your screen.",
+   "at": 1000120.0,
+   "item_id": "framing",
+   "orders": [
+    {
+     "kind": "nudge",
+     "text": "The candidate has been quiet for a while. Check in gently: ask what they are thinking.",
+     "at": 1000120.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 564,
+   "end_to_first_token_ms": 20564,
+   "usage": {
+    "completion_tokens": 29,
+    "prompt_tokens": 6795,
+    "total_tokens": 6824,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00033880572,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000342228,
+     "upstream_inference_prompt_cost": 0.000307428,
+     "upstream_inference_completions_cost": 3.48e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 563,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 2,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 13,
+   "speaker": "candidate",
+   "text": "Okay, I'm ready for the problem.",
+   "at": 1000140.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 14,
+   "speaker": "interviewer",
+   "text": "Alright, let's get into the coding now. Here's your first question. Give it a read, and let me know if you have any questions.",
+   "at": 1000140.0,
+   "item_id": "core-1",
+   "orders": [
+    {
+     "kind": "open_item",
+     "text": "You have moved on to candidate_intro: open it now. Then a short connecting phrase that links this to what came just before (something like \"But before the coding, let's start with you.\"), then continue: ask for a short introduction, then what they are working on now. Ask ONE question only. If your last turn already said a connecting phrase or reacted to their last answer, do not say either again: go straight to the content.",
+     "at": 1000120.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    },
+    {
+     "kind": "open_item",
+     "text": "You have moved on to the next coding problem: start with a short connecting phrase (for example \"Alright, let's get into the coding now.\"), call show_problem, then say only this and nothing more about the problem: \"Let me put the first problem on your screen.\" Stop there: the line that invites them to read it is said for you once the screen has changed, so never say it yourself. If you just said you would talk about something else, say you have a problem for them first.",
+     "at": 1000120.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "Candidate said they're ready; conductor order says open the first coding problem.",
+    "action": "next_item then show_problem",
+    "reason": "Following the conductor's order to move to problem-1; problem appears on screen now."
+   },
+   "tool_calls": [
+    {
+     "name": "show_problem",
+     "arguments": {},
+     "result": {
+      "ok": true,
+      "already": true,
+      "label": "Problem 1"
+     }
+    },
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Moving into the first coding problem."
+     },
+     "result": {
+      "ok": false,
+      "error": "you are still asking about this problem: do not call next_item until you have finished with it and tell them you are moving on (say so in the same turn)"
+     }
+    },
+    {
+     "name": "show_problem",
+     "arguments": {},
+     "result": {
+      "ok": true,
+      "already": true,
+      "label": "Problem 1"
+     }
+    }
+   ],
+   "blocked": [
+    {
+     "sentence": "Let me put the first problem on your screen.",
+     "rule": "repeat",
+     "match": "Let me put the first problem on your screen."
+    }
+   ],
+   "first_token_ms": null,
+   "end_to_first_token_ms": 0,
+   "usage": {
+    "completion_tokens": 151,
+    "prompt_tokens": 8647,
+    "total_tokens": 8798,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8448,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00028867212,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000291588,
+     "upstream_inference_prompt_cost": 0.000110388,
+     "upstream_inference_completions_cost": 0.0001812
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 943,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 15,
+   "speaker": "candidate",
+   "text": "Can you tell me the constraints on the input?",
+   "at": 1000160.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 16,
+   "speaker": "interviewer",
+   "text": "Let me pull those up for you.",
+   "at": 1000160.0,
+   "item_id": "core-1",
+   "orders": [
+    {
+     "kind": "reveal_request",
+     "text": "The candidate asked for the problem's constraints. Call reveal with kind=constraints and say only a short line such as \"Let me pull those up for you.\" Never say the values aloud: they read them on their screen. Then stop: no question.",
+     "at": 1000160.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "Candidate asked for the problem's constraints.",
+    "action": "reveal constraints",
+    "reason": "Conductor ordered a reveal_request; show constraints and stop with no question."
+   },
+   "tool_calls": [
+    {
+     "name": "reveal",
+     "arguments": {
+      "kind": "constraints"
+     },
+     "result": {
+      "ok": true,
+      "message_id": "sim_4"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 1084,
+   "end_to_first_token_ms": 1084,
+   "usage": {
+    "completion_tokens": 128,
+    "prompt_tokens": 8581,
+    "total_tokens": 8709,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6144,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00091234836,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000921564,
+     "upstream_inference_prompt_cost": 0.000767964,
+     "upstream_inference_completions_cost": 0.0001536
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 1083,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [
+    {
+     "tool": "next_item",
+     "reason": "you are still asking about this problem: do not call next_item until you have finished with it and tell them you are moving on (say so in the same turn)"
+    }
+   ],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 17,
+   "speaker": "candidate",
+   "text": "I think I would first write a brute force, and then look for a way to improve it.",
+   "at": 1000180.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 18,
+   "speaker": "interviewer",
+   "text": "Okay, a brute force first is a reasonable starting point. Tell me what that brute force would look like.",
+   "at": 1000180.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 564,
+   "end_to_first_token_ms": 564,
+   "usage": {
+    "completion_tokens": 23,
+    "prompt_tokens": 8489,
+    "total_tokens": 8512,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00083479572,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000843228,
+     "upstream_inference_prompt_cost": 0.000815628,
+     "upstream_inference_completions_cost": 2.76e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 564,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 19,
+   "speaker": "candidate",
+   "text": "I'll check the edge cases first, like empty input and a single element.",
+   "at": 1000200.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 20,
+   "speaker": "interviewer",
+   "text": "Good instinct on edges, but hold that thought \u2014 I first want to hear the actual approach. How would your brute force evaluate something like three plus two times two?",
+   "at": 1000200.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 546,
+   "end_to_first_token_ms": 546,
+   "usage": {
+    "completion_tokens": 34,
+    "prompt_tokens": 8531,
+    "total_tokens": 8565,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6016,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00082308204,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000831396,
+     "upstream_inference_prompt_cost": 0.000790596,
+     "upstream_inference_completions_cost": 4.08e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 546,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 13,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 21,
+   "speaker": "candidate",
+   "text": "Now I will walk through the time and space cost of this first version.",
+   "at": 1000220.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 22,
+   "speaker": "interviewer",
+   "text": "I appreciate the structure, but you're describing steps around the problem rather than the method itself. In plain words, how would your code look at a character and decide what to do with it?",
+   "at": 1000220.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 560,
+   "end_to_first_token_ms": 560,
+   "usage": {
+    "completion_tokens": 40,
+    "prompt_tokens": 8645,
+    "total_tokens": 8685,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6144,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00082681236,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000835164,
+     "upstream_inference_prompt_cost": 0.000787164,
+     "upstream_inference_completions_cost": 4.8e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 560,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 13,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 23,
+   "speaker": "candidate",
+   "text": "Then I will see which part is slow and improve it.",
+   "at": 1000240.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 24,
+   "speaker": "interviewer",
+   "text": "Let's make it concrete then. Take the string three plus two times two, and walk me through what your code does at each step.",
+   "at": 1000240.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 1145,
+   "end_to_first_token_ms": 1145,
+   "usage": {
+    "completion_tokens": 29,
+    "prompt_tokens": 8800,
+    "total_tokens": 8829,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0010741896,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00108504,
+     "upstream_inference_prompt_cost": 0.00105024,
+     "upstream_inference_completions_cost": 3.48e-05
+    }
+   },
+   "provider": "PrimeIntellect",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 1145,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": 5,
+   "free_min": 13,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 25,
+   "speaker": "candidate",
+   "text": "I think that is all from my side for this problem.",
+   "at": 1000290.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 26,
+   "speaker": "interviewer",
+   "text": "We've spent a good chunk of time here and I haven't seen an approach yet. Rather than keep circling, let's move to the next part. That's not quite everything yet, honestly \u2014 I still haven't heard how you'd actually evaluate the expression. So let me put a specific string in front of you: three minus five times two. What does your code produce for that? Let me put the second problem on your screen. Here's your second question. Give it a read, and let me know if you have any questions.",
+   "at": 1000290.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "move_on"
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Candidate produced no approach or code for problem-1; time on the slot is nearly up, moving to problem 2."
+     },
+     "result": {
+      "ok": true,
+      "now": "problem-2"
+     }
+    },
+    {
+     "name": "show_problem",
+     "arguments": {
+      "item_id": "problem-2"
+     },
+     "result": {
+      "ok": true,
+      "label": "Problem 2",
+      "message_id": "sim_5"
+     }
+    }
+   ],
+   "blocked": [
+    {
+     "sentence": "I'll give you one small nudge to carry with you: think about what you'd need to remember as you scan left to right, so that a multiplication can still affect the number just before it.",
+     "rule": "insight_completed",
+     "match": "before,multip"
+    }
+   ],
+   "first_token_ms": 558,
+   "end_to_first_token_ms": 558,
+   "usage": {
+    "completion_tokens": 52,
+    "prompt_tokens": 8863,
+    "total_tokens": 8915,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8704,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00016070076,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000162324,
+     "upstream_inference_prompt_cost": 9.9924e-05,
+     "upstream_inference_completions_cost": 6.24e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 558,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": 5,
+   "free_min": 12,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 27,
+   "speaker": "interviewer",
+   "text": "Thank you for your time today, there. Take care, and goodbye.",
+   "at": 1000290.0,
+   "item_id": "core-2",
+   "orders": [
+    {
+     "kind": "end",
+     "text": "The candidate asked to end the interview. Thank them briefly and say goodbye.",
+     "at": 1000290.0,
+     "end_reason": "candidate_ended",
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": null,
+   "end_to_first_token_ms": 0,
+   "usage": {},
+   "provider": null,
+   "interrupted": false,
+   "error": null,
+   "model": null,
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 23,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  }
+ ],
+ "briefs": [
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000080.0,
+   "brief": {
+    "for_position": 2,
+    "goal": "Keep small talk brief and warm; when they reply, transition to framing and candidate intro.",
+    "next_move": {
+     "action": "encourage",
+     "detail": "Keep the chat short and friendly; after their reply, move to framing."
+    },
+    "plan_changes": [],
+    "tone": "warm and brief",
+    "evidence": [],
+    "summary": "",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": ""
+    }
+   },
+   "outcome": {
+    "stale": true,
+    "applied": [],
+    "dropped": [
+     "goal",
+     "next_move"
+    ]
+   },
+   "triggers": [
+    "item"
+   ],
+   "usage": {
+    "completion_tokens": 1210,
+    "prompt_tokens": 8467,
+    "total_tokens": 9677,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 1056,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8320,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0015305598,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00154602,
+     "upstream_inference_prompt_cost": 9.402e-05,
+     "upstream_inference_completions_cost": 0.001452
+    }
+   },
+   "latency_ms": 4860
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000140.0,
+   "brief": {
+    "for_position": 3,
+    "goal": "Candidate intro is still open: they gave a solid background but drifted past your question about which project they want to discuss. Get a direct answer to that project question, then let them say two or three sentences about it. Keep it short and warm.",
+    "next_move": {
+     "action": "redirect",
+     "detail": "They did not answer which project they'd like to talk about (seq 8 continued the migration story instead). Ask again, plainly, which of the two projects they want to discuss, and let them pick. Do not re-ask anything else."
+    },
+    "plan_changes": [
+     {
+      "op": "move_on",
+      "target": "framing",
+      "before": "",
+      "replace": "",
+      "question": "",
+      "skill": "",
+      "sound_answer": "",
+      "text": "",
+      "reason": "Framing is done; the conversation is already on the candidate intro.",
+      "minutes": 0
+     }
+    ],
+    "tone": "warm, unhurried; they said they're nervous \u2014 keep the pace easy",
+    "evidence": [
+     {
+      "item_id": "candidate_intro",
+      "signal": "communication",
+      "observation": "Gave a coherent two-year Java/SQL background and owned a failed cutover, but talked past the interviewer's question about which project to discuss (seq 6, seq 8).",
+      "turn_ids": [
+       6,
+       8
+      ]
+     },
+     {
+      "item_id": "candidate_intro",
+      "signal": "composure",
+      "observation": "Volunteered a failure and the recovery honestly rather than only successes (seq 6) \u2014 reasonable signal, but no technical depth yet.",
+      "turn_ids": [
+       6
+      ]
+     }
+    ],
+    "summary": "Round just started (1 min in). Greeting and small talk done; interviewer framed the round and asked for background. Candidate described two years of backend work in Java/SQL and a monolith-to-microservices migration whose shared-database cutover failed and was rolled back. Interviewer asked which resume project they'd like to discuss; candidate answered with more migration detail instead of choosing. No coding problem has started yet.",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": "No problem content or hints have been given; only round structure."
+    }
+   },
+   "outcome": {
+    "stale": true,
+    "applied": [],
+    "dropped": [
+     "goal",
+     "next_move",
+     "plan_change:move_on"
+    ]
+   },
+   "triggers": [
+    "item",
+    "turns"
+   ],
+   "usage": {
+    "completion_tokens": 728,
+    "prompt_tokens": 8864,
+    "total_tokens": 9592,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 260,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8320,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0010758528,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00108672,
+     "upstream_inference_prompt_cost": 0.00021312,
+     "upstream_inference_completions_cost": 0.0008736
+    }
+   },
+   "latency_ms": 6818
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000220.0,
+   "brief": {
+    "for_position": 5,
+    "goal": "Problem 1 has just been put on the candidate's screen and no coding has started. Give them a moment to read it, then ask what clarifying questions they have and how they plan to approach it before writing any code. If they jump straight to code, nudge them to state an approach first.",
+    "next_move": {
+     "action": "clarify",
+     "detail": "Invite their own questions on the problem (input constraints, division behaviour, spaces) and then ask for their high-level approach. Do not ask them to restate the problem \u2014 they have it on screen."
+    },
+    "plan_changes": [],
+    "tone": "Calm and encouraging; they flagged nerves at the start. Keep the interviewer's own speech short so they have room to think.",
+    "evidence": [
+     {
+      "item_id": "candidate_intro",
+      "signal": "communication",
+      "observation": "Asked which resume project (Relay or Vibe) they wanted to discuss, the candidate answered with further migration detail instead of choosing. The question was asked three times; the direct choice was never given.",
+      "turn_ids": [
+       8,
+       10
+      ]
+     },
+     {
+      "item_id": "candidate_intro",
+      "signal": "problem_understanding",
+      "observation": "Gave a concrete background: ~2 years backend, Java/SQL, led a monolith-to-microservices migration whose shared-database cutover failed and was rolled back, then succeeded using feature flags and incremental data moves.",
+      "turn_ids": [
+       6,
+       8,
+       10
+      ]
+     }
+    ],
+    "summary": "Round ~2 min in. Greeting, small talk and framing done; candidate described two years of backend work in Java/SQL and a failed-then-successful monolith-to-microservices migration using feature flags. Asked three times which resume project to discuss, the candidate never chose. Problem 1 is now on their screen; no work has begun.",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": ""
+    }
+   },
+   "outcome": {
+    "stale": false,
+    "applied": [],
+    "dropped": []
+   },
+   "triggers": [
+    "item",
+    "time",
+    "turns"
+   ],
+   "usage": {
+    "completion_tokens": 875,
+    "prompt_tokens": 9213,
+    "total_tokens": 10088,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 390,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 2560,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0030306474,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00306126,
+     "upstream_inference_prompt_cost": 0.00201126,
+     "upstream_inference_completions_cost": 0.00105
+    }
+   },
+   "latency_ms": 4865
+  }
+ ],
+ "items": [
+  {
+   "item_id": "greeting",
+   "kind": "phase",
+   "phase": "greeting",
+   "status": "done",
+   "ended_by": "Greeting done; moving to small talk.",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "small_talk",
+   "kind": "phase",
+   "phase": "small_talk",
+   "status": "done",
+   "ended_by": "Small talk done; candidate is settled and ready, moving to framing and opening the candidate intro in the same turn.",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 2
+  },
+  {
+   "item_id": "framing",
+   "kind": "phase",
+   "phase": "framing",
+   "status": "done",
+   "ended_by": "problem requested",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 3
+  },
+  {
+   "item_id": "candidate_intro",
+   "kind": "phase",
+   "phase": "candidate_intro",
+   "status": "done",
+   "ended_by": "problem requested",
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "core-1",
+   "kind": "slot",
+   "phase": "core",
+   "status": "done",
+   "ended_by": "Candidate produced no approach or code for problem-1; time on the slot is nearly up, moving to problem 2.",
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 7
+  },
+  {
+   "item_id": "core-2",
+   "kind": "slot",
+   "phase": "core",
+   "status": "active",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "deep_dive",
+   "kind": "phase",
+   "phase": "deep_dive",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "candidate_questions",
+   "kind": "phase",
+   "phase": "candidate_questions",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "wrap_up",
+   "kind": "phase",
+   "phase": "wrap_up",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  }
+ ],
+ "flow_log": [],
+ "dropped": [],
+ "end_reason": "candidate_ended"
+}

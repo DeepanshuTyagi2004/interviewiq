@@ -1,0 +1,1533 @@
+{
+ "shape_id": "classic",
+ "arc": [
+  [
+   "greeting",
+   1,
+   ""
+  ],
+  [
+   "small_talk",
+   2,
+   ""
+  ],
+  [
+   "framing",
+   1,
+   ""
+  ],
+  [
+   "candidate_intro",
+   2,
+   ""
+  ],
+  [
+   "core",
+   34,
+   ""
+  ],
+  [
+   "candidate_questions",
+   4,
+   ""
+  ],
+  [
+   "wrap_up",
+   1,
+   ""
+  ]
+ ],
+ "turns": [
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 1,
+   "speaker": "interviewer",
+   "text": "Hi, Faisal here. Good to meet you, and we'll get started in a moment \u2014 first, how are you doing today?",
+   "at": 1000000.0,
+   "item_id": "greeting",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "move_on"
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Greeting done; moving to small talk."
+     },
+     "result": {
+      "ok": true,
+      "now": "small_talk"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 613,
+   "end_to_first_token_ms": null,
+   "usage": {
+    "completion_tokens": 73,
+    "prompt_tokens": 5543,
+    "total_tokens": 5616,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5504,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00013100076,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000132324,
+     "upstream_inference_prompt_cost": 4.4724e-05,
+     "upstream_inference_completions_cost": 8.76e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 613,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 4,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 2,
+   "speaker": "candidate",
+   "text": "Hi, good morning! Thanks for having me, I'm doing well.",
+   "at": 1000020.0,
+   "item_id": "small_talk",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 3,
+   "speaker": "interviewer",
+   "text": "Good to hear. Are you somewhere quiet where you can talk comfortably through the round?",
+   "at": 1000020.0,
+   "item_id": "small_talk",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate gave a clear, warm greeting and said he is doing well.",
+    "action": "improvised",
+    "reason": "Reacted to his words and asked the single settling question about a quiet place to talk."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 953,
+   "end_to_first_token_ms": 953,
+   "usage": {
+    "completion_tokens": 116,
+    "prompt_tokens": 5894,
+    "total_tokens": 6010,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5632,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00024907608,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000251592,
+     "upstream_inference_prompt_cost": 0.000112392,
+     "upstream_inference_completions_cost": 0.0001392
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 953,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 3,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 4,
+   "speaker": "candidate",
+   "text": "Yes, sure, I'm ready.",
+   "at": 1000040.0,
+   "item_id": "small_talk",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 5,
+   "speaker": "interviewer",
+   "text": "Perfect. So, how this round will run: we'll start with a bit about you and your background, then get into a couple of coding problems, and after that we'll talk through your projects in some depth, and finish with any questions you have for me. Every problem will be on the shared editor, so keep thinking aloud as you go, and ask me anything that isn't clear. Let me also mention that we're aiming to finish everything in about forty-five minutes, so let's keep the pace comfortable. Alright, let me tell you how this round will run. We'll begin with a short introduction from you, then move on to one or two coding problems depending on how the first one goes, followed by a brief chat about your projects, and finally some time for your questions. Do think aloud throughout, and ask me anything along the way. But before the coding, let's start with you. Give me a short introduction, and tell me about one project you'd like to talk about.",
+   "at": 1000040.0,
+   "item_id": "small_talk",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "move_on"
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "small talk done; moving into framing and then candidate intro"
+     },
+     "result": {
+      "ok": true,
+      "now": "framing"
+     }
+    },
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Framing done; moving to candidate intro as ordered."
+     },
+     "result": {
+      "ok": true,
+      "now": "candidate_intro"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 579,
+   "end_to_first_token_ms": 579,
+   "usage": {
+    "completion_tokens": 197,
+    "prompt_tokens": 5873,
+    "total_tokens": 6070,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5120,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0004880898,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00049302,
+     "upstream_inference_prompt_cost": 0.00025662,
+     "upstream_inference_completions_cost": 0.0002364
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 579,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 3,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 6,
+   "speaker": "candidate",
+   "text": "I'm a backend engineer, mostly Java. Actually, I also have a startup idea about food delivery for small hostels, where cooks list the day's menu and students pre-order. I think the market is big.",
+   "at": 1000060.0,
+   "item_id": "candidate_intro",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 7,
+   "speaker": "interviewer",
+   "text": "Congrats on wanting to build something of your own \u2014 that's a good instinct. Tell me a bit more about your background first, though. I see on your resume that you're doing backend work in Java, and there's a project called Relay. What does your day-to-day look like there?",
+   "at": 1000060.0,
+   "item_id": "candidate_intro",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 753,
+   "end_to_first_token_ms": 753,
+   "usage": {
+    "completion_tokens": 62,
+    "prompt_tokens": 6258,
+    "total_tokens": 6320,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5120,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0004420548,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00044652,
+     "upstream_inference_prompt_cost": 0.00037212,
+     "upstream_inference_completions_cost": 7.44e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 753,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 5,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 8,
+   "speaker": "candidate",
+   "text": "Also last month I went to a developer conference in Bangalore. The talk on event-driven systems was really good, and I met a few people building payment tools.",
+   "at": 1000080.0,
+   "item_id": "candidate_intro",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 9,
+   "speaker": "interviewer",
+   "text": "Nice, that Bangalore one has some good talks. Coming back to what I asked, though \u2014 you're the first-name-half mentioned... I mean, you said you're mostly Java on the backend. What does your day-to-day look like on Relay?",
+   "at": 1000080.0,
+   "item_id": "candidate_intro",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate deflected the background question twice, talking about a startup idea and a conference instead of his Java/backend work.",
+    "action": "improvised",
+    "reason": "Steered off-topic talk back to the background question, linking naturally from what he raised, without repeating the same wording."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 1427,
+   "end_to_first_token_ms": 1427,
+   "usage": {
+    "completion_tokens": 169,
+    "prompt_tokens": 11931,
+    "total_tokens": 12100,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 4352,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.000950103,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000455712,
+     "upstream_inference_prompt_cost": 0.000393312,
+     "upstream_inference_completions_cost": 6.24e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 896,
+     "ok": true
+    },
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 531,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": true,
+   "brief_position": null,
+   "free_min": 4,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 10,
+   "speaker": "candidate",
+   "text": "And on weekends I am building a side project, a small CLI tool that tracks my expenses from bank messages. I want to add charts to it later.",
+   "at": 1000100.0,
+   "item_id": "candidate_intro",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 11,
+   "speaker": "interviewer",
+   "text": "That expense tracker sounds like a fun weekend build. But I still want to hear the day job \u2014 on Relay, what does a typical week look like for you?",
+   "at": 1000100.0,
+   "item_id": "candidate_intro",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 495,
+   "end_to_first_token_ms": 495,
+   "usage": {
+    "completion_tokens": 34,
+    "prompt_tokens": 7290,
+    "total_tokens": 7324,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00049176072,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000496728,
+     "upstream_inference_prompt_cost": 0.000455928,
+     "upstream_inference_completions_cost": 4.08e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 494,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": 4,
+   "free_min": 4,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 12,
+   "speaker": "interviewer",
+   "text": "Alright, we've spent enough on the intro \u2014 let's get into the coding now. Let me put the first problem on your screen. Here's your first question. Give it a read, and let me know if you have any questions.",
+   "at": 1000100.0,
+   "item_id": "candidate_intro",
+   "orders": [
+    {
+     "kind": "drop_question",
+     "text": "You have asked about this three times now. Do not ask it again, in any wording. Take what they said, respond to it briefly, and go on to the next part.",
+     "at": 1000100.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "move_on"
+   },
+   "tool_calls": [
+    {
+     "name": "next_item",
+     "arguments": {
+      "reason": "Intro time is up; moving to problem 1 per plan."
+     },
+     "result": {
+      "ok": true,
+      "now": "problem-1"
+     }
+    },
+    {
+     "name": "show_problem",
+     "arguments": {},
+     "result": {
+      "ok": true,
+      "label": "Problem 1",
+      "message_id": "sim_2"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 539,
+   "end_to_first_token_ms": 539,
+   "usage": {
+    "completion_tokens": 89,
+    "prompt_tokens": 7271,
+    "total_tokens": 7360,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6016,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00051420204,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000519396,
+     "upstream_inference_prompt_cost": 0.000412596,
+     "upstream_inference_completions_cost": 0.0001068
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 538,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": 4,
+   "free_min": 4,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 13,
+   "speaker": "candidate",
+   "text": "Okay, sorry for talking so much, I'm ready for the coding problem.",
+   "at": 1000140.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 14,
+   "speaker": "interviewer",
+   "text": "No need to apologise at all. Take a minute with the problem, and let me know when you're ready to talk through your approach.",
+   "at": 1000140.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "Candidate apologised for talking and said they are ready for the coding problem; problem-1 is on their screen.",
+    "action": "improvised",
+    "reason": "Problem already shown; invite them to think and signal readiness without re-describing the statement."
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 492,
+   "end_to_first_token_ms": 492,
+   "usage": {
+    "completion_tokens": 137,
+    "prompt_tokens": 8579,
+    "total_tokens": 8716,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8448,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00025184412,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000254388,
+     "upstream_inference_prompt_cost": 8.9988e-05,
+     "upstream_inference_completions_cost": 0.0001644
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 492,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 15,
+   "speaker": "candidate",
+   "text": "Can you tell me the constraints on the input?",
+   "at": 1000160.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 16,
+   "speaker": "interviewer",
+   "text": "Let me pull those up for you.",
+   "at": 1000160.0,
+   "item_id": "core-1",
+   "orders": [
+    {
+     "kind": "reveal_request",
+     "text": "The candidate asked for the problem's constraints. Call reveal with kind=constraints and say only a short line such as \"Let me pull those up for you.\" Never say the values aloud: they read them on their screen. Then stop: no question.",
+     "at": 1000160.0,
+     "end_reason": null,
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "reveal"
+   },
+   "tool_calls": [
+    {
+     "name": "reveal",
+     "arguments": {
+      "kind": "constraints"
+     },
+     "result": {
+      "ok": true,
+      "message_id": "sim_4"
+     }
+    }
+   ],
+   "blocked": [],
+   "first_token_ms": 525,
+   "end_to_first_token_ms": 525,
+   "usage": {
+    "completion_tokens": 46,
+    "prompt_tokens": 8651,
+    "total_tokens": 8697,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00091023372,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000919428,
+     "upstream_inference_prompt_cost": 0.000864228,
+     "upstream_inference_completions_cost": 5.52e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 525,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 17,
+   "speaker": "candidate",
+   "text": "Let me start with a brute force and then improve it.",
+   "at": 1000180.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 18,
+   "speaker": "interviewer",
+   "text": "Sure, go ahead \u2014 tell me how the brute force would look, and then we'll see how you'd improve on it.",
+   "at": 1000180.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "candidate asked for constraints, then said they'll do brute force then optimize",
+    "action": "encourage approach explanation",
+    "reason": "They want to start with brute force; let them describe it so I can probe precedence handling"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 599,
+   "end_to_first_token_ms": 599,
+   "usage": {
+    "completion_tokens": 130,
+    "prompt_tokens": 8642,
+    "total_tokens": 8772,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6144,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00093284136,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000942264,
+     "upstream_inference_prompt_cost": 0.000786264,
+     "upstream_inference_completions_cost": 0.000156
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 599,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 14,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 19,
+   "speaker": "candidate",
+   "text": "I'll check the edge cases first, then the time and space cost.",
+   "at": 1000200.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 20,
+   "speaker": "interviewer",
+   "text": "That's the right instinct. So what does your brute force actually do \u2014 walk me through the steps you'd take on the string.",
+   "at": 1000200.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 527,
+   "end_to_first_token_ms": 527,
+   "usage": {
+    "completion_tokens": 28,
+    "prompt_tokens": 8774,
+    "total_tokens": 8802,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6144,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00085086936,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000859464,
+     "upstream_inference_prompt_cost": 0.000825864,
+     "upstream_inference_completions_cost": 3.36e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 527,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 13,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 21,
+   "speaker": "candidate",
+   "text": "Let me test it on a small example and then on an edge case.",
+   "at": 1000220.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 22,
+   "speaker": "interviewer",
+   "text": "Testing early is good practice. But you haven't told me what the brute force is yet \u2014 so what does it do, step by step, on the input string?",
+   "at": 1000220.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 645,
+   "end_to_first_token_ms": 645,
+   "usage": {
+    "completion_tokens": 35,
+    "prompt_tokens": 8788,
+    "total_tokens": 8823,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 5888,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00093785472,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000947328,
+     "upstream_inference_prompt_cost": 0.000905328,
+     "upstream_inference_completions_cost": 4.2e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 645,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 13,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 23,
+   "speaker": "candidate",
+   "text": "That is all from my side for now.",
+   "at": 1000270.0,
+   "item_id": "core-1",
+   "ask": null
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 24,
+   "speaker": "interviewer",
+   "text": "I'm still not clear on the approach, so let me ask it more directly. Take the expression \"3+22\" \u2014 how would your brute force get to the right answer?",
+   "at": 1000270.0,
+   "item_id": "core-1",
+   "orders": [],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": 553,
+   "end_to_first_token_ms": 553,
+   "usage": {
+    "completion_tokens": 40,
+    "prompt_tokens": 8799,
+    "total_tokens": 8839,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 0,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 6144,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00087255036,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.000881364,
+     "upstream_inference_prompt_cost": 0.000833364,
+     "upstream_inference_completions_cost": 4.8e-05
+    }
+   },
+   "provider": "Together",
+   "interrupted": false,
+   "error": null,
+   "model": "deepseek/deepseek-v4.1-flash",
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [
+    {
+     "model": "deepseek/deepseek-v4.1-flash",
+     "ms": 553,
+     "ok": true
+    }
+   ],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 12,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": 0
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "seq": 25,
+   "speaker": "interviewer",
+   "text": "Thank you for your time today, there. Take care, and goodbye.",
+   "at": 1000270.0,
+   "item_id": "core-1",
+   "orders": [
+    {
+     "kind": "end",
+     "text": "The candidate asked to end the interview. Thank them briefly and say goodbye.",
+     "at": 1000270.0,
+     "end_reason": "candidate_ended",
+     "speak": true,
+     "consumed": true,
+     "line": null
+    }
+   ],
+   "decision": {
+    "condition": "not recorded by the model",
+    "reason": "conductor-recorded",
+    "inferred": true,
+    "action": "continue"
+   },
+   "tool_calls": [],
+   "blocked": [],
+   "first_token_ms": null,
+   "end_to_first_token_ms": 0,
+   "usage": {},
+   "provider": null,
+   "interrupted": false,
+   "error": null,
+   "model": null,
+   "hedged": false,
+   "fillers": 0,
+   "attempts": [],
+   "spoke_after_tools": false,
+   "brief_position": null,
+   "free_min": 12,
+   "refused": [],
+   "activity": null,
+   "set_aside": [],
+   "reply_began_ms": null
+  }
+ ],
+ "briefs": [
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000040.0,
+   "brief": {
+    "for_position": 2,
+    "goal": "Keep the small talk short and warm \u2014 let them answer, then move to framing and the candidate intro. No need to draw it out; the clock just started.",
+    "next_move": {
+     "action": "encourage",
+     "detail": "Warm, brief chat only. Let the candidate set the tone; don't script questions."
+    },
+    "plan_changes": [],
+    "tone": "Friendly, relaxed, low-pressure open.",
+    "evidence": [],
+    "summary": "Round just opened for a 45-minute DSA interview at salescode. Interviewer greeted the candidate; no candidate response yet. Plan: two core problems (expression evaluation with precedence, container-with-most-water), a deep dive, candidate questions, wrap-up. Nothing assessed so far.",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": ""
+    }
+   },
+   "outcome": {
+    "stale": true,
+    "applied": [],
+    "dropped": [
+     "goal",
+     "next_move"
+    ]
+   },
+   "triggers": [
+    "item"
+   ],
+   "usage": {
+    "completion_tokens": 487,
+    "prompt_tokens": 8474,
+    "total_tokens": 8961,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 277,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8320,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0006737148,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00068052,
+     "upstream_inference_prompt_cost": 9.612e-05,
+     "upstream_inference_completions_cost": 0.0005844
+    }
+   },
+   "latency_ms": 2362
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000080.0,
+   "brief": {
+    "for_position": 4,
+    "goal": "Candidate is mid-answer to the intro prompt; let them finish one project mention, keep it short, then pivot to problem 1 without letting the intro run past about two minutes.",
+    "next_move": {
+     "action": "encourage",
+     "detail": "Let them complete the intro; if they start listing many projects, pick one thread briefly, then transition to problem 1."
+    },
+    "plan_changes": [],
+    "tone": "Warm and brief; no time pressure remarks.",
+    "evidence": [],
+    "summary": "Round opened for a 45-minute DSA interview at salescode. Greeting and framing done; candidate is answering the intro/project prompt. Plan: two core problems (string expression evaluation with precedence; container with most water), a project deep dive, candidate questions, wrap-up. Nothing assessed yet.",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": ""
+    }
+   },
+   "outcome": {
+    "stale": false,
+    "applied": [],
+    "dropped": []
+   },
+   "triggers": [
+    "item"
+   ],
+   "usage": {
+    "completion_tokens": 460,
+    "prompt_tokens": 8867,
+    "total_tokens": 9327,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 235,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 2432,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.00247212108,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.002497092,
+     "upstream_inference_prompt_cost": 0.001945092,
+     "upstream_inference_completions_cost": 0.000552
+    }
+   },
+   "latency_ms": 2195
+  },
+  {
+   "session_id": "sim-06b8d419-0a12-492d-9c14-ffcc682f6b7f",
+   "candidate_id": "67cce39f-f458-45bb-8914-b3f9368658dd",
+   "at": 1000160.0,
+   "brief": {
+    "for_position": 4,
+    "goal": "Intro has drifted twice: the candidate talked about a startup idea and a conference instead of their background or Relay. Give them one narrow, different opening \u2014 a concrete detail about their day-to-day work \u2014 rather than repeating the same background question a third time. Whatever comes back in under a minute, close the intro and start problem 1.",
+    "next_move": {
+     "action": "redirect",
+     "detail": "Steer to one specific, new thread (e.g. what they actually built and shipped in Relay, or the one part of their backend work they own). One question only; take the answer at face value and move to problem 1 without further chasing."
+    },
+    "plan_changes": [
+     {
+      "op": "move_on",
+      "target": "candidate_intro",
+      "before": "",
+      "replace": "",
+      "question": "",
+      "skill": "",
+      "sound_answer": "",
+      "text": "",
+      "reason": "Intro has had its two minutes of value; answers are going to non-work topics (startup idea, conference). Move to problem 1 rather than extending it.",
+      "minutes": 0
+     }
+    ],
+    "tone": "Light and unhurried; no time pressure language. Don't sound like you're correcting them.",
+    "evidence": [
+     {
+      "item_id": "candidate_intro",
+      "signal": "problem_understanding / communication",
+      "observation": "Asked to introduce themselves and describe a project, candidate instead pitched a hostel food-delivery startup idea (turn 6).",
+      "turn_ids": [
+       6
+      ]
+     },
+     {
+      "item_id": "candidate_intro",
+      "signal": "communication",
+      "observation": "Re-asked specifically about their Java backend work and Relay, candidate talked about a Bangalore conference and payment-tool contacts (turn 8) \u2014 second answer in a row not on the asked question.",
+      "turn_ids": [
+       8
+      ]
+     },
+     {
+      "item_id": "candidate_intro",
+      "signal": "communication",
+      "observation": "Answers so far are short and topic-switching; nothing yet about scope, ownership or technical contribution.",
+      "turn_ids": [
+       6,
+       8
+      ]
+     }
+    ],
+    "summary": "Salescode DSA round, 45 min, ~1 min used. Greeting, framing and intro prompt delivered. Candidate's two intro answers went to a food-delivery startup idea and a Bangalore conference rather than their backend work or Relay. No coding started. Plan: problem 1 (string expression evaluation with precedence), problem 2 (container with most water), project deep dive, candidate questions, wrap-up. Nothing assessed yet.",
+    "problem_signal": "unknown",
+    "conduct": {
+     "concern": "none",
+     "reason": ""
+    },
+    "leak_review": {
+     "revealed_too_much": false,
+     "detail": ""
+    }
+   },
+   "outcome": {
+    "stale": true,
+    "applied": [],
+    "dropped": [
+     "goal",
+     "next_move",
+     "plan_change:move_on"
+    ]
+   },
+   "triggers": [
+    "turns"
+   ],
+   "usage": {
+    "completion_tokens": 1067,
+    "prompt_tokens": 9155,
+    "total_tokens": 10222,
+    "completion_tokens_details": {
+     "accepted_prediction_tokens": null,
+     "audio_tokens": 0,
+     "reasoning_tokens": 517,
+     "rejected_prediction_tokens": null,
+     "text_tokens": null,
+     "image_tokens": 0
+    },
+    "prompt_tokens_details": {
+     "audio_tokens": 0,
+     "cache_write_tokens": 0,
+     "cached_tokens": 8320,
+     "image_tokens": null,
+     "text_tokens": null,
+     "video_tokens": 0
+    },
+    "cost": 0.0015650118,
+    "is_byok": false,
+    "cost_details": {
+     "upstream_inference_cost": 0.00158082,
+     "upstream_inference_prompt_cost": 0.00030042,
+     "upstream_inference_completions_cost": 0.0012804
+    }
+   },
+   "latency_ms": 4503
+  }
+ ],
+ "items": [
+  {
+   "item_id": "greeting",
+   "kind": "phase",
+   "phase": "greeting",
+   "status": "done",
+   "ended_by": "Greeting done; moving to small talk.",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "small_talk",
+   "kind": "phase",
+   "phase": "small_talk",
+   "status": "done",
+   "ended_by": "small talk done; moving into framing and then candidate intro",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 2
+  },
+  {
+   "item_id": "framing",
+   "kind": "phase",
+   "phase": "framing",
+   "status": "done",
+   "ended_by": "Framing done; moving to candidate intro as ordered.",
+   "must": false,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "candidate_intro",
+   "kind": "phase",
+   "phase": "candidate_intro",
+   "status": "done",
+   "ended_by": "Intro time is up; moving to problem 1 per plan.",
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 3
+  },
+  {
+   "item_id": "core-1",
+   "kind": "slot",
+   "phase": "core",
+   "status": "active",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 6
+  },
+  {
+   "item_id": "core-2",
+   "kind": "slot",
+   "phase": "core",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "deep_dive",
+   "kind": "phase",
+   "phase": "deep_dive",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "candidate_questions",
+   "kind": "phase",
+   "phase": "candidate_questions",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  },
+  {
+   "item_id": "wrap_up",
+   "kind": "phase",
+   "phase": "wrap_up",
+   "status": "pending",
+   "ended_by": null,
+   "must": true,
+   "origin": "plan",
+   "title": "",
+   "why": "",
+   "parent": null,
+   "style": "",
+   "turns": 0
+  }
+ ],
+ "flow_log": [],
+ "dropped": [],
+ "end_reason": "candidate_ended"
+}
