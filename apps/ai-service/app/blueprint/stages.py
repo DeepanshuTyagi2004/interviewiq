@@ -6,39 +6,39 @@ import re
 from app.blueprint import fundamentals as F
 from app.blueprint import prompts as P
 from app.blueprint import selection as S
-from app.blueprint.context import Context
+from app.blueprint.context import (MIN_EXTRA_MINS, MIN_FIRST_PROBLEM_MINS, Context, base_phases, coding_fit,  # noqa: F401 (re-exported)
+                                   culture_minutes, has_problem_floor)
 from app.blueprint.llm import run_all, structured
 from app.blueprint.models import ArcPhase, Branch, Expectations, PersonalizationOut, PersonaStageOut, PlaybookOut, Signal
 from app.blueprint.selection import SlotPlan
+from app.blueprint.shapes import Shape
 from app.blueprint.trace import RunTrace, StageError
-from app.blueprint.vocabulary import (ACTIONS, DEFAULT_BRANCHES, PINNED_ACTIONS, UNSCORED_PHASES, family,
+from app.blueprint.vocabulary import (ACTIONS, DEFAULT_BRANCHES, PINNED_ACTIONS, UNSCORED_PHASES, family, is_culture_slot,
                                       required_conditions, slot_round_type)
 from app.config import Settings
 
 # ---------------------------------------------------------------- arc (deterministic timeboxes)
 
 
-def culture_minutes(core_mins: int) -> int:
-    """Minutes per behavioural question inside a technical round (a mixed round's behavioural part)."""
-    return 8 if core_mins >= 40 else 6
-
-
-def plan_arc(ctx: Context, core_slots: int, culture_slots: int = 0) -> tuple[list[ArcPhase], int, int]:
+def plan_arc(ctx: Context, core_slots: int, culture_slots: int = 0, shape: Shape | None = None,
+             swap_intro: bool = False) -> tuple[list[ArcPhase], int, int]:
     """Phases and minutes that always sum to the round duration. Returns (arc, minutes per technical core
     slot, minutes reserved for the resume deep-dive in hiring-manager rounds). Behavioural questions in a
-    mixed round take culture_minutes() each out of the core first."""
+    mixed round take culture_minutes() each out of the core first. A shape reorders and restyles the conversation
+    phases and moves minutes between them; it never changes the core minutes. `swap_intro` (a realism draw, see `realism.swap_intro`)
+    puts the candidate's introduction before the framing in the classic opening; any other shape ignores it. The arc owns the
+    conversation's order: the realism outline mirrors it."""
     d = ctx.duration_mins
-    if ctx.round_type == "online-assessment":
-        fixed = {"greeting": 1, "framing": 1, "wrap_up": 1}
-    else:
-        intro = 3 if ctx.family == "behavioural" else 2
-        fixed = {"greeting": 1, "small_talk": 2, "framing": 1, "candidate_intro": intro, "candidate_questions": 4, "wrap_up": 1}
-    # Short rounds give up small talk and candidate questions before the core shrinks below 10 minutes.
-    for phase in ("small_talk", "candidate_questions", "candidate_intro"):
-        if d - sum(fixed.values()) >= 10:
-            break
-        fixed.pop(phase, None)
+    fixed = base_phases(ctx.round_type, ctx.family, d)
     core = max(1, d - sum(fixed.values()))
+    # Shifts sum to 0, so the core is unchanged. A shape whose shifted phase the short-round rule already dropped
+    # keeps the classic minutes (still its own order and styles).
+    if shape and shape.shift and all(p in fixed for p in shape.shift):
+        fixed = {p: m + shape.shift.get(p, 0) for p, m in fixed.items()}
+        fixed = {p: m for p, m in fixed.items() if m > 0}
+        shifted = True
+    else:
+        shifted = False
     # The hiring-manager deep-dive (resume probes and the round's own questions) gets two shares: in a real HM
     # round the projects take most of the time, the stock HR questions much less.
     hm = ctx.round_type == "hiring-manager"
@@ -46,13 +46,48 @@ def plan_arc(ctx: Context, core_slots: int, culture_slots: int = 0) -> tuple[lis
     # its core on them: the one design problem is a warm-up, not the round.
     fundamentals_led = ctx.extra_part and ctx.family == "lld"
     shares = core_slots + (2 if hm or fundamentals_led else 1 if ctx.extra_part else 0)
-    culture = culture_slots * culture_minutes(core) if culture_slots else 0
+    floor = has_problem_floor(ctx.round_type, ctx.family, d)
+    culture = culture_slots * culture_minutes(core, culture_slots, ctx.extra_part, floor, fundamentals_led) if culture_slots else 0
     per_slot = max(1, (core - culture) // max(1, shares))
     deep_dive = core - culture - per_slot * core_slots if hm or ctx.extra_part else 0
-    order = ("greeting", "small_talk", "framing", "candidate_intro", "core", "candidate_questions", "wrap_up")
-    arc = [ArcPhase(phase=p, timebox_mins=core if p == "core" else fixed[p], scored=p not in UNSCORED_PHASES)
+    fit = coding_fit(core, culture_slots, ctx.extra_part, core_slots, fundamentals_led) if floor else None
+    if fit:
+        # A technical round's main problem gets the floor (decided 2026-10-18). Every problem keeps this timebox, but a coding round's second
+        # one is a bonus: it runs only if the first went well and time is left (the live director decides; see `bonus_slots`), so the
+        # timeboxes may add up to more than the core. The extra part (puzzles, fundamentals) gets what the floor and the behavioural
+        # questions leave, at least MIN_EXTRA_MINS (a part that cannot have that is dropped from the plan and the briefing in
+        # `build_context`); with one problem and no extra part the problem takes all that the questions leave.
+        per_slot = fit.first
+        deep_dive = fit.extra_mins if ctx.extra_part else 0
+    classic = ("greeting", "small_talk", "framing", "candidate_intro", "core", "candidate_questions", "wrap_up")
+    order = shape.order if shape else classic
+    if shape and not shifted and any(p != "core" and p not in order for p in fixed):
+        # The shape drops a phase (chat_first has no framing) and its minutes were not shifted away (a short round): the classic
+        # order keeps every phase, so the arc still sums to the round's length. The styles are still the shape's.
+        order = classic
+    if swap_intro and tuple(order[:4]) == ("greeting", "small_talk", "framing", "candidate_intro"):
+        order = (*order[:2], order[3], order[2], *order[4:])
+    styles = shape.styles if shape else {}
+    arc = [ArcPhase(phase=p, timebox_mins=core if p == "core" else fixed[p], scored=p not in UNSCORED_PHASES,
+                    style=styles.get(p, ""))
            for p in order if p == "core" or p in fixed]
     return arc, per_slot, deep_dive
+
+
+def bonus_slots(plans: list[SlotPlan], timeboxes: dict[str, int], core_mins: int, deep_dive: int) -> set[str]:
+    """Technical core problems that do not fit the core's minutes (the second problem of a short round): never the first problem, so
+    the live interviewer does not reserve their box up front and still gives them when the first goes well and time is left. A plan
+    that fits (every round of 45 minutes or more today) has none."""
+    technical = [p for p in plans if p.kind == "core" and not is_culture_slot(p.slot_id)]
+    culture = sum(timeboxes[p.slot_id] for p in plans if p.kind == "core" and is_culture_slot(p.slot_id))
+    capacity = core_mins - culture - deep_dive
+    bonus: set[str] = set()
+    used = 0
+    for n, p in enumerate(technical):
+        used += timeboxes[p.slot_id]
+        if n > 0 and used > capacity:
+            bonus.add(p.slot_id)
+    return bonus
 
 
 # ---------------------------------------------------------------- persona
@@ -71,23 +106,27 @@ def _round_view(ctx: Context) -> dict:
     }
 
 
-def name_options(seed: str, k: int = 4) -> list[str]:
-    """A reproducible shortlist of interviewer names for this session (variety across sessions)."""
+def name_options(seed: str, k: int = 4, exclude: set[str] | frozenset[str] = frozenset()) -> list[str]:
+    """A reproducible shortlist of interviewer names for this session, skipping the names the candidate has already had (a new
+    interviewer every round); once every name has been used, any name."""
     import hashlib
     import random
     rng = random.Random(int(hashlib.sha256(f"persona:{seed}".encode()).hexdigest()[:16], 16))
-    return rng.sample(list(P.INTERVIEWER_NAMES), k)
+    pool = [n for n in P.INTERVIEWER_NAMES if n not in exclude] or list(P.INTERVIEWER_NAMES)
+    return rng.sample(pool, min(k, len(pool)))
 
 
 async def persona_stage(ctx: Context, arc: list[ArcPhase], llm, trace: RunTrace, settings: Settings,
-                        seed: str = "", time_plan: str = "") -> PersonaStageOut:
+                        seed: str = "", time_plan: str = "", exclude_names: set[str] | frozenset[str] = frozenset(),
+                        shape: Shape | None = None, traits: dict[str, str] | None = None) -> PersonaStageOut:
     phases = [a.phase for a in arc]
     view = {**_round_view(ctx), **({"time_plan": time_plan} if time_plan else {}),
             "phase_minutes": {a.phase: a.timebox_mins for a in arc}}
     out = await structured(llm, trace, "persona", "persona", P.PERSONA_SYSTEM,
                            # One seeded name, not a shortlist: offered four, the model picked men's names ~80% of
                            # the time; the pool is balanced, so the seeded pick is too.
-                           P.persona_prompt(view, phases, name_options(seed or ctx.company, k=1)),
+                           P.persona_prompt(view, phases, name_options(seed or ctx.company, k=1, exclude=exclude_names),
+                                           shape.about if shape else "", traits),
                            PersonaStageOut, settings)
     guidance = {g.phase: g.guidance for g in out.phase_guidance}
     for a in arc:
@@ -113,13 +152,16 @@ def coding_round_questions(out: PersonalizationOut) -> list[str]:
     return [q.prompt for q in out.round_questions if _CODING_ASK.search(q.prompt)]
 
 
-def time_plan(ctx: Context, plans: list[SlotPlan], per_slot: int, culture_mins: int, deep_dive: int) -> str:
+def time_plan(ctx: Context, plans: list[SlotPlan], per_slot: int, culture_mins: int, deep_dive: int,
+              core_mins: int | None = None) -> str:
     """How the core phase is spent, for the persona's framing and core guidance (never shown to the candidate)."""
     from app.blueprint.vocabulary import is_culture_slot
     culture = sum(1 for p in plans if p.kind == "core" and is_culture_slot(p.slot_id))
     main = sum(1 for p in plans if p.kind == "core" and not is_culture_slot(p.slot_id))
     parts = ([f"{culture} behavioural question(s) first, about {culture_mins} min each"] if culture else []) + \
-            [f"{main} main question(s), about {per_slot} min each"] + \
+            [f"{main} main question(s), about {per_slot} min each"
+             + (", the later ones only if the first goes well and time is left"
+                if core_mins is not None and main > 1 and per_slot * main > core_mins - culture * culture_mins - deep_dive else "")] + \
             ([f"then {deep_dive} min of questions on the candidate's projects and the round's other topics"] if deep_dive else [])
     return "; ".join(parts)
 

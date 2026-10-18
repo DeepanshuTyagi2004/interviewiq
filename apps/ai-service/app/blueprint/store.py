@@ -184,6 +184,103 @@ async def active_slugs_for_candidate(candidate_id: str, exclude_session: str | N
     return out
 
 
+async def persona_names_for_candidate(candidate_id: str, exclude_session: str | None) -> set[str]:
+    """The interviewer names this user has had in their other rounds, any version: a new interviewer every round."""
+    q: dict = {"candidate_id": candidate_id}
+    if exclude_session:
+        q["session_id"] = {"$ne": exclude_session}
+    out: set[str] = set()
+    async for doc in get_db()[BLUEPRINTS].find(q, {"persona.name": 1}):
+        name = ((doc.get("persona") or {}).get("name") or "").strip()
+        if name:
+            out.add(name)
+    return out
+
+
+async def recent_shapes_for_candidate(candidate_id: str, exclude_session: str | None, limit: int = 2) -> list[str]:
+    """The round shapes of this user's latest rounds in other sessions, newest first, one per session, so the next
+    round never repeats one of them. A blueprint from before shapes existed counts as classic."""
+    q: dict = {"candidate_id": candidate_id, "session_id": {"$nin": [exclude_session, None]} if exclude_session else {"$ne": None}}
+    out: list[str] = []
+    seen: set[str] = set()
+    async for doc in get_db()[BLUEPRINTS].find(q, {"session_id": 1, "shape_id": 1}).sort("created_at", -1):
+        sid = doc.get("session_id")
+        if sid in seen:
+            continue
+        seen.add(sid)
+        out.append(doc.get("shape_id") or "classic")
+        if len(out) >= limit:
+            break
+    return out
+
+
+async def shape_for_session(session_id: str) -> str | None:
+    """The shape an earlier blueprint of this session used: a re-prep keeps it, so the candidate's round does not change shape."""
+    doc = await get_db()[BLUEPRINTS].find_one({"session_id": session_id}, {"shape_id": 1}, sort=[("created_at", -1)])
+    return (doc.get("shape_id") or "classic") if doc else None
+
+
+async def recent_traits_for_candidate(candidate_id: str, exclude_session: str | None, limit: int = 2) -> list[dict[str, str]]:
+    """The persona trait combinations of this user's latest rounds in other sessions, newest first, one per session, so the next
+    round never repeats one of them (a round whose plan was dropped still counts: its persona had them). A blueprint from before
+    the realism block has none and counts for nothing."""
+    q: dict = {"candidate_id": candidate_id, "session_id": {"$nin": [exclude_session, None]} if exclude_session else {"$ne": None}}
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    async for doc in get_db()[BLUEPRINTS].find(q, {"session_id": 1, "realism.traits": 1, "realism_traits": 1}).sort("created_at", -1):
+        sid = doc.get("session_id")
+        if sid in seen:
+            continue
+        seen.add(sid)
+        traits = doc.get("realism_traits") or (doc.get("realism") or {}).get("traits")
+        if traits:
+            out.append(traits)
+        if len(seen) >= limit:
+            break
+    return out
+
+
+async def recent_habits_for_candidate(candidate_id: str, exclude_session: str | None, limit: int = 2) -> list[dict]:
+    """The speech habits of this user's latest rounds in other sessions, newest first, one per session, so the next interviewer shares few
+    phrases with either (a round whose plan was dropped still counts: its persona said them). A blueprint from before the habits were kept
+    counts for nothing."""
+    q: dict = {"candidate_id": candidate_id, "session_id": {"$nin": [exclude_session, None]} if exclude_session else {"$ne": None}}
+    out: list[dict] = []
+    seen: set[str] = set()
+    async for doc in get_db()[BLUEPRINTS].find(q, {"session_id": 1, "realism.habits": 1, "realism_habits": 1}).sort("created_at", -1):
+        sid = doc.get("session_id")
+        if sid in seen:
+            continue
+        seen.add(sid)
+        habits = doc.get("realism_habits") or (doc.get("realism") or {}).get("habits")
+        if habits:
+            out.append(habits)
+        if len(seen) >= limit:
+            break
+    return out
+
+
+async def habits_for_session(session_id: str) -> dict | None:
+    """The speech habits an earlier blueprint of this session drew, for a re-prep to keep (None when there are none)."""
+    doc = await get_db()[BLUEPRINTS].find_one({"session_id": session_id}, {"realism.habits": 1, "realism_habits": 1}, sort=[("created_at", -1)])
+    doc = doc or {}
+    return doc.get("realism_habits") or (doc.get("realism") or {}).get("habits") or None
+
+
+async def realism_for_session(session_id: str) -> dict | None:
+    """The seed and traits an earlier blueprint of this session drew (`{"seed": int, "traits": dict | None}`): a re-prep keeps both,
+    like the shape, even when that blueprint's plan was dropped. None for a blueprint from before the realism block."""
+    doc = await get_db()[BLUEPRINTS].find_one({"session_id": session_id},
+                                              {"realism.seed": 1, "realism.traits": 1, "realism_seed": 1, "realism_traits": 1},
+                                              sort=[("created_at", -1)])
+    doc = doc or {}
+    realism = doc.get("realism") or {}
+    seed = doc.get("realism_seed") if isinstance(doc.get("realism_seed"), int) else realism.get("seed")
+    if not isinstance(seed, int):
+        return None
+    return {"seed": seed, "traits": doc.get("realism_traits") or realism.get("traits") or None}
+
+
 # ================================================================ answer keys
 
 def answer_key_id(round_type: str, slug: str, content_hash: str | None, key_version: str) -> str:

@@ -16,7 +16,7 @@ from typing import Callable
 
 from app.blueprint import store
 from app.blueprint import topics as T
-from app.blueprint.context import Context, norm_title, rank
+from app.blueprint.context import Context, coding_fit, core_minutes, has_problem_floor, norm_title, rank
 from app.models.engineering_levels import ENGINEERING_LEVELS
 
 LEVEL_ORDER = list(ENGINEERING_LEVELS)
@@ -344,6 +344,16 @@ def behavioural_cores(ctx: Context) -> int:
     return 3 if ctx.duration_mins <= 50 else 4
 
 
+def culture_cores(ctx: Context) -> int:
+    """Behavioural questions a technical round with a behavioural part asks: two, or fewer at a short length where two would leave the
+    main problem under its 15-minute floor (decided 2026-10-18; never at 45 minutes, where the old split stands)."""
+    if not ctx.culture:
+        return 0
+    fit = coding_fit(core_minutes(ctx.round_type, ctx.family, ctx.duration_mins), 2, ctx.extra_part, 1, ctx.extra_part and ctx.family == "lld") \
+        if has_problem_floor(ctx.round_type, ctx.family, ctx.duration_mins) else None
+    return fit.culture if fit else 2
+
+
 def slot_specs(ctx: Context) -> list[SlotSpec]:
     specs = _round_specs(ctx)
     if coding_cores(ctx) == 1:
@@ -377,6 +387,8 @@ def _with_culture(ctx: Context, specs: list[SlotSpec]) -> list[SlotSpec]:
                SlotSpec(f"{CULTURE_PREFIX}2", "core", purpose, accepts, pool=_behavioural, any_difficulty=True),
                SlotSpec(f"{CULTURE_PREFIX}reserve", "reserve", f"spare {purpose} question", accepts, pool=_behavioural,
                         any_difficulty=True)]
+    if culture_cores(ctx) == 1:
+        culture = [s for s in culture if s.slot_id != f"{CULTURE_PREFIX}2"]    # the spare covers a second one if it ever comes to that
     return technical + culture
 
 

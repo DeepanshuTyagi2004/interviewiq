@@ -149,21 +149,31 @@ PERSONA_SYSTEM = PLATFORM + (
 )
 
 
-# A varied pool so interviewers differ across sessions (genders and regions); the run offers a seeded few.
+# Every interviewer is a man (decided 2026-10-16), with a different name each round: a varied pool (regions) and a seeded pick
+# that skips the names the candidate has already had.
 INTERVIEWER_NAMES = (
-    "Ananya Iyer", "Arjun Nair", "Priya Deshpande", "Karthik Raman", "Meera Kulkarni", "Vikram Sethi", "Sneha Reddy",
-    "Rahul Banerjee", "Aisha Khan", "Siddharth Menon", "Neha Agarwal", "Farhan Qureshi", "Divya Pillai", "Aditya Joshi",
-    "Kavya Hegde", "Rohan Malhotra", "Ishita Chatterjee", "Nikhil Verma", "Pooja Shetty", "Imran Siddiqui", "Lakshmi Narayanan",
-    "Harpreet Kaur", "Manish Tiwari", "Tanvi Bhatt", "Sameer Gupta", "Nandini Rao", "Abhishek Das", "Ritika Saxena",
-    "Gaurav Chauhan", "Shreya Mukherjee", "Varun Kapoor", "Zoya Sheikh", "Pranav Kulkarni", "Anjali Mishra", "Deepak Yadav",
+    "Arjun Nair", "Karthik Raman", "Vikram Sethi", "Rahul Banerjee", "Siddharth Menon", "Farhan Qureshi", "Aditya Joshi",
+    "Rohan Malhotra", "Nikhil Verma", "Imran Siddiqui", "Manish Tiwari", "Sameer Gupta", "Abhishek Das", "Gaurav Chauhan",
+    "Varun Kapoor", "Pranav Kulkarni", "Deepak Yadav", "Harish Subramanian", "Sanjay Bhat", "Amit Saxena", "Kunal Mehta",
+    "Rajesh Pillai", "Vivek Chandran", "Ankit Sharma", "Suresh Iyer", "Mohit Arora", "Naveen Reddy", "Tarun Bose",
+    "Ashwin Krishnan", "Yash Deshmukh", "Akash Hegde", "Ravi Shankar", "Sandeep Gill", "Faisal Ahmed", "Manoj Patil",
+    "Aman Sinha", "Prakash Menon", "Vishal Thakur", "Dhruv Agarwal", "Rakesh Mishra",
 )
 
 
-def persona_prompt(ctx_view: dict, phases: list[str], names: list[str] | None = None) -> str:
-    name_rule = (f"The persona's name is {names[0]}. " if names and len(names) == 1
+def persona_prompt(ctx_view: dict, phases: list[str], names: list[str] | None = None, shape_about: str = "",
+                   traits: dict[str, str] | None = None) -> str:
+    name_rule = (f"The persona's name is {names[0]}; he is a man. " if names and len(names) == 1
                  else f"Choose the persona's name from: {', '.join(names)}. " if names else "")
     return (
         f"Round:\n{_j(ctx_view)}\n\n" + name_rule +
+        # With traits, the shape is structure only: the traits are the one source of manner (a shape's "warm, unhurried" or "brisk"
+        # could contradict them).
+        ((f"The round's structure: {shape_about}. Its manner comes only from your traits below. " if traits else
+          f"The round's shape: {shape_about}. Write a persona whose manner fits it: brisk and direct for a round that goes "
+          "straight to the work, warm and unhurried for one that starts with a longer chat. ") if shape_about else "") +
+        (f"Your traits: {', '.join(f'{axis} {level}' for axis, level in traits.items() if axis != 'register')}; write the persona consistent with them "
+         "(style, disposition, opening and closing all sound like this person; never name a trait aloud). " if traits else "") +
         "Return exactly:\n{\n"
         '  "persona": {"name": "<first name and surname, common in India>", "seniority": "<e.g. Senior Software Engineer>", '
         '"style": "<one short line, e.g. calm, asks a lot of why-questions>", "disposition": "<how they react to struggle and to strong answers>", '
@@ -172,7 +182,8 @@ def persona_prompt(ctx_view: dict, phases: list[str], names: list[str] | None = 
         '"grounded_in": ["<which brief notes shaped this persona>"]},\n'
         '  "phase_guidance": [' + ", ".join(f'{{"phase": "{p}", "guidance": "<how this persona runs {p}>"}}' for p in phases) + "]\n"
         "}\n"
-        "Use ONLY the minutes in `phase_minutes` and `time_plan` when guidance mentions time; never state another figure. "
+        "Never give a length of time in phase guidance (no minutes, hours or seconds; not the round's length, a part's length or how much is left): "
+        "the interviewer never says one aloud and the guidance reaches it as written. "
         "small_talk must be natural and unscored (how is your day, something light); framing explains the round's format "
         "without naming topics; candidate_questions answers questions about the role and company honestly and generically."
     )

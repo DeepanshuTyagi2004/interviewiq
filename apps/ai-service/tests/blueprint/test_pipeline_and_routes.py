@@ -26,6 +26,12 @@ def test_fingerprint_ignores_trigger_and_options_but_not_inputs():
     assert a[0] != c[0] and a[1]["profile"] != c[1]["profile"] and a[1]["jd"] == c[1]["jd"]
 
 
+def test_fingerprint_carries_the_prep_version_hashed_the_way_the_api_does():
+    import hashlib
+    assert pipeline.PREP_VERSION == "shapes-1"
+    assert pipeline.fingerprint(request())[1]["prep"] == hashlib.sha256(b'"shapes-1"').hexdigest()[:16]
+
+
 def test_identical_inputs_reuse_the_current_blueprint(monkeypatch):
     req = request(input_hash="h1")
 

@@ -182,6 +182,7 @@ class DsaAnswerKey(_M):
     edge_cases: list[str] = Field(min_length=2)
     reference_solution: KeySolution
     reviewed: bool = False          # a reviewer pass checked the prose (complexity, insights, edge cases)
+    review_source: Literal["llm", "gate"] | None = None   # who vouched for it: the LLM reviewer, or the gate skipping it
 
 
 class KeyCorrection(_M):
@@ -245,6 +246,7 @@ class ArcPhase(_M):
     timebox_mins: int = Field(ge=0, le=180)
     scored: bool
     guidance: str = ""
+    style: str = ""
 
 
 # ================================================================ personalization (stage 5)
@@ -402,6 +404,7 @@ class Slot(_M):
     order: int
     purpose: str = ""                       # e.g. "harder extension", "same-level alternate"
     timebox_mins: int
+    bonus: bool = False                     # a problem the round's minutes do not hold (a short round's second): given only if time allows
     problem: SlotProblem
     answer_key: dict[str, Any]              # {key, key_version, cache_hit}
     ask: Ask
@@ -411,6 +414,40 @@ class Slot(_M):
     follow_ups: list[str] = Field(default_factory=list)
     expectations: Expectations
     evaluation_signals: list[Signal]
+
+
+# ================================================================ realism (per-session variety, drawn by code at prep)
+
+class SpeechHabits(_M):
+    """How this interviewer talks, drawn from the speech vocabulary (`speech_vocab.py`, tagged by trait): 5-8 acknowledgements, 3-4
+    backchannels, 2-3 wait fillers per stage (`stage0`, `stage1`, ... as in `app.interviewer.fillers.STAGES`) and 3-5 lead-ins (the
+    short ways a turn can begin). A block stored before lead-ins existed has none."""
+    acks: list[str]
+    backchannels: list[str]
+    fillers: dict[str, list[str]]
+    lead_ins: list[str] = Field(default_factory=list)
+
+
+class RealismOutlinePart(_M):
+    """One conversation part of the planned outline. `promises` are what the interviewer tells the candidate it will cover, as
+    `projects:<name>` or `fundamentals:<area>` (only the deep dive carries any)."""
+    part: str
+    promises: list[str] = Field(default_factory=list)
+
+
+class ChangeStance(_M):
+    """A prior for how many times the interviewer refuses a problem change before it is convinced. Guidance for the live model, not
+    a count the code enforces."""
+    firmness: str
+    refusals_prior: int
+
+
+class Realism(_M):
+    seed: int
+    traits: dict[str, str]
+    habits: SpeechHabits
+    outline: list[RealismOutlinePart]
+    change: ChangeStance
 
 
 class Blueprint(_M):
@@ -432,3 +469,9 @@ class Blueprint(_M):
     evaluation: dict[str, Any]
     briefing: Briefing
     provenance: dict[str, Any]
+    shape_id: str = "classic"
+    realism: Realism | None = None          # None: an old blueprint, or a plan that failed validation (the interviewer behaves as before)
+    # The draw behind the plan, kept even when the plan was dropped, so a re-prep keeps the shape-affecting choices (the classic opening's order) and the persona's traits.
+    realism_seed: int | None = None
+    realism_traits: dict[str, str] | None = None
+    realism_habits: dict[str, Any] | None = None       # the speech habits drawn, kept like the traits: a re-prep keeps them, the next persona avoids them

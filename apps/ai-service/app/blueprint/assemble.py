@@ -8,7 +8,7 @@ from app.blueprint import prompts as P
 from app.blueprint.context import Context
 from app.blueprint.models import ArcPhase, Blueprint, Briefing, PersonalizationOut, PersonaStageOut, PlaybookOut, Policies, Slot
 from app.blueprint.policies import global_signals
-from app.blueprint.selection import SlotPlan, behavioural_cores, coding_cores
+from app.blueprint.selection import SlotPlan, behavioural_cores, coding_cores, culture_cores
 from app.blueprint.topics import canon
 from app.blueprint.vocabulary import UNSCORED_PHASES, is_culture_slot, required_conditions, slot_round_type
 
@@ -29,7 +29,7 @@ def expected_slots(ctx: Context) -> tuple[int, int]:
         core = behavioural_cores(ctx)
     if not ctx.culture:
         return core, reserve
-    return 1 + 2, reserve + 1
+    return 1 + culture_cores(ctx), reserve + 1
 
 
 def _leak_terms(slots: list[Slot]) -> set[str]:
@@ -61,7 +61,7 @@ def briefing(ctx: Context, persona: PersonaStageOut, slots: list[Slot]) -> Brief
 
 
 def build_slots(plans: list[SlotPlan], keyed: dict[str, dict], playbooks: dict[str, PlaybookOut],
-                per_slot: int | dict[str, int]) -> list[Slot]:
+                per_slot: int | dict[str, int], bonus: set[str] | frozenset[str] = frozenset()) -> list[Slot]:
     slots = []
     for plan in plans:
         item = keyed[plan.slot_id]
@@ -70,6 +70,7 @@ def build_slots(plans: list[SlotPlan], keyed: dict[str, dict], playbooks: dict[s
         slots.append(Slot(
             slot_id=plan.slot_id, kind=plan.kind, order=plan.order, purpose=plan.purpose,
             timebox_mins=per_slot.get(plan.slot_id, 0) if isinstance(per_slot, dict) else per_slot,
+            bonus=plan.slot_id in bonus,
             problem={"round_type": problem["round_type"], "slug": problem["slug"], "title": problem.get("title", problem["slug"]),
                      "difficulty": problem.get("difficulty"), "content_hash": problem.get("content_hash"),
                      "content": problem.get("content") or {}},

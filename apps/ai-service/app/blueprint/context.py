@@ -12,9 +12,109 @@ from app.blueprint.trace import StageError
 from app.blueprint.vocabulary import family
 from app.models.engineering_levels import Level, normalize_legacy_level
 
-# Every mock interview round is 45 minutes. The API always sends this length; it is also what a request that names none gets.
+# A mock round is 30, 35, 40 or 45 minutes, drawn at booking; the API sends the session's own length as `duration_mins` (decided
+# 2026-10-18). 45 is the maximum and what a request that names no length (or an old session) gets.
 MOCK_ROUND_MINUTES = 45
 DEFAULT_DURATION = {t: MOCK_ROUND_MINUTES for t in ("dsa", "online-assessment", "system-design", "lld", "behavioural", "hiring-manager")}
+
+# A technical round's main problem (coding, design, machine coding) gets at least this long (decided 2026-10-18, when rounds became
+# 30-45 minutes): at 30 minutes the core is about 19, so equal shares (or a behavioural part) would leave a problem 2-9 minutes. What
+# does not fit is dropped: a coding round's second problem is a bonus, a behavioural part keeps fewer questions, the extra part gets
+# what is left. Where the old equal split already gives the problem this long, it is unchanged, and at 45 minutes (every round kind) the old split is kept
+# whole (`has_problem_floor`; decided 2026-10-18): the floor is for the shorter lengths.
+MIN_FIRST_PROBLEM_MINS = 15
+MIN_CULTURE_MINS = 4
+MIN_EXTRA_MINS = 4          # the extra part (projects, fundamentals, puzzles) is not worth asking in less
+
+
+def base_phases(round_type: str, fam: str, duration: int) -> dict[str, int]:
+    """The conversation phases around the core and their minutes. Short rounds give up small talk, the candidate's questions
+    and then the introduction before the core shrinks below 10 minutes."""
+    if round_type == "online-assessment":
+        fixed = {"greeting": 1, "framing": 1, "wrap_up": 1}
+    else:
+        intro = 3 if fam == "behavioural" else 2
+        fixed = {"greeting": 1, "small_talk": 2, "framing": 1, "candidate_intro": intro, "candidate_questions": 4, "wrap_up": 1}
+    for phase in ("small_talk", "candidate_questions", "candidate_intro"):
+        if duration - sum(fixed.values()) >= 10:
+            break
+        fixed.pop(phase, None)
+    return fixed
+
+
+def core_minutes(round_type: str, fam: str, duration: int) -> int:
+    return max(1, duration - sum(base_phases(round_type, fam, duration).values()))
+
+
+def has_problem_floor(round_type: str, fam: str, duration: int) -> bool:
+    """A round built around a main technical problem (coding, system design, LLD), which MIN_FIRST_PROBLEM_MINS protects. Online
+    assessments, hiring-manager and behavioural rounds have none, and neither has a 45-minute round of any kind: the floor is for the shorter
+    lengths (decided 2026-10-18, final review: at 45 every round keeps the pre-change split, an extra-part coding round its 11-minute problems,
+    its 12-minute deep dive and a second problem that is not a bonus)."""
+    return duration < MOCK_ROUND_MINUTES and fam in ("dsa", "lld", "system-design") and round_type not in ("online-assessment", "hiring-manager", "behavioural")
+
+
+def main_problems(fam: str, culture: bool) -> int:
+    """Technical problems a floor round plans in its core: two for a coding round (one with a behavioural part), one for a design round."""
+    return (1 if culture else 2) if fam == "dsa" else 1
+
+
+def normal_culture_minutes(core_mins: int) -> int:
+    return 8 if core_mins >= 40 else 6
+
+
+@dataclass(frozen=True)
+class CodingFit:
+    """How a floor round's core is split when the equal split would leave its main problem under the floor."""
+    culture: int          # behavioural questions kept (0 when the round has none)
+    culture_each: int     # minutes per behavioural question
+    extra: bool           # the extra part (projects, fundamentals, puzzles) is kept
+    extra_mins: int       # minutes it gets: the rest of the core after the first problem and the questions
+    first: int            # minutes of the first (main) problem: the floor, or all that is left when there is one problem and no extra part
+
+
+def coding_fit(core_mins: int, culture_asked: int, extra: bool, core_slots: int, fundamentals_led: bool = False) -> CodingFit | None:
+    """The split of a floor round's core that keeps the main problem at MIN_FIRST_PROBLEM_MINS, or None when the equal split already
+    does (a plain 40-minute-or-longer round, any 45-minute round with one part) or nothing can be done (a core under the floor). The
+    extra part is reserved MIN_EXTRA_MINS before the behavioural questions shrink (down to MIN_CULTURE_MINS each, fewer questions if need
+    be); a part that cannot get its minimum is dropped from the plan: the extra part first, as it is the looser of the two (decided
+    2026-10-18). A fundamentals-led design round ("core subjects, DBMS, OOP": TCS, Infosys) has no floor: its design problem is a warm-up and
+    the fundamentals are the main part, so it keeps its old split at every length."""
+    if fundamentals_led:
+        return None
+    normal = normal_culture_minutes(core_mins)
+    shares = core_slots + (1 if extra else 0)
+    if not (culture_asked or extra or core_slots >= 2) or max(1, (core_mins - culture_asked * normal) // max(1, shares)) >= MIN_FIRST_PROBLEM_MINS:
+        return None
+    budget = core_mins - MIN_FIRST_PROBLEM_MINS
+    if budget < 0:
+        return None
+    keep_extra = extra
+    if culture_asked and keep_extra and budget < MIN_CULTURE_MINS + MIN_EXTRA_MINS:
+        keep_extra = False
+    capacity = budget - (MIN_EXTRA_MINS if keep_extra else 0)
+    if culture_asked:
+        kept = min(culture_asked, capacity // MIN_CULTURE_MINS)
+        if kept < 1:
+            return None
+        each = min(normal, capacity // kept)
+    else:
+        kept, each = 0, 0
+    extra_mins = budget - kept * each if keep_extra else 0
+    # One problem and no extra part: it takes everything the questions leave (the core is always filled).
+    first = core_mins - kept * each if core_slots == 1 and not keep_extra else MIN_FIRST_PROBLEM_MINS
+    return CodingFit(kept, each, keep_extra, extra_mins, first)
+
+
+def culture_minutes(core_mins: int, culture_slots: int = 0, extra: bool = False, floor: bool = True, fundamentals_led: bool = False) -> int:
+    """Minutes per behavioural question inside a technical round (a mixed round's behavioural part). In a round whose main problem
+    would fall under the floor, the questions shrink to make room for it and for the extra part."""
+    if culture_slots and floor:
+        fit = coding_fit(core_mins, culture_slots, extra, 1, fundamentals_led)
+        if fit:
+            return fit.culture_each
+    return normal_culture_minutes(core_mins)
+
 
 # Candidate-safe format wording for the briefing: never the brief's own format text (it can name topics).
 FORMAT_LABEL = {
@@ -147,6 +247,12 @@ def build_context(req: BlueprintRunRequest, other_active_slugs: set[str] | None 
     exclusions = set() if req.options.ignore_exclusions else set(req.exclusions) | set(other_active_slugs or set())
     culture = has_culture_part(rnd, fam, req.company_brief)
     extra = round_type != "hiring-manager" and has_extra_part(rnd, fam)
+    duration = rnd.duration_mins or DEFAULT_DURATION.get(round_type, 45)
+    if extra and has_problem_floor(round_type, fam, duration):
+        # A part that cannot get its minimum minutes next to the main problem is not in the plan, so not in the briefing either.
+        fit = coding_fit(core_minutes(round_type, fam, duration), 2 if culture else 0, extra, main_problems(fam, culture), fam == "lld")
+        if fit and not fit.extra:
+            extra = False
     parts = (["behavioural questions"] if culture else []) + (["questions on your projects and fundamentals"] if extra else [])
     return Context(
         request=req, round_type=round_type, family=fam,
