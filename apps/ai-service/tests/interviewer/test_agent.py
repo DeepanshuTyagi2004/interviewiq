@@ -90,3 +90,13 @@ def test_a_bare_acknowledgement_is_recorded_but_not_answered_and_a_real_turn_is(
         return heard, agent._pending_user_text
 
     assert asyncio.run(go()) == (["Okay.", "What are the constraints?"], "What are the constraints?")
+
+
+def test_a_backchannel_is_said_at_once_can_be_talked_over_and_stays_out_of_the_conversation():
+    """"Mm-hmm." while the candidate is mid-thought: fire and forget, cut off the moment they go on, and never a turn of the record."""
+    from app.interviewer.agent import LiveKitSpeaker
+
+    calls: list[tuple[str, dict]] = []
+    session = SimpleNamespace(say=lambda text, **kw: calls.append((text, kw)))
+    LiveKitSpeaker(session, None).backchannel("Mm-hmm.")
+    assert calls == [("Mm-hmm.", {"allow_interruptions": True, "add_to_chat_ctx": False})]

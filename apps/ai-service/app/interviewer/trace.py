@@ -34,8 +34,14 @@ def render(run: dict[str, Any] | None, turns: list[dict[str, Any]], briefs: list
             lines.append(f"#{doc['seq']} EVENT: {doc.get('text', '')}")
             continue
         decision = doc.get("decision") or {}
-        timing = ", ".join(x for x in (f"first token {doc['first_token_ms']}ms" if doc.get("first_token_ms") is not None else "",
-                                        f"first audio {doc['first_audio_ms']}ms" if doc.get("first_audio_ms") is not None else "") if x)
+        # The first two are the run's own clock; the rest are LiveKit's pipeline metrics (endpointing and the final transcript are the
+        # candidate's side of the pause before this reply; e2e is the end of their speech to the first audio).
+        timing = ", ".join(f"{label} {doc[key]}ms" for label, key in (
+            ("first token", "first_token_ms"), ("first audio", "first_audio_ms"), ("endpointing", "endpointing_ms"),
+            ("stt", "stt_final_ms"), ("tts", "tts_ttfb_ms"), ("e2e", "e2e_ms")) if doc.get(key) is not None)
+        if doc.get("eot_probability") is not None and doc.get("eot_threshold") is not None:
+            # The turn detector's score for the candidate's turn: under the threshold it read the turn as unfinished.
+            timing += (", " if timing else "") + f"eot {doc['eot_probability']:.2f}/{doc['eot_threshold']:.2f}"
         lines.append(f"#{doc['seq']} INTERVIEWER: {doc.get('text', '')}"
                      + (f"  [{decision.get('condition')} → {decision.get('action')}: {decision.get('reason')}]" if decision else "")
                      + (f"  ({timing})" if timing else "") + ("  (interrupted)" if doc.get("interrupted") else "")

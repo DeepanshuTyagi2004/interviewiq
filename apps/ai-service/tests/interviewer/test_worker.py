@@ -42,34 +42,6 @@ def test_cannot_start_is_best_effort_it_tells_the_browser_and_deletes_the_room_e
     assert sent and '"session.ending"' in sent[0][1] and '"technical"' in sent[0][1]
 
 
-def test_the_voice_is_an_aura_2_voice_male_by_default_and_female_only_when_the_persona_says_so():
-    from app.config import Settings
-    from app.interviewer.voices import tts_voice
-
-    settings = Settings(_env_file=None)
-    assert tts_voice(settings, {"name": "Siddharth Menon"}) == "aura-2-orpheus-en"
-    assert tts_voice(settings, None) == "aura-2-orpheus-en"
-    assert tts_voice(settings, {"gender": "Female"}) == "aura-2-athena-en"
-
-
-def test_a_woman_interviewer_gets_the_female_voice_and_a_man_the_male_voice_by_name_when_the_persona_has_no_gender():
-    from app.blueprint.prompts import INTERVIEWER_NAMES
-    from app.config import Settings
-    from app.interviewer.voices import persona_gender, tts_voice
-
-    settings = Settings(_env_file=None)
-    women = {"Pooja Shetty", "Ananya Iyer", "Priya Deshpande", "Meera Kulkarni", "Sneha Reddy", "Aisha Khan", "Neha Agarwal",
-             "Divya Pillai", "Kavya Hegde", "Ishita Chatterjee", "Lakshmi Narayanan", "Harpreet Kaur", "Tanvi Bhatt", "Nandini Rao",
-             "Ritika Saxena", "Shreya Mukherjee", "Zoya Sheikh", "Anjali Mishra"}
-    for name in INTERVIEWER_NAMES:
-        expected = "aura-2-athena-en" if name in women else "aura-2-orpheus-en"
-        assert tts_voice(settings, {"name": name}) == expected, name
-        assert persona_gender({"name": name}) == ("female" if name in women else "male"), name
-    assert persona_gender({"name": "Someone Unknown", "gender": "female"}) == "female"     # an explicit gender wins
-    assert persona_gender({"name": "Pooja Shetty", "gender": "male"}) == "male"
-    assert persona_gender({"name": "Someone Unknown"}) == "male"                           # nothing known: the default voice
-
-
 def test_flux_voices_use_the_v2_endpoint_with_the_model_improvement_programme_opted_out_and_aura_names_still_work():
     from livekit.plugins import deepgram
 
@@ -442,3 +414,110 @@ def test_before_the_round_starts_a_candidate_leaving_or_returning_is_only_presen
 
     assert asyncio.run(go()) == ((0, 0), (1, 1))        # no absence is counted against a candidate before their round began
 
+
+
+def test_the_interviewer_always_speaks_with_the_male_voice():
+    """Decided 2026-10-16: every interviewer is male, whatever name an older blueprint gave them."""
+    from app.config import Settings
+    from app.interviewer.voices import tts_voice, uses_sarvam
+
+    settings = Settings(_env_file=None)
+    male = settings.sarvam_tts_voice if uses_sarvam(settings) else settings.interviewer_tts_voice
+    for persona in ({"name": "Siddharth Menon"}, {"name": "Ananya Iyer"}, {"gender": "female"}, None):
+        assert tts_voice(settings, persona) == male, persona
+
+
+def test_a_round_prepared_with_a_womans_name_is_run_by_a_man():
+    from app.interviewer.voices import male_persona, persona_gender
+
+    old = {"name": "Ananya Iyer", "seniority": "Senior Engineer", "opening": "Hi, I'm Ananya. How are you?",
+           "closing": "Thanks, this was Ananya.", "style": "calm"}
+    new = male_persona(old, "s1")
+    assert persona_gender(new) == "male" and "Ananya" not in new["opening"] and "Ananya" not in new["closing"]
+    assert new["name"].split()[0] in new["opening"] and new["seniority"] == "Senior Engineer"
+    assert male_persona(old, "s1") == new                                   # the same round always gets the same name
+    assert male_persona({"name": "Arjun Nair"}, "s1") == {"name": "Arjun Nair"}
+
+
+def test_the_talker_warm_up_sends_the_prefix_and_tools_once_per_gap_and_never_raises():
+    import asyncio
+
+    from app.interviewer.worker import TalkerWarmUp
+
+    class Chat:
+        def __init__(self, fail: bool = False) -> None:
+            self.calls: list = []
+            self.fail = fail
+
+        async def warm_up(self, messages, tools):
+            self.calls.append((messages, tools))
+            if self.fail:
+                raise RuntimeError("down")
+            return True
+
+    clock = [100.0]
+    chat, tools = Chat(), [{"type": "function"}]
+    warm = TalkerWarmUp(chat, "PREFIX", tools, min_gap_s=15, now=lambda: clock[0])
+
+    async def go():
+        first = await warm.fire()
+        soon = await warm.fire()                      # the candidate entering seconds after the interviewer joined
+        clock[0] += 20
+        later = await warm.fire()
+        return first, soon, later
+
+    assert asyncio.run(go()) == (True, False, True) and len(chat.calls) == 2
+    assert chat.calls[0][0][0] == {"role": "system", "content": "PREFIX"} and chat.calls[0][1] == tools
+    broken = TalkerWarmUp(Chat(fail=True), "P", [], now=lambda: 0.0)
+    assert asyncio.run(broken.fire()) is False
+
+
+def test_the_warm_up_waits_for_the_candidate_in_the_background_and_can_be_cancelled():
+    import asyncio
+
+    from app.interviewer.worker import TalkerWarmUp
+
+    class Chat:
+        calls = 0
+
+        async def warm_up(self, messages, tools):
+            Chat.calls += 1
+            return True
+
+    async def go():
+        warm, here = TalkerWarmUp(Chat(), "P", []), asyncio.Event()
+        warm.start_when(here)
+        await asyncio.sleep(0.01)
+        before = Chat.calls
+        here.set()
+        await asyncio.sleep(0.01)
+        warm.start_when(asyncio.Event())
+        warm.cancel()
+        await asyncio.sleep(0.01)
+        return before, Chat.calls, len(warm._tasks)
+
+    assert asyncio.run(go()) == (0, 1, 0)
+
+
+def test_the_sarvam_voice_speaks_each_finished_sentence_at_once_and_starts_after_30_characters():
+    """LiveKit's own sentence stream held the first sentence of a reply back until the second had started (measured offline: the
+    first token appeared only after the next sentence was pushed), so the voice waited for the model to finish writing sentence two."""
+    import asyncio
+
+    from app.interviewer.voices import WholeSentenceTokenizer, build_tts_for
+
+    settings = SimpleNamespace(interviewer_tts_provider="sarvam", sarvam_tts_model="bulbul:v4-flash", sarvam_api_key="k",
+                               sarvam_tts_min_buffer_size=30)
+    tts = build_tts_for(settings, "shubh_enhi_ads")
+    assert isinstance(tts._opts.word_tokenizer, WholeSentenceTokenizer) and tts._opts.min_buffer_size == 30
+
+    async def go():
+        stream = tts._opts.word_tokenizer.stream()
+        stream.push_text("Thanks for walking me through that. ")
+        first = await asyncio.wait_for(stream.__anext__(), 0.5)        # no second sentence has arrived yet
+        stream.push_text("Right. ")
+        stream.push_text("   ")
+        stream.end_input()
+        return first.token, [t.token async for t in stream]
+
+    assert asyncio.run(go()) == ("Thanks for walking me through that.", ["Right."])

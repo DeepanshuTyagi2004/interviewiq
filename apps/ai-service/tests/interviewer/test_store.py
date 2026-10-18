@@ -83,3 +83,15 @@ def test_the_timeline_shows_each_turns_activity_digest():
     lines = render(run, turns, [])
     assert "    ## Activity (what they did while speaking, and since)" in lines
     assert "    - +1.0s typed line 6 (1 edit): `x`" in lines
+
+
+def test_the_timeline_shows_the_pipeline_timings_next_to_first_token_and_first_audio():
+    run = {"session_id": "s1", "started_at": "t0"}
+    turns = [{"seq": 1, "speaker": "interviewer", "text": "Nice.", "at": 1.0, "first_token_ms": 640, "first_audio_ms": 900,
+              "endpointing_ms": 1020, "stt_final_ms": 310, "tts_ttfb_ms": 500, "e2e_ms": 3800},
+             {"seq": 2, "speaker": "interviewer", "text": "Go on.", "at": 2.0, "first_token_ms": 700},
+             {"seq": 3, "speaker": "interviewer", "text": "Okay.", "at": 3.0}]
+    lines = render(run, turns, [])
+    assert any("Nice." in l and "(first token 640ms, first audio 900ms, endpointing 1020ms, stt 310ms, tts 500ms, e2e 3800ms)" in l for l in lines)
+    assert any("Go on." in l and "(first token 700ms)" in l for l in lines)             # a turn without the voice's numbers shows only its own
+    assert not any("Okay." in l and "(" in l for l in lines)

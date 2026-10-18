@@ -18,14 +18,17 @@ from app.blueprint import store as bp_store
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.interviewer import lifecycle
-from app.interviewer.agent import TURN_HANDLING, InterviewerAgent, LiveKitSpeaker, PlaceholderLLM, wire_session_events
+from app.interviewer.agent import (InterviewerAgent, LiveKitSpeaker, PlaceholderLLM, build_turn_handling, watch_turn_detector,
+                                   wire_session_events)
 from app.interviewer.api_client import ApiClient
+from app.interviewer.keyterms import stt_keyterms
 from app.interviewer.llm import build_chats
 from app.interviewer.protocol import WORKSPACE_TOPIC, agent_message
 from app.interviewer.run import InterviewRun, RunDeps
 from app.interviewer.store import MongoStore
 from app.interviewer.talker import Pacing
-from app.interviewer.voices import build_tts_for, tts_voice, uses_sarvam
+from app.interviewer.tools import TOOLS
+from app.interviewer.voices import build_tts_for, male_persona, tts_voice, uses_sarvam
 from app.interviewer.workspace import WorkspaceBridge
 
 logger = logging.getLogger(__name__)
@@ -101,6 +104,69 @@ class StageClock:
             return
         self._seen.add(stage)
         logger.info("interviewer stage %s at %d ms (session %s)", stage, int((self._now() - self._t0) * 1000), self.session_id)
+
+
+class TalkerWarmUp:
+    """Fire-and-forget max_tokens=1 requests to the talker model, so the greeting does not pay the cold first call (a round measured 4.4 s
+    with no cached tokens against 1 s for later turns). The request carries the round's real system prefix and tool list, which is what
+    the provider caches, and the same sticky-routing key, so the greeting is routed to the provider that has just read them. It fires when
+    the interviewer joins and again when the candidate enters the room (they may arrive after the provider's cache expired); requests
+    closer together than `min_gap_s` are skipped. Failures are silent: this is only an optimisation."""
+
+    def __init__(self, chat: Any, prefix: str, tools: list[dict[str, Any]], *, min_gap_s: float = 15.0,
+                 now: Callable[[], float] = time.monotonic) -> None:
+        self._chat, self._prefix, self._tools = chat, prefix, tools
+        self._min_gap_s, self._now = min_gap_s, now
+        self._last: float | None = None
+        self._tasks: set[asyncio.Task] = set()
+
+    async def fire(self) -> bool:
+        """One warm-up request unless one was sent less than `min_gap_s` ago. True if the provider answered."""
+        if self._last is not None and self._now() - self._last < self._min_gap_s:
+            return False
+        self._last = self._now()
+        started = self._now()
+        try:
+            ok = await self._chat.warm_up([{"role": "system", "content": self._prefix}, {"role": "user", "content": "Ready."}], self._tools)
+        except Exception:  # noqa: BLE001
+            return False
+        if ok:
+            logger.info("talker warm-up answered in %d ms", int((self._now() - started) * 1000))
+        return bool(ok)
+
+    def start(self) -> None:
+        """Send a warm-up in the background."""
+        self._spawn(self.fire())
+
+    def start_when(self, event: asyncio.Event) -> None:
+        """Send a warm-up in the background once `event` is set."""
+        async def later() -> None:
+            await event.wait()
+            await self.fire()
+        self._spawn(later())
+
+    def _spawn(self, coro) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    def cancel(self) -> None:
+        for task in list(self._tasks):
+            task.cancel()
+
+
+def build_stt(settings: Settings, context: dict[str, Any], blueprint: dict[str, Any]):
+    """The speech-to-text, with the round's own names as keyterms (see `keyterms.py`); any trouble building them falls back to none."""
+    options: dict[str, Any] = dict(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key, mip_opt_out=settings.deepgram_mip_opt_out)
+    if settings.interviewer_stt_keyterms:
+        try:
+            terms = stt_keyterms(context, blueprint)
+            if terms:
+                logger.info("stt keyterms: %d (%s)", len(terms), ", ".join(terms[:8]))
+                return deepgram.STT(**options, keyterm=terms)
+        except Exception:  # noqa: BLE001 - recognition still works without them
+            logger.warning("stt keyterms rejected; continuing without them", exc_info=True)
+    return deepgram.STT(**options)
 
 
 async def blueprint_changed(session_id: str, loaded: dict[str, Any]) -> bool:
@@ -202,7 +268,8 @@ async def entrypoint(ctx: JobContext) -> None:
     clock = StageClock(session_id)
     clock.mark("job_received")
     api = ApiClient(settings.api_base_url, settings.internal_api_key)
-    talker, talker_fallback, director = build_chats(settings)
+    talker, talker_fallback, director = build_chats(settings, session_id=session_id)
+    warm: TalkerWarmUp | None = None
     try:
         # Join first and listen at once: the browser says hello the moment it sees us, long before the blueprint
         # and context have loaded, and LiveKit drops a stream that has no handler yet. The bridge holds what
@@ -220,6 +287,7 @@ async def entrypoint(ctx: JobContext) -> None:
             logger.error("no current blueprint for session %s", session_id)
             await _cannot_start(ctx, api, session_id)
             return
+        blueprint = {**blueprint, "persona": male_persona(blueprint.get("persona"), session_id)}   # every interviewer is a man
         context = await api.context(session_id)
         clock.mark("context_loaded")
 
@@ -229,15 +297,20 @@ async def entrypoint(ctx: JobContext) -> None:
         run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker, director_chat=director,
                                    workspace=bridge, api=api, store=store, first_token_timeout_s=hedge_s,
                                    fallback_chat=talker_fallback, pacing=pacing))
+        if settings.interviewer_warm_up and hasattr(talker, "warm_up"):
+            warm = TalkerWarmUp(talker, run.prefix, TOOLS)
+            warm.start()                                  # the interviewer is early: the candidate's browser says hello later
+            warm.start_when(run.candidate_in_room)
         voice = tts_voice(settings, blueprint.get("persona"))
         session = AgentSession(
-            stt=deepgram.STT(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key,
-                             mip_opt_out=settings.deepgram_mip_opt_out),
+            stt=build_stt(settings, context, blueprint),
             tts=build_tts_for(settings, voice),
             llm=PlaceholderLLM(),
-            turn_handling=TURN_HANDLING,
+            turn_handling=build_turn_handling(settings),
         )
         run.speaker = LiveKitSpeaker(session, ctx)
+        if not watch_turn_detector():
+            logger.warning("the turn detector's scores are not reachable in this livekit version: turns will not record them")
         wire_session_events(session, run)
 
         @session.on("agent_state_changed")
@@ -271,6 +344,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 ticker.cancel()
             await session.aclose()
     finally:
+        if warm is not None:
+            warm.cancel()
         await talker.aclose()
         if talker_fallback is not None:
             await talker_fallback.aclose()
