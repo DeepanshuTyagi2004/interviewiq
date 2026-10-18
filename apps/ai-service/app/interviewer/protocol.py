@@ -322,6 +322,13 @@ class PtrOut(_Event):
     s: Literal["out"]
 
 
+class SelPanel(_Event):
+    """Text the candidate selected in the problem ("" once the selection is cleared): "this part" is resolved to it."""
+    k: Literal["sel"]
+    s: Literal["panel"]
+    text: str = Field(max_length=300)
+
+
 class Caret(_Event):
     k: Literal["caret"]
     line: Line
@@ -351,7 +358,7 @@ class Focus(_Event):
     s: Literal["code", "board", "panel"]
 
 
-ActivityEvent = Union[PtrCode, PtrBoard, PtrPanel, PtrOut, Caret, Edit, Shape, Focus]
+ActivityEvent = Union[PtrCode, PtrBoard, PtrPanel, PtrOut, SelPanel, Caret, Edit, Shape, Focus]
 ACTIVITY_MAX_EVENTS = 60
 
 

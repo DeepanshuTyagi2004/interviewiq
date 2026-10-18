@@ -16,7 +16,8 @@ class NextMove(_M):
 
 
 class PlanChange(_M):
-    op: Literal["reorder", "skip", "use_reserve", "insert_filler", "add_follow_up"]
+    # move_on / extend / wrap_up (decided 2026-10-17): timings are guidance and the director decides when a part, or the round, ends.
+    op: Literal["reorder", "skip", "use_reserve", "insert_filler", "add_follow_up", "move_on", "extend", "wrap_up"]
     target: str = ""
     before: str = ""
     replace: str = ""
@@ -25,6 +26,7 @@ class PlanChange(_M):
     sound_answer: str = ""
     text: str = ""
     reason: str = ""
+    minutes: int = 0                     # extend: how much longer the current part may run
 
 
 class EvidenceNote(_M):

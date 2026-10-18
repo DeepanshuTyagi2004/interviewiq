@@ -316,3 +316,62 @@ def test_an_idle_digest_with_only_a_caret_is_not_worth_a_block():
     clock.t = 1030.0
     t.events.append(ev(1010.0, "caret", line=4, col=2))
     assert digest_idle(t, 1030.0).text == ""                         # a lone "Right now: caret at line 4" only invites cursor remarks
+
+
+SEL = "Each portion size can be used any number of times."
+
+
+def _said(t, text, start, step=0.5):
+    t.on_transcript(text, True, start)
+    utt = t.take_turn()
+    utt.start = start
+    for i, w in enumerate(utt.words):
+        w.at = start + i * step
+    utt.end = utt.words[-1].at
+    return utt
+
+
+def test_text_selected_in_the_problem_is_shown_as_a_selection():
+    spans = build_spans([ev(1.0, "sel", s="panel", text=SEL)], 2.0)
+    assert texts(spans, "select") == [f"selected “{SEL}” in the problem"]
+    assert texts(build_spans([ev(1.0, "sel", s="panel", text="")], 2.0), "select") == []     # a cleared selection is not one
+
+
+def test_this_part_and_the_highlighted_part_mean_the_text_they_selected():
+    """A live round's candidate selected a line and asked "can you see the highlighted part?" five times; the interviewer only
+    ever had the pointer. "This", "here", "there" and "the highlighted part" now point at the selection."""
+    clock = Clock(0.0)
+    t = ActivityTracker(clock)
+    clock.t = 120.0
+    t.events.append(ev(100.0, "sel", s="panel", text=SEL))
+    d = digest_for_utterance(t, _said(t, "can you explain the highlighted part here", 104.0), clock())
+    assert f"→ the selected text “{SEL}” in the problem" in d.text
+    assert "says “highlighted part”" in d.text and "says “here”" in d.text
+
+
+def test_a_pointer_newer_than_the_selection_is_what_this_means():
+    clock = Clock(0.0)
+    t = ActivityTracker(clock)
+    clock.t = 120.0
+    t.events += [ev(100.0, "sel", s="panel", text=SEL), ev(105.0, "ptr", s="panel", quote="Return all such ways.")]
+    d = digest_for_utterance(t, _said(t, "what does this mean", 105.5), clock())
+    assert "says “this mean” at +1.0s → “Return all such ways.” in the problem" in d.text
+
+
+def test_a_live_selection_is_in_right_now_until_it_is_cleared():
+    clock = Clock(0.0)
+    t = ActivityTracker(clock)
+    clock.t = 50.0
+    t.events.append(ev(10.0, "sel", s="panel", text=SEL))
+    assert f"selected “{SEL}” in the problem" in (digest_idle(t, clock()).now or "")
+    t.events.append(ev(20.0, "sel", s="panel", text=""))
+    assert "selected" not in (digest_idle(t, clock()).now or "")
+
+
+def test_an_old_selection_is_not_reported_again_as_a_new_one():
+    clock = Clock(0.0)
+    t = ActivityTracker(clock)
+    clock.t = 300.0
+    t.events.append(ev(10.0, "sel", s="panel", text=SEL))
+    d = digest_for_utterance(t, _said(t, "I think I would sort first", 200.0), clock())
+    assert "selected “" not in "\n".join(line for line in d.text.splitlines() if not line.startswith("Right now"))

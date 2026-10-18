@@ -14,6 +14,11 @@ def say(*sentences: str, tools: tuple[tuple[str, dict], ...] = ()) -> list[Strea
     return events + [StreamEvent("done", usage={"total_tokens": 10}, provider="fake")]
 
 
+def state_of(messages: list[dict]) -> str:
+    """The per-turn state block of one talker request. It follows the history (prompts.talker_messages), so its index depends on how long the history is."""
+    return next(m["content"] for m in messages[1:] if m["role"] == "system" and "## Current item" in m["content"])
+
+
 class FakeChat:
     """`turns` is consumed one per stream() call; an entry may be a list of events, an Exception to raise
     before the first event, "hang" to never produce one, or ("delay", seconds, events) to produce them after a wait."""
@@ -92,10 +97,14 @@ class FakeSpeaker:
     def __init__(self) -> None:
         self.replies = 0
         self.said: list[str] = []
+        self.backchannels: list[str] = []
         self.deleted = False
 
     def reply(self) -> None:
         self.replies += 1
+
+    def backchannel(self, text: str) -> None:
+        self.backchannels.append(text)
 
     async def say(self, text: str) -> None:
         self.said.append(text)

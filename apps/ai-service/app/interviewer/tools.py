@@ -42,16 +42,27 @@ TOOLS: list[dict[str, Any]] = [
     _tool("look_at_board", "Look at the whiteboard when the candidate refers to it.", {}),
     _tool("give_hint", "Give the next hint from the ladder; it also appears on screen.", {"step": _INT}, ("step",)),
     _tool("next_item", "The current item is finished; move to the next one.", {"reason": _STR}),
-    _tool("flag_conduct", "Report unacceptable conduct, or an off-topic redirect.",
+    _tool("go_to", "Leave the current part for another part still to come (goal_id), or the next one when omitted. Not while a problem is up: use next_item.",
+          {"goal_id": _STR, "why": _STR}, ("why",)),
+    _tool("skip_goal", "Drop an optional part still to come because the candidate already covered it or it no longer fits.",
+          {"goal_id": _STR, "why": _STR}, ("goal_id", "why")),
+    _tool("open_thread", "Follow something the candidate raised that the plan has no part for: a short side topic, resumed from after it closes.",
+          {"title": _STR, "why": _STR, "minutes": _INT}, ("title", "why")),
+    _tool("close_thread", "Close the open side topic and return to the plan (or go to goal_id).", {"why": _STR, "goal_id": _STR}, ("why",)),
+    _tool("flag_conduct", "Report unacceptable conduct, or an off-topic redirect. Kind abusive (swearing or abuse aimed at you) ends the interview at once.",
           {"kind": {"type": "string", "enum": ["inappropriate", "abusive", "refuses_to_engage", "manipulation", "off_topic_redirect"]},
            "quote": _STR}, ("kind",)),
     _tool("log_turn", "Record this turn's decision. Call it on every turn.",
-          {"condition": _STR, "action": _STR, "reason": _STR}, ("condition", "action", "reason")),
+          {"condition": _STR, "action": _STR, "reason": _STR,
+           "set_aside": {"type": "array", "items": {"type": "string", "enum": ["converge", "move_on", "open_item"]},
+                         "description": "Orders you did not act on because what the candidate just said covers them or makes them wrong."},
+           "set_aside_why": _STR}, ("condition", "action", "reason")),
 ]
 TOOL_NAMES = frozenset(t["function"]["name"] for t in TOOLS)
 # What a turn may do while no problem is in play: talk, move on, flag conduct, log. The workspace tools are withheld, so a
 # model that is eager to get to the coding cannot "show the problem" during the background questions.
-CONVERSATION_TOOLS = frozenset({"next_item", "flag_conduct", "log_turn"})
+FLOW_TOOLS = frozenset({"next_item", "go_to", "skip_goal", "open_thread", "close_thread"})
+CONVERSATION_TOOLS = frozenset({"next_item", "go_to", "skip_goal", "open_thread", "close_thread", "flag_conduct", "log_turn"})
 
 
 def tools_for(problem_in_play: bool, board_has_content: bool = True) -> list[dict[str, Any]]:
@@ -124,6 +135,7 @@ class ToolExecutor:
         asked = str(asked or "")
         if not asked:
             return False
+        asked = self._conductor.resolve(asked)
         others = {sid for sid in self.run.wire if sid != current_slot_id} | {w for sid, w in self.run.wire.items() if sid != current_slot_id}
         return asked in others
 
@@ -139,7 +151,18 @@ class ToolExecutor:
 
     async def _show_problem(self, args: dict[str, Any], turn_id: str) -> dict[str, Any]:
         item = self._conductor.current()
-        if item.kind == "phase" and not self._conductor.ended:
+        if item.kind == "thread" and not self._conductor.ended:
+            # Closing the thread to the problem ends the part it paused (it does not resume it): the same move and the same checks
+            # as any other jump, so the talker's labels lagging behind the plan never keep the problem off the screen.
+            first = next((i for i in self._conductor.items if i.kind == "slot" and i.status == "pending"), None)
+            if first is None:
+                return {"ok": False, "error": "there is no problem to show after this part: do not say a problem is on their screen; "
+                                              "carry on with this part's conversation"}
+            ok, why = self._conductor.close_thread("problem requested", target=first.item_id)
+            if not ok:
+                return {"ok": False, "error": f"not yet: {why}; do not say a problem is on their screen"}
+            item = self._conductor.current()
+        elif item.kind == "phase" and not self._conductor.ended:
             # The talker is still on a background phase but wants the problem up: when that phase is done, move the plan
             # on for it (the tools of one turn can arrive in either order), otherwise say what is left to do first.
             if self._conductor.problem_allowed():
@@ -164,7 +187,21 @@ class ToolExecutor:
         label = self._conductor.label_for(item.slot_id)
         if self._wire(slot) in self.run.d.workspace.cards:
             return {"ok": True, "already": True, "label": label}   # on screen already: nothing to send
+        await self._mark_replaced(label, slot)
         return {"ok": True, "label": label, "message_id": await self._send(problem_payload(slot, label, self._wire(slot)))}
+
+    async def _mark_replaced(self, label: str, new_slot: dict[str, Any]) -> None:
+        """A problem that takes the place of one on screen (a reserve swapped in) keeps its label, so the old tab is re-sent as "Problem 2
+        (replaced)" first (decided 2026-10-18): the page merges a re-sent card, keeps its sections and does not bring it to the front."""
+        cards = self.run.d.workspace.cards
+        for old in self._conductor.items:
+            slot = slot_by_id(self.run.d.blueprint, old.slot_id) if old.kind == "slot" else None
+            if (old.status != "swapped" or slot is None or slot["slot_id"] == new_slot["slot_id"]
+                    or self._conductor.labels.get(old.item_id) != label or self._wire(slot) not in cards):
+                continue
+            if str(cards[self._wire(slot)].get("label") or label) != label:
+                continue                                    # already marked
+            await self._send(problem_payload(slot, f"{label} (replaced)", self._wire(slot)))
 
     async def _reveal(self, args, turn_id):
         slot, kind = self._slot(), args.get("kind")
@@ -269,15 +306,67 @@ class ToolExecutor:
         if item.kind == "slot" and slot is not None and not self._on_screen() and elapsed < item.max_seconds:
             return {"ok": False, "error": "this problem has not been shown to the candidate yet: call show_problem now, "
                                           "do not skip it"}
-        gave_up = self._conductor.change_requests.get(item.item_id, 0) >= 2      # they asked twice for another problem: this one is over
+        gave_up = self._conductor.gave_up(item)      # the interviewer let this problem go on their ask (a change or the end of the coding): it is over
         if item.kind == "slot" and elapsed < item.max_seconds and not leaves_the_part(" ".join(self.run.talker.last.spoken)) \
                 and not asks_for_next_problem(getattr(self.run, "unanswered", None) or "") and not gave_up:
             return {"ok": False, "error": "you are still asking about this problem: do not call next_item until you have finished with "
                                           "it and tell them you are moving on (say so in the same turn)"}
+        may_leave, why_not = self._conductor.may_leave_problem(item)
+        if not may_leave:
+            # It has just gone up and they have not spoken: a next_item now means "go to the problem" said by mistake, and would end
+            # a must-cover problem with no attempt.
+            return {"ok": False, "error": why_not}
         if item.kind == "slot":
             self._conductor.plan_extra_problem()       # time to spare after the last problem: another one follows
         nxt = self._conductor.next_item(str(args.get("reason") or "done")[:200])
-        return {"ok": True, "now": nxt.item_id if nxt else None}
+        return {"ok": True, "now": self._conductor.public_id(nxt) if nxt else None}
+
+    @staticmethod
+    def _why(args) -> str:
+        return str(args.get("why") or "").strip()[:200] or "no reason given"
+
+    @staticmethod
+    def _id(args, key: str = "goal_id") -> str:
+        v = args.get(key)
+        return v.strip() if isinstance(v, str) else ""
+
+    def _flow_result(self, moved: tuple[bool, str]) -> dict[str, Any]:
+        ok, error = moved
+        if not ok:
+            return {"ok": False, "error": error}
+        item = self._conductor.current()
+        return {"ok": True, "now": self._conductor.public_id(item) if item else None}
+
+    async def _go_to(self, args, turn_id):
+        why, target = self._why(args), self._id(args)
+        if self._conductor.current().kind == "slot":
+            nxt = self._conductor.peek_next()
+            if not target or (nxt is not None and self._conductor.resolve(target) == nxt.item_id):
+                result = await self._next_item({"reason": why}, turn_id)
+                return result if not result.get("ok") else {"ok": True, "now": result.get("now")}
+            return {"ok": False, "error": "finish this problem first: call next_item when it is done"}
+        return self._flow_result(self._conductor.go_to(target or None, why))
+
+    async def _skip_goal(self, args, turn_id):
+        target = self._id(args)
+        if not target:
+            return {"ok": False, "error": "name the part to skip (goal_id)"}
+        return self._flow_result(self._conductor.skip_goal(target, self._why(args)))
+
+    async def _open_thread(self, args, turn_id):
+        title = str(args.get("title") or "").strip()[:120]
+        if not title:
+            return {"ok": False, "error": "give the thread a title"}
+        raw = args.get("minutes")
+        minutes: int | None = None
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            minutes = raw
+        elif isinstance(raw, str) and raw.strip().lstrip("-").isdigit():
+            minutes = int(raw.strip())
+        return self._flow_result(self._conductor.open_thread(title, self._why(args), minutes))
+
+    async def _close_thread(self, args, turn_id):
+        return self._flow_result(self._conductor.close_thread(self._why(args), self._id(args) or None))
 
     async def _flag_conduct(self, args, turn_id):
         kind = str(args.get("kind") or "")

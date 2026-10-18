@@ -107,6 +107,10 @@ class ActivityTracker:
             self._interim = stamped
         self._end = created_at
 
+    def turn_open(self, now: float, within: float = 10.0) -> bool:
+        """Words of a turn not closed yet, the last one recent: the candidate is partway through saying something."""
+        return bool(self._final or self._interim) and self._end is not None and now - self._end <= within
+
     def take_turn(self, text: str | None = None) -> Utterance | None:
         """Close the candidate turn being spoken (one or more final segments) and start the next. None if no words."""
         words = self._final + self._interim

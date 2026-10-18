@@ -89,3 +89,28 @@ def test_a_cut_off_turn_keeps_only_what_was_heard():
     said.keep_only("6", "While you do, let me tell you how this round will run. It's a forty-five minute")
     assert said.repeat_of("Does that sound good to you?") is None                         # never heard: may be said
     assert said.repeat_of("While you do, let me tell you how this round will run.") is not None   # heard: a repeat
+
+
+def test_a_sentence_close_to_a_style_example_of_the_prompt_counts_as_a_repeat_even_the_first_time():
+    from app.interviewer.prompts import STYLE_EXAMPLES
+
+    tracker = SaidTracker()
+    example = next(x for x in STYLE_EXAMPLES if len(x.split()) >= 6 and x.endswith("?"))
+    assert tracker.repeat_of(example) == example
+    near = example.replace("?", " at some point?")
+    assert tracker.repeat_of(near) is not None
+    assert tracker.repeat_of("Which of the two tables did the nightly job read from?") is None
+
+
+def test_the_neutral_line_after_a_candidate_announces_their_next_step_is_sure_go_ahead_once_per_few_turns_otherwise_silence():
+    """b1 struggler: the candidate said "Let me trace it on minus one, zero, ..." and heard "Could you say a bit more about that?"."""
+    said = SaidTracker()
+    announce = "Let me trace it on minus one, zero, one, two."
+    assert said.neutral(announce) == "Sure, go ahead."
+    assert said.neutral(announce) is None
+    said.add("A line that is long enough to count as a turn.", "t1")
+    said.add("Another line that is long enough to count too.", "t2")
+    assert said.neutral(announce) is None
+    said.add("A third line that is long enough to count here.", "t3")
+    assert said.neutral(announce) == "Sure, go ahead."
+    assert SaidTracker().neutral("I think it is n squared.") == NEUTRAL_LINE

@@ -7,13 +7,19 @@ Script lines: text = the candidate speaks; `#wait N` = N seconds pass; `#tab` / 
 `#share` = a proctor event; `#code <text>` = the candidate's code (use \\n); `#end` = the candidate presses End;
 `#at <seconds> <command>` = something the candidate does, relative to the start of the NEXT spoken line (negative = before
 it): `type <line> <text>`, `point code <line> <text>`, `point board <label>`, `point panel <quote>`, `point out`,
-`draw <kind> <label>`, `select <a>-<b> <text>`, `focus <code|board|panel>`.
+`draw <kind> <label>`, `select <a>-<b> <text>`, `select panel <text>` (the browser's panel selection event, protocol.SelPanel: the candidate
+highlighted that text in the problem), `focus <code|board|panel>`.
+`lines` may also be a line source: an object with `async next_lines(view) -> list[str] | None`, asked for the next batch of script
+lines after each interviewer reply (None or ["#end"] ends). `view` is what a candidate could see: {"transcript": the last 40
+INTERVIEWER/CANDIDATE lines, "on_screen": the problem statement and its sections or None, "code": the current code, "clock_s":
+seconds since the start, "item": the current plan item}. The persona rehearsals (app/interviewer/persona.py) use it.
 A candidate line now takes `seconds_per_line` BEFORE the reply (as in a live call, where the reply follows the
 speech), so transcripts from before that change are not comparable. Calls OpenRouter (costs cents)."""
 from __future__ import annotations
 
 import argparse
 import asyncio
+import collections
 import json
 from typing import Any, Callable
 
@@ -26,8 +32,10 @@ PROCTOR = {"#tab": ("tab_hidden", 1), "#window": ("window_blur", 1), "#fullscree
 
 
 class SimClock:
+    START = 1_000_000.0          # the records keep it, so a turn's `at` can be read as seconds into the round
+
     def __init__(self) -> None:
-        self.t = 1_000_000.0
+        self.t = self.START
 
     def __call__(self) -> float:
         return self.t
@@ -45,13 +53,16 @@ class SimWorkspace:
         self.mirror: dict[str, Any] = {}
         self.cards: dict[str, dict[str, Any]] = {}
         self.acks: dict[str, dict[str, Any]] = {}
+        self.shown: list[str] = []          # what the problem panel says, in the order it appeared
 
     async def send(self, body: dict[str, Any]) -> str:
         self.sent.append(body)
         if body["type"] == "panel.show_problem":
             self.cards.setdefault(body["item_id"], {"sections": []})
+            self.shown = [str(body.get("statement") or "")]
         elif body["type"] == "panel.add_section" and body["item_id"] in self.cards:
             self.cards[body["item_id"]]["sections"].append(body["section"])
+            self.shown.append(f"{body['section'].get('title') or ''}: {body['section'].get('body') or ''}")
         self.out(f"  [workspace] {json.dumps(body, ensure_ascii=False)[:300]}")
         return f"sim_{len(self.sent)}"
 
@@ -124,6 +135,8 @@ def _event(command: str, t: int) -> dict[str, Any] | None:
     if verb == "draw":
         kind, _, label = rest.partition(" ")
         return {"k": "shape", "t": t, "op": "add", "id": label or kind, "kind": kind, "label": label[:60]}
+    if verb == "select" and rest.startswith("panel "):
+        return {"k": "sel", "t": t, "s": "panel", "text": rest[len("panel "):][:300]}
     if verb == "select":
         span, _, text = rest.partition(" ")
         a, _, b = span.partition("-")
@@ -158,11 +171,20 @@ def _activity(run: InterviewRun, pending: list[tuple[float, str]], start: float,
         run.tracker.ingest(int(end * 1000), events, received_at=end)
 
 
-async def _speak(run: InterviewRun, text: str | None, out: Callable[[str], None]) -> None:
+SPEECH_WORDS_PER_S = 2.6      # about 155 words a minute
+
+
+async def _speak(run: InterviewRun, text: str | None, out: Callable[[str], None], clock: SimClock | None = None) -> str:
     pieces = [p async for p in run.reply(text)]
     spoken = " ".join(pieces)
     if spoken:
         out(f"INTERVIEWER: {spoken}")
+        if clock is not None:
+            # As the room reports it: the voice is busy while it speaks and the quiet counts from its end, so the guards that wait on
+            # an answer (and every timer) see the same time a live round does.
+            run.on_agent_state("speaking")
+            clock.advance(len(spoken.split()) / SPEECH_WORDS_PER_S)
+            run.on_agent_state("listening")
     run.on_conversation_item("assistant", spoken, False)
     result = run.talker.last
     if result.decision:
@@ -173,9 +195,14 @@ async def _speak(run: InterviewRun, text: str | None, out: Callable[[str], None]
         out(f"  [guard] blocked ({blocked['rule']}): {blocked['sentence']}")
     for _ in range(3):
         await asyncio.sleep(0)
+    return spoken
 
 
-async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: list[str], talker_chat, director_chat, *,
+VIEW_LINES = 40          # how much of the conversation a line source is shown
+MAX_EMPTY_BATCHES = 50   # a source that keeps answering with nothing to do ends the round rather than looping
+
+
+async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: Any, talker_chat, director_chat, *,
                    fallback_chat=None, seconds_per_line: float = 20.0, out: Callable[[str], None] = print) -> InterviewRun:
     clock = SimClock()
     workspace = SimWorkspace(out)
@@ -185,13 +212,34 @@ async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: li
     speaker = SimSpeaker()
     run.speaker = speaker
     await run.start(None)
-    await _speak(run, None, out)
+    heard: list[str] = []                 # what a line source is shown of the conversation
+    heard.append(f"INTERVIEWER: {await _speak(run, None, out, clock)}")
     tabs = screen = full = 0
     pending: list[tuple[float, str]] = []
-    for raw in lines:
+    source = None if isinstance(lines, list) else lines
+    queue = collections.deque(lines if source is None else [])
+    empty = 0
+    while True:
         if run.finished.is_set():
             break
-        line = raw.strip()
+        if not queue:
+            if source is None:
+                break
+            batch = await source.next_lines({
+                "transcript": heard[-VIEW_LINES:], "on_screen": "\n\n".join(workspace.shown) or None,
+                "code": workspace.code["text"] if workspace.code else "", "clock_s": clock() - SimClock.START,
+                "item": run.conductor.current().item_id})
+            if batch is None or batch == ["#end"]:
+                if batch is not None:
+                    queue.append("#end")
+                    continue
+                break
+            empty = 0 if batch else empty + 1
+            if empty >= MAX_EMPTY_BATCHES:
+                break
+            queue.extend(batch)
+            continue
+        line = queue.popleft().strip()
         if not line:
             continue
         if line.startswith("#at "):
@@ -203,6 +251,7 @@ async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: li
             continue
         if line.startswith("#wait"):
             clock.advance(float(line.split()[1]))
+            out(f"  (silence {int(float(line.split()[1]))} s)")    # the judge sees the candidate's silences as stage notes
         elif line in PROCTOR:
             kind, weight = PROCTOR[line]
             tabs += kind == "tab_hidden"
@@ -212,22 +261,32 @@ async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: li
             await run.on_web_message(_web({"type": "proctor.event", "kind": kind, "weight": weight, "at": int(clock() * 1000),
                                            "counts": {"tab_changes": tabs, "screen_changes": screen, "full_violations": full}}))
         elif line.startswith("#code"):
-            workspace.code = {"language": "python", "text": line[5:].strip().replace("\\n", "\n"), "version": 1}
-            await run.on_web_message(_web({"type": "code.snapshot", "version": 1, "language": "python", "text": workspace.code["text"]}))
+            version = (workspace.code or {}).get("version", 0) + 1        # each snapshot is a new version, as the browser sends them
+            workspace.code = {"language": "python", "text": line[5:].strip().replace("\\n", "\n"), "version": version}
+            await run.on_web_message(_web({"type": "code.snapshot", "version": version, "language": "python", "text": workspace.code["text"]}))
+            out("  [code] " + json.dumps(workspace.code["text"]))
         elif line == "#end":
             out("(candidate pressed End)")
             await run.on_web_message(_web({"type": "session.end_request"}))
         else:
             out(f"CANDIDATE: {line}")
             start = clock()
+            run.on_user_state("speaking")
             _speech(run, line, start, seconds_per_line)
             _activity(run, pending, start, seconds_per_line, out)
             clock.advance(seconds_per_line)
+            run.on_user_state("listening")
             run.on_user_text(line)
-            await _speak(run, line, out)
+            heard.append(f"CANDIDATE: {line}")
+            if run.skip_reply(line):
+                # As the live agent does (agent.py): the turn is recorded, no reply is generated and nothing is said.
+                out("(interviewer stays silent)")
+                heard.append("INTERVIEWER: ")
+            else:
+                heard.append(f"INTERVIEWER: {await _speak(run, line, out, clock)}")
         await run.tick()
         if speaker.take() and not run.finished.is_set():
-            await _speak(run, None, out)
+            heard.append(f"INTERVIEWER: {await _speak(run, None, out, clock)}")
         for _ in range(5):
             await asyncio.sleep(0)
     await run.director.idle()
@@ -239,6 +298,12 @@ async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: li
 
 
 async def _load(session_id: str, skills: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    blueprint, context, _ = await load_with_profile(session_id, skills)
+    return blueprint, context
+
+
+async def load_with_profile(session_id: str, skills: list[str]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """The blueprint, the run context, and the candidate profile the blueprint was prepared from (a persona's resume)."""
     from app.blueprint import store
     blueprint = await store.current_blueprint(session_id)
     if blueprint is None:
@@ -251,7 +316,7 @@ async def _load(session_id: str, skills: list[str]) -> tuple[dict[str, Any], dic
                          "level": "", "round_type": rnd.get("type"), "duration_mins": rnd.get("duration_mins")},
                "profile": {"headline": profile.get("headline"), "skills": skills or profile.get("skills") or [],
                            "projects": [p.get("name") for p in profile.get("projects") or []]}}
-    return blueprint, context
+    return blueprint, context, profile
 
 
 async def _main(args: argparse.Namespace) -> None:

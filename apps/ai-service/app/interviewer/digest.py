@@ -31,7 +31,9 @@ _SHAPE_NAME = {"rectangle": "box", "ellipse": "circle", "diamond": "diamond", "a
 _PANE = {"code": "the code editor", "board": "the whiteboard", "panel": "the problem"}
 _OPS = {"add": "added", "move": "moved", "edit": "changed", "delete": "deleted"}
 _PRIORITY = {"ref": 0, "typing": 1, "board": 2, "select": 3, "dwell": 4, "focus": 5}
-_DEICTIC = {"this", "these", "those", "here"}
+_DEICTIC = {"this", "these", "those", "here", "there"}
+# Words that name the selection itself ("the highlighted part", "what I selected"): always the selection when there is one.
+_SELECTION_WORDS = {"highlighted", "highlight", "selected", "selection"}
 _THAT_NOUNS = {"one", "loop", "line", "part", "box", "thing", "function", "variable", "block", "arrow", "condition", "statement"}
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
@@ -114,6 +116,9 @@ def _dwell(events: list[Event], end: float) -> list[Span]:
 def _select(events: list[Event]) -> list[Span]:
     out: list[Span] = []
     for e in events:
+        if e.kind == "sel" and e.data.get("text") and not e.data.get("carried"):
+            out.append(Span("select", e.at, e.at, f"selected “{clean(e.data['text'], 100)}” in the problem"))
+            continue
         if e.kind == "caret" and e.data.get("sel"):
             lo, hi = e.data["sel"]
             text = e.data.get("text")
@@ -167,11 +172,22 @@ class Ref:
     rested_s: float = 0.0     # how long the pointer had been on the target when the word was said
 
 
-def _target_at(events: list[Event], at: float) -> tuple[str, float] | None:
+def _selection_at(events: list[Event], at: float) -> tuple[str, float] | None:
+    """The text selected in the problem as of `at` (the last selection event, unless it cleared it), and when it was made."""
+    sels = [e for e in events if e.kind == "sel" and e.at <= at]
+    if not sels:
+        return None
+    last = max(sels, key=lambda e: e.at)
+    if not last.data.get("text"):
+        return None
+    return f"the selected text “{clean(last.data['text'], 100)}” in the problem", last.data.get("orig_at", last.at)
+
+
+def _target_at(events: list[Event], at: float, naming_selection: bool = False) -> tuple[str, float] | None:
     """What the pointer was on (within REF_WINDOW_S of `at`), else where the caret or selection was, and for how long the
     pointer had been there (a pointer that arrived before the window counts as long resting)."""
     pointers = [e for e in events if e.kind == "ptr"]
-    best: tuple[float, str, float] | None = None
+    best: tuple[float, str, float, float] | None = None
     for i, e in enumerate(pointers):
         target = _target(e)
         if target is None:
@@ -180,7 +196,10 @@ def _target_at(events: list[Event], at: float) -> tuple[str, float] | None:
         gap = 0.0 if e.at <= at <= stop else min(abs(at - e.at), abs(at - stop))
         if gap <= REF_WINDOW_S and (best is None or gap < best[0]):
             rested = float("inf") if e.data.get("carried") else max(0.0, at - e.at)
-            best = (gap, target, rested)
+            best = (gap, target, rested, e.data.get("orig_at", e.at))
+    sel = _selection_at(events, at + REF_WINDOW_S)
+    if sel is not None and (naming_selection or best is None or sel[1] >= best[3]):
+        return sel[0], 0.0                     # what they selected, unless they have since pointed somewhere newer
     if best:
         return best[1], best[2]
     carets = [e for e in events if e.kind == "caret" and abs(e.at - at) <= REF_WINDOW_S]
@@ -200,10 +219,13 @@ def _refs(utt: Utterance, events: list[Event]) -> list[Ref]:
         token = re.sub(r"\W", "", w.text).lower()
         nxt = words[i + 1].text if i + 1 < len(words) else ""
         nxt_token = re.sub(r"\W", "", nxt).lower()
-        deictic = token in _DEICTIC or (token == "that" and nxt_token in _THAT_NOUNS) or (token == "line" and nxt_token.isdigit())
+        naming = token in _SELECTION_WORDS
+        deictic = naming or token in _DEICTIC or (token == "that" and nxt_token in _THAT_NOUNS) or (token == "line" and nxt_token.isdigit())
         if not deictic:
             continue
-        found = _target_at(events, w.at)
+        found = _target_at(events, w.at, naming_selection=naming)
+        if naming and (found is None or not found[0].startswith("the selected text")):
+            continue                           # "the highlighted part" with nothing selected: not a pointer reference
         if found is None:
             continue
         refs.append(Ref(clean(f"{w.text} {nxt}".strip(), 30), w.at, found[0], found[1]))
@@ -231,6 +253,9 @@ def _right_now(tracker: ActivityTracker, now: float) -> str | None:
     if carets:
         c = max(carets, key=lambda e: e.at)
         parts.append(f"caret at line {c.data['line']}, col {c.data['col']}")
+    sel = _selection_at(tracker.events, now)
+    if sel is not None:
+        parts.append(sel[0].replace("the selected text", "selected", 1))
     pointers = [e for e in tracker.events if e.kind == "ptr" and e.at <= now]
     if pointers:
         p = max(pointers, key=lambda e: e.at)
@@ -303,7 +328,12 @@ def _carried(tracker: ActivityTracker, at: float) -> list[Event]:
     if pointers:
         last = max(pointers, key=lambda e: e.at)
         if last.data.get("s") != "out":
-            out.append(Event(at, "ptr", {**last.data, "carried": True}))
+            out.append(Event(at, "ptr", {**last.data, "carried": True, "orig_at": last.at}))
+    sels = [e for e in tracker.events if e.kind == "sel" and e.at < at]
+    if sels:
+        last = max(sels, key=lambda e: e.at)
+        if last.data.get("text"):              # still selected: "this" can mean it, but it is not shown as a new selection
+            out.append(Event(at, "sel", {**last.data, "carried": True, "orig_at": last.at}))
     carets = [e for e in tracker.events if e.kind == "caret" and e.at < at]
     if carets:
         last = max(carets, key=lambda e: e.at)

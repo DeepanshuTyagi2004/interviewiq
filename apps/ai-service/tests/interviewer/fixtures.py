@@ -78,3 +78,36 @@ class Clock:
 
     def advance(self, seconds: float) -> None:
         self.t += seconds
+
+
+def deep_dive_blueprint(framing: bool = True) -> dict:
+    """The salescode fresher round from the rehearsal evidence: a 12-minute deep dive with two resume probes and four round questions
+    (two of them on SQL, one on Java, one about motivation)."""
+    bp = blueprint()
+    bp["round"]["deep_dive_mins"] = 12
+    bp["personalization"]["resume_probes"] = [
+        {"prompt": "You mentioned leading a team of three engineers for the Experience Portal. Can you walk me through how you planned the sprint "
+                   "and performed code reviews?", "grounded_in": "experience.summary", "what_it_tests": "leadership"},
+        {"prompt": "In the Relay project you used SQLite and Claude API together. How did you design the data schema and handle persistence for "
+                   "the command history?", "grounded_in": "projects[0].stack", "what_it_tests": "database design"}]
+    bp["personalization"]["round_questions"] = [
+        {"prompt": "Can you explain how a Java HashMap works internally?", "covers": "java-hashmap", "what_it_tests": "collections"},
+        {"prompt": "What is the difference between WHERE and HAVING in SQL, and how would you find customers with more than five orders?",
+         "covers": "sql-where-having", "what_it_tests": "SQL"},
+        {"prompt": "In your Vibe project you used Prisma with a PostgreSQL backend. How do you model a one-to-many relationship in Prisma, "
+                   "and what SQL constraints does it generate?", "covers": "SQL fundamentals", "what_it_tests": "foreign keys"},
+        {"prompt": "Why are you interested in joining Salescode.ai now, and how does the work you've done align with our AI-driven sales platform?",
+         "covers": "resume-based question", "what_it_tests": "motivation"}]
+    if framing:
+        bp["arc"].insert(1, {"phase": "framing", "timebox_mins": 1, "scored": False, "guidance": ""})
+    return bp
+
+
+def realism_blueprint(promises: tuple[str, ...] = ("projects:Relay", "fundamentals:Java", "fundamentals:databases")) -> dict:
+    """The deep-dive round after the realism stage: its outline (the arc's order, the deep dive after the core) promises `promises`."""
+    bp = deep_dive_blueprint()
+    parts = [{"part": a["phase"], "promises": []} for a in bp["arc"]]
+    parts.insert(next(n for n, p in enumerate(parts) if p["part"] == "core") + 1, {"part": "deep_dive", "promises": list(promises)})
+    bp["realism"] = {"seed": 7, "traits": {}, "habits": {"acks": [], "backchannels": [], "fillers": {}}, "outline": parts,
+                     "change": {"firmness": "normal", "refusals_prior": 1}}
+    return bp
