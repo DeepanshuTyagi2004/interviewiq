@@ -1605,6 +1605,35 @@
                     "properties": {
                       "k": {
                         "type": "string",
+                        "const": "sel"
+                      },
+                      "t": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "s": {
+                        "type": "string",
+                        "const": "panel"
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 300
+                      }
+                    },
+                    "required": [
+                      "k",
+                      "t",
+                      "s",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "k": {
+                        "type": "string",
                         "const": "caret"
                       },
                       "t": {

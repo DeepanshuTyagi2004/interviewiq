@@ -126,3 +126,37 @@ describe('ProblemPanel activity', () => {
     }
   })
 })
+
+describe('ProblemPanel selection', () => {
+  it('tells the interviewer what the candidate selects in the problem, and when the selection is cleared', async () => {
+    const session = new MockLiveSession()
+    render(
+      <ActivityProvider session={session}>
+        <WorkspaceProvider session={session}><ProblemPanel /></WorkspaceProvider>
+      </ActivityProvider>,
+    )
+    act(() => session.emitMessage(stampAgent({
+      type: 'panel.show_problem', item_id: 'p1', label: 'Problem 1', kind: 'problem', examples: [],
+      statement: 'Find the pair. Return the indices.',
+    })))
+    const statement = screen.getByTestId('statement-text')
+    const text = statement.firstChild!.firstChild as Text
+    const range = document.createRange()
+    range.setStart(text, 15)
+    range.setEnd(text, 34)
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(range)
+    fireEvent.mouseUp(statement)
+    act(() => {
+      window.getSelection()!.removeAllRanges()
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+    await waitFor(() => {
+      const events = session.sentOf('activity.batch').flatMap((m) => m.events).filter((e) => e.k === 'sel')
+      expect(events).toEqual([
+        expect.objectContaining({ k: 'sel', s: 'panel', text: 'Return the indices.' }),
+        expect.objectContaining({ k: 'sel', s: 'panel', text: '' }),
+      ])
+    }, { timeout: 2000 })
+  })
+})

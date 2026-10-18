@@ -53,7 +53,8 @@ describe('nextEpisode', () => {
     expect(nextEpisode(screen, [], 29_000)).toEqual({ episode: null, change: { type: 'back', awayMs: 29_000, overLimit: false, limitS: 30 } })
     expect(nextEpisode(screen, [], 30_000).change).toMatchObject({ overLimit: true })
     const tab: AwayEpisode = { startedAt: 0, kinds: ['tab_hidden'], tight: true }
-    expect(nextEpisode(tab, [], 16_000).change).toMatchObject({ overLimit: true, limitS: 15 })
+    expect(nextEpisode(tab, [], 4_000).change).toMatchObject({ overLimit: true, limitS: AWAY_LIMIT_TAB_S })
+    expect(nextEpisode(tab, [], 3_999).change).toMatchObject({ overLimit: false })
   })
 
   it('has nothing to say when there was no episode and there is none', () => {
@@ -65,18 +66,18 @@ describe('countdown', () => {
   const tab: AwayEpisode = { startedAt: 10_000, kinds: ['tab_hidden'], tight: true }
 
   it('counts down to the limit, rounding up', () => {
-    expect(countdown(tab, 10_000)).toEqual({ phase: 'limit', seconds: 15 })
-    expect(countdown(tab, 10_001)).toEqual({ phase: 'limit', seconds: 15 })
-    expect(countdown(tab, 24_500)).toEqual({ phase: 'limit', seconds: 1 })
+    expect(countdown(tab, 10_000)).toEqual({ phase: 'limit', seconds: AWAY_LIMIT_TAB_S })
+    expect(countdown(tab, 10_001)).toEqual({ phase: 'limit', seconds: AWAY_LIMIT_TAB_S })
+    expect(countdown(tab, 13_500)).toEqual({ phase: 'limit', seconds: 1 })
   })
 
   it('then counts down to the cap, and never below zero', () => {
-    expect(countdown(tab, 25_000)).toEqual({ phase: 'cap', seconds: AWAY_CAP_S - 15 })
+    expect(countdown(tab, 14_000)).toEqual({ phase: 'cap', seconds: AWAY_CAP_S - AWAY_LIMIT_TAB_S })
     expect(countdown(tab, 70_000)).toEqual({ phase: 'cap', seconds: 0 })
     expect(countdown(tab, 500_000)).toEqual({ phase: 'cap', seconds: 0 })
   })
 
   it('treats a clock reading from before the episode as its start', () => {
-    expect(countdown(tab, 2_000)).toEqual({ phase: 'limit', seconds: 15 })
+    expect(countdown(tab, 2_000)).toEqual({ phase: 'limit', seconds: AWAY_LIMIT_TAB_S })
   })
 })

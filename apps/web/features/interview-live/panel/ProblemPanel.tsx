@@ -1,11 +1,11 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Expand, Maximize2, Minimize2, Shrink } from 'lucide-react'
 import { HudEmpty } from '@/components/hud'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import { useActivity } from '../activity/ActivityProvider'
-import { quoteAtPoint } from '../activity/panelActivity'
+import { quoteAtPoint, selectedTextIn } from '../activity/panelActivity'
 import { useWorkspace } from '../workspace/WorkspaceProvider'
 import { Sections } from './Sections'
 import { Statement } from './Statement'
@@ -30,6 +30,26 @@ export function ProblemPanel() {
     if (quote) record({ k: 'ptr', s: 'panel', quote })
   }
 
+  // What the candidate has selected in the problem, sent when it changes (any selection, not only a Highlight), so the
+  // interviewer can tell what "this part" or "the highlighted part" is. Cleared selections are reported too.
+  const box = useRef<HTMLElement>(null)
+  const lastSel = useRef('')
+  function onSelect() {
+    const text = selectedTextIn(box.current)
+    if (text === lastSel.current) return
+    lastSel.current = text
+    record({ k: 'sel', s: 'panel', text })
+  }
+  useEffect(() => {
+    function onChange() {
+      if (!lastSel.current || selectedTextIn(box.current)) return
+      lastSel.current = ''
+      record({ k: 'sel', s: 'panel', text: '' })
+    }
+    document.addEventListener('selectionchange', onChange)
+    return () => document.removeEventListener('selectionchange', onChange)
+  }, [record])
+
   useEffect(() => {
     if (!panel.flashId) return
     const t = setTimeout(clearFlash, FLASH_MS)
@@ -38,7 +58,10 @@ export function ProblemPanel() {
 
   return (
     <section
+      ref={box}
       aria-label="Problem"
+      onMouseUp={onSelect}
+      onKeyUp={onSelect}
       onFocusCapture={() => record({ k: 'focus', s: 'panel' })}
       onMouseMove={onPointer}
       data-testid={panelFull ? 'panel-full' : undefined}

@@ -11,7 +11,7 @@ describe("PrejoinView rules", () => {
         <PrejoinView />
       </LiveSessionProvider>,
     );
-    expect(screen.getByText(/come back within 15 seconds/)).toBeInTheDocument();
+    expect(screen.getByText(/come back within 4 seconds of the interviewer telling you to/)).toBeInTheDocument();
     expect(screen.getByText(/after 60 seconds the interview ends/)).toBeInTheDocument();
     expect(screen.getByText(/pasting outside text ends the interview/)).toBeInTheDocument();
     expect(screen.getByText(/automated typing ends the interview/)).toBeInTheDocument();

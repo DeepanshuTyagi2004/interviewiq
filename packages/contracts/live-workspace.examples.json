@@ -318,6 +318,12 @@
         "k": "ptr",
         "t": 1760000000800,
         "s": "out"
+      },
+      {
+        "k": "sel",
+        "t": 1760000000900,
+        "s": "panel",
+        "text": "Each portion size can be used any number of times."
       }
     ]
   },

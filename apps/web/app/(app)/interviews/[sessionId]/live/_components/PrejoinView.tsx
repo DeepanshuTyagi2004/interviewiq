@@ -20,7 +20,7 @@ const DOS = [
 
 const DONTS = [
   "Don't switch tabs, windows or screens. Every switch is counted, and repeated switches end the round.",
-  "If you do leave this screen or full screen, come back within 15 seconds (30 for full screen or screen share). After that it counts as another violation, and after 60 seconds the interview ends.",
+  "If you do leave this screen or full screen, come back within 4 seconds of the interviewer telling you to (30 seconds for full screen or screen share). After that it counts as another violation, and after 60 seconds the interview ends.",
   "Don't paste text from anywhere else. Copy and paste work only inside this room, your clipboard is cleared when you join, and pasting outside text ends the interview.",
   "Don't use automated typing or scripts. Your code must be typed by you, and automated typing ends the interview.",
   "Don't use a phone, second monitor, or another person for help.",

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Section } from '../protocol/messages'
 import {
   EMPTY_PANEL,
+  REPLACED_LABEL,
   cardFromWire,
   findQuote,
   hasCard,
@@ -36,6 +37,23 @@ describe('panelReducer', () => {
     expect(s.cards[0].sections).toHaveLength(1)
     expect(s.cards[0].highlights).toHaveLength(1)
     expect(s.activeId).toBe('slot-1')
+  })
+
+  it('relabels a replaced problem as "(replaced)" without bringing it back to the front or flashing it, keeping its sections', () => {
+    let s = show(EMPTY_PANEL, 'slot-2', 'Problem 2')
+    s = panelReducer(s, { type: 'add_section', itemId: 'slot-2', section: section('c1') })
+    s = show(s, 'slot-2', 'Problem 2 (replaced)')
+    s = show(s, 'reserve-1', 'Problem 2')
+    expect(s.cards.map((c) => c.label)).toEqual(['Problem 2 (replaced)', 'Problem 2'])
+    expect(s.cards[0].sections).toHaveLength(1)
+    expect(s.activeId).toBe('reserve-1')
+    expect(s.flashId).toBe('reserve-1')
+    const quiet = show(show(EMPTY_PANEL, 'a', 'Problem 1'), 'b', 'Problem 2')
+    const relabelled = show(quiet, 'a', 'Problem 1 (replaced)')
+    expect(relabelled.activeId).toBe('b')
+    expect(relabelled.flashId).toBe('b')
+    expect(REPLACED_LABEL.test('Problem 1 (replaced)')).toBe(true)
+    expect(REPLACED_LABEL.test('Problem 1')).toBe(false)
   })
 
   it('ignores a section for an unknown item and replaces a section with the same id', () => {

@@ -39,6 +39,9 @@ export type PanelAction =
   | { type: 'restore'; cards: ProblemCard[]; activeId: string | null }
   | { type: 'flash_done' }
 
+/** The label the worker gives a problem that a different one took the place of: "Problem 2 (replaced)". */
+export const REPLACED_LABEL = /\(replaced\)\s*$/
+
 export const EMPTY_PANEL: PanelState = { cards: [], activeId: null, flashId: null }
 
 export function hasCard(state: PanelState, itemId: string): boolean {
@@ -54,6 +57,11 @@ export function panelReducer(state: PanelState, action: PanelAction): PanelState
   switch (action.type) {
     case 'show': {
       const { card } = action
+      // The interviewer re-sends a problem the candidate asked to have changed with "(replaced)" on its label (decided 2026-10-18): the tab
+      // reads as replaced, but the card is not brought back to the front or flashed; the problem that took its place is.
+      if (hasCard(state, card.itemId) && REPLACED_LABEL.test(card.label)) {
+        return { ...state, cards: state.cards.map((c) => (c.itemId === card.itemId ? { ...c, ...card } : c)) }
+      }
       const cards = hasCard(state, card.itemId)
         ? state.cards.map((c) => (c.itemId === card.itemId ? { ...c, ...card } : c))
         : [...state.cards, { ...card, sections: [], highlights: [] }]

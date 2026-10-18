@@ -10,7 +10,7 @@ describe('ProctorBars return clock', () => {
   it('counts down to the limit, then to the end of the interview', () => {
     const away: AwayEpisode = { startedAt: Date.now(), kinds: ['tab_hidden'], tight: true }
     render(<ProctorBars outOfFullscreen={false} shareStopped={false} toast={null} away={away} />)
-    expect(screen.getByText(/Return to the interview within 15 s/)).toBeInTheDocument()
+    expect(screen.getByText(/Return to the interview within 4 s/)).toBeInTheDocument()
     act(() => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByText(/Return now\. The interview ends in 40 s/)).toBeInTheDocument()
   })

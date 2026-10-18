@@ -165,6 +165,8 @@ const Col = z.number().int().min(1)
 const PtrCode = z.object({ k: z.literal('ptr'), t: At, s: z.literal('code'), line: Line, col: Col, text: z.string().max(80) })
 const PtrBoard = z.object({ k: z.literal('ptr'), t: At, s: z.literal('board'), x: z.number(), y: z.number(), over: z.string().max(60).optional() })
 const PtrPanel = z.object({ k: z.literal('ptr'), t: At, s: z.literal('panel'), quote: z.string().max(120) })
+/** Text the candidate selected in the problem ('' once the selection is cleared): "this part" is resolved to it. */
+const SelPanel = z.object({ k: z.literal('sel'), t: At, s: z.literal('panel'), text: z.string().max(300) })
 const PtrOut = z.object({ k: z.literal('ptr'), t: At, s: z.literal('out') })
 const Caret = z.object({
   k: z.literal('caret'), t: At, line: Line, col: Col, sel: z.tuple([Line, Line]).optional(), text: z.string().max(120).optional(),
@@ -178,7 +180,7 @@ const Shape = z.object({
 })
 const Focus = z.object({ k: z.literal('focus'), t: At, s: z.enum(['code', 'board', 'panel']) })
 /** One thing the candidate did in the workspace; `t` is browser epoch milliseconds. */
-export const ActivityEvent = z.union([PtrCode, PtrBoard, PtrPanel, PtrOut, Caret, Edit, Shape, Focus])
+export const ActivityEvent = z.union([PtrCode, PtrBoard, PtrPanel, PtrOut, SelPanel, Caret, Edit, Shape, Focus])
 export const ActivityBatch = z.object({
   ...header, type: z.literal('activity.batch'), sent_at: At, events: z.array(ActivityEvent).min(1).max(ACTIVITY_MAX_EVENTS),
 })

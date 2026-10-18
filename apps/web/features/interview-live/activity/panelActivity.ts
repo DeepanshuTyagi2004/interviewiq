@@ -38,3 +38,13 @@ export function quoteAtPoint(doc: CaretDoc, root: Element, x: number, y: number)
   const quote = quoteFromText(root.textContent ?? '', before.toString().length)
   return quote || null
 }
+
+export const MAX_SELECTED_PANEL = 300
+
+/** The text the candidate has selected inside `root` (the problem panel), whitespace collapsed and capped; '' when nothing is
+ * selected there. Any selection counts, not only one turned into a highlight, so "this part" can be resolved to it. */
+export function selectedTextIn(root: Element | null, sel: Selection | null = typeof window === 'undefined' ? null : window.getSelection()): string {
+  if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return ''
+  if (!root.contains(sel.getRangeAt(0).commonAncestorContainer)) return ''
+  return capCodePoints(sel.toString().replace(/\s+/g, ' ').trim(), MAX_SELECTED_PANEL)
+}

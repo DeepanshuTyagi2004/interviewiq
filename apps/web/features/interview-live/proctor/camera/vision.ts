@@ -54,7 +54,9 @@ export async function loadFaceEmbedder(): Promise<FaceEmbedder> {
   // Threads need cross-origin isolation, which the app doesn't have; one thread is plenty every few seconds.
   ort.env.wasm.numThreads = 1
   ort.env.logLevel = 'error'
-  const session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'] })
+  // The session has its own log level (warnings by default): the model loads with ~150 graph warnings ("Initializer ...
+  // appears in graph inputs") that each became a console error in the live room. 3 = errors only.
+  const session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'], logSeverityLevel: 3 })
   const canvas = document.createElement('canvas')
   canvas.width = CROP
   canvas.height = CROP
