@@ -12,6 +12,7 @@ import type {
 } from "../repositories/pg.js";
 import { nodeStates, roundNodes, type RoundNode } from "../domain/process.js";
 import { practiceSnapshot } from "../domain/practice.js";
+import { drawRoundMinutes, sessionRoundMinutes } from "../domain/liveRound.js";
 import type { BlueprintPrepService, PrepStep } from "./blueprintPrep.js";
 import type { CompanyEnrichmentService } from "./companyEnrichment.js";
 import { engineeringLevelView, normalizeLegacyLevel, type EngineeringLevel } from "../domain/engineeringLevels.js";
@@ -75,6 +76,8 @@ export interface InterviewSessionResponse {
   endReason: string | null;
   loopId: string | null;
   nodeId: string | null;
+  /** This round's length in minutes (30, 35, 40 or 45), drawn at booking; 45 for sessions booked before the draw. */
+  roundMinutes: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -112,6 +115,7 @@ export function toSessionResponse(
     endReason: s.endedReason ?? null,
     loopId: s.loopId,
     nodeId: s.nodeId,
+    roundMinutes: sessionRoundMinutes(s),
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };
@@ -253,6 +257,7 @@ export class InterviewSessionService {
       status: "SCHEDULED",
       loopId: req.loopId,
       nodeId: req.nodeId,
+      roundMinutes: drawRoundMinutes(), // drawn once here; a reschedule or re-prep keeps it, a retake (new session) draws again
       ...(practice && loopRound ? { practicePrep: practiceSnapshot(loopRound.loop, loopRound.node, identity) } : {}),
     }, SLOT_MINUTES);
     if (!session) throw slotTaken();

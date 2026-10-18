@@ -94,7 +94,7 @@ export class LoopService {
       name: str(r.name) ?? `Round ${i + 1}`,
       type: str(r.type),
       kind: str(r.kind),
-      durationMinutes: MOCK_ROUND_MINUTES, // the researched length is the real round's; a mock is always this long
+      durationMinutes: MOCK_ROUND_MINUTES, // the researched length is the real round's; stored nodes hold the 45 maximum, the booking draws 30-45
       difficulty: str(r.difficulty),
       topics: strings(r.topics ?? r.dominant_topics),
       note: str(r.format) ?? undefined,

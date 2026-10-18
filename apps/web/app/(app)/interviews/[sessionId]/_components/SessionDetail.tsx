@@ -17,6 +17,7 @@ import {
   levelLabel,
   roleLabel,
   roundLabel,
+  roundLength,
   sessionSteps,
   type SessionStep,
 } from "@/features/interview/presentation";
@@ -147,6 +148,7 @@ function Details({ session }: { session: InterviewSession }) {
     ["Level", levelLabel(session.level)],
     ...(session.specialization ? ([["Focus", session.specialization]] as [string, React.ReactNode][]) : []),
     ["Round", roundLabel(session.roundType)],
+    ...(roundLength(session) ? ([["Length", roundLength(session)]] as [string, React.ReactNode][]) : []),
     [
       "Slot",
       <>

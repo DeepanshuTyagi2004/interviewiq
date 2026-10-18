@@ -42,6 +42,13 @@ describe("internal live endpoints", () => {
     expect((await env.http.get(ctx(s.id))).status).toBe(401);
   });
 
+  it("without a briefing, uses the session's own drawn length", async () => {
+    const user = await createUser(env);
+    const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(), roundMinutes: 30 });
+    const res = await env.http.get(ctx(s.id)).set("X-Internal-Api-Key", TEST_INTERNAL_KEY);
+    expect(res.body.round.duration_mins).toBe(30);
+  });
+
   it("falls back to the 45-minute mock-round length when the session has no briefing", async () => {
     const user = await createUser(env);
     const s = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date() });

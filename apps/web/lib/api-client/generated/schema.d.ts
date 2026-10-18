@@ -2355,6 +2355,11 @@ export interface components {
              */
             loopId?: string | null;
             nodeId?: string | null;
+            /**
+             * @description This round's length in minutes, drawn at booking and kept through reschedules; 45 for sessions booked before the draw.
+             * @enum {integer}
+             */
+            roundMinutes: 30 | 35 | 40 | 45;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2793,6 +2798,8 @@ export interface components {
             order: number;
             purpose?: string;
             timebox_mins: number;
+            /** @description A problem the round's minutes do not hold (a short round's second): given only if the first went well and time allows. */
+            bonus?: boolean;
             problem: {
                 round_type: string;
                 slug: string;
@@ -2851,6 +2858,8 @@ export interface components {
             round: {
                 [key: string]: unknown;
             };
+            /** @description The round shape chosen at prep (app/blueprint/shapes.py); old blueprints are classic. */
+            shape_id?: string;
             persona: {
                 name?: string;
                 seniority?: string;
@@ -2865,6 +2874,8 @@ export interface components {
                 phase?: "greeting" | "small_talk" | "framing" | "candidate_intro" | "core" | "candidate_questions" | "wrap_up";
                 timebox_mins?: number;
                 scored?: boolean;
+                /** @description The part's style within the shape (for example pointed_resume); empty for the classic style. */
+                style?: string;
                 guidance?: string;
             }[];
             personalization: {

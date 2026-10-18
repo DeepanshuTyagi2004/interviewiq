@@ -29,6 +29,7 @@ describe("ReportPlaceholder", () => {
     prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
     briefing: null,
     liveAvailable: true,
+    roundMinutes: 45,
     endReason: null,
     createdAt: "2024-07-05T09:00:00Z",
     updatedAt: "2024-07-05T09:30:00Z",

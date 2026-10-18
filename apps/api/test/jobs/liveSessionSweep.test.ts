@@ -27,6 +27,20 @@ describe("LiveSessionSweepJob", () => {
     expect((await env.c.repos.sessions.findById(running.id))!.status).toBe("LIVE_IN_PROGRESS");
   });
 
+  it("a 30-minute session without a briefing is swept past 1.5 x 30 + 30 = 75 minutes, not the 97.5 of a 45-minute one", async () => {
+    const jd = await seedJd(env);
+    const user = await createUser(env);
+    const now = Date.now();
+    expect(CEILING_FACTOR * 30 + SWEEP_GRACE_MINUTES).toBe(75);
+    const past = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(now - 80 * 60_000), roundMinutes: 30 });
+    const within = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(now - 70 * 60_000), roundMinutes: 30 });
+    const fortyFive = await seedSession(env, user.id, jd, { status: "LIVE_IN_PROGRESS", liveStartedAt: new Date(now - 80 * 60_000), roundMinutes: 45 });
+    await new LiveSessionSweepJob(env.c.repos.sessions, quiet, () => now).tick();
+    expect((await env.c.repos.sessions.findById(past.id))!.status).toBe("ABORTED_TECHNICAL");
+    expect((await env.c.repos.sessions.findById(within.id))!.status).toBe("LIVE_IN_PROGRESS");
+    expect((await env.c.repos.sessions.findById(fortyFive.id))!.status).toBe("LIVE_IN_PROGRESS");
+  });
+
   it("uses the session's own duration, and a default of 45 minutes (the mock-round length) without a briefing", async () => {
     const jd = await seedJd(env);
     const user = await createUser(env);

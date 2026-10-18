@@ -7,6 +7,9 @@
  *   pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts --concurrency=3 --out=.blueprint-audit
  *   pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts --only=A-,D-     # case id prefixes
  *   pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts --list           # print the cases, run nothing
+ *   pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts --minutes=30     # pin the round length (30, 35, 40, 45; default 45)
+ *   pnpm exec tsx --env-file=.env scripts/dev/bench-blueprints.ts --minutes=draw   # draw one per case, as a booking does
+ * The report shows every run's round length, so audits stay comparable.
  *
  * Cases: (A) every researched JD × a persona at its level, on the round a booking would start with;
  * (B) every persona not covered by A, on a practice template at its level; (C) every round type at
@@ -22,6 +25,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { JobDescriptionRow } from "../../src/db/pg/schema.js";
 import type { RoundType } from "../../src/domain/enums.js";
+import { drawRoundMinutes, MOCK_ROUND_MINUTES, ROUND_MINUTE_CHOICES } from "../../src/domain/liveRound.js";
 import type { BlueprintRunRequest } from "../../src/integrations/aiService/types.js";
 import { isObject, items, path, textOrNull } from "../../src/lib/json.js";
 import { withContainer } from "./bootstrap.js";
@@ -51,10 +55,13 @@ interface Outcome {
   status: string;
   code: string | null;
   durationMs: number | null;
+  /** The round length this run prepared for (the request's `duration_mins`). */
+  minutes: number | null;
   llmCalls: number;
   cacheHits: number;
   cacheMisses: number;
   persona: string | null;
+  shape: string | null;
   difficultyTarget: string | null;
   slots: string[];
   issues: string[];
@@ -64,8 +71,8 @@ interface Outcome {
 // A DSA round asks one coding problem when it is 35 minutes or less or targets hard problems (3 slots), else two (4).
 const SLOT_COUNTS: Record<string, number[]> = { dsa: [3, 4], "system-design": [2], lld: [2], behavioural: [7], "hiring-manager": [5] };
 // A technical round with a behavioural part ("Coding + Leadership Principles") adds three `culture-` slots
-// (two questions and a spare); DSA then keeps one coding problem instead of two.
-const MIXED_SLOT_COUNTS: Record<string, number[]> = { dsa: [6], "system-design": [5], lld: [5] };
+// (two questions and a spare); DSA then keeps one coding problem instead of two, and at 30 minutes one question instead of two (5 slots).
+const MIXED_SLOT_COUNTS: Record<string, number[]> = { dsa: [5, 6], "system-design": [4, 5], lld: [4, 5] };
 const isCulture = (slotId: unknown): boolean => String(slotId).startsWith("culture-");
 const LEVELS = ["intern", "fresher", "sde1", "sde2", "sde3", "staff", "principal", "distinguished"];
 
@@ -209,6 +216,8 @@ function check(c: Case, run: Record<string, unknown>, requestSent: BlueprintRunR
     if (!(Number(path(briefing, "duration_mins")) > 0)) outcome.issues.push("briefing has no duration");
   }
   outcome.persona = textOrNull(path(bp, "persona", "name"));
+  // An old blueprint without a shape id is the classic shape; a run with no blueprint has no shape and is not tallied as one.
+  outcome.shape = isObject(bp) ? (textOrNull(path(bp, "shape_id")) ?? "classic") : null;
   outcome.difficultyTarget = textOrNull(path(bp, "round", "difficulty_target"));
   // Personalization should touch the candidate's own material (soft: a note, not an issue).
   const profile = requestSent.candidate_profile;
@@ -226,6 +235,11 @@ async function main(): Promise<void> {
   const only = arg("only")?.split(",").map((s) => s.trim()).filter(Boolean);
   const outDir = resolve(arg("out") ?? ".blueprint-audit");
   const listOnly = process.argv.includes("--list");
+  const minutesArg = arg("minutes") ?? String(MOCK_ROUND_MINUTES);
+  const pinned = minutesArg === "draw" ? null : Number(minutesArg);
+  if (pinned !== null && !(ROUND_MINUTE_CHOICES as readonly number[]).includes(pinned)) {
+    throw new Error(`--minutes must be ${ROUND_MINUTE_CHOICES.join(", ")} or draw, got ${minutesArg}`);
+  }
 
   await withContainer(async (c) => {
     const jds = await c.repos.jds.findAllActiveOrdered();
@@ -248,7 +262,7 @@ async function main(): Promise<void> {
     const t0 = Date.now();
 
     const runCase = async (k: Case): Promise<void> => {
-      const o: Outcome = { id: k.id, label: k.label, runId: null, status: "?", code: null, durationMs: null, llmCalls: 0, cacheHits: 0, cacheMisses: 0, persona: null, difficultyTarget: null, slots: [], issues: [], notes: [] };
+      const o: Outcome = { id: k.id, label: k.label, runId: null, status: "?", code: null, durationMs: null, minutes: null, llmCalls: 0, cacheHits: 0, cacheMisses: 0, persona: null, shape: null, difficultyTarget: null, slots: [], issues: [], notes: [] };
       outcomes.push(o);
       try {
         const candidateId = await userIdOf(k.who);
@@ -269,9 +283,11 @@ async function main(): Promise<void> {
             nodeId = node ? String(node.id) : null;
             o.notes.push(`${existing ? "reused" : "confirmed"} loop ${loopId} (${String(loop.kind)}), node ${nodeId}`);
           }
-          request = await c.blueprintPrep.benchRequest({ candidateId, jobDescriptionId: k.jdId, loopId, nodeId, roundType: k.roundType, options: { bypass_blueprint_cache: false, bypass_answer_key_cache: false, ignore_exclusions: false, ...k.options } });
+          request = await c.blueprintPrep.benchRequest({ candidateId, jobDescriptionId: k.jdId, loopId, nodeId, roundType: k.roundType, options: { bypass_blueprint_cache: false, bypass_answer_key_cache: false, ignore_exclusions: false, ...k.options },
+            roundMinutes: pinned ?? drawRoundMinutes() });
         }
         requests.set(k.id, request);
+        o.minutes = request.round?.duration_mins ?? null;
         const started = await c.aiService.startBlueprintBench(request) as Record<string, unknown>;
         o.runId = String(started.run_id);
         let status = "running";
@@ -320,6 +336,8 @@ async function main(): Promise<void> {
     const failed = outcomes.filter((o) => o.issues.length);
     const personas = new Map<string, number>();
     for (const o of outcomes) if (o.persona) personas.set(o.persona, (personas.get(o.persona) ?? 0) + 1);
+    const shapes = new Map<string, number>();
+    for (const o of outcomes) if (o.shape) shapes.set(o.shape, (shapes.get(o.shape) ?? 0) + 1);
     const durations = outcomes.map((o) => o.durationMs).filter((d): d is number => d !== null).sort((a, b) => a - b);
     const lines = [
       `# Blueprint prep audit`, ``,
@@ -327,9 +345,11 @@ async function main(): Promise<void> {
       `- With issues: **${failed.length}**`,
       `- Durations: median ${durations.length ? Math.round(durations[Math.floor(durations.length / 2)]! / 1000) : 0}s, max ${durations.length ? Math.round(durations[durations.length - 1]! / 1000) : 0}s`,
       `- LLM calls: ${outcomes.reduce((n, o) => n + o.llmCalls, 0)} · answer-key cache hits ${outcomes.reduce((n, o) => n + o.cacheHits, 0)} / misses ${outcomes.reduce((n, o) => n + o.cacheMisses, 0)}`,
-      `- Interviewer names used: ${[...personas.entries()].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ×${k}`).join(", ")}`, ``,
-      `| Case | Status | Time | Interviewer | Difficulty | Problems | Issues / notes |`, `|---|---|---|---|---|---|---|`,
-      ...outcomes.map((o) => `| ${o.id} ${o.label} | ${o.status}${o.code ? `:${o.code}` : ""} | ${o.durationMs ? `${Math.round(o.durationMs / 1000)}s` : ""} | ${o.persona ?? ""} | ${o.difficultyTarget ?? ""} | ${o.slots.join(", ")} | ${[...o.issues.map((i) => `**${i}**`), ...o.notes].join("<br>")} |`),
+      `- Interviewer names used: ${[...personas.entries()].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ×${k}`).join(", ")}`,
+      `- Shapes used: ${[...shapes.entries()].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ×${k}`).join(", ")}`,
+      `- Round length: ${pinned === null ? "drawn per case" : `pinned at ${pinned} min`}`, ``,
+      `| Case | Status | Time | Round | Interviewer | Difficulty | Problems | Issues / notes |`, `|---|---|---|---|---|---|---|---|`,
+      ...outcomes.map((o) => `| ${o.id} ${o.label} | ${o.status}${o.code ? `:${o.code}` : ""} | ${o.durationMs ? `${Math.round(o.durationMs / 1000)}s` : ""} | ${o.minutes ? `${o.minutes} min` : ""} | ${o.persona ?? ""} | ${o.difficultyTarget ?? ""} | ${o.slots.join(", ")} | ${[...o.issues.map((i) => `**${i}**`), ...o.notes].join("<br>")} |`),
     ];
     mkdirSync(outDir, { recursive: true });
     writeFileSync(resolve(outDir, "blueprint-audit.md"), lines.join("\n"));

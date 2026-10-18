@@ -63,7 +63,7 @@ describe("ProcessEditor", () => {
     expect(screen.getByRole("combobox", { name: "Process level" })).toBeDisabled();
     expect(screen.getByLabelText("Node palette")).toHaveAttribute("inert");
   });
-  it("shows a round's length as read-only text, always the 45-minute mock length", async () => {
+  it("shows a round's length as read-only text, always the 30-45 minute label", async () => {
     const user = userEvent.setup();
     // A process saved before the change still holds 60 minutes.
     mocks.data = { ...mocks.data!, graph: { nodes: [{ ...newRoundNode("dsa", { x: 0, y: 0 }), durationMinutes: 60 }], edges: [] } };
@@ -71,7 +71,7 @@ describe("ProcessEditor", () => {
     await user.click(screen.getByRole("button", { name: "Inspect Coding & algorithms" }));
     const inspector = screen.getByLabelText("Inspector");
     expect(within(inspector).getByText("Length")).toBeInTheDocument();
-    expect(within(inspector).getByText("45 min, every mock interview")).toBeInTheDocument();
+    expect(within(inspector).getByText("30-45 min, set when you book")).toBeInTheDocument();
     expect(within(inspector).queryByRole("spinbutton")).toBeNull();
     expect(within(inspector).queryByText(/60/)).toBeNull();
   });

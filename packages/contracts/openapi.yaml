@@ -2730,6 +2730,7 @@ components:
         - briefing
         - liveAvailable
         - endReason
+        - roundMinutes
         - createdAt
         - updatedAt
       properties:
@@ -2787,6 +2788,10 @@ components:
         nodeId:
           type: string
           nullable: true
+        roundMinutes:
+          type: integer
+          enum: [30, 35, 40, 45]
+          description: This round's length in minutes, drawn at booking and kept through reschedules; 45 for sessions booked before the draw.
         createdAt:
           type: string
           format: date-time
@@ -3330,6 +3335,7 @@ components:
         order: { type: integer }
         purpose: { type: string }
         timebox_mins: { type: integer }
+        bonus: { type: boolean, description: "A problem the round's minutes do not hold (a short round's second): given only if the first went well and time allows." }
         problem:
           type: object
           required: [round_type, slug, title, content]
@@ -3385,6 +3391,7 @@ components:
         run_id: { type: string }
         created_at: { type: string }
         round: { type: object, additionalProperties: true }
+        shape_id: { type: string, description: "The round shape chosen at prep (app/blueprint/shapes.py); old blueprints are classic." }
         persona:
           type: object
           properties:
@@ -3403,6 +3410,7 @@ components:
               phase: { type: string, enum: [greeting, small_talk, framing, candidate_intro, core, candidate_questions, wrap_up] }
               timebox_mins: { type: integer }
               scored: { type: boolean }
+              style: { type: string, description: "The part's style within the shape (for example pointed_resume); empty for the classic style." }
               guidance: { type: string }
         personalization:
           type: object

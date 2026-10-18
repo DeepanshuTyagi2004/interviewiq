@@ -5,8 +5,12 @@ type RoundType = components["schemas"]["RoundType"];
 
 const SESSIONS = "/api/v1/interviews/sessions";
 
-/** Every mock interview round is exactly this long, whatever the real company round lasts. Mirrors the API's `MOCK_ROUND_MINUTES`. */
+/**
+ * A mock round is 30, 35, 40 or 45 minutes, drawn when it is booked (decided 2026-10-18), whatever the real company round lasts.
+ * `MOCK_ROUND_MINUTES` mirrors the API's maximum, the length stored on saved nodes; a not-yet-booked round shows `ROUND_MINUTES_LABEL`.
+ */
 export const MOCK_ROUND_MINUTES = 45;
+export const ROUND_MINUTES_LABEL = "30-45 min";
 
 export const INTERVIEW_ENDPOINTS = {
   sessions: SESSIONS,

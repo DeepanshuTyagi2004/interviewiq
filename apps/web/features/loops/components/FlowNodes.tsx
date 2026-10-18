@@ -2,7 +2,7 @@
 
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Check, Clock, Info, Lock } from "lucide-react";
-import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
+import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
 import { cn } from "@/lib/utils/cn";
 import { roundTypeLabel } from "../graph";
 import type { InfoNode, LoopNodeState, RoundNode } from "../types";
@@ -52,7 +52,7 @@ export function RoundFlowNodeView({ data, selected }: NodeProps<RoundFlowNode>) 
       </p>
       <p className="m-0 mt-2 text-sm leading-snug">{node.name || "Untitled round"}</p>
       <p className="m-0 mt-1 font-mono text-[11px] text-muted-foreground">
-        {roundTypeLabel(node.type)} · {MOCK_ROUND_MINUTES} min · {node.difficulty}
+        {roundTypeLabel(node.type)} · {ROUND_MINUTES_LABEL} · {node.difficulty}
       </p>
       {node.topics.length > 0 ? (
         <p className="m-0 mt-2 line-clamp-2 text-[11.5px] leading-[1.4] text-faint">{node.topics.join(" · ")}</p>

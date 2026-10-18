@@ -120,6 +120,28 @@ describe("InterviewSessionService.createSession", () => {
     expect((await env.c.repos.sessions.findById(resp.id))!.prepRunId).toBe("bpr_1");
   });
 
+  it("draws the round length at booking (30, 35, 40 or 45), stores it, and a reschedule keeps it", async () => {
+    const jd = await insertJd();
+    const seen = new Set<number>();
+    for (const r of [0, 0.3, 0.6, 0.99]) {
+      const u = await createUser(env);
+      vi.spyOn(Math, "random").mockReturnValue(r); // restored after each test
+      const resp = await env.c.sessions.createSession(u.id, req(jd.id));
+      seen.add(resp.roundMinutes);
+      expect((await env.c.repos.sessions.findById(resp.id))!.roundMinutes).toBe(resp.roundMinutes);
+      const moved = await env.c.sessions.reschedule(u.id, resp.id, new Date(Date.now() + 9 * DAY_MS), "Asia/Kolkata");
+      expect(moved.roundMinutes).toBe(resp.roundMinutes);
+      expect((await env.c.repos.sessions.findById(resp.id))!.roundMinutes).toBe(resp.roundMinutes);
+    }
+    expect([...seen].sort()).toEqual([30, 35, 40, 45]);
+  });
+
+  it("a session booked before the draw (no stored length) reads as 45 minutes", async () => {
+    const s = await existing(user.id, "SCHEDULED");
+    expect(s.roundMinutes).toBeNull();
+    expect((await env.c.sessions.getSession(user.id, s.id)).roundMinutes).toBe(45);
+  });
+
   it("defaults to the first round when the round is omitted", async () => {
     const jd = await insertJd();
     // The candidate does not pick the round — omitting it must assign the default (first round).

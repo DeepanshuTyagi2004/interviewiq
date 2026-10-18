@@ -53,7 +53,7 @@ function round(
   keywords: string[] = [], difficulty: RoundNode["difficulty"] = "medium",
 ): Extract<NodePreset, { kind: "round" }> {
   return {
-    // Every mock round has the same length, so presets don't pick one.
+    // Presets store the 45 maximum; the real length (30-45) is drawn per session at booking.
     id, label, category, kind: "round", type, topics, keywords, difficulty, durationMinutes: MOCK_ROUND_MINUTES,
     description: exercise,
     instructions: `Practise as a ${roles[category]}. ${exercise} Ask about the user's experience and preferred stack first; adapt scope, hints and follow-ups to their level. Start with a concrete example, clarify assumptions, and ask them to explain decisions and verify edge cases. Give feedback on correctness, trade-offs and communication using evidence from this exercise.`,

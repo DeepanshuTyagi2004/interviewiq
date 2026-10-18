@@ -3,7 +3,7 @@ import { HudCard, StatusDot } from "@/components/hud";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
-import { isJoinable } from "@/features/interview/presentation";
+import { isJoinable, roundLength } from "@/features/interview/presentation";
 import { statusDotState } from "@/app/(app)/interviews/_components/StatusPill";
 import { formatSlot, sessionHref, shortDate } from "./sessions";
 import { levelLabel } from "@/lib/constants/engineering-levels";
@@ -76,6 +76,7 @@ export function UpNextCard({ session, className }: { session: InterviewSession |
           <dl className="m-0 flex min-w-0 flex-[1_1_100%] flex-wrap gap-px overflow-hidden rounded-md border border-white/10 bg-white/10">
             <ReadoutCell label="Slot">{formatSlot(session.scheduledAt)}</ReadoutCell>
             <ReadoutCell label="Level">{levelLabel(session.level)}</ReadoutCell>
+            {roundLength(session) ? <ReadoutCell label="Length">{roundLength(session)}</ReadoutCell> : null}
             {session.specialization ? <ReadoutCell label="Track">{session.specialization}</ReadoutCell> : null}
           </dl>
         ) : null}

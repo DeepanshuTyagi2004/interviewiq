@@ -25,14 +25,14 @@ describe("NodePalette", () => {
     error.mockRestore();
   });
 
-  it("shows the 45-minute mock length on round cards, even if a preset still holds another length", () => {
+  it("shows the 30-45 minute label on round cards, even if a preset still holds another length", () => {
     const round = NODE_PRESETS.find((node) => node.kind === "round")!;
     const stored = round.durationMinutes;
     (round as { durationMinutes: number }).durationMinutes = 60; // simulate stale data; restored below
     try {
       render(<NodePalette {...props} />);
       const card = screen.getByRole("button", { name: `Add ${round.label}` });
-      expect(card).toHaveTextContent("45 min · " + round.difficulty);
+      expect(card).toHaveTextContent("30-45 min · " + round.difficulty);
       expect(card).not.toHaveTextContent("60 min");
     } finally {
       (round as { durationMinutes: number }).durationMinutes = stored;
@@ -128,10 +128,10 @@ describe("NodePalette", () => {
     expect(image.style.position).toBe("fixed");
     expect(image.style.left).toBe("-10000px");
     expect(image).toHaveAttribute("aria-hidden", "true");
-    expect(image.textContent).toBe(`${node.label}lld · 45 min`);
+    expect(image.textContent).toBe(`${node.label}lld · 30-45 min`);
     expect(image.querySelectorAll("[id]")).toHaveLength(0);
     for (const neighbor of NODE_PRESETS.filter((preset) => preset.category === "languages" && preset.id !== node.id)) expect(image).not.toHaveTextContent(neighbor.label);
-    expect(context.fillText.mock.calls).toEqual([[node.label, 12, 28, 216], ["lld · 45 min", 12, 58, 216]]);
+    expect(context.fillText.mock.calls).toEqual([[node.label, 12, 28, 216], ["lld · 30-45 min", 12, 58, 216]]);
     expect(card).toHaveStyle({ userSelect: "none" });
     expect(card.querySelector("[draggable=true]")).toBeNull();
     expect(results.scrollTop).toBe(600);

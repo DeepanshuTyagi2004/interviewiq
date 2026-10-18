@@ -27,6 +27,7 @@ const base: InterviewSession = {
   prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
   briefing: null,
   liveAvailable: true,
+  roundMinutes: 45,
   endReason: null,
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",
@@ -98,6 +99,24 @@ describe("SessionDetail blueprint prep", () => {
     expect(screen.getByText("45 minutes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Enter interview room/ })).toBeDisabled();
     expect(screen.getByText(/Live sessions open soon/)).toBeInTheDocument();
+  });
+
+  it("shows the drawn round length in the details as soon as it is booked, before the briefing exists", () => {
+    renderSession({ status: "PREP_QUEUED", roundMinutes: 35, briefing: null });
+    expect(screen.getByText("Length")).toBeInTheDocument();
+    expect(screen.getByText("35 min")).toBeInTheDocument();
+    expect(screen.queryByText("30-45 min")).toBeNull();
+  });
+
+  it("shows the booked session's own drawn length, not a fixed 45", () => {
+    renderSession({
+      status: "PREP_READY",
+      roundMinutes: 30,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: "2026-10-01T09:00:00Z", errorCode: null },
+      briefing: { interviewerName: "Asha Rao", interviewerStyle: "calm", format: "coding interview with a shared editor", durationMins: 30 },
+    });
+    expect(screen.getByText("30 minutes")).toBeInTheDocument();
+    expect(screen.queryByText("45 minutes")).toBeNull();
   });
 
   it("while refreshing: keeps the briefing with an updating note", () => {

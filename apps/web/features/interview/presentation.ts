@@ -16,6 +16,11 @@ export function roundLabel(roundType: string): string {
   return ROUND_LABEL.get(roundType) ?? roundType;
 }
 
+/** "35 min": the booked round's own length, drawn at booking (30, 35, 40 or 45), shown before the briefing is ready. Null if unknown. */
+export function roundLength(session: { roundMinutes?: number }): string | null {
+  return session.roundMinutes ? `${session.roundMinutes} min` : null;
+}
+
 export function isRoundType(value: unknown): value is RoundType {
   return typeof value === "string" && ROUND_VALUES.has(value);
 }

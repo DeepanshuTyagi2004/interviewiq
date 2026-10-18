@@ -13,7 +13,7 @@ import type { Loop } from "../types";
 import { roundTypeLabel } from "../graph";
 import { SlotPicker } from "./SlotPicker";
 import { levelLabel } from "@/lib/constants/engineering-levels";
-import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
+import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -57,7 +57,7 @@ export function BookRoundDialog({ loop, nodeId, onOpenChange }: { loop: Loop; no
         {node && node.kind === "round" ? (
           <SlotDialogBody
             title={`Book ${node.name}`}
-            description={`${loop.jd?.companyName ?? loop.name} · ${levelLabel(loop.level)} · ${roundTypeLabel(node.type)} · ${MOCK_ROUND_MINUTES} min`}
+            description={`${loop.jd?.companyName ?? loop.name} · ${levelLabel(loop.level)} · ${roundTypeLabel(node.type)} · ${ROUND_MINUTES_LABEL}`}
             confirmLabel="Book"
             allowNow
             pending={create.isPending}

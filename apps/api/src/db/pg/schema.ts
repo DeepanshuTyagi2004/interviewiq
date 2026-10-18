@@ -332,6 +332,8 @@ export const interviewSessions = pgTable(
     loopId: uuid("loop_id"),
     nodeId: varchar("node_id", { length: 64 }),
     practicePrep: jsonb("practice_prep").$type<import("../../domain/practice.js").PracticePrepSnapshot>(),
+    /** This round's length (30/35/40/45), drawn at booking and kept through reschedules; null (read as 45) for sessions booked before the draw. */
+    roundMinutes: integer("round_minutes"),
   },
   (t) => [
     index("idx_session_candidate").on(t.candidateId),

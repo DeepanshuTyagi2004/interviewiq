@@ -21,10 +21,10 @@ describe("standalone round booking", () => {
     expect(mocks.book.mock.calls[0][0]).not.toHaveProperty("jobDescriptionId");
   });
 
-  it("describes the round as 45 minutes even if the saved node still holds 60", () => {
+  it("describes the round as 30-45 min before it is booked, even if the saved node still holds 60", () => {
     const node = { ...newRoundNode("dsa", { x: 0, y: 0 }), durationMinutes: 60 };
     const loop: Loop = { id: "l-2", name: "Old loop", level: "sde2", jdId: null, jd: null, processId: null, kind: "standalone", status: "active", countsTowardReadiness: false, confirmedAt: "2030-01-01", graph: { nodes: [node], edges: [] }, progress: { total: 1, completed: 0, nextNodeIds: [node.id] }, nodeStates: { [node.id]: "available" }, sessions: [] };
     render(<BookRoundDialog loop={loop} nodeId={node.id} onOpenChange={vi.fn()} />);
-    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(/ · 45 min$/);
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(/ · 30-45 min$/);
   });
 });

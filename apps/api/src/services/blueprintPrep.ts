@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { InterviewSessionRow, LoopRow } from "../db/pg/schema.js";
 import type { CandidateProfileResponse } from "../domain/candidateProfile.js";
 import type { RoundType } from "../domain/enums.js";
-import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
+import { sessionRoundMinutes } from "../domain/liveRound.js";
 import { practiceSnapshot } from "../domain/practice.js";
 import { roundNodes } from "../domain/process.js";
 import type { AiServiceClient } from "../integrations/aiService/client.js";
@@ -68,12 +68,20 @@ function stable(value: unknown): string {
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
+/**
+ * Part of the fingerprint, so ready sessions are re-prepared when a prep change must reach them (a change to the inputs alone
+ * would leave blueprints prepared before it running as they were). Bump it then. Must equal PREP_VERSION in the AI service's
+ * app/blueprint/pipeline.py.
+ */
+export const PREP_VERSION = "shapes-1";
+
 /** The fingerprint parts (spec §5.1); the AI service computes the same split for its cache. */
 export function fingerprint(req: Omit<BlueprintRunRequest, "input_hash" | "input_parts">): { hash: string; parts: Record<string, string> } {
   const s = req.session;
   const parts: Record<string, unknown> = {
     jd: req.job_description, round: req.round, brief: req.company_brief, profile: req.candidate_profile,
     exclusions: [...req.exclusions].sort(), level: [s.level, s.round_type, s.company, s.role],
+    prep: PREP_VERSION,
   };
   const hashed = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, sha(stable(v)).slice(0, 16)]));
   return { hash: sha(stable(hashed)), parts: hashed };
@@ -88,7 +96,7 @@ export function resolveRound(session: InterviewSessionRow, brief: unknown, loop:
   const fromBrief = (r: unknown, source: BlueprintRound["source"]): BlueprintRound => ({
     type: session.roundType,
     name: textOrNull(path(r, "name")),
-    duration_mins: MOCK_ROUND_MINUTES, // the researched length describes the real round, not the mock
+    duration_mins: sessionRoundMinutes(session), // the session's drawn length; the researched length describes the real round, not the mock
     format: textOrNull(path(r, "format")),
     topics: strings(path(r, "topics")),
     problems: strings(path(r, "problems")),
@@ -103,7 +111,7 @@ export function resolveRound(session: InterviewSessionRow, brief: unknown, loop:
   const sameId = node ? briefRounds.find((r) => path(r, "id") === node.id) : undefined;
   if (node) {
     return {
-      type: node.type, name: node.name, duration_mins: MOCK_ROUND_MINUTES, format: node.instructions ?? textOrNull(path(sameId, "format")),
+      type: node.type, name: node.name, duration_mins: sessionRoundMinutes(session), format: node.instructions ?? textOrNull(path(sameId, "format")),
       topics: node.topics, problems: sameId ? strings(path(sameId, "problems")) : [], difficulty: node.difficulty, source: "brief",
     };
   }
@@ -238,6 +246,8 @@ export class BlueprintPrepService {
   async benchRequest(input: {
     candidateId: string; jobDescriptionId: string | null; loopId: string | null; nodeId: string | null;
     roundType: RoundType | null; options: BlueprintRunRequest["options"];
+    /** The round length to prepare for (30, 35, 40 or 45); a bench run has no booking to draw it, so it defaults to 45. */
+    roundMinutes?: number;
   }): Promise<BlueprintRunRequest> {
     const loop = input.loopId ? await this.d.loops.findOwned(input.loopId, input.candidateId) : null;
     if (input.loopId && !loop) throw new InvalidArgumentError("that loop does not belong to this candidate");
@@ -257,7 +267,7 @@ export class BlueprintPrepService {
     const row = {
       id: "bench", candidateId: input.candidateId, jobDescriptionId: jd?.id ?? null, ...identity,
       roundType: node?.type ?? input.roundType ?? firstRound ?? "dsa", scheduledAt: new Date(), timezone: "UTC", status: "SCHEDULED",
-      loopId: loop?.id ?? null, nodeId: node?.id ?? null,
+      loopId: loop?.id ?? null, nodeId: node?.id ?? null, roundMinutes: input.roundMinutes ?? null,
       practicePrep: practice ? practiceSnapshot(loop!, node!, identity) : null,
       prepRunId: null, prepRunStartedAt: null, prepInputHash: null, blueprintVersion: null, prepErrorCode: null,
       prepRefreshing: false, prepRetryCount: 0, prepRetryWindowStart: null, preparedAt: null, prepBriefing: null,

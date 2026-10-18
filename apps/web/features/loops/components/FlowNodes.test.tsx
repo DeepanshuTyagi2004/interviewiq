@@ -11,7 +11,7 @@ vi.mock("@xyflow/react", async (importOriginal) => ({
 }));
 
 describe("RoundFlowNodeView", () => {
-  it("shows the 45-minute mock length, even for a saved round that still holds 60", () => {
+  it("shows the 30-45 min label, even for a saved round that still holds 60", () => {
     const node: RoundNode = {
       id: "a", kind: "round", name: "Coding", type: "dsa", durationMinutes: 60,
       difficulty: "medium", topics: [], position: { x: 0, y: 0 },
@@ -19,7 +19,7 @@ describe("RoundFlowNodeView", () => {
     // NodeProps carries many React Flow fields this view never reads.
     const props = { data: { node, index: 0, editable: false }, selected: false } as unknown as NodeProps<RoundFlowNode>;
     render(<RoundFlowNodeView {...props} />);
-    expect(screen.getByText("DSA · 45 min · medium")).toBeInTheDocument();
+    expect(screen.getByText("DSA · 30-45 min · medium")).toBeInTheDocument();
     expect(screen.queryByText(/60 min/)).toBeNull();
   });
 });

@@ -19,7 +19,7 @@ import { FlowCanvas } from "@/features/loops/components/FlowCanvas";
 import { MAX_INFO_NODES, MAX_ROUND_NODES, newCatalogueNode } from "@/features/loops/graph";
 import { NODE_PRESETS } from "@/features/loops/presets";
 import { ApiFetchError } from "@/lib/api-client/errors";
-import { MOCK_ROUND_MINUTES, ROUND_OPTIONS } from "@/lib/constants/interview";
+import { ROUND_MINUTES_LABEL, ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { NodePalette } from "./NodePalette";
@@ -59,7 +59,7 @@ function Inspector({ node, onPatch, onDelete }: { node: ProcessNode; onPatch: (p
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Length</Label>
-              <span className="text-[13px] text-foreground">{MOCK_ROUND_MINUTES} min, every mock interview</span>
+              <span className="text-[13px] text-foreground">{ROUND_MINUTES_LABEL}, set when you book</span>
             </div>
           </div>
         </>

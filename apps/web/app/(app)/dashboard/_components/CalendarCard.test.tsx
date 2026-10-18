@@ -22,6 +22,7 @@ function session(partial: Partial<InterviewSession>): InterviewSession {
     prep: { step: null, steps: [], refreshing: false, preparedAt: null, errorCode: null },
     briefing: null,
     liveAvailable: true,
+    roundMinutes: 45,
     endReason: null,
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",

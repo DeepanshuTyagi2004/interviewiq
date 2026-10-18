@@ -574,6 +574,7 @@ export class InterviewSessionRepository {
         eq(interviewSessions.candidateId, candidateId),
         ne(interviewSessions.status, "CANCELLED"),
         ne(interviewSessions.status, "ABORTED_TECHNICAL"),
+        ne(interviewSessions.status, "COMPLETED"),
         gt(interviewSessions.scheduledAt, new Date(at.getTime() - ms)),
         lte(interviewSessions.scheduledAt, new Date(at.getTime() + ms - 1)),
         ...(ignoreId ? [ne(interviewSessions.id, ignoreId)] : []),

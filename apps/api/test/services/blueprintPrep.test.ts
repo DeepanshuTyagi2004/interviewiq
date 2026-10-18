@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { InterviewSessionRow, JobDescriptionRow, LoopRow, UserRow } from "../../src/db/pg/schema.js";
 import { MOCK_ROUND_MINUTES } from "../../src/domain/liveRound.js";
-import { fingerprint, profileProjection, resolveRound } from "../../src/services/blueprintPrep.js";
+import { fingerprint, PREP_VERSION, profileProjection, resolveRound } from "../../src/services/blueprintPrep.js";
 import { createTestEnv, createUser, type TestEnv } from "../support/harness.js";
 import { AI, seedJd, seedSession } from "../routes/helpers.js";
 
@@ -44,6 +45,16 @@ describe("inputs", () => {
     expect(changed.hash).not.toBe(a.input_hash);
     expect(changed.parts.exclusions).not.toBe(a.input_parts.exclusions);
     expect(changed.parts.jd).toBe(a.input_parts.jd);
+  });
+
+  it("the fingerprint carries the prep version, so a version bump re-prepares ready sessions", async () => {
+    const s = await seedSession(env, user.id, jd);
+    const a = await env.c.blueprintPrep.assemble(s, "booking");
+    const expected = createHash("sha256").update(JSON.stringify(PREP_VERSION)).digest("hex").slice(0, 16);
+    expect(PREP_VERSION).toBe("shapes-1");
+    expect(a.input_parts.prep).toBe(expected);
+    expect(expected).toBe(createHash("sha256").update('"shapes-1"').digest("hex").slice(0, 16));
+    expect(expected).not.toBe(createHash("sha256").update(JSON.stringify("shapes-2")).digest("hex").slice(0, 16));
   });
 
   it("the profile projection carries no contact details and sums full-time years only", () => {
@@ -92,6 +103,27 @@ describe("inputs", () => {
     const loop = { graph: { nodes: [node], edges: [] } } as unknown as LoopRow;
     const booked = { ...base, nodeId: "n1" } as InterviewSessionRow;
     expect(resolveRound(booked, null, loop)!.duration_mins).toBe(MOCK_ROUND_MINUTES);
+  });
+});
+
+describe("round length in the prep payload", () => {
+  const brief = { final_experience: { rounds: [{ id: "r1", type: "dsa", kind: "interview", name: "Coding", duration_minutes: 90 }] } };
+  const node = { id: "n1", kind: "round", type: "dsa", name: "Coding", durationMinutes: 45, difficulty: "medium", topics: [], position: { x: 0, y: 0 } };
+  const loop = { graph: { nodes: [node], edges: [] } } as unknown as LoopRow;
+  const session = (extra: object) => ({ roundType: "dsa", practicePrep: null, nodeId: null, ...extra }) as unknown as InterviewSessionRow;
+
+  it("sends the session's drawn length as duration_mins on the brief, loop-node and practice paths", () => {
+    for (const roundMinutes of [30, 35, 40, 45]) {
+      expect(resolveRound(session({ roundMinutes }), brief, null)!.duration_mins).toBe(roundMinutes);
+      expect(resolveRound(session({ roundMinutes, nodeId: "n1" }), null, loop)!.duration_mins).toBe(roundMinutes);
+      const practicePrep = { companyBrief: { final_experience: { rounds: [{ type: "dsa", name: "Coding", duration_minutes: 60 }] } } };
+      expect(resolveRound(session({ roundMinutes, practicePrep }), null, null)!.duration_mins).toBe(roundMinutes);
+    }
+  });
+
+  it("falls back to 45 for a session with no stored length", () => {
+    expect(resolveRound(session({ roundMinutes: null }), brief, null)!.duration_mins).toBe(45);
+    expect(resolveRound(session({ roundMinutes: null, nodeId: "n1" }), null, loop)!.duration_mins).toBe(45);
   });
 });
 

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_ROUND_MINUTES } from "@/lib/constants/interview";
+import { MOCK_ROUND_MINUTES, ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
 import { filterNodePresets, NODE_CATEGORIES, NODE_PRESETS, ROUND_PRESETS } from "./presets";
 
 describe("node preset catalogue", () => {
-  it("makes every mock round 45 minutes", () => {
+  it("stores the 45-minute maximum on presets and shows a not-yet-booked round as 30-45 min", () => {
     expect(MOCK_ROUND_MINUTES).toBe(45);
+    expect(ROUND_MINUTES_LABEL).toBe("30-45 min");
   });
 
   it("covers specialist roles with more than 80 runnable and 10 reference steps", () => {
@@ -35,7 +36,7 @@ describe("node preset catalogue", () => {
       }
       if (preset.kind === "round") {
         expect(["dsa", "system-design", "lld", "behavioural", "hiring-manager"]).toContain(preset.type);
-        // Every mock round has the same length; presets never carry their own.
+        // Presets store the 45 maximum; the real length is drawn per session at booking.
         expect(preset.durationMinutes).toBe(MOCK_ROUND_MINUTES);
       } else {
         expect(preset.note.length).toBeLessThanOrEqual(1000);

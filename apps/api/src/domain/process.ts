@@ -24,7 +24,7 @@ const roundNode = z.object({
   kind: z.literal("round"),
   type: z.enum(ROUND_TYPES),
   name: text(120).min(1),
-  // Old clients still send their own length; parseProcessGraph overwrites it with MOCK_ROUND_MINUTES.
+  // Old clients still send their own length; parseProcessGraph overwrites it with MOCK_ROUND_MINUTES (the 45 maximum).
   durationMinutes: z.number().int().min(5).max(240),
   difficulty: z.enum(["easy", "medium", "hard"]),
   topics: z.array(text(80).min(1)).max(20),
@@ -89,7 +89,7 @@ export function parseProcessGraph(input: unknown): ProcessGraph {
   }
   if (hasCycle(rounds.map((n) => n.id), g.edges)) invalid("Rounds cannot form a loop; each round must come before the next");
   if (!isConnected(rounds.map((n) => n.id), g.edges)) invalid("Every round must be connected to the rest of the process");
-  // Every mock round has the same length, so a saved or edited process can never hold another one.
+  // A stored node always holds the maximum (45); the real length (30-45) is drawn per session at booking, and screens show "30-45 min" before that.
   return { ...g, nodes: g.nodes.map((n) => (n.kind === "round" ? { ...n, durationMinutes: MOCK_ROUND_MINUTES } : n)) };
 }
 
