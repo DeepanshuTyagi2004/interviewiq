@@ -45,6 +45,7 @@ class ExtractedClaims(list):
     def __init__(self, claims=(), *, diagnostics=()):
         super().__init__(claims)
         self.diagnostics = list(diagnostics)
+        self.skipped_windows = 0   # windows the decision gate skipped (ON mode): empty, never failed
 
 
 @dataclass(frozen=True)

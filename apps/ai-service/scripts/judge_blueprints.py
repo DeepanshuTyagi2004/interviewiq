@@ -1,7 +1,7 @@
 """Judge finished blueprints the way a senior interviewer would (docs/superpowers/specs/2026-10-07-interview-blueprint-design.md).
 
   .venv/bin/python scripts/judge_blueprints.py [--since 2026-10-08T10:00] [--limit 40] [--concurrency 4] [--out DIR]
-      [--model gemini-3.8-flash,gemini-2.5-flash] [--free-keys]
+      [--model gemini-3.8-flash,gemini-2.5-flash] [--free-keys] [--engine llm|jev] [--compare PATH/judge.json]
 
 Read-only over `blueprint_runs` (bench runs by default; --sessions judges booked sessions' runs instead). For each
 completed run, Gemini reads the whole blueprint as a {company} interviewer for that role and level, scores it on
@@ -10,7 +10,9 @@ with where they are and how to fix them. Writes judge.md (tables + every defect)
 The structural audit (`apps/api/scripts/dev/bench-blueprints.ts`) checks shape; this checks whether it would feel
 like a real interview. Needs GEMINI_API_KEY, or --free-keys to use the free AI Studio keys (LLM_API_KEY) when the
 paid key is out. --model lists models to try in order (a busy model answers 503); each verdict records which model
-judged it, since scores from different models are not directly comparable. The rubric is a PRODUCT IP draft.
+judged it, since scores from different models are not directly comparable.
+--engine jev is a quick screen on the Decisions API (Jev; needs OPENROUTER_API_KEY): scores only, no walkthroughs or defects.
+--compare (parsed at startup; refused if it is the judge.json being written; jev defaults --out to .blueprint-judge-jev) prints Jev's mean absolute error against an earlier LLM judge.json, joined on run_id. The rubric is a PRODUCT IP draft.
 """
 from __future__ import annotations
 
@@ -24,10 +26,14 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, Field, ValidationError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # run from anywhere: `app` is the sibling package
+from app.blueprint.shapes import shape_by_id  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import mongo  # noqa: E402
 from app.llm.client import LLMError  # noqa: E402
 from app.llm.gemini_client import GeminiClient  # noqa: E402
+from app.gates.judge import JUDGE_QUESTIONS, compare, compare_target_ok, verdict_from  # noqa: E402
+from app.llm.decisions import (MAX_STATE_BYTES, DecisionsUnavailable, close_shared_decisions_client,  # noqa: E402
+                               state_bytes, shared_decisions_client)
 
 DIMENSIONS = {
     "realism": "Would a candidate believe this is the company's real interview for this round (format, question choice, tone)?",
@@ -39,6 +45,7 @@ DIMENSIONS = {
     "answer_key": "Are the answer keys correct (approaches, complexity, must-cover points) and useful for grading?",
     "spoken_naturalness": "Do openings, transitions and lines sound like a person speaking, not a document?",
     "flow_and_timing": "Do phases, timeboxes, reserves and the order of questions make a coherent session?",
+    "persona_fits_shape": "The interviewer's manner (persona style and disposition) fits the round's shape: brisk for a round that goes straight to the work, warm for one that opens with a longer chat.",
 }
 
 SYSTEM = (
@@ -134,6 +141,7 @@ def view(run: dict) -> dict:
            "experience": [f"{x.get('title')} at {x.get('company')}" for x in prof.get("experience") or []],
            "coding": prof.get("coding")},
         "blueprint_round": bp.get("round"),   # incl. deep_dive_mins: the HM resume/round-question time outside the slots
+        "shape": {"id": bp.get("shape_id", "classic"), "about": shape_by_id(bp.get("shape_id")).about},
         "persona": bp.get("persona"), "arc": bp.get("arc"), "personalization": bp.get("personalization"),
         "briefing_shown_to_candidate": bp.get("briefing"), "slots": slots,
     }
@@ -178,9 +186,9 @@ async def judge(llms: list[GeminiClient], run: dict) -> dict:
     return {**head, "error": error}
 
 
-def report(rows: list[dict], out: str) -> None:
+def report(rows: list[dict], out: str, title_suffix: str = "") -> None:
     ok = [r for r in rows if "overall" in r]
-    lines = [f"# Blueprint judge · {datetime.now(timezone.utc).isoformat(timespec='minutes')}", "",
+    lines = [f"# Blueprint judge{title_suffix} · {datetime.now(timezone.utc).isoformat(timespec='minutes')}", "",
              f"- Runs judged: **{len(ok)}** of {len(rows)}",
              f"- Mean overall: **{sum(r['overall'] for r in ok) / max(1, len(ok)):.2f}** / 5",
              f"- Judged by: {', '.join(f'{m} ({n})' for m, n in collections.Counter(r.get('judge_model', '?') for r in ok).most_common())}", ""]
@@ -219,12 +227,77 @@ def report(rows: list[dict], out: str) -> None:
         json.dump(rows, f, ensure_ascii=False, indent=1, default=str)
 
 
+def _fit(state: dict) -> dict | None:
+    """Cut the longest list field (halving it) until the state fits Jev's size limit; None if it never does."""
+    state = json.loads(json.dumps(state, ensure_ascii=False, default=str))
+    while state_bytes(state) > MAX_STATE_BYTES:
+        longest: list = []
+
+        def walk(x):
+            nonlocal longest
+            if isinstance(x, list):
+                if len(x) > len(longest):
+                    longest = x
+                for i in x:
+                    walk(i)
+            elif isinstance(x, dict):
+                for i in x.values():
+                    walk(i)
+
+        walk(state)
+        if len(longest) < 2:
+            return None
+        del longest[len(longest) // 2:]
+    return state
+
+
+async def judge_jev(client, run: dict) -> dict:
+    head = {"run_id": run["run_id"], "company": run.get("company"), "level": run.get("level"),
+            "round_type": run.get("round_type"), "candidate": run.get("candidate_label"),
+            "duration_ms": run.get("duration_ms")}
+    state = _fit(view(run))
+    if state is None:
+        return {**head, "error": "state too large"}
+    try:
+        decision = await client.decide(state, JUDGE_QUESTIONS)
+    except Exception as exc:  # one row must not abort the whole gather
+        return {**head, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    v = verdict_from(decision)
+    if "error" in v:
+        return {**head, **v}
+    return {**head, "judge_model": decision.model, "verdict": "jev quick screen", **v}
+
+
 async def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return
     settings = get_settings()
-    keys = settings.llm_api_keys if "--free-keys" in sys.argv else settings.gemini_api_keys
-    if not keys:
+    jev = (_arg("--engine", "llm") or "llm") == "jev"
+    if jev:
+        client = shared_decisions_client(settings)
+        if client is None:
+            raise SystemExit("--engine jev needs OPENROUTER_API_KEY (it is empty)")
+        keys = []
+    else:
+        client = None
+    if not jev:
+        keys = settings.llm_api_keys if "--free-keys" in sys.argv else settings.gemini_api_keys
+    if not jev and not keys:
         raise SystemExit("no keys: set GEMINI_API_KEY, or pass --free-keys to use LLM_API_KEY")
-    models = [m.strip() for m in (_arg("--model") or settings.gemini_model).split(",") if m.strip()]
+    models = [] if jev else [m.strip() for m in (_arg("--model") or settings.gemini_model).split(",") if m.strip()]
+    out = _arg("--out", ".blueprint-judge-jev" if jev else ".blueprint-judge") or ".blueprint-judge"
+    llm_ref = None
+    if _arg("--compare"):
+        if not compare_target_ok(_arg("--compare"), out):
+            raise SystemExit(f"--compare {_arg('--compare')} is the judge.json this run writes to {out}; pass a different --out")
+        try:
+            with open(_arg("--compare")) as f:
+                llm_ref = json.load(f)
+            if not isinstance(llm_ref, list):
+                raise ValueError("expected a list of rows")
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"cannot read --compare file {_arg('--compare')}: {exc}")
     db = await mongo.connect(settings)
     query: dict = {"status": "completed", "blueprint": {"$ne": None}}
     query["trigger"] = {"$ne": "bench"} if "--sessions" in sys.argv else "bench"
@@ -234,13 +307,13 @@ async def main() -> None:
     if not runs:
         raise SystemExit("no completed runs match")
     # The judge thinks harder than the prep stages do, and gets room for three walkthroughs.
-    llms = [GeminiClient(settings.model_copy(update={"gemini_api_keys": keys, "gemini_model": m, "gemini_thinking_level": "medium",
+    llms = [] if jev else [GeminiClient(settings.model_copy(update={"gemini_api_keys": keys, "gemini_model": m, "gemini_thinking_level": "medium",
                                                      "gemini_timeout_seconds": 240}), max_output_tokens=16000) for m in models]
     sem = asyncio.Semaphore(int(_arg("--concurrency", "4") or 4))
 
     async def one(run):
         async with sem:
-            row = await judge(llms, run)
+            row = await (judge_jev(client, run) if jev else judge(llms, run))
             print(f"{row.get('overall', 'ERR')} {row['company']} {row['level']} {row['round_type']} {row.get('verdict', row.get('error', ''))[:120]}",
                   flush=True)
             return row
@@ -248,8 +321,18 @@ async def main() -> None:
     rows = await asyncio.gather(*(one(r) for r in runs))
     for llm in llms:
         await llm.aclose()
-    out = _arg("--out", ".blueprint-judge") or ".blueprint-judge"
-    report(rows, out)
+    if jev:
+        await close_shared_decisions_client()
+    report(rows, out, " (Jev quick screen)" if jev else "")
+    if llm_ref is not None:
+        res = compare(list(rows), llm_ref)
+        if not res["n"]:
+            print(f"compare vs {_arg('--compare')}: no overlapping runs")
+        else:
+            print(f"compare vs {_arg('--compare')}: n={res['n']} overall MAE={res['overall_mae']:.2f}")
+            print("| Dimension | MAE |\n| --- | --- |")
+            for d, e in res["dimension_mae"].items():
+                print(f"| {d} | {e:.2f} |")
     print(f"report at {os.path.abspath(os.path.join(out, 'judge.md'))}")
 
 

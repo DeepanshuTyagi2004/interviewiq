@@ -42,6 +42,9 @@ from app.jobs.run_store import RUN_STORE
 from app.levels import classify, match_tier, is_on_level
 from app.templates.skeletons import skeleton_for
 from app.targets import Combination, fetch_combinations
+from app.gates.briefs import SOURCE_QUESTIONS, source_state
+from app.gates.core import Gate, run_gated
+from app.gates.log import build_gate
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +322,7 @@ async def _collect(exa: ExaClient, combo: Combination, settings: Settings) -> li
 
 
 async def _extract_all(llm: LLMClient, combo: Combination, sources: list[dict],
-                       settings: Settings) -> tuple[list[RawExperience], list[dict]]:
+                       settings: Settings, *, gate: Gate | None = None) -> tuple[list[RawExperience], list[dict]]:
     """Returns (kept_experiences, dispositions). `dispositions` records EVERY collected source's
     fate so the UI can explain why each was or wasn't used. Context passed to the extractor is
     company+role ONLY (no level/spec) so the model detects seniority from the post, not the target."""
@@ -327,16 +330,51 @@ async def _extract_all(llm: LLMClient, combo: Combination, sources: list[dict],
     context = f"{combo.company} {combo.role.replace('-', ' ')}"
 
     async def _one(src: dict) -> dict:
+        record: list[str | None] = [None]   # gate-log record id, filled once the gated call returns
+        disp = await _decide(src, record)
+        if gate is not None and record[0] is not None:
+            try:
+                await gate.log.update(record[0], {"llm_label.status": disp["status"]})
+            except Exception as exc:  # noqa: BLE001 — the gate log never breaks the pipeline
+                logger.warning("[gate] status update failed (brief_source): %s", exc)
+        return disp
+
+    async def _decide(src: dict, record: list) -> dict:
         url, title = src.get("url"), src.get("title")
-        try:
+
+        async def _call():
             # Per-source label so an LLM failure names WHICH source it choked on (not just the combo).
-            raw, thought = await llm.complete(
+            return await llm.complete(
                 EXTRACT_SYSTEM, build_extract_prompt(context, src), label=f"{label} · {url}")
+
+        # The Jev state is built only for an active gate; a failure to build it runs this source ungated.
+        active, state = (gate if gate is not None and gate.active else None), None
+        if active is not None:
+            try:
+                state = source_state(context, src)
+            except Exception as exc:  # noqa: BLE001 — the gate never breaks the pipeline
+                logger.warning("[gate] brief_source state not built for %s: %s", url, exc)
+                active = None
+        try:
+            gated = await run_gated(
+                active, state=state, questions=SOURCE_QUESTIONS,
+                skip_question="describes_process", call_llm=_call,
+                label_of=lambda r: {"describes_process": bool(r[0].get("describes_process")),
+                                    "is_first_hand": bool(r[0].get("is_first_hand"))},
+                on_skip=lambda: ({"describes_process": False}, None),
+                context={"combo": label, "url": url})
+            # A skipped record has llm_label None (skipped=True already means no_process); a
+            # Mongo $set into that null would fail, so only non-skipped records get a status.
+            record[0] = None if gated.skipped else gated.record_id
+            raw, thought = gated.value
         except LLMError:
+            # run_gated logs llm_error and re-raises; there is no record id on this path.
             return {"url": url, "title": title, "status": "extract_failed", "exp": None, "thought": None}
         # Only carry the reasoning when capturing is on (keeps docs lean otherwise).
         thought = (thought or None) if settings.llm_capture_thoughts else None
         base = {"url": url, "title": title, "thought": thought}
+        if gated.skipped:   # same fate as an LLM "describes_process: false", but marked as the gate's call
+            return {**base, "status": "no_process", "exp": None, "gate_skipped": True}
         if not raw.get("describes_process"):
             return {**base, "status": "no_process", "exp": None}
         raw.setdefault("url", url)
@@ -412,7 +450,8 @@ async def generate_one(
             label, prompt=" | ".join(build_search_queries(combo)),
             raw_response=f"{len(sources)} sources collected", citations=[s["url"] for s in sources],
         )
-        raw_experiences, dispositions = await _extract_all(llm, combo, sources, settings)
+        raw_experiences, dispositions = await _extract_all(
+            llm, combo, sources, settings, gate=build_gate(settings, "brief_source"))
         final, aggregate_thought = await _aggregate(llm, combo, raw_experiences, settings)
         annotate_rounds(final, raw_experiences, combo.level)   # deterministic provenance + trust metadata
     except ExaConfigError:

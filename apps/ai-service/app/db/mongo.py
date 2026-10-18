@@ -83,6 +83,15 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     from app.blueprint.store import ensure_blueprint_indexes
     await ensure_blueprint_indexes(db)
 
+    # Decision-gate log (app/gates): Jev verdicts next to the LLM's, TTL-pruned. Optional
+    # infrastructure: an index problem here is logged and never blocks startup.
+    try:
+        from app.config import get_settings
+        from app.gates.log import ensure_gate_log_indexes
+        await ensure_gate_log_indexes(db, get_settings().decision_gate_log_ttl_days)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("decision-gate log indexes not ensured: %s", exc)
+
     # Live interviews: runs, turns, briefs and evidence (app/interviewer).
     from app.interviewer.store import ensure_live_indexes
     await ensure_live_indexes(db)

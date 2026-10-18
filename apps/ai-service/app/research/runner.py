@@ -21,6 +21,7 @@ from datetime import timedelta
 from typing import Any
 
 from app.config import Settings
+from app.gates.log import build_gate
 from app.research.budget import Budget, BudgetExhausted
 from app.research.fixtures import FixtureStore
 from app.research.gateway import ResearchIO
@@ -249,7 +250,8 @@ class ResearchRunner:
                 async with self._clients() as (exa, llm):
                     io = ResearchIO(mode=Mode(run["mode"]), exa=exa, llm=llm,
                                     fixtures=FixtureStore(self._settings.research_fixtures_dir), tracer=tracer,
-                                    budget=budget, store=self._store, settings=self._settings)
+                                    budget=budget, store=self._store, settings=self._settings,
+                                    gate=build_gate(self._settings, "research_window"), run_id=run_id)
                     await self._process_items(run, io, tracer, active_ids)
             async with self._control_lock:
                 await self._finalize(run_id, tracer)

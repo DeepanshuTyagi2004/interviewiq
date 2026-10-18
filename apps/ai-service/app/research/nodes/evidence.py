@@ -613,6 +613,11 @@ async def research(state: "CompanyState", deps: "NodeDeps", prompt, *, kind: str
                 out.retryable_sources[url] = out.sources[url]
         else:
             out.successful_urls.add(url)
+        gate_skipped = getattr(raw_claims, "skipped_windows", 0)
+        if gate_skipped:
+            out.stats["gate_skipped_windows"] += gate_skipped
+            deps.tracer.emit("research.gate.skipped", f"{kind}: decision gate skipped {gate_skipped} source window(s)",
+                             level="debug", data={"url": url, "count": gate_skipped})
         results = ground_page_claims(raw_claims, source, cls, fields=prompt.FIELDS)
         rejected = [{"claim": raw, "reason": g.reason} for raw, g in results
                     if isinstance(raw, dict) and isinstance(raw.get("field"), str) and raw.get("field") in FIELD_SPECS

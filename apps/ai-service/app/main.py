@@ -90,6 +90,11 @@ async def lifespan(app: FastAPI):
             scheduler.shutdown(wait=False)
         from app.blueprint.pipeline import close_shared_llm
         await close_shared_llm()
+        try:
+            from app.llm.decisions import close_shared_decisions_client
+            await close_shared_decisions_client()
+        except Exception as exc:  # noqa: BLE001 — shutdown must never fail
+            logger.warning("decisions client close failed: %s", exc)
         await mongo.close()
 
 

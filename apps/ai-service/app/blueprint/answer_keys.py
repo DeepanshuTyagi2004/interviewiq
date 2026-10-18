@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 from pydantic import ValidationError
 
@@ -23,9 +24,13 @@ from app.blueprint.models import DsaAnswerKey, DsaKeyReview, KeyExtras
 from app.blueprint.selection import SlotPlan, next_fallback
 from app.blueprint.trace import RunTrace, StageError
 from app.config import Settings
+from app.gates.core import run_gated
+from app.gates.keys import REVIEW_QUESTIONS, key_state
+from app.gates.log import build_gate
 from app.questions.content.sandbox import run_collect, same, same_unordered
 
 STAGE = "answer_keys"
+logger = logging.getLogger(__name__)
 
 _BASE_FIELDS = {
     "system-design": ("expected_design", "trade_offs", "deep_dives", "strong_answer_summary", "red_flags"),
@@ -87,22 +92,65 @@ async def _dsa_key(llm, trace: RunTrace, problem: dict, settings: Settings) -> d
 _REVIEWABLE = ("approaches", "complexity_target", "key_insights", "common_wrong_paths", "edge_cases")
 
 
+def _review_gate(settings):
+    """The key-review gate, or None when the settings carry no gate config (or it is off/unusable)."""
+    if getattr(settings, "key_review_gate_mode", "off") == "off":
+        return None
+    try:
+        return build_gate(settings, "key_review")
+    except Exception as exc:  # noqa: BLE001 - a broken gate never blocks key building
+        logger.warning("[gate] key_review gate unavailable: %s", exc)
+        return None
+
+
+def _patch_of(review: DsaKeyReview) -> dict:
+    fixes = review.model_dump(mode="json")
+    return {f: fixes[f] for f in _REVIEWABLE if fixes.get(f) is not None} if review.errors else {}
+
+
 async def _review(llm, trace: RunTrace, problem: dict, key: DsaAnswerKey, settings: Settings) -> DsaAnswerKey:
     """A reviewer pass over the prose the sandbox can't check (one key called an O(n) algorithm O(n^2)). Corrections
-    replace whole fields; a review that can't run leaves the key unreviewed, and unreviewed keys are not cached."""
+    replace whole fields; a review that can't run leaves the key unreviewed, and unreviewed keys are not cached.
+    The decision gate may skip the pass when it is confident the key has no error."""
     label = f"answer_key:{problem['slug']}:review"
-    try:
-        review = await structured(llm, trace, STAGE, label, P.KEY_REVIEW_SYSTEM,
-                                  P.dsa_key_review(problem, key.model_dump(mode="json")), DsaKeyReview, settings)
-    except StageError as exc:
-        trace.llm(STAGE, {"label": label, "attempt": 0, "valid": False, "validation_errors": [f"review skipped: {exc.code}"]})
+    key_json = key.model_dump(mode="json")
+
+    async def call_llm():
+        try:
+            return await structured(llm, trace, STAGE, label, P.KEY_REVIEW_SYSTEM,
+                                    P.dsa_key_review(problem, key_json), DsaKeyReview, settings)
+        except StageError as exc:
+            trace.llm(STAGE, {"label": label, "attempt": 0, "valid": False,
+                              "validation_errors": [f"review skipped: {exc.code}"]})
+            return None
+
+    # The Jev state is built only for an active gate; a failure to build it runs the review ungated.
+    gate, state = _review_gate(settings), None
+    if gate is not None and gate.active:
+        try:
+            state = key_state(problem, key_json)
+        except Exception as exc:  # noqa: BLE001 - the gate never blocks key building
+            logger.warning("[gate] key_review state not built for %s: %s", problem.get("slug"), exc)
+            gate = None
+    gated = await run_gated(
+        gate, state=state, questions=REVIEW_QUESTIONS,
+        skip_question="has_error", call_llm=call_llm,
+        label_of=lambda r: {"review_ran": r is not None, "errors": len(r.errors) if r else 0,
+                            "patched": bool(r and _patch_of(r))},
+        on_skip=lambda: "skipped",
+        context={"slug": problem["slug"], "run_id": getattr(trace, "run_id", None)})
+    review = gated.value
+    if gated.skipped:
+        trace.llm(STAGE, {"label": f"review:{problem['slug']}", "attempt": 0, "valid": True, "skipped_by_gate": True,
+                          "p_has_error": gated.verdict.p_yes if gated.verdict else None})
+        return key.model_copy(update={"reviewed": True, "review_source": "gate"})
+    if review is None:
         return key
-    fixes = review.model_dump(mode="json")
-    patch = {f: fixes[f] for f in _REVIEWABLE if fixes.get(f) is not None} if review.errors else {}
+    patch = _patch_of(review)
     try:
-        reviewed = DsaAnswerKey.model_validate({**key.model_dump(mode="json"), **patch, "reviewed": True})
+        reviewed = DsaAnswerKey.model_validate({**key_json, **patch, "reviewed": True, "review_source": "llm"})
     except ValidationError:
-        reviewed = key.model_copy(update={"reviewed": True})       # unusable corrections: keep the verified original
+        reviewed = key.model_copy(update={"reviewed": True, "review_source": "llm"})  # unusable corrections: keep the verified original
     trace.llm(STAGE, {"label": f"review:{problem['slug']}", "attempt": 1, "valid": True,
                       "corrections": [e.model_dump() for e in review.errors], "validation_errors": []})
     return reviewed

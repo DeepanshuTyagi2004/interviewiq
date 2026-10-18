@@ -27,6 +27,8 @@ from app.llm.client import LLMError
 from app.research.budget import Budget
 from app.research.chunks import CHUNK_SYSTEM, CHUNK_VERSION, MAX_CLAIMS, ExtractedClaims, merge_claims, source_chunks
 from app.research.concurrency import gather_ordered
+from app.gates.core import Gate, GateMode, run_gated
+from app.gates.research import WINDOW_QUESTIONS, window_state
 from app.research.fixtures import FixtureStore
 from app.research.models import Mode
 from app.research.normalize.identity import domain_of
@@ -111,8 +113,11 @@ def _repair_note(exc: ValidationError) -> str:
 
 class ResearchIO:
     def __init__(self, *, mode: Mode, exa: Any, llm: Any, fixtures: FixtureStore, tracer: Tracer,
-                 budget: Budget, store: ResearchStore, settings: Settings):
+                 budget: Budget, store: ResearchStore, settings: Settings, gate: Gate | None = None,
+                 run_id: str | None = None):
         self._mode = Mode(mode)
+        self._gate = gate
+        self._run_id = run_id   # the owning research run, recorded on gate-log documents
         self._exa = exa
         self._llm = llm
         self._fixtures = fixtures
@@ -252,9 +257,33 @@ class ResearchIO:
                   system=system + CHUNK_SYSTEM, company_slug=company_slug,
                   validate=_ClaimsEnvelope.model_validate)
 
-        async def extract(index, chunk):
-            chunk_label = f"{label}#chunk-{index + 1}" if len(chunks) > 1 else label
+        gate_on = self._gate is not None and self._gate.active and self._mode is Mode.LIVE
+        skipped = 0
+
+        async def cached(chunk) -> bool:
+            """ON mode asks Jev only on an extract-cache miss: a cached window costs no LLM call, so there
+            is nothing to skip. Same key and validity rule as _extract_json. A failed lookup counts as
+            cached, so today's path runs unchanged."""
+            key = extract_key(kw["prompt_name"], kw["prompt_version"], kw["system"], chunk.user,
+                              _routing_identity(self._settings))
             try:
+                async with asyncio.timeout_at(deadline):
+                    hit = await self._store.get_extract(key)
+            except Exception:  # noqa: BLE001
+                return True
+            if hit is None:
+                return False
+            try:
+                _ClaimsEnvelope.model_validate(hit["output"])
+            except Exception:  # noqa: BLE001 — _extract_json ignores it and asks the LLM: gate it like a miss
+                return False
+            return True
+
+        async def extract(index, chunk):
+            nonlocal skipped
+            chunk_label = f"{label}#chunk-{index + 1}" if len(chunks) > 1 else label
+
+            async def call_llm():
                 try:
                     async with asyncio.timeout_at(deadline):
                         try:
@@ -264,7 +293,24 @@ class ResearchIO:
                                                            label=f"{chunk_label}#repair", **kw)
                 except TimeoutError as exc:
                     raise LLMError("Research source extraction timed out (including chunks and repairs)") from exc
-                return [chunk.absolute_claim(c) for c in data["claims"]], None
+                return [chunk.absolute_claim(c) for c in data["claims"]]
+
+            try:
+                state = window_state(chunk.user) if gate_on else None
+                if state is None or (self._gate.mode == GateMode.ON and await cached(chunk)):
+                    return await call_llm(), None
+                start, end = (chunk.start, chunk.end) if chunk.chunked else (0, len(state["text"]))
+                res = await run_gated(
+                    self._gate, state=state, questions=WINDOW_QUESTIONS, skip_question="has_field_info",
+                    call_llm=call_llm,
+                    label_of=lambda claims: {"raw_claims": len(claims), "positive_raw": len(claims) > 0},
+                    on_skip=lambda: [],
+                    context={"company_slug": company_slug, "label": chunk_label, "start": start,
+                             "end": end, "url": (json.loads(chunk.user).get("source") or {}).get("url"),
+                             "run_id": self._run_id})
+                if res.skipped:
+                    skipped += 1
+                return res.value, None
             except (LLMError, ValidationError) as exc:
                 # Configuration errors are run failures, even if another window succeeded.
                 if isinstance(exc, LLMError) and re.search(
@@ -286,4 +332,6 @@ class ResearchIO:
         errors = [error for _, error in results if error is not None]
         if len(errors) == len(results):
             raise errors[-1]
-        return ExtractedClaims(merge_claims([claims for claims, _ in results]), diagnostics=diagnostics)
+        out = ExtractedClaims(merge_claims([claims for claims, _ in results]), diagnostics=diagnostics)
+        out.skipped_windows = skipped
+        return out

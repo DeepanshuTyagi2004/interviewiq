@@ -70,6 +70,12 @@ JUDGE_QUESTIONS: dict[str, dict] = {
         "Workable but with timing or ordering problems.",
         "Coherent session with a minor timing issue.",
         "Phases, timeboxes, reserves and order make a coherent session."]),
+    "persona_fits_shape": _q("Does the interviewer's manner (persona style and disposition) fit the round's shape: brisk for a round that goes straight to the work, warm for one that opens with a longer chat?", [
+        "Manner clashes with the shape; a warm chatty persona on a brisk round or the reverse.",
+        "Manner mostly mismatches the shape.",
+        "Manner is neutral; it neither fits nor clashes with the shape.",
+        "Manner fits the shape with a minor slip.",
+        "Manner fits the shape throughout."]),
     "overall": _q("Overall, how close is this blueprint to a real interview at this company?", [
         "Would mislead or confuse the candidate.",
         "Poor; artificial in many places.",
