@@ -41,7 +41,7 @@ most branch types).
 | Brain | **Talker + background director + conductor** (§5). Two LLM roles plus a rules layer in code. |
 | Workspace ownership | The browser owns the problem panel, the code and the whiteboard. The agent sends instructions over the LiveKit data channel; the browser applies or refuses them (§6). No CRDT library. |
 | What the candidate sees | A problem appears only when the interviewer asks it: the statement and 2 examples. Generic titles ("Problem 1"). **No problem names, topics or difficulty anywhere.** |
-| Time | No countdown. Each question has a maximum, roughly its blueprint timebox; at the maximum the interviewer moves on and refuses more time. The round length is a soft target with a hard ceiling at 1.5×. |
+| Time | No countdown. Each part's maximum (roughly its blueprint timebox) and the round's 45 minutes are guidance, not rules: the director decides when a part is done and may give it more time or end the round early (decided 2026-10-17). The round may run past 45 minutes; the only hard limit is a safety ceiling at 1.5×. |
 | Ending | The interviewer always ends the round and deletes the room, which removes the candidate, whether the round went well or was cut short. |
 | Misconduct | One firm warning, then the round ends as `ended_by_interviewer`. Firm and blunt, never insulting. |
 | Proctoring | Counters and warnings replace the old pause overlay; the round keeps running. Weighted violations; repeated full violations end the round (§7). |
@@ -197,8 +197,8 @@ last brief), and the evidence so far.
   only from the blueprint's core and reserve slots; filler questions only as described in §5.4; the
   `candidate_questions` and `wrap_up` phases are never removed.
 - Issues **orders** that the talker must follow on its next turn and that override any brief:
-  - `converge` at ~80% of an item's maximum;
-  - `move_on` at the maximum;
+  - `converge` at ~80% of an item's maximum (superseded by §5.6: the marks only wake the director);
+  - `move_on` at the maximum (superseded by §5.6: the marks only wake the director);
   - `mention_violation`, `final_warning_proctor`, `conduct_warning`;
   - `end` with a reason.
 - When an order is due and the candidate is silent, the conductor triggers a turn itself (proactive speech), for
@@ -239,15 +239,32 @@ by rules; the talker's rules forbid it and the director's `leak_review` audits i
 ### 5.6 Time, silence and ending
 
 **Per item:**
-- At ~80% of the maximum: the `converge` order (ask for the final approach and complexity).
-- At 100%: the `move_on` order fires at the next point the candidate stops speaking, or 60 s past the maximum,
-  whichever comes first. The talker says something like "seems like we have to move on" and moves on.
-- **Requests for more time are declined firmly**, even when pressed.
+- The half-way, ~80% and 100% marks only wake the director; they order nothing by themselves (decided 2026-10-17).
+- The director decides from where the conversation is, through `plan_changes`: `move_on` ends the current part,
+  `extend` (1 to 10 minutes) gives it more time, `wrap_up` closes the round. A `move_on` is refused in the parts that
+  are never cut (`candidate_questions`, `wrap_up`).
+- Fallback when the director says nothing: the part ends by itself at its maximum plus the larger of 2 minutes and
+  25% of the maximum, plus any minutes the director gave it.
 - The candidate's progress at that moment (code snapshot, director notes) is recorded as evidence.
 
-**Round:** the round's duration is a soft target; the director drops fillers first when it runs long. The
-`candidate_questions` and `wrap_up` phases are never cut. **Hard ceiling at 1.5× the duration:** the conductor forces
-the wrap-up.
+**Round:** the round's duration is a soft target the director may run past when a part needs it; it drops fillers
+first when the round runs long and closes it with `wrap_up` when it has done its job. The `candidate_questions` and
+`wrap_up` phases are never cut. **Safety ceiling at 1.5× the duration:** the conductor forces the wrap-up.
+
+**End of a candidate's turn** (decided 2026-10-17): LiveKit's turn detector with fixed endpointing (1 s when they sound
+finished, up to 6 s mid-sentence). A turn that breaks off on a word nothing ends on ("...and the") gets an instant
+"Mm-hmm." (said over nothing, cut the moment they go on, never a turn of the record) and is answered if they stay quiet
+2 s more; one step of a walk-through they were asked for waits 5 s. An ellipsis or a filler after a finished thought is
+not a break. Silence while they code is never a turn. When the interviewer starts while they are still going and they
+cut it off within its first 5 words, saying 3 words or fewer (not a question), it says "Sorry, go ahead." in fixed words.
+
+**Orders that went stale** (decided 2026-10-17): warnings, the ending and the line that puts a problem up are always acted
+on. A silence check-in, and a "take your time" not yet said, are cancelled when the candidate speaks. The talker may set aside
+`converge`, `move_on` and `open_item` when what the candidate just said covers them or makes them wrong, naming them in
+`log_turn` (`set_aside`, `set_aside_why`); a turn logged as staying on the part (a follow-up, a hint) that neither calls
+`next_item` nor leaves the part in words sets its `move_on` aside too. A `move_on` set aside leaves the part open, wakes the
+director with the reason, and holds the late fallback off for 2 minutes. Every cancelled or set-aside order is in the turn
+record (`cancelled` on the candidate's turn, `set_aside` on the interviewer's) and in the director's payload.
 
 **Silence:**
 - Talking phases: a nudge after **20 s** of silence.
@@ -306,6 +323,32 @@ top, as `live-pol1`):
 | `over_time` branch | "Summarise where you got to" | "Seems like we have to move on", then move on |
 | `personal_or_inappropriate` | decline politely, without judgement | a firm statement; counts as a conduct incident (§5.6) |
 | proctoring | (none) | mention every violation; thresholds in §7 |
+
+### 5.8 Interviewer-led flow (2026-10-17)
+
+Full design: `2026-10-17-interviewer-led-flow-design.md`.
+- **Talker's moves:** `go_to`, `skip_goal`, `open_thread` and `close_thread`, as tools in its existing call. It follows the candidate within the plan's must-cover goals; a problem is never left midway.
+- **Free minutes:** time available (planned length plus director `extend`s, minus time used) minus the planned minutes of pending must-cover goals. A may-cover goal or a thread needs at least one free minute; threads are at most 6 minutes, 3 per round.
+- **Stale briefs:** a flow position rises on every move, and a director brief written for an older position is not shown and its goal-specific changes are dropped. Every move wakes the director.
+- **Shapes:** each round gets a shape from a fixed library (`app/blueprint/shapes.py`) that orders the conversation around the problems; the problems, their minutes and what is assessed never change.
+- **Acceptance tools (2026-10-17):** `apps/ai-service/scripts/rehearse_flow.py` is how a talker, director or prompt change is accepted. `run SESSION SCRIPT OUT_PREFIX [--shape ID]` rehearses a scripted candidate (paid), `compare PREFIX...` prints cost, cache, latency, log_turn and blocked-rule figures, and `check RECORD.json...` or `check --session ID` runs `app/interviewer/tracecheck.py` over a record or a real session's stored turns and exits 1 on any finding. The trace check has one check per problem the rehearsals found (a silent reply, narration, internal ids or a tool call spoken, a format-confirmation ask, a third re-ask on one part, a problem with no candidate turn, the outline twice, the introduction asked again, a double goodbye, "planned later", an unrepaired stumble, a promise with no thread kept). Run the rehearsals and the check after any change to the talker, the director or the prompts, and treat every finding as a regression until explained. `tests/interviewer/test_corpus.py` holds the hand-labelled corpus of interviewer lines that the speech classifiers (`closing.py`, `talker.py`) must keep satisfying.
+- **Persona rehearsals and the judge (2026-10-17):**
+  - `rehearse_flow.py batch PERSONA_DIR OUT_DIR [--scripted] [--judge]` is the acceptance run. It covers:
+    - the persona candidates in `scripts/flow_scenarios/personas/`, each a model that answers what the interviewer actually says, with its own expectations;
+    - the four scripted rehearsals;
+    - the trace check, plus style metrics: verdict and echo rates, blocked turns, filler lines, minutes before the first problem;
+    - the transcript judge, Claude Sonnet scoring six dimensions and listing every issue as major or minor.
+  - A record broken by a credit or model failure is marked INVALID and left out of the means.
+  - The judge's anchor is a hand-written gold transcript of a well-run round, which scores 4/5.
+  - Judge scores vary by about ±0.5 per run, so compare pooled means over several runs and the issue counts, not single scores.
+  - Talker model comparisons on the same code (2026-10-17): DeepSeek v4.1 flash scored 3.1, DeepSeek v4 pro 2.6 and Claude Haiku 5.5 2.0. Flash stays.
+- **Interviewer style (2026-10-17):**
+  - A poker face. Most replies carry a short neutral acknowledgement or none.
+  - At most one verdict per turn, and no verdict in a reply right after one.
+  - The answer is never echoed back.
+  - Silence when the candidate starts coding.
+  - The outline names every part, the deep dive is led in as a group, and the round closes early instead of filling time.
+  - Guards keep the voice in English, never speak the model's reasoning aloud, and keep code and arithmetic exact in speech ("a <= b" was once spoken "a = b").
 
 ## 6. Shared-workspace protocol
 
