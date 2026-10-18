@@ -184,6 +184,21 @@ class Settings(BaseSettings):
     deepgram_api_key: str = Field("", alias="DEEPGRAM_API_KEY")
     openrouter_api_key: str = Field("", alias="OPENROUTER_API_KEY")
     openrouter_base_url: str = Field("https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL")
+    # OpenRouter Decisions API (TypeSafe Jev classifier) behind the decision gates. Mode: off | shadow (log only) | on (may skip the LLM).
+    decisions_model: str = Field("typesafe/jev-1.14", alias="DECISIONS_MODEL")
+    decisions_url: str = Field("https://openrouter.ai/api/alpha/decisions", alias="DECISIONS_URL")
+    decisions_timeout_seconds: float = Field(8.0, alias="DECISIONS_TIMEOUT_SECONDS")
+    # *_GATE_AUDIT_RATE: in `on` mode, the share of would-be skips that still run the LLM (and get labelled).
+    research_window_gate_mode: Literal["off", "shadow", "on"] = Field("shadow", alias="RESEARCH_WINDOW_GATE_MODE")
+    research_window_gate_skip_below: float = Field(0.05, ge=0.0, le=0.5, alias="RESEARCH_WINDOW_GATE_SKIP_BELOW")
+    research_window_gate_audit_rate: float = Field(0.05, ge=0.0, le=1.0, alias="RESEARCH_WINDOW_GATE_AUDIT_RATE")
+    brief_source_gate_mode: Literal["off", "shadow", "on"] = Field("shadow", alias="BRIEF_SOURCE_GATE_MODE")
+    brief_source_gate_skip_below: float = Field(0.05, ge=0.0, le=0.5, alias="BRIEF_SOURCE_GATE_SKIP_BELOW")
+    brief_source_gate_audit_rate: float = Field(0.05, ge=0.0, le=1.0, alias="BRIEF_SOURCE_GATE_AUDIT_RATE")
+    key_review_gate_mode: Literal["off", "shadow", "on"] = Field("shadow", alias="KEY_REVIEW_GATE_MODE")
+    key_review_gate_skip_below: float = Field(0.05, ge=0.0, le=0.5, alias="KEY_REVIEW_GATE_SKIP_BELOW")
+    key_review_gate_audit_rate: float = Field(0.05, ge=0.0, le=1.0, alias="KEY_REVIEW_GATE_AUDIT_RATE")
+    decision_gate_log_ttl_days: int = Field(60, ge=1, alias="DECISION_GATE_LOG_TTL_DAYS")
     interviewer_agent_name: str = Field("interviewer", alias="INTERVIEWER_AGENT_NAME")
     # Comma-separated host:port or URLs; the worker stops itself when one stays unreachable ("" = never). Dev only: `pnpm dev` sets it.
     interviewer_stop_when_down: str = Field("", alias="INTERVIEWER_STOP_WHEN_DOWN")
@@ -192,6 +207,9 @@ class Settings(BaseSettings):
     interviewer_talker_reasoning: str = Field("none", alias="INTERVIEWER_TALKER_REASONING")
     interviewer_director_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_DIRECTOR_MODEL")
     interviewer_director_reasoning: str = Field("medium", alias="INTERVIEWER_DIRECTOR_REASONING")
+    # Sampling temperature (decided 2026-10-18): moderate for the speaking path so two interviewers do not say the same words, low for the director.
+    interviewer_talker_temperature: float = Field(0.7, alias="INTERVIEWER_TALKER_TEMPERATURE", ge=0.0, le=2.0)
+    interviewer_director_temperature: float = Field(0.2, alias="INTERVIEWER_DIRECTOR_TEMPERATURE", ge=0.0, le=2.0)
     # The model raced against a slow talker model and used by the director when its own fails; "" turns it off.
     # GLM 5.3 flash cannot turn reasoning off, so it is kept to the lightest effort.
     interviewer_fallback_model: str = Field("z-ai/glm-5.3-flash", alias="INTERVIEWER_FALLBACK_MODEL")
@@ -215,6 +233,27 @@ class Settings(BaseSettings):
     interviewer_talker_timeout_seconds: float = Field(3.0, alias="INTERVIEWER_TALKER_TIMEOUT_SECONDS", gt=0)
     interviewer_talker_deadline_seconds: float = Field(32.0, alias="INTERVIEWER_TALKER_DEADLINE_SECONDS", gt=0)
     interviewer_director_timeout_seconds: float = Field(45.0, alias="INTERVIEWER_DIRECTOR_TIMEOUT_SECONDS", gt=0)
+    # Reply latency. OpenRouter's `session_id` is its sticky-routing key: every turn of a round then goes to the same upstream provider, so
+    # its prompt cache (the 5-9k token prefix) is hit instead of rebuilt (docs: "Sticky sessions expire after 10 minutes of inactivity").
+    interviewer_sticky_routing: bool = Field(True, alias="INTERVIEWER_STICKY_ROUTING")
+    # Optional hard pin: comma-separated OpenRouter provider names tried in this order for the talker ("" = latency-sorted routing).
+    # OpenRouter disables sticky routing when `order` is set, so the first healthy name is the sticky choice; fallbacks stay allowed.
+    interviewer_talker_provider_order: str = Field("", alias="INTERVIEWER_TALKER_PROVIDER_ORDER")
+    # A max_tokens=1 request sent when the interviewer joins and when the candidate enters the room, so the greeting does not pay
+    # the cold first call (a round measured 4.4 s with no cached tokens).
+    interviewer_warm_up: bool = Field(True, alias="INTERVIEWER_WARM_UP")
+    interviewer_stt_keyterms: bool = Field(True, alias="INTERVIEWER_STT_KEYTERMS")      # nova-3 keyterm prompting from the resume, company and names
+    # Turn-taking (decided 2026-10-18). LiveKit's built-in turn detector (local model, no download) scores from the candidate's audio whether they
+    # have finished. A turn it judges finished is committed after this many seconds of silence (it was a flat 1.0 s); one it judges unfinished
+    # waits the 6 s ceiling. Off = no detector and a flat 1.0 s wait. See the comment above TURN_HANDLING in app/interviewer/agent.py.
+    interviewer_turn_detector: bool = Field(True, alias="INTERVIEWER_TURN_DETECTOR")
+    interviewer_endpointing_min_delay_seconds: float = Field(0.5, alias="INTERVIEWER_ENDPOINTING_MIN_DELAY_SECONDS", gt=0)
+    # The detector's "this turn is unfinished" line: a score under it waits the long ceiling. The server's calibrated default
+    # (0.56 seen live) read short finished replies ("Yes, Ashwin." 0.28, "I don't know." 0.31) as unfinished: each waited 3 s
+    # (decided 2026-10-18). 0 = keep the server's default.
+    interviewer_eot_unlikely_threshold: float = Field(0.3, alias="INTERVIEWER_EOT_UNLIKELY_THRESHOLD", ge=0, lt=1)
+    # Sarvam holds text until this many characters have arrived (or the reply ends) before it starts speaking; its lowest is 30 (default 50).
+    sarvam_tts_min_buffer_size: int = Field(30, alias="SARVAM_TTS_MIN_BUFFER_SIZE", ge=30, le=200)
 
     # --- Brief generation schedule ---
     scheduler_enabled: bool = Field(True, alias="SCHEDULER_ENABLED")
