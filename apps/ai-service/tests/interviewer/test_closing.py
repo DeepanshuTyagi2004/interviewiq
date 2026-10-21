@@ -1,5 +1,5 @@
 import pytest
-from app.interviewer.closing import claims_problem_on_screen_now, announces_coding_now, announces_problem, asks_for_introduction, gives_outline
+from app.interviewer.closing import claims_problem_on_screen_now, announces_coding_now, announces_problem, asks_for_introduction, gives_outline, asks_to_explain
 
 
 def test_the_round_outline_is_recognised_and_ordinary_questions_are_not():
@@ -682,3 +682,99 @@ def test_a_word_like_next_or_done_hides_an_ask_only_in_the_sentence_that_asks_ru
                  "Can you change the language to C++?", "I solved this one, can we do the next question?", "Okay, I'm ready for the next problem, can we move on?",
                  "I'm done, what's next?"):
         assert not asks_to_change_problem(text), text
+
+
+def test_a_sentence_that_breaks_off_on_a_dangling_word_trails_off():
+    """Live round 781a1f0a, turns 24 and 26: "Can you" and "...controlling different devices from" were answered as finished."""
+    from app.interviewer.closing import trails_off
+
+    assert trails_off("This problem seems a little hard for me. Can you")
+    assert trails_off("Relay was autonomous agent for controlling different devices from")
+    assert trails_off("the acknowledgment gets sent to the server if there is")
+    assert not trails_off("Thank you.") and not trails_off("Can you change it?") and not trails_off("I built it for you.")
+    assert not trails_off("What is it for?") and not trails_off("Yes, there is.") and not trails_off("What should I start with?")
+
+
+def test_asks_to_explain():
+    for t in ("Can you explain this problem?", "Can you explain it?", "Could you explain the question?",
+              "I don't understand the problem.", "What is this problem asking?"):
+        assert asks_to_explain(t), t
+    for t in ("Can I explain my approach?", "Let me explain my idea.", "Can you explain why it works?",
+              "Can you tell me the constraints of this problem?"):
+        assert not asks_to_explain(t), t
+
+
+def test_refusal_points_cover_the_reasons_round_781a1f0a_repeated():
+    """(live round 781a1f0a, turns 27 and 29) two refusals gave the same three reasons in other words."""
+    from app.interviewer.closing import refusal_points
+    a = "I'd like to keep this one, honestly — it's a good one to see how you reason through a tricky ordering question, and you don't need to land the full solution for it to be worth your while."
+    b = "It's a good problem for seeing how you reason through a tricky ordering question, and honestly you don't need the full solution for it to be worth your while."
+    assert {"see_reasoning", "worth_it", "partial_fine"} <= refusal_points(a)
+    assert {"see_reasoning", "worth_it", "partial_fine"} <= refusal_points(b)
+    assert refusal_points("I'm keeping this one.") == set()
+
+
+def test_an_ascii_ellipsis_after_a_dangling_word_still_trails_off():
+    """The STT writes a pause as "..." too; "Can you..." is the incident's own shape (final review, live round 781a1f0a)."""
+    from app.interviewer.closing import trails_off
+    assert trails_off("Can you...") and trails_off("devices from...") and trails_off("Can you…")
+    assert not trails_off("What is it for?") and not trails_off("Yes, there is.")
+
+
+def test_a_dont_know_counts_only_when_it_is_the_whole_answer_or_ends_it():
+    """"I'm not sure, but I think we retry from the device." is an answer, and must not close the area after one question (final review, live
+    round 781a1f0a)."""
+    from app.interviewer.closing import says_dont_know
+    for gave_up in ["I don't know.", "No idea.", "Not sure, sorry.", "Honestly, I don't know.",
+                    "We did the retries on the device and then the server part, and honestly I don't know."]:
+        assert says_dont_know(gave_up), gave_up
+    for answered in ["I'm not sure, but I think we retry from the device.", "I don't know the exact numbers, but the device keeps the messages until the server acknowledges them."]:
+        assert not says_dont_know(answered), answered
+
+
+# ------------------------------------------------------------------ pass B (live round c8e70bb8)
+
+def test_a_sentence_ending_on_a_word_that_only_starts_a_phrase_trails_off_but_a_closed_question_does_not():
+    from app.interviewer.closing import trails_off
+    for t in ("Okay, this is the longest increasing subsequence problem. At every point, we will try. Actually we will try for every",
+              "possible outcome taking every subsequence and memoize while going in recursion. then", "I will loop over each", "and then with", "we keep some", "I solved all"):
+        assert trails_off(t), t
+    for t in ("Can we end this?", "I think that's all.", "Is it sorted, or is it that?", "Okay, then."):
+        assert not trails_off(t), t
+
+
+def test_an_ask_to_end_or_close_the_coding_or_the_problem_is_an_ask_to_change_it():
+    from app.interviewer.closing import asks_to_change_problem
+    for t in ("Sorry, can we close the coding round?", "Can we close it?", "Can we end this?", "can we stop the coding?", "let's skip this problem",
+              "Could you end this problem please", "I want to skip this question", "I'd like to stop the coding part"):
+        assert asks_to_change_problem(t), t
+    for t in ("let me finish this loop", "I'll close the file", "I'll end the loop here", "can you close the file?", "I want to end this loop early and return",
+              "let's skip the part where we sort", "let's skip that part and handle the empty case", "can we skip one iteration", "let's stop one step early", "let's stop it",
+              "I'll close the loop", "let me end this function", "we stop when i reaches n"):
+        assert not asks_to_change_problem(t), t
+
+
+def test_a_simpler_or_shorter_ask_is_recognised_only_as_a_request():
+    from app.interviewer.closing import asks_for_simpler
+    for t in ("Okay, can you tell me in short words?", "Can you make it simpler please?", "Say it in one line please.", "could you explain that briefly", "in simple words please", "In short words?", "Simpler please"):
+        assert asks_for_simpler(t), t
+    for t in ("Let me briefly walk through my approach.", "I think it is simple.", "I will explain it in short words", "Okay, DP.",
+              "can I use a simpler approach", "is there a simpler way to do it?", "can I do it in a simpler way?", "can you give a shorter solution?", "would a shorter loop work?"):
+        assert not asks_for_simpler(t), t
+
+
+def test_each_packs_close_sentence_is_recognised_and_a_conditional_is_not():
+    from app.interviewer.closing import closes_coding_part
+    for said in ("That wraps up the coding part.", "That wraps up the design part.", "That wraps up the questions.", "That wraps up that question.",
+                 "The design part is done.", "That's the design part done."):
+        assert closes_coding_part(said), said
+    for said in ("The design part is done when you have covered the failure cases.", "Let's design the cache.", "Any questions about the design?"):
+        assert not closes_coding_part(said), said
+
+
+def test_something_else_and_no_experience_asks_are_asks_for_another_example():
+    from app.interviewer.closing import asks_for_other_example
+    for said in ("Can we do something else?", "Can you ask me something else?", "I haven't worked on anything like that."):
+        assert asks_for_other_example(said), said
+    assert not asks_for_other_example("I haven't worked on anything like that, but in college we built a similar thing.")
+    assert not asks_for_other_example("I did something else on that project too, a small cache.")

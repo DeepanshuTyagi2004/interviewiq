@@ -9,19 +9,22 @@ lets the same-probe re-ask be seen). A missing key only switches off the checks 
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any, Callable
 
+from app.blueprint.vocabulary import is_culture_slot
+from app.rounds.compose import compose_rules, rules_of
 from app.interviewer.closing import (abandons_problem, asks_for_introduction, claims_problem_on_screen_now, announces_next_step, claims_screen_failed, closes_coding_part,
                                      opens_topic_while_coding, problem_line_part, says_duration, ends_with_goodbye, asks_format_check, gives_outline, is_farewell, leaks_tool_call, asks_for_questions,
                                      needs_no_reply, outline_areas, outline_mismatch as spoken_outline_mismatch, promises_to_return, says_planned_later, says_starting_to_code,
                                      refusal_points, starts_coding)
 from app.interviewer.conductor import CHANGE_CAP, MAX_DEFERRED, MAX_THREADS, PROMISED_PREFIX, SKIP_NOTICE, ask_intent, asks_again, last_question, promise_covered, asked_question
 from app.interviewer.guard import LeakGuard
-from app.interviewer.lines import SAFETY_KEYS, SCREEN_WARNING_KEYS, contains, matches, matches_any, ordinal_of
+from app.interviewer.lines import LINES, _norm, SAFETY_KEYS, SCREEN_WARNING_KEYS, contains, matches, matches_any, ordinal_of
 from app.interviewer.run import LINE_CHECK_REPLY
 from app.interviewer.plan import mentions, outline_turn_eligible, promise_questions, promise_words, promised, promises_of
 from app.interviewer.predicates import UNREADABLE_BOARD, board_typed_text, echoes, plain, restates, written_code
-from app.interviewer.talker import (opener_repeated, turn_opener, MOVE_TOOLS, ACKNOWLEDGES, announces_a_move, BARE_ACK, CANNOT_SEE_IT, LIMITS_SPOKEN, asks_after_close, claims_code, foreign_script, repeats_a_move, is_reasoning, narrates, repair_false_link, repair_stumble)
+from app.interviewer.talker import (repeats_a_refusal, opener_repeated, turn_opener, MOVE_TOOLS, ACKNOWLEDGES, announces_a_move, BARE_ACK, CANNOT_SEE_IT, LIMITS_SPOKEN, asks_after_close, claims_code, foreign_script, repeats_a_move, is_reasoning, narrates, repair_false_link, repair_stumble)
 
 Finding = dict[str, Any]
 SENTENCES = re.compile(r"(?<=[.?!])\s+")
@@ -441,6 +444,48 @@ def time_spoken(record: dict[str, Any]) -> list[Finding]:
     return out
 
 
+@lru_cache(maxsize=1)
+def _culture_banned() -> tuple[re.Pattern[str], ...]:
+    return tuple(re.compile(p, re.IGNORECASE) for p in compose_rules("behavioural", None).get("banned_spoken") or [])
+
+
+def _moved(turn: dict[str, Any]) -> bool:
+    """The turn moved to another item (the trace records `item_id` at the turn's start, so its words may belong to the next one)."""
+    return any(c.get("name") in (*MOVE_TOOLS, "show_problem") and (c.get("result") or {}).get("ok", True) is not False for c in turn.get("tool_calls") or [])
+
+
+def round_words(record: dict[str, Any]) -> list[Finding]:
+    """A word the round's pack forbids ("write the code" in a design round, a hint in an online assessment). The run's own fixed wordings are skipped
+    (the turn's `fixed`; a record without it skips only the pack's own pool keys); a culture slot of a technical round is judged by the behavioural
+    set; a turn that moved to another item is judged by what both the pack's set and the behavioural set ban (its words may belong to either item).
+    No blueprint: no findings."""
+    blueprint = record.get("blueprint")
+    if not blueprint:
+        return []
+    try:
+        rules = rules_of(blueprint)
+        pack_set = tuple(re.compile(p, re.IGNORECASE) for p in rules.get("banned_spoken") or [])
+        own_keys = tuple(k for k in LINES if k.endswith("@" + str(rules.get("pack"))) or ("@" not in k and rules.get("pack") in ("dsa", "online-assessment")))
+    except Exception:
+        return []
+    culture_set, out = _culture_banned(), []
+    for t in _spoken(record):
+        moved = _moved(t)
+        in_culture = is_culture_slot(str(t.get("item_id") or ""))
+        fixed = {_norm(x) for w in t.get("fixed") or [] for x in SENTENCES.split(w) if x}
+        for sentence in SENTENCES.split(t.get("text") or ""):
+            if not sentence or (_norm(sentence) in fixed if "fixed" in t else matches_any(sentence, own_keys)):
+                continue
+            hits = lambda ban: next((r for r in ban if r.search(sentence)), None)  # noqa: E731
+            if moved:
+                rx = hits(culture_set) if hits(pack_set) else None
+            else:
+                rx = hits(culture_set if in_culture else pack_set)
+            if rx is not None:
+                out.append(_finding("round_words", t["seq"], f"said {rx.pattern!r} in {sentence[:80]!r}"))
+    return out
+
+
 STREAK = 3          # turns in a row that open with a verdict
 
 
@@ -594,6 +639,8 @@ def false_continuity(record: dict[str, Any]) -> list[Finding]:
                     break
                 recent.append(sentence)                     # what this turn has said already counts as recent
                 ever += " " + sentence
+        if t.get("speaker") == "interviewer" and not text.strip():
+            continue    # an empty cut turn is not in the live window (run.on_conversation_item drops it), so it must not push a real turn out; a cut turn with words is kept, as live (live round 781a1f0a)
         before.append((t.get("speaker") or "", text))
     return out
 
@@ -852,14 +899,20 @@ def change_flow_valid(record: dict[str, Any]) -> list[Finding]:
 def repeated_refusal(record: dict[str, Any]) -> list[Finding]:
     """A refusal that makes a point an earlier refusal of the round already made ("a partial solution is fine" twice): the interviewer says something
     new each time (decided 2026-10-18)."""
-    out, made = [], set()
+    out, made, said = [], set(), []
     for t in _spoken(record):
         if t.get("interrupted") or not any(o.get("kind") == "keep_problem" for o in t.get("orders") or []):
             continue
         points = refusal_points(t.get("text") or "")
         if again := points & made:
             out.append(_finding("repeated_refusal", t["seq"], f"a refusal makes a point again: {', '.join(sorted(again))}"))
+        else:
+            # The same thing in other words (live round 781a1f0a, turns 27 and 29): a sentence close to an earlier refusal's by its content words.
+            sentences = re.split(r"(?<=[.!?])\s+", t.get("text") or "")
+            if close := next((c for x in sentences if (c := repeats_a_refusal(x, said))), ""):
+                out.append(_finding("repeated_refusal", t["seq"], f"a refusal says an earlier one again in other words: {close[:60]}"))
         made |= points
+        said += [x for x in re.split(r"(?<=[.!?])\s+", t.get("text") or "")]
     return out
 
 
@@ -1059,7 +1112,7 @@ CHECKS: tuple[Callable[[dict[str, Any]], list[Finding]], ...] = (
     silent_reply, narration_spoken, internal_id_spoken, tool_call_spoken, format_confirmation, third_reask, problem_without_candidate,
     outline_twice, intro_after_done, double_goodbye, double_ack, code_claim, planned_later, unrepaired_stumble, false_continuity, promise_unkept,
     screen_claim_unshown, question_then_problem, filler_after_start, verdict_streak, left_problem_in_words, non_english, reasoning_aloud, screen_failed, new_topic_while_coding, second_transition,
-    question_after_close, after_problem_line, problem_line_twice, time_spoken, requirement_invented, hint_from_other_problem, highlight_ignored, board_unreadable, conduct_warn_then_end,
+    question_after_close, after_problem_line, problem_line_twice, time_spoken, round_words, requirement_invented, hint_from_other_problem, highlight_ignored, board_unreadable, conduct_warn_then_end,
     limits_after_reveal, question_pileup, reply_restated, ack_after_question, changes_over_cap, change_without_refusal, change_flow_valid, repeated_refusal, warning_glued, move_announced_not_made, ended_on_question, outline_unkept, outline_mismatch, repeated_opener)
 
 

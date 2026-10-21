@@ -10,7 +10,8 @@ from typing import Any, Literal
 
 from app.blueprint.shapes import shape_by_id
 from app.blueprint.vocabulary import UNSCORED_PHASES, family, slot_round_type
-from app.interviewer.lines import BRIDGE_POOLS, LINES, LinePicker, bridge_variant
+from app.interviewer.lines import BRIDGE_POOLS, LINES, LinePicker, bridge_variant, pack_key
+from app.rounds.compose import PACKS, rules_of
 
 ItemKind = Literal["phase", "slot", "filler", "thread"]
 ItemStatus = Literal["pending", "active", "done", "skipped", "swapped"]
@@ -46,6 +47,9 @@ class Item:
     style: str = ""
     coded: bool = False                 # a slot: they have written code for this problem (the editor is shared by every problem)
     code_base: str = ""                 # a slot: the editor text when it went up: only lines added since count as work on this one
+    code_final: str = ""                # a slot: the last editor text seen while it was active (recorded for the report's grading; never read live)
+    code_language: str = ""             # a slot: the language of that last text
+    board_final: str = ""               # the last whiteboard summary seen while this item was active (recorded for grading)
 
 
 def _ordered(slots: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
@@ -78,7 +82,7 @@ def layout_for(blueprint: dict[str, Any], item: Item) -> str:
     """`work` while the candidate is on a coding, low-level design or system design problem (they need the problem
     and the editor or board), `talk` for everything else: greetings, resume and profile questions, behavioural
     questions, their questions for the interviewer and the closing."""
-    if item.kind != "slot":
+    if item.kind != "slot" or (rules_of(blueprint).get("flags") or {}).get("workspace") == "none":
         return "talk"
     slot = slot_by_id(blueprint, item.slot_id) or {}
     round_type = (slot.get("problem") or {}).get("round_type") or (blueprint.get("round") or {}).get("type") or "dsa"
@@ -315,7 +319,7 @@ def main_part_done(blueprint: dict[str, Any]) -> str:
 def _asks_projects(blueprint: dict[str, Any]) -> bool:
     """Whether the deep dive has questions about their projects as a part of its own: a behavioural round's questions are about their
     experience already."""
-    return bool(deep_dive_probes(blueprint.get("personalization") or {})) and part_nouns(blueprint)[0] != _PART_NOUNS["behavioural"][0]
+    return bool(deep_dive_probes(blueprint.get("personalization") or {})) and part_nouns(blueprint)[0] != PACKS["behavioural"].words.some_part
 
 
 def _join(words: list[str]) -> str:
@@ -370,9 +374,9 @@ CODING_DONE = "That wraps up the coding part."
 # One short line (a few wordings, see lines.py) when a problem goes up: no "think aloud", no "ask me anything that isn't clear".
 PROBLEM_INTRO = "Here's your {ordinal} question. Give it a read, and let me know if you have any questions."
 # A move to a new part always starts with a short link to what came before, so no topic ever arrives out of nowhere.
-BRIDGES: dict[str, str] = {k: v[0] for k, v in BRIDGE_POOLS.items() if ":" not in k}      # today's wordings: the first of each pool (lines.py)
+BRIDGES: dict[str, str] = {k: v[0] for k, v in BRIDGE_POOLS.items() if ":" not in k and "@" not in k}      # today's wordings: the first of each pool (lines.py)
 # A part's own link when its style changes what comes before it.
-STYLE_BRIDGES: dict[tuple[str, str], str] = {tuple(k.split(":")): v[0] for k, v in BRIDGE_POOLS.items() if ":" in k}
+STYLE_BRIDGES: dict[tuple[str, str], str] = {tuple(k.split(":")): v[0] for k, v in BRIDGE_POOLS.items() if ":" in k and "@" not in k}
 
 
 # The chat before the round: what the interviewer asks first (the greeting) and then (the small talk), one pair per session so no two
@@ -398,32 +402,33 @@ def _ordinal(number: int) -> str:
     return ORDINALS[min(max(number, 1), len(ORDINALS)) - 1]
 
 
-def problem_put_up(number: int, picker: "LinePicker | None" = None, peek: bool = False) -> str:
+def problem_put_up(number: int, picker: "LinePicker | None" = None, peek: bool = False, pack_id: str = "dsa") -> str:
     """The sentence said while the problem goes up; the intro line follows once the screen has changed. One of the pool's wordings (no repeat in a
     round) when the run's picker is given, else today's. `peek`: the wording the run would say next, without using it up."""
-    key = f"put_up:{_ordinal(number)}"
+    key = pack_key(f"put_up:{_ordinal(number)}", pack_id)
     return (picker.peek(key) if peek else picker.pick(key)) if picker is not None else LINES[key][0]
 
 
-def problem_swap_put_up(picker: "LinePicker | None" = None) -> str:
+def problem_swap_put_up(picker: "LinePicker | None" = None, pack_id: str = "dsa") -> str:
     """The line said while a different problem goes up for a candidate who asked for another (an acknowledgement, then the put-up sentence): not
     "the second problem" again."""
-    return picker.pick("swap_put_up") if picker is not None else LINES["swap_put_up"][0]
+    key = pack_key("swap_put_up", pack_id)
+    return picker.pick(key) if picker is not None else LINES[key][0]
 
 
-def problem_intro(number: int, picker: "LinePicker | None" = None, peek: bool = False) -> str:
+def problem_intro(number: int, picker: "LinePicker | None" = None, peek: bool = False, pack_id: str = "dsa") -> str:
     """The line that invites them to read the problem. `peek`: the wording the run would say next, without using it up."""
-    key = f"intro:{_ordinal(number)}"
+    key = pack_key(f"intro:{_ordinal(number)}", pack_id)
     return (picker.peek(key) if peek else picker.pick(key)) if picker is not None else LINES[key][0]
 
 
-def bridge_for(phase: str, style: str = "", blueprint: dict[str, Any] | None = None) -> str | None:
+def bridge_for(phase: str, style: str = "", blueprint: dict[str, Any] | None = None, pack_id: str | None = None) -> str | None:
     """The link the orders give as an example when the interview moves to this part. With the blueprint, the session's own wording of its pool
     (a blueprint with a realism block); without, today's."""
     key = f"{phase}:{style}" if (phase, style) in STYLE_BRIDGES else phase if phase in BRIDGES else None
     if key is None:
         return None
-    return bridge_variant(blueprint, key) if blueprint is not None else BRIDGE_POOLS[key][0]
+    return bridge_variant(blueprint, key, pack_id) if blueprint is not None else BRIDGE_POOLS[pack_key(key, pack_id or "dsa")][0]
 
 
 def phase_style(blueprint: dict[str, Any], phase: str) -> str:
@@ -436,14 +441,10 @@ def min_exchanges_before_coding(blueprint: dict[str, Any]) -> int:
     return shape_by_id(blueprint.get("shape_id")).min_exchanges_before_coding
 
 
-# What the coding is called to the candidate, by round family: a design round has no "coding", a behavioural one has questions.
-_PART_NOUNS = {"lld": ("a design problem", "the design part"), "system-design": ("a design problem", "the design part"),
-               "behavioural": ("some questions about your experience", "the questions")}
-
-
 def part_nouns(blueprint: dict[str, Any]) -> tuple[str, str]:
-    """(what there will be, the part by name) for the round's main part: "some coding" / "the coding" for a coding round."""
-    return _PART_NOUNS.get(family(str((blueprint.get("round") or {}).get("type") or "dsa")), ("some coding", "the coding"))
+    """(what there will be, the part by name) for the round's main part, from the round's pack: "some coding" / "the coding" for a coding round."""
+    nouns = rules_of(blueprint).get("part_nouns") or ("some coding", "the coding")
+    return nouns[0], nouns[1]
 
 
 def opening_hint(blueprint: dict[str, Any], phase: str, style: str = "") -> str | None:

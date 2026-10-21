@@ -275,6 +275,22 @@ _CLOSES_CODING = re.compile(
     r"\bnow,? (?:a couple of|a few|some) (?:quick )?questions about your (?:projects|background|experience)\b|\b(?:we(?:['’]re| are)|i(?:['’]m| am)) (?:done|finished|through) with the coding\b", re.IGNORECASE)
 
 
+def _pack_closes() -> "re.Pattern[str]":
+    """The close sentences of the other packs, derived from each pack's `the_part` ("the design part" -> "That wraps up the design part."), plus the
+    one-question close of a culture slot."""
+    from app.rounds.compose import PACKS
+    nouns = sorted({re.escape(re.sub(r"( part)?$", "", p.words.the_part.removeprefix("the ").strip())) for p in PACKS.values()
+                    if p.words.the_part and p.words.the_part != "the coding"})
+    out = []
+    for n in nouns:
+        out += [rf"\bthat(?:'s| is)? (?:wraps?|wrapped) up (?:the )?{n}\b", rf"\bwraps? up (?:the )?{n} (?:part|round|section)\b",
+                rf"\bthat(?:['’]s| is) (?:the )?{n} (?:part )?(?:done|finished|over|complete)\b", rf"\b(?:the )?{n} (?:part )?(?:is|was) (?:now )?(?:done|over|finished)\b",
+                rf"\bthat(?:['’]s| is) it for the {n}\b", rf"\b(?:we(?:['’]re| are)|i(?:['’]m| am)) (?:done|finished|through) with the {n}\b"]
+    out.append(r"\bthat wraps up that question\b")
+    return re.compile("|".join(out), re.IGNORECASE)
+
+
+_CLOSES_PACKS = _pack_closes()
 _CONDITION_WORD = re.compile(r"\b(?:when|once|if|after|until|as soon as|unless)\b", re.IGNORECASE)
 
 
@@ -282,7 +298,7 @@ def closes_coding_part(text: str) -> bool:
     """The sentence declares the coding part over ("That wraps up the coding part.", "That's the coding done."). A conditional ("the coding
     is done when your tests pass") says nothing is over yet."""
     t = text or ""
-    return bool(_CLOSES_CODING.search(t)) and not _CONDITION_WORD.search(t)
+    return bool(_CLOSES_CODING.search(t) or _CLOSES_PACKS.search(t)) and not _CONDITION_WORD.search(t)
 
 
 _LEAD_IN = re.compile(
@@ -583,6 +599,20 @@ def starts_coding(text: str) -> bool:
 _NOT_A_PURE_START = re.compile(r"\b(?:help|hint|stuck|don'?t|confus\w*|can i|should i|may i|is it okay|wait|but)\b", re.IGNORECASE)
 
 
+_DONE_CODING = re.compile(
+    r"\b(?:i(?:'m|\s+am|'ve|\s+have)\s+(?:done|finished|ready|through)|(?:i(?:'ve|\s+have)\s+)?(?:typed|written|completed|implemented|finished|coded)\s+"
+    r"(?:the\s+|my\s+|a\s+)?(?:solution|code|answer|function|implementation|it)|(?:it(?:'s|\s+is)|that(?:'s|\s+is))\s+(?:done|ready|finished|complete)|"
+    r"(?:done|finished)\s+(?:with|writing)\s+(?:the\s+|my\s+)?(?:code|solution|it)|(?:i\s+)?(?:am\s+|'m\s+)?(?:all\s+)?done|"
+    r"what(?:'s|\s+is)?\s+next|okay,?\s+what\s+next|(?:solution|code)\s+is\s+(?:ready|done|complete)|^\W*(?:okay|ok|so|alright)?\W*finished)\b", re.IGNORECASE)
+
+
+def says_done_coding(text: str) -> bool:
+    """They say they are done or hand over ("I have typed the solution", "I'm done", "it's ready", "okay what next"): never narration, always answered.
+    No question mark, fourteen words at most."""
+    t = (text or "").strip()
+    return bool(t) and "?" not in t and len(t.split()) <= 14 and bool(_DONE_CODING.search(t))
+
+
 def says_starting_to_code(text: str) -> bool:
     """Only that they are starting to write the code ("okay, writing it now"): no question, no help request, no caveat, ten words at most.
     The silence of skip_reply rests on this, never on starts_coding alone."""
@@ -598,6 +628,25 @@ _ACK_ATOM = (r"(?:okay|ok|k|alright|all right|sure|yeah|yes|yep|yup|right|cool|f
              r"thank you so much|thanks a lot|cheers|no problem|no worries|one sec(?:ond)?|just a (?:sec|second|moment|minute)|"
              r"give me a (?:sec|second|moment|minute)|hold on|let me (?:read|think|see|check|look)(?: (?:it|this|that|through it|about it|first))?)")
 _ACK = re.compile(rf"^(?:{_ACK_ATOM}\b[\s,.;:!-]*)+$", re.IGNORECASE)
+
+
+_DONT_KNOW = re.compile(r"\b(?:i )?(?:don'?t|do not) know\b|\bno idea\b|\bnot sure\b|\bi'?m not sure\b", re.IGNORECASE)
+
+
+def says_dont_know(text: str) -> bool:
+    """The candidate has no answer ("I don't know", "no idea", "not sure"): the area they were asked about is not pressed (live round 781a1f0a, turns 41-54).
+    Only when it is the whole answer or nearly (six words or fewer, fillers aside) or the phrase ends the answer: "I'm not sure, but I think we retry from
+    the device." is an answer (final review)."""
+    text = text or ""
+    found = list(_DONT_KNOW.finditer(text))
+    if not found:
+        return False
+    words = [w for w in re.findall(r"[a-z']+", _DONT_KNOW_FILLERS.sub(" ", text.lower())) if w]
+    after = [w for w in re.findall(r"[a-z']+", _DONT_KNOW_FILLERS.sub(" ", text[found[-1].end():].lower())) if w]
+    return len(words) <= 6 or not after
+
+
+_DONT_KNOW_FILLERS = re.compile(r"\b(?:um+|uh+|er+|hmm+|mm+|well|honestly|sorry|yeah|yes|no|okay|ok|like|so|really|actually|i mean)\b")
 
 
 def is_acknowledgement(text: str) -> bool:
@@ -624,7 +673,7 @@ def needs_no_reply(candidate_text: str, interviewer_text: str) -> bool:
 
 # ------------------------------------------------------------ requests the interviewer must not grant
 
-_CHANGE_VERB = re.compile(r"\b(?:change|switch|swap|replace|skip)\b[^.?!]{0,25}\b(?:problem|question|one|this)\b|"
+_CHANGE_VERB = re.compile(r"\b(?:change|switch|swap|replace|skip)\b[^.?!]{0,25}\b(?:problem|question|one(?!\s+(?:iteration|step|element|item|loop|time|line|index|by)\b)|this)\b|"
                           # "change it" on a problem is the problem ("Can we change it?", a live round missed four), unless it is their
                           # code being changed into something ("change it to a set", "change it so...")
                           r"\b(?:change|switch|swap|replace|skip)\s+it\b(?!\s+(?:to|into|so|with|from|by|for|around|up)\b)", re.IGNORECASE)
@@ -652,6 +701,19 @@ _ASKS_FOR_OTHER = re.compile(
 # asks something about this problem: not a request for another one.
 _CLARIFYING = re.compile(r"\b(?:another|different|other)\s+question\b(?:\s*[,:]\s*\S|[^.?!]{0,20}\babout\b)|"
                          r"\b(?:can|could|may) (?:i|we) ask\b[^.?!]{0,15}\b(?:another|different|other|a)\s+question\b", re.IGNORECASE)
+# An ask to END the coding or the problem ("Sorry, can we close the coding round?", "Can we end this?", "let's skip this problem"): it goes through the same
+# decision as an ask for another problem (live round c8e70bb8, turns 34-40). Needs an asking form, and a problem-shaped object, or a bare "it/this/that" that
+# closes the sentence: "let me finish this loop", "I'll close the file" and "I'll end the loop here" ask nothing of the interviewer.
+_ASK_FORM = r"(?:\b(?:can|could|may) (?:we|you)\b|\bplease\b|\blet'?s\b|\bi (?:want|would like) to\b|\bi'?d like to\b)"
+_END_OBJECT = r"(?:(?:the|this|that|our)\s+)?(?:coding(?:\s+(?:round|part))?|problem|question|round)\b"
+_ASKS_TO_END = re.compile(_ASK_FORM + r"[^.?!]{0,25}?\b(?:end|close|stop|skip|quit)\s+(?:the|this|that|our)?\s*" + _END_OBJECT.replace("(?:(?:the|this|that|our)\\s+)?", "", 1), re.IGNORECASE)
+# "it/this/that" stands for the problem only when the whole turn is a short ask ("Can we close it?"): "let's stop it" or "can we skip one iteration" is narration.
+_ASKS_TO_END_BARE = re.compile(r"\b(?:(?:can|could|may) (?:we|you)|please)\b[^.?!]{0,10}?\b(?:end|close|stop|skip|quit)\s+(?:it|this|that)[\s.,?!\u2026]*(?:now|here|please)?[\s.,?!\u2026]*$", re.IGNORECASE)
+BARE_ASK_WORDS = 6
+
+
+def _asks_to_end(sentence: str) -> bool:
+    return bool(_ASKS_TO_END.search(sentence)) or (len(sentence.split()) <= BARE_ASK_WORDS and bool(_ASKS_TO_END_BARE.search(sentence)))
 TERSE_WORDS = 10         # a turn this short whose request is "(a) different problem" (with a "please" or a reason) is a request
 
 
@@ -667,8 +729,34 @@ def asks_to_change_problem(text: str) -> bool:
             return True
         if _CHANGE_TOO.search(sentence) and not _MY_OWN_CHANGE.search(sentence):
             return True
+        if _asks_to_end(sentence):
+            return True
     return bool(_OTHER_PROBLEM.search(t) and len(t.split()) <= TERSE_WORDS and not _NOT_A_REQUEST.search(t) and not _NOT_A_CHANGE.search(t)
                 and not _CLARIFYING.search(t))
+
+
+_NO_EXAMPLE = re.compile(
+    r"\b(?:(?:don'?t|do not|didn'?t|never)\s+(?:really\s+)?have|no|without)\s+(?:any\s+|an\s+|a\s+)?(?:examples?|experience|stor(?:y|ies)|projects?)\b|"
+    r"\bnothing\s+(?:comes?\s+to\s+mind|that\s+i\s+can\s+(?:think\s+of|recall))\b|"
+    r"\b(?:haven'?t|have\s+not|hasn'?t)\s+(?:really\s+)?(?:worked|done|dealt|faced|been)\b[^.?!]{0,25}\b(?:anything|something)\s+like\s+(?:that|this)\b|\b(?:can'?t|cannot|couldn'?t)\s+(?:think\s+of|recall)\s+(?:any|an|one|anything)\b",
+    re.IGNORECASE)
+_OTHER_EXAMPLE = r"(?:another|a\s+different|different|some\s+other|other)\s+(?:examples?|projects?|stor(?:y|ies)|experiences?|situations?|questions?)"
+_ASKS_OTHER_EXAMPLE = re.compile(
+    rf"\b(?:can|could|may|might)\s+(?:i|we)\b[^.?!]{{0,40}}\b{_OTHER_EXAMPLE}\b|\b(?:is\s+it|would\s+it\s+be)\s+(?:ok|okay|fine|alright)\s+if\s+(?:i|we)\b[^.?!]{{0,40}}\b{_OTHER_EXAMPLE}\b|"
+    rf"\b{_OTHER_EXAMPLE}\b[^.?!]{{0,30}}\binstead\b|"
+    r"\b(?:can|could|may|might)\s+(?:i|we|you)\b[^.?!]{0,30}\bsomething\s+else\b", re.IGNORECASE)
+
+
+def asks_for_other_example(text: str) -> bool:
+    """On a behavioural question: they have no example for it, or ask to use another one ("I don't have an example for this", "can I talk about a
+    different project instead?"). A sentence that says it and goes on with a story ("... but in college we ...") or only mentions another project
+    is an answer. Only read while the question's change policy is on_no_example (`Conductor.is_change_ask`)."""
+    for sentence in re.split(r"(?<=[.?!])\s+", (text or "").strip()):
+        if _ASKS_OTHER_EXAMPLE.search(sentence):
+            return True
+        if _NO_EXAMPLE.search(sentence) and not re.search(r"\bbut\b", sentence, re.IGNORECASE):
+            return True
+    return False
 
 
 _EDIT_FOR_ME = re.compile(
@@ -726,9 +814,50 @@ def asks_for_hint(text: str) -> bool:
     return bool(_HINT_ASK.search(t) and not _NO_HINT.search(t))
 
 
+_REQUEST_WORDS = re.compile(r"\?|\b(?:can|could|would|what|what's|how|are there|is there|do we|do i|tell me|any|share|give|show|mention|any idea)\b", re.IGNORECASE)
+MAX_REQUEST_WORDS = 30
+
+
 def asks_for_constraints(text: str) -> bool:
-    """The candidate asks what the limits of the problem's input are: they are shown on screen, never read out."""
-    return bool(_CONSTRAINTS_ASK.search(text or ""))
+    """The candidate asks what the limits of the problem's input are: they are shown on screen, never read out. Reading the problem aloud
+    (a long statement that happens to say "constraints") or muttering to themselves is not a request (live round 6eeb5dae)."""
+    t = text or ""
+    return bool(_CONSTRAINTS_ASK.search(t) and _REQUEST_WORDS.search(t) and len(t.split()) <= MAX_REQUEST_WORDS)
+
+
+_EXPLAIN_ASK = (
+    re.compile(r"\b(?:explain|go over|walk me through)\b.{0,12}?\b(?:(?:the|this|that)\s+)?(?:problem|question)\b", re.IGNORECASE),
+    re.compile(r"\bexplain (?:it|that|this)(?:[\s,]+(?:again|once more|to me|please))*\s*(?:[.?!]|$)", re.IGNORECASE),
+    re.compile(r"\b(?:don't|do not|dont) understand (?:the|this) (?:problem|question)\b", re.IGNORECASE),
+    re.compile(r"\bwhat (?:is|does) (?:the|this) (?:problem|question) (?:ask|asking|want|mean)\b", re.IGNORECASE),
+)
+_EXPLAIN_BY_CANDIDATE = re.compile(r"\b(?:can|may|could) i\b|\blet me\b|\bmy\b", re.IGNORECASE)
+
+
+def asks_to_explain(text: str) -> bool:
+    """The candidate asks the interviewer to explain what the problem means ("can you explain this problem?"): the explanation goes on their
+    screen, never aloud (live round 781a1f0a, turns 18-23). "Can I explain my approach?" and "let me explain it" are the candidate explaining."""
+    t = text or ""
+    for pattern in _EXPLAIN_ASK:
+        m = pattern.search(t)
+        if m and not _EXPLAIN_BY_CANDIDATE.search(t[:m.start()]):
+            return True
+    return False
+
+
+_SIMPLER_PHRASE = r"(?:in\s+(?:short|shorter|simple|simpler|easy|easier|plain)\s+(?:words|terms|language)|in\s+(?:one|a)\s+(?:line|sentence)|in\s+short|shorter|simpler|briefly|more\s+simply)"
+_SIMPLER_AT_EXPLANATION = re.compile(r"\b(?:explain|tell|say|put|describe|summari[sz]e|repeat|make)\b[^.?!]*?\b" + _SIMPLER_PHRASE + r"\b", re.IGNORECASE)
+_SIMPLER_ALONE = re.compile(r"^\W*(?:(?:okay|ok|sorry|please|yes|so)\W+)*" + _SIMPLER_PHRASE + r"(?:\W+(?:words|please|again|version))*\W*$", re.IGNORECASE)
+_ABOUT_THEIR_SOLUTION = re.compile(r"\b(?:approach|way|solution|loop|code|method|algorithm|implementation)\b|\bi\b|\bmy\b|\bme use\b", re.IGNORECASE)
+
+
+def asks_for_simpler(text: str) -> bool:
+    """After an explanation is already on the screen: "can you tell me in short words?", "simpler please", "in one line" ask for the explanation again,
+    shorter (live round c8e70bb8, turn 25). Only an ask aimed at the explanation: never talk about their own approach, solution, loop or code."""
+    t = (text or "").strip()
+    if _SIMPLER_ALONE.search(t):
+        return True
+    return any(_SIMPLER_AT_EXPLANATION.search(x) and not _ABOUT_THEIR_SOLUTION.search(x) for x in re.split(r"(?<=[.?!])\s+", t))
 
 
 _PROPERTY = re.compile(r"\b(?:positive|negative|non-?negative|non-?positive|empty|sorted|unsorted|ascending|descending|duplicates?|unique|distinct|"
@@ -766,8 +895,16 @@ def invites_clarifying(text: str) -> bool:
 # live round said nothing after it.
 # An ellipsis or a filler alone is not a sentence breaking off: the speech-to-text writes "..." at any pause, and a live round left a
 # candidate in silence after a full introduction ending "So...". A filler is looked past: "in a, um" still breaks off at "a".
+# A sentence that stops on "Can you", "if there is" or a preposition is unfinished too (live round 781a1f0a, turns 24 and 26: "Can you" and
+# "...controlling different devices from" were each answered as a whole turn). These newer endings count only with no closing . ? or !:
+# a punctuated "What is it for?" or "Yes, there is." is a whole sentence, not a fragment.
+# The STT writes a pause as ASCII "..." as often as the single character, so both trail off ("Can you...", final review, live round 781a1f0a).
 _TRAILS_OFF = re.compile(r"(?:\b(?:and|so|but|or),?\s+then|\b(?:the|a|an|and|or|to|of|which|if|because|but|would|could|should|"
-                         r"might|must|i|we|my|our|their))[\s.!?,\u2026]*$", re.IGNORECASE)
+                         r"might|must|i|we|my|our|their))[\s.!?,\u2026]*$"
+                         r"|\b(?:(?:can|could|would|will) you|there is|from|with|for|into|about|than)(?:[\s,\u2026]|\.{2,})*$"
+                         # A word that only ever starts a phrase, with no closing mark at all ("...we will try for every", "...in recursion. then"). Never with a "?" or
+                         # "." after it: "Can we end this?" is a whole sentence (live round c8e70bb8, turns 34-36).
+                         r"|\b(?:every|each|some|all|that|this|with|then)(?:[\s,\u2026]|\.{2,})*$", re.IGNORECASE)
 _FILLERS_AT_END = re.compile(r"(?:[\s.!?,\u2026-]*\b(?:um+|uh+|er+|hmm+|mm+)\b)+[\s.!?,\u2026-]*$", re.IGNORECASE)
 _WALKTHROUGH = re.compile(r"\b(?:dry[- ]?run|trace|run (?:it|through)|(?:walk|talk|go) (?:me |us )?(?:through|over) [^.?!]{0,30}\b(?:code|example|sample|array|input)|walk your code)\b", re.IGNORECASE)
 _CONCLUDES = re.compile(r"\b(?:final|total|returns?|output|answer|result|solution|gives?|equals?|we get|comes? (?:out )?to|that'?s (?:it|all)|i'?m done|finished|in total|so (?:the|it|that))\b", re.IGNORECASE)
@@ -1016,7 +1153,12 @@ _REFUSAL_POINTS: dict[str, re.Pattern[str]] = {
         r"\b(?:partial|incomplete|half[- ]?(?:done|finished)|rough|brute[- ]force)\s+(?:solution|answer|attempt|version)s?\b[^.?!]{0,30}\b(?:fine|okay|ok|good|enough|welcome|perfectly)\b|"
         r"\b(?:fine|okay|ok|good|enough)\b[^.?!]{0,25}\b(?:partial|incomplete|rough|half[- ]?(?:done|finished))\b|"
         r"\b(?:doesn'?t|does not|needn'?t|need not|don'?t have to|do not have to) (?:have to |need to )?(?:be|get) (?:complete|perfect|finished|optimal|fully)\b|"
-        r"\bnot (?:looking|expecting) for (?:a )?(?:perfect|complete|full|finished)\b", re.IGNORECASE),
+        r"\bnot (?:looking|expecting) for (?:a )?(?:perfect|complete|full|finished)\b|"
+        r"\b(?:don'?t|do not|doesn'?t) (?:need|have) to\b[^.?!]{0,25}\b(?:full|whole|complete|entire|final) (?:solution|answer)\b|"
+        r"\b(?:don'?t|do not) need the (?:full|whole|complete) (?:solution|answer)\b", re.IGNORECASE),
+    # The reasons a refusal gives, not only its encouragements (live round 781a1f0a, turns 27 and 29: the same reasons came back in other words).
+    "see_reasoning": re.compile(r"\b(?:see|seeing|learn|tells? me|shows? me)\b[^.?!]{0,25}\bhow you (?:reason|think|break|approach|work)\b", re.IGNORECASE),
+    "worth_it": re.compile(r"\bworth (?:it|your while|the effort)\b", re.IGNORECASE),
     "see_how_far": re.compile(r"\bsee how far (?:you|we) (?:get|can (?:get|go|take it)|go)\b|\bhow far you (?:get|can (?:get|go|take (?:it|this)))\b", re.IGNORECASE),
     "give_it_a_try": re.compile(r"\b(?:give|have|take) (?:it|this|that) (?:a|one more|another) (?:good |proper |real |fair |decent )?(?:try|shot|go|attempt|crack|stab)\b|"
                                 r"\btry (?:it|this|that) (?:out )?(?:a bit|once more|again|for a bit)\b", re.IGNORECASE),
@@ -1027,6 +1169,6 @@ _REFUSAL_POINTS: dict[str, re.Pattern[str]] = {
 
 
 def refusal_points(text: str) -> set[str]:
-    """The points a refusal to change the problem makes in these words, as family names: `partial_fine`, `see_how_far`, `give_it_a_try`,
-    `start_small`. Holding firm ("stay with this one") is the refusal itself, not a point, so it is never counted. The talker guard blocks a sentence whose point was already made in an earlier refusal of the round."""
+    """The points a refusal to change the problem makes in these words, as family names: `partial_fine`, `see_reasoning`, `worth_it`, `see_how_far`,
+    `give_it_a_try`, `start_small`. Holding firm ("stay with this one") is the refusal itself, not a point, so it is never counted. The talker guard blocks a sentence whose point was already made in an earlier refusal of the round."""
     return {name for name, pattern in _REFUSAL_POINTS.items() if pattern.search(text or "")}

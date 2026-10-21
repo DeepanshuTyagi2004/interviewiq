@@ -9,7 +9,7 @@ from app.interviewer.conductor import Conductor
 from app.interviewer.guard import NEUTRAL_LINE, LeakGuard
 from app.interviewer.llm import LLMUnavailable
 from app.interviewer.fillers import RECOVERY_APOLOGY, RECOVERY_SHORT, STAGES, Fillers
-from app.interviewer.talker import Pacing, TalkerFailed, TalkerTurn
+from app.interviewer.talker import Pacing, TalkerFailed, TalkerTurn, opens_with_verdict
 from app.interviewer.tools import ToolExecutor
 from tests.interviewer.fakes import FakeChat, FakeWorkspace, say
 from app.interviewer.plan import wire_ids
@@ -396,11 +396,11 @@ def test_next_item_on_a_problem_is_refused_unless_the_spoken_words_leave_it():
                              say("Good. Let's move on, I have another problem for you.", tools=(("next_item", {"reason": "done"}),))])
     ws.cards["core-1"] = {"sections": []}
     assert run.conductor.current().item_id == "core-1"
+    run.conductor.current().turns = 1          # they have spoken on it and coded: the may-leave check (run first since pass B) passes, "still asking" is what is left
+    run.conductor.current().coded = True
     asyncio.run(collect(turn))
     assert run.conductor.current().item_id == "core-1"
     assert "still asking" in turn.last.tool_calls[0]["result"]["error"]
-    run.conductor.current().turns = 1
-    run.conductor.current().coded = True
     asyncio.run(collect(turn))
     assert run.conductor.current().item_id != "core-1"
 
@@ -858,7 +858,7 @@ def _spoken_for(text):
 
 
 DOUBLE_ACKS = [
-    ("That's a solid, contract-first way to split the work. That's a thoughtful split — fixing the contract before parallelising is exactly "
+    ("That's a sensible, contract-first way to split the work. That's a thoughtful split — fixing the contract before parallelising is exactly "
      "what saves integration pain. With reviews focused on the exposed interface, what was one contract issue that slipped through anyway?", 1),
     ("Nice — front-loading the shared interfaces before parallelising the remotes is exactly the right instinct. Good, freezing the "
      "interfaces before parallelising the remotes is the right instinct. And how do you handle code reviews across three people working "
@@ -884,7 +884,7 @@ def test_a_second_acknowledgement_or_an_exact_repeat_in_one_turn_is_dropped_and_
 
 
 SINGLE_ACKS = [
-    "Nice, that's a solid scope. You mentioned running the web performance guild at Flipkart, how's that going these days?",
+    "Nice, that's a sensible scope. You mentioned running the web performance guild at Flipkart, how's that going these days?",
     "Good. Alright, let me tell you how this round will run. We'll start with a short introduction from you, then one or two coding problems "
     "depending on how the first one goes.",
     "Sure, let me clarify that point. The input only has non-negative integers, so you won't see a leading minus, and spaces can be ignored "
@@ -956,7 +956,7 @@ def test_a_sentence_about_something_other_than_their_answer_is_not_an_acknowledg
 
 
 def test_a_closing_after_an_earlier_acknowledgement_is_spoken_whole():
-    text = "Right, and making that choice early saved you pain. That's a good place for me to pause — thanks, that's a solid round."
+    text = "Right, and making that choice early saved you pain. That's a good place for me to pause — thanks for the conversation."
     spoken, blocked = _spoken_for(text)
     assert spoken == _turn_text(text) and blocked == []
 
@@ -1286,7 +1286,7 @@ SHOW = (("show_problem", {}),)
 
 def test_a_question_after_lets_get_into_the_coding_is_held_so_the_problem_put_up_has_no_other_question_beside_it():
     # p21 seq 9: "Alright, let's get into the coding now. <project question> Let me put the first problem on your screen."
-    turn, run, ws, _ = make([say("That's a solid way to structure it.", "Alright, let's get into the coding now.", QUESTION,
+    turn, run, ws, _ = make([say("That's a sensible way to structure it.", "Alright, let's get into the coding now.", QUESTION,
                                  "Let me put the first problem on your screen.", tools=SHOW)])
     spoken = asyncio.run(collect(turn))
     assert QUESTION not in spoken and "?" not in " ".join(spoken)
@@ -1307,10 +1307,10 @@ def test_a_problem_announcement_after_a_spoken_question_is_held_and_the_problem_
 
 
 def test_an_acknowledgement_then_coding_now_then_the_put_up_with_no_question_is_spoken_as_before():
-    turn, run, ws, _ = make([say("That's a solid way to structure it.", "Alright, let's get into the coding now.",
+    turn, run, ws, _ = make([say("That's a sensible way to structure it.", "Alright, let's get into the coding now.",
                                  "Let me put the first problem on your screen.", tools=SHOW)])
     spoken = asyncio.run(collect(turn))
-    assert spoken == ["That's a solid way to structure it.", "Alright, let's get into the coding now.", "Let me put the first problem on your screen."]
+    assert spoken == ["That's a sensible way to structure it.", "Alright, let's get into the coding now.", "Let me put the first problem on your screen."]
     assert turn.last.blocked == [] and ws.of("panel.show_problem")
 
 
@@ -1326,7 +1326,7 @@ def _budgeted(text, **kw):
     return asyncio.run(collect(turn, verdict_budget=True, **kw)), turn.last.blocked
 
 
-@pytest.mark.parametrize("text", ["That's correct.", "That's a solid approach.", "Exactly right — nice work."])
+@pytest.mark.parametrize("text", ["That's correct.", "That's a sensible approach.", "Exactly right — nice work."])
 def test_with_the_budget_spent_a_sentence_that_only_evaluates_is_dropped(text):
     spoken, blocked = _budgeted(text + " What does it cost in time?")
     assert spoken == ["What does it cost in time?"] and [b["rule"] for b in blocked] == ["verdict_budget"]
@@ -1334,7 +1334,7 @@ def test_with_the_budget_spent_a_sentence_that_only_evaluates_is_dropped(text):
 
 def test_with_the_budget_spent_a_verdict_opener_is_stripped_and_the_content_kept():
     for text, kept in [("That's right, and what about duplicates?", "And what about duplicates?"),
-                       ("That's a solid approach, and what about duplicates?", "And what about duplicates?"),
+                       ("That's a sensible approach, and what about duplicates?", "And what about duplicates?"),
                        ("Good, tell me about the CI check.", "Tell me about the CI check.")]:
         spoken, blocked = _budgeted(text)
         assert spoken == [kept] and blocked == [], text
@@ -1360,7 +1360,7 @@ def test_a_verdict_in_front_of_a_fact_keeps_the_fact_under_the_budget(text, kept
     assert spoken == [kept] and blocked == []
 
 
-@pytest.mark.parametrize("text", ["That's correct.", "Right.", "That's a solid approach."])
+@pytest.mark.parametrize("text", ["That's correct.", "Right.", "That's a sensible approach."])
 def test_a_lone_verdict_is_kept_because_nothing_else_is_said(text):
     spoken, blocked = _budgeted(text)
     assert spoken == [text] and blocked == []
@@ -1809,3 +1809,163 @@ def test_a_second_bare_acknowledgement_in_one_turn_is_dropped_run_b_seq_15():
     assert [(b["rule"], b["sentence"]) for b in turn.last.blocked] == [("second_verdict", "Hmm, okay.")]
     one, *_ = make([say("Okay.", "How did you pick that structure?")])
     assert asyncio.run(collect(one)) == ["Okay.", "How did you pick that structure?"] and one.last.blocked == []
+
+
+def test_a_refusal_sentence_close_to_an_earlier_one_is_blocked_even_with_no_shared_family():
+    """(live round 781a1f0a, turns 27 and 29) the same reason in other words: blocked by word overlap with an earlier refusal sentence."""
+    a = "I'd like to keep this one, honestly — it's a good one to see how you reason through a tricky ordering question, and you don't need to land the full solution for it to be worth your while."
+    # (the brief's sketch sentence overlaps only 0.48; this wording overlaps 0.65, over REFUSAL_OVERLAP, and the families alone cannot block it: refusal_said is empty)
+    again = "Honestly, it's a good one to reason through, a tricky ordering question, and you will not land the full solution for it to be worth your while anyway."
+    turn, *_ = make([say(again)])
+    turn.refusal_said, turn.refusal_sentences = set(), [a]
+
+    async def go():
+        return [s async for s in turn.run([{"role": "user", "content": "hi"}], turn_id="5", current_slot="core-1", candidate_said="")]
+
+    spoken = asyncio.run(go())
+    assert again not in spoken                    # (a turn left with nothing speaks a fallback line)
+    assert [b["rule"] for b in turn.last.blocked] == ["repeated_refusal"]
+
+
+def test_didnt_catch_after_a_sentence_that_answered_them_is_blocked():
+    """Live round 781a1f0a, turn 49: "Ah, got it — keys help React tell items apart when the list changes. I didn't quite catch that."
+    The model had just answered them, so it had caught it."""
+    turn, *_ = make([say("Ah, got it — keys help React tell items apart when the list changes.", "I didn't quite catch that.")])
+    assert asyncio.run(collect(turn)) == ["Ah, got it — keys help React tell items apart when the list changes."]
+    assert turn.last.blocked[0]["rule"] == "unclear_after_content"
+    turn, *_ = make([say("Sorry, I didn't quite catch that.", "Could you say it again?")])
+    assert asyncio.run(collect(turn)) == ["Sorry, I didn't quite catch that.", "Could you say it again?"]
+
+
+# ---- stock praise, verdicts after a lead-in, restating, planning words (live round 781a1f0a, turns 9/14/41/43/54/56)
+
+def test_stock_praise_is_blocked_anywhere_in_a_sentence():
+    turn, *_ = make([say("Ah, got it \u2014 the Experience Portal and the AI sales agent, that's a solid mix of product work.", "Let's get to the coding.")])
+    spoken = asyncio.run(collect(turn))
+    assert spoken == ["Let's get to the coding."] and [b["rule"] for b in turn.last.blocked] == ["stock_praise"]
+
+
+def test_a_verdict_after_a_lead_in_counts_as_a_verdict():
+    assert opens_with_verdict("Ah, got it \u2014 that's exactly right.") and not opens_with_verdict("Ah, got it.")
+
+
+def test_a_restatement_later_in_the_turn_is_blocked():
+    turn, *_ = make([say("Thank you.", "Okay, so you owned it end to end.", "How did you model the schema?")])
+    spoken = asyncio.run(collect(turn, echo_of="I own it end to end."))
+    assert spoken == ["Thank you.", "How did you model the schema?"] and [b["rule"] for b in turn.last.blocked] == ["echo"]
+
+
+def test_planning_words_are_never_spoken():
+    turn, *_ = make([say("That's fine.", "Both areas are covered, so let's move on.", "What would you like to ask me?")])
+    spoken = asyncio.run(collect(turn))
+    assert spoken == ["That's fine.", "What would you like to ask me?"] and [b["rule"] for b in turn.last.blocked] == ["internal_words"]
+
+
+def test_next_steps_on_the_platform_may_be_said_but_a_person_following_up_may_not():
+    """A live closing was cut to "Thanks for your time." because "you'll see the next steps there" matched the people-based promise rule
+    (live round 781a1f0a, turn 58). Next steps on the platform are true; a person who follows up is not."""
+    turn, *_ = make([say("We'll share the feedback on the platform shortly, and you'll see the next steps there.")])
+    spoken = asyncio.run(collect(turn))
+    assert spoken == ["We'll share the feedback on the platform shortly, and you'll see the next steps there."]
+    assert turn.last.blocked == []
+    turn, *_ = make([say("Someone from the team will be in touch about next steps on the platform.")])
+    assert asyncio.run(collect(turn)) == [NEUTRAL_LINE]
+    assert turn.last.blocked[0]["rule"] == "next_steps_promise"
+    turn, *_ = make([say("Someone will be in touch about next steps.")])
+    asyncio.run(collect(turn))
+    assert turn.last.blocked[0]["rule"] == "next_steps_promise"
+
+
+def test_planning_words_rule_lets_normal_coding_talk_through_and_still_blocks_the_bookkeeping():
+    """The rule meant the plan's bookkeeping, not a question about the candidate's loop, parts or items (final review, live round 781a1f0a)."""
+    from app.interviewer.talker import _INTERNAL_BASE
+    for ok in ["What does your loop return once all the items are done?", "Talk me through the parts you have finished so far.",
+               "Once the items are complete, what does the function return?", "Which topics are covered in your course?"]:
+        assert not _INTERNAL_BASE.search(ok), ok
+    for bad in ["Both areas are covered, so let's move on.", "The topics are all covered.", "All the topics are done, so let's go on."]:
+        assert _INTERNAL_BASE.search(bad), bad
+
+
+# ---- live round c8e70bb8, turns 49/60/62: what is said around hints and the coding announcement
+
+def test_a_sentence_that_announces_the_coding_is_dropped_when_the_problem_is_already_on_screen():
+    turn, *_ = make([say("Let's get into the coding now.", "What would you store per position?")])
+    spoken = asyncio.run(collect(turn, shown_problem=1))
+    assert spoken == ["What would you store per position?"] and turn.last.blocked[0]["rule"] == "coding_already_on"
+    turn, *_ = make([say("Time for the coding part.")])
+    assert asyncio.run(collect(turn, shown_problem=1)) == [NEUTRAL_LINE]
+    turn, *_ = make([say("Let's move to the coding.", "Here we go.")])
+    assert asyncio.run(collect(turn)) == ["Let's move to the coding.", "Here we go."]       # nothing on screen yet: it is the move itself
+
+
+def test_an_approach_said_in_a_turn_with_no_hint_is_dropped():
+    said = "Even a plain nested-loop version that checks each pair would be a real start. Just get something on the screen."
+    turn, *_ = make([say(*_turn_text(said))])
+    assert asyncio.run(collect(turn)) == ["Just get something on the screen."]
+    assert turn.last.blocked[0]["rule"] == "unrecorded_hint"
+
+
+def test_an_approach_the_candidate_named_themselves_is_not_a_hint():
+    turn, *_ = make([say("Sure, go ahead with the brute-force approach.")])
+    assert asyncio.run(collect(turn, echo_of="can I start with a brute-force approach?")) == ["Sure, go ahead with the brute-force approach."]
+
+
+def test_an_approach_in_a_turn_that_gives_a_hint_is_kept_in_order():
+    turn, run, ws, _ = make([say("Think about a hash map here.", "See where that leads.", tools=(("show_problem", {}), ("give_hint", {"step": 1}))),])
+    ws.lines = []
+    turn.said.add("x", "0")
+    spoken = asyncio.run(collect(turn))
+    assert spoken == ["Think about a hash map here.", "See where that leads."]
+    turn2, *_ = make([say("Maybe try sorting first.", "See where that leads.", tools=(("show_problem", {}), ("give_hint", {"step": 1})))])
+    assert asyncio.run(collect(turn2)) == ["Maybe try sorting first.", "See where that leads."]
+
+
+def test_a_hint_never_grades_their_idea():
+    turn, *_ = make([say("Your recursion is on the right track, but the memo isn't quite enough to make it efficient.",
+                         "Try it on a small example like 3, 1, 2.", tools=(("show_problem", {}), ("give_hint", {"step": 1})))])
+    assert asyncio.run(collect(turn)) == ["Try it on a small example like 3, 1, 2."]
+    assert turn.last.blocked[0]["rule"] == "hint_grades"
+    turn, *_ = make([say("That won't work for negative numbers.", "Try it on a small example.")])      # no hint: an ordinary verdict
+    assert len(asyncio.run(collect(turn))) == 2
+
+
+def test_give_hint_returns_the_ladder_text_for_the_step():
+    turn, run, ws, _ = make([say("Here's a nudge.", tools=(("show_problem", {}), ("give_hint", {"step": 1})))])
+    asyncio.run(collect(turn))
+    result = next(c for c in turn.last.tool_calls if c["name"] == "give_hint")["result"]
+    assert result["ok"] and result["hint"] == "What do you need to remember as you scan?"
+
+
+def test_a_refused_give_hint_does_not_count_as_a_hint():
+    # step 3 is past the next step on the ladder: the call is refused, so the turn is not a hint turn
+    turn, *_ = make([say("Maybe try sorting first.", "Does that help?", tools=(("show_problem", {}), ("give_hint", {"step": 3})))])
+    assert asyncio.run(collect(turn)) == ["Does that help?"] and turn.last.blocked[0]["rule"] == "unrecorded_hint"
+    turn, *_ = make([say("That idea isn't enough here.", "Try a small example.", tools=(("show_problem", {}), ("give_hint", {"step": 3})))])
+    assert asyncio.run(collect(turn)) == ["That idea isn't enough here.", "Try a small example."]
+
+
+def test_approach_words_the_candidate_used_questions_and_praise_are_not_hints():
+    turn, *_ = make([say("What's the complexity of the brute force approach?")])
+    assert asyncio.run(collect(turn, echo_of="I would do brute force first")) == ["What's the complexity of the brute force approach?"]
+    turn, *_ = make([say("What would a brute force approach cost?")])
+    assert len(asyncio.run(collect(turn))) == 1
+    turn, *_ = make([say("That's a simple solution, nice.")])
+    assert asyncio.run(collect(turn)) == ["That's a simple solution, nice."]
+    turn, *_ = make([say("Sure, a hash map is fine.", )])
+    assert len(asyncio.run(collect(turn, echo_of="can I use a hashmap?"))) == 1
+
+
+def test_the_coding_announcement_stands_when_the_turn_moved_to_a_problem():
+    turn, run, ws, _ = make([say("Let's move on to the next coding problem.", tools=(("show_problem", {}),))])      # puts up a problem that was not on screen
+    assert asyncio.run(collect(turn, shown_problem=1)) == ["Let's move on to the next coding problem."]
+    turn, *_ = make([say("Okay, let's get into the coding now.")])
+    assert asyncio.run(collect(turn, shown_problem=1)) == [NEUTRAL_LINE]
+    turn, *_ = make([say("Let's go back to the coding.")])
+    assert asyncio.run(collect(turn, shown_problem=1)) == ["Let's go back to the coding."]
+
+
+def test_a_question_held_for_the_tools_still_defers_the_problem_put_up():
+    turn, run, ws, _ = make([say("Maybe try sorting first.", "Does that help?", tools=(("show_problem", {}),))])
+    asyncio.run(collect(turn))
+    assert ws.of("panel.show_problem") == []
+    assert turn.last.tool_calls[0]["result"].get("deferred") is True

@@ -46,6 +46,7 @@ DIMENSIONS = {
     "spoken_naturalness": "Do openings, transitions and lines sound like a person speaking, not a document?",
     "flow_and_timing": "Do phases, timeboxes, reserves and the order of questions make a coherent session?",
     "persona_fits_shape": "The interviewer's manner (persona style and disposition) fits the round's shape: brisk for a round that goes straight to the work, warm for one that opens with a longer chat.",
+    "round_fit": "Do the interviewer's rules, persona and questions fit this round type (a design round never asks for code, a behavioural round probes the candidate's own examples deeply, an online assessment gives no hints)?",
 }
 
 SYSTEM = (

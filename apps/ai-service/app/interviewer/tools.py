@@ -41,7 +41,7 @@ TOOLS: list[dict[str, Any]] = [
           {"elements": {"type": "array", "items": _ELEMENT}}, ("elements",)),
     _tool("look_at_board", "Look at the whiteboard when the candidate refers to it.", {}),
     _tool("give_hint", "Give the next hint from the ladder; it also appears on screen.", {"step": _INT}, ("step",)),
-    _tool("next_item", "The current item is finished; move to the next one.", {"reason": _STR}),
+    _tool("next_item", "Move on only when you are done with the current item; never call it after show_problem in the same turn, and never to open a problem (show_problem does that).", {"reason": _STR}),
     _tool("go_to", "Leave the current part for another part still to come (goal_id), or the next one when omitted. Not while a problem is up: use next_item.",
           {"goal_id": _STR, "why": _STR}, ("why",)),
     _tool("skip_goal", "Drop an optional part still to come because the candidate already covered it or it no longer fits.",
@@ -59,27 +59,37 @@ TOOLS: list[dict[str, Any]] = [
            "set_aside_why": _STR}, ("condition", "action", "reason")),
 ]
 TOOL_NAMES = frozenset(t["function"]["name"] for t in TOOLS)
+AWAY_REFUSED = frozenset({"next_item", "go_to", "show_problem", "reveal", "skip_goal", "open_thread", "close_thread"})     # plan and screen tools: refused while the candidate is away (owner 2026-10-20)
 # What a turn may do while no problem is in play: talk, move on, flag conduct, log. The workspace tools are withheld, so a
 # model that is eager to get to the coding cannot "show the problem" during the background questions.
 FLOW_TOOLS = frozenset({"next_item", "go_to", "skip_goal", "open_thread", "close_thread"})
 CONVERSATION_TOOLS = frozenset({"next_item", "go_to", "skip_goal", "open_thread", "close_thread", "flag_conduct", "log_turn"})
 
 
-def tools_for(problem_in_play: bool, board_has_content: bool = True) -> list[dict[str, Any]]:
+CODE_TOOLS = frozenset({"code_comment", "code_insert", "code_highlight"})
+
+
+def tools_for(problem_in_play: bool, board_has_content: bool = True, workspace: str = "editor") -> list[dict[str, Any]]:
     """The tools a turn may use. Without a problem in play only the conversation tools; and `look_at_board` only when something is
-    on the whiteboard (the candidate's code is already in the prompt, and models reach for it to "look at the code")."""
-    if not problem_in_play:
+    on the whiteboard (the candidate's code is already in the prompt, and models reach for it to "look at the code"). By the round pack's
+    workspace (round packs, 2026-10-20): "board" has no code tools (a design round has no editor), "none" only the conversation tools."""
+    if not problem_in_play or workspace == "none":
         return [t for t in TOOLS if t["function"]["name"] in CONVERSATION_TOOLS]
-    return [t for t in TOOLS if board_has_content or t["function"]["name"] != "look_at_board"]
+    # A design round's interviewer never draws (the candidate's board is theirs), so `draw` is withheld wherever the board is the workspace.
+    return [t for t in TOOLS if (board_has_content or t["function"]["name"] != "look_at_board") and (workspace != "board" or t["function"]["name"] not in CODE_TOOLS)
+            and (workspace not in ("board", "editor+board") or t["function"]["name"] != "draw")]
 
 
 class ToolExecutor:
     def __init__(self, run: InterviewRun) -> None:
         self.run = run
+        self.keeping_problem = False          # set each turn by the run: the turn carries a keep_problem order, so no hint may be given
 
     async def execute(self, call: ToolCall, turn_id: str) -> dict[str, Any]:
         if call.name not in TOOL_NAMES or call.name == "log_turn":
             return {"ok": False, "error": f"unknown tool {call.name!r}"}
+        if call.name in AWAY_REFUSED and getattr(self._conductor, "away_paused", lambda: False)():
+            return {"ok": False, "error": "the candidate is away from the screen: nothing moves until they are back, so do not say anything is on their screen"}
         handler = getattr(self, f"_{call.name}")
         try:
             return await handler(call.arguments or {}, turn_id)
@@ -143,6 +153,20 @@ class ToolExecutor:
         slot = self._slot()
         return slot is not None and self._wire(slot) in self.run.d.workspace.cards
 
+    def in_play(self) -> bool:
+        """The current item has started: its problem is on the candidate's screen, or the question was asked aloud (nothing is put on the screen for it).
+        The one test for "started" (round packs): never `_on_screen` alone, which is False for a question asked aloud."""
+        return self._on_screen() or self._conductor.is_opened_aloud(self._conductor.current())
+
+    def _not_started(self, on_screen_text: str) -> str:
+        """The refusal for an item not started: a question asked aloud is asked first (never "call show_problem")."""
+        return on_screen_text if self.shows_card() else "you have not asked this question yet: ask it aloud first, in your own words"
+
+    def shows_card(self) -> bool:
+        """The current item is a problem the run puts on the candidate's screen (a question asked aloud has no card)."""
+        item = self._conductor.current()
+        return item.kind == "slot" and bool(self._conductor.words_for(item)["on_screen"])
+
     def _section(self, slot: dict[str, Any], section_id: str, kind: str, title: str, body: str) -> dict[str, Any]:
         return {"type": "panel.add_section", "item_id": self._wire(slot),
                 "section": {"id": section_id, "kind": kind, "title": title[:120], "body": body[:4000], "author": "interviewer"}}
@@ -182,12 +206,15 @@ class ToolExecutor:
                 self._conductor.next_item("problem requested")
                 item = self._conductor.current()
         slot = self._slot()
+        if item.kind == "slot" and not self._conductor.words_for(item)["on_screen"]:
+            return {"ok": False, "error": "this question is asked aloud: nothing is put on their screen for it, so never call show_problem or say it is up"}
         if slot is None or item.slot_id is None or self._names_another_problem(args.get("item_id"), item.slot_id):
             return {"ok": False, "error": "show_problem only shows the current problem"}
         label = self._conductor.label_for(item.slot_id)
         if self._wire(slot) in self.run.d.workspace.cards:
             return {"ok": True, "already": True, "label": label}   # on screen already: nothing to send
         await self._mark_replaced(label, slot)
+        self.run._problem_shown_at = self.run.d.clock()        # the first seconds after a problem goes up lean to "reading it aloud" (addressed.py)
         return {"ok": True, "label": label, "message_id": await self._send(problem_payload(slot, label, self._wire(slot)))}
 
     async def _mark_replaced(self, label: str, new_slot: dict[str, Any]) -> None:
@@ -286,15 +313,22 @@ class ToolExecutor:
 
     async def _give_hint(self, args, turn_id):
         slot = self._slot()
-        if not self._on_screen():
-            return {"ok": False, "error": "the problem is not on screen yet; call show_problem first"}
+        if not self.in_play():
+            return {"ok": False, "error": self._not_started("the problem is not on screen yet; call show_problem first")}
         ladder = {int(h["step"]): h["hint"] for h in (slot or {}).get("hint_ladder", [])}
-        step = int(args.get("step") or self._conductor.current().hint_step + 1)
+        # (live round 781a1f0a, turns 27-33) A refusal turn gave hint 1 and the next turn jumped to hint 2: never in a turn that keeps the
+        # problem, and never past the next step.
+        if self.keeping_problem:
+            return {"ok": False, "error": "you are keeping the problem this turn: no hint"}
+        given = self._conductor.current().hint_step
+        step = int(args.get("step") or given + 1)
+        if step > given + 1:
+            return {"ok": False, "error": f"give hint step {given + 1} first"}
         if step not in ladder:
             return {"ok": False, "error": f"no hint step {step}"}
         self._conductor.record_hint(step)
         await self._send(self._section(slot, f"hint-{self._wire(slot)}-{step}", "hint", f"Hint {step}", ladder[step]))
-        return {"ok": True, "step": step}
+        return {"ok": True, "step": step, "hint": ladder[step]}
 
     async def _next_item(self, args, turn_id):
         ok, why = self._conductor.can_advance()
@@ -303,23 +337,33 @@ class ToolExecutor:
         item = self._conductor.current()
         slot = self._slot()
         elapsed = self._conductor.clock() - (item.started_at or self._conductor.clock())
-        if item.kind == "slot" and slot is not None and not self._on_screen() and elapsed < item.max_seconds:
-            return {"ok": False, "error": "this problem has not been shown to the candidate yet: call show_problem now, "
-                                          "do not skip it"}
+        if item.kind == "slot" and slot is not None and not self.in_play() and elapsed < item.max_seconds:
+            return {"ok": False, "error": self._not_started("this problem has not been shown to the candidate yet: call show_problem now, "
+                                                            "do not skip it")}
+        ahead = self._conductor.peek_next()
+        if getattr(self._conductor, "opens_coding_problem", lambda t: False)(ahead) \
+                and getattr(self.run.talker, "_asks_this_turn", lambda: False)():
+            return self._asks_refusal()          # (a move to a phase with its opening question is the intended flow and is not refused)
+        may_leave, why_not = self._conductor.may_leave_problem(item)
+        if not may_leave:
+            # It has just gone up and they have not spoken: a next_item now means "go to the problem" said by mistake, and would end
+            # a must-cover problem with no attempt. Checked first: the "still asking" refusal below would send the model to say it is moving on,
+            # which on a problem that has just gone up is the wrong thing to fix (live round c8e70bb8, turn 15).
+            return {"ok": False, "error": why_not}
         gave_up = self._conductor.gave_up(item)      # the interviewer let this problem go on their ask (a change or the end of the coding): it is over
         if item.kind == "slot" and elapsed < item.max_seconds and not leaves_the_part(" ".join(self.run.talker.last.spoken)) \
                 and not asks_for_next_problem(getattr(self.run, "unanswered", None) or "") and not gave_up:
             return {"ok": False, "error": "you are still asking about this problem: do not call next_item until you have finished with "
                                           "it and tell them you are moving on (say so in the same turn)"}
-        may_leave, why_not = self._conductor.may_leave_problem(item)
-        if not may_leave:
-            # It has just gone up and they have not spoken: a next_item now means "go to the problem" said by mistake, and would end
-            # a must-cover problem with no attempt.
-            return {"ok": False, "error": why_not}
         if item.kind == "slot":
             self._conductor.plan_extra_problem()       # time to spare after the last problem: another one follows
         nxt = self._conductor.next_item(str(args.get("reason") or "done")[:200])
         return {"ok": True, "now": self._conductor.public_id(nxt) if nxt else None}
+
+    @staticmethod
+    def _asks_refusal() -> dict[str, Any]:
+        return {"ok": False, "deferred": True, "error": "you asked a question in this turn, so the coding problem is not opened now: ask your question, and move to "
+                                      "the problem in your next turn, after they answer"}
 
     @staticmethod
     def _why(args) -> str:
@@ -345,6 +389,11 @@ class ToolExecutor:
                 result = await self._next_item({"reason": why}, turn_id)
                 return result if not result.get("ok") else {"ok": True, "now": result.get("now")}
             return {"ok": False, "error": "finish this problem first: call next_item when it is done"}
+        goal = self._conductor.resolve(target) if target else None
+        dest = next((i for i in self._conductor.items if i.item_id == goal), None) if goal else self._conductor.peek_next()
+        if getattr(self._conductor, "opens_coding_problem", lambda t: False)(dest) \
+                and getattr(self.run.talker, "_asks_this_turn", lambda: False)():
+            return self._asks_refusal()
         return self._flow_result(self._conductor.go_to(target or None, why))
 
     async def _skip_goal(self, args, turn_id):

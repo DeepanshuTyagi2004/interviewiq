@@ -203,12 +203,15 @@ MAX_EMPTY_BATCHES = 50   # a source that keeps answering with nothing to do ends
 
 
 async def simulate(blueprint: dict[str, Any], context: dict[str, Any], lines: Any, talker_chat, director_chat, *,
-                   fallback_chat=None, seconds_per_line: float = 20.0, out: Callable[[str], None] = print) -> InterviewRun:
+                   fallback_chat=None, seconds_per_line: float = 20.0, out: Callable[[str], None] = print,
+                   addressed_mode: str = "off") -> InterviewRun:
+    """`addressed_mode` (off | shadow | on) defaults to "off" so a simulation makes no extra model calls; a caller that wants to measure what the live
+    worker would do passes `get_settings().addressed_check` (the rehearsal and text-session scripts do)."""
     clock = SimClock()
     workspace = SimWorkspace(out)
     run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker_chat, director_chat=director_chat,
                                workspace=workspace, api=SimApi(out), store=MemoryStore(), clock=clock, first_token_timeout_s=15.0,
-                               fallback_chat=fallback_chat))
+                               fallback_chat=fallback_chat, addressed_mode=addressed_mode))
     speaker = SimSpeaker()
     run.speaker = speaker
     await run.start(None)
@@ -334,7 +337,7 @@ async def _main(args: argparse.Namespace) -> None:
     lines = open(args.script, encoding="utf-8").read().splitlines() if args.script else list(_keyboard())
     talker, fallback, director = build_chats(settings)
     try:
-        await simulate(blueprint, context, lines, talker, director, fallback_chat=fallback)
+        await simulate(blueprint, context, lines, talker, director, fallback_chat=fallback, addressed_mode=settings.addressed_check)
     finally:
         await talker.aclose()
         if fallback is not None:

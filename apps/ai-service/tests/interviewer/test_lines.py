@@ -26,7 +26,7 @@ WARNING_AND_ENDING_GROUPS = ("violation", "final_warning", "away_overstay", "pro
 
 
 def _group(key: str) -> str:
-    return key.split(":")[0]
+    return key.split("@")[0].split(":")[0]
 
 
 # ------------------------------------------------------------------ the pools
@@ -514,9 +514,9 @@ def test_orders_and_hints_give_the_session_s_link_not_one_sentence_everyone_copi
         c.start()
         c.next_item("t")
         c.next_item("t")
-        text = [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
-        mine = next(v for v in BRIDGE_POOLS["problem"] if f'"{v}"' in text)
-        seen.add(mine)
+        order = [o for o in c.pending_orders() if o.kind == "open_item"][-1]
+        assert order.bridge in LINES["bridge:first"] and order.bridge not in order.text      # the sentence is the run's, never the model's to improvise
+        seen.add(order.bridge)
     assert len(seen) >= 2
 
     async def hint():

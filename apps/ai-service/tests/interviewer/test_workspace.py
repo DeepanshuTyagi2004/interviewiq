@@ -276,3 +276,26 @@ def test_a_screen_change_released_before_the_browser_says_hello_is_queued_for_it
 
     room = asyncio.run(run())
     assert [m["type"] for _, m in room.local_participant.texts] == ["panel.show_problem"]
+
+
+def test_a_refreshed_page_gets_the_latest_addressed_state_again():
+    async def go():
+        room = Room()
+        bridge = WorkspaceBridge(room, snapshot_timeout_s=0.5)
+        bridge.attach()
+
+        async def on_message(m):
+            pass
+
+        await bridge.start_handling(on_message)
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")
+        await bridge.wait_ready(1)
+        await bridge.send({"type": "addressed.state", "direct_only": True})
+        before = len(room.local_participant.texts)
+        room.text["workspace"](Reader(web({"type": "workspace.hello", "has_content": False})), "cand")        # a refresh
+        await bridge.wait_ready(1)
+        await asyncio.sleep(0.05)
+        return [m for _, m in room.local_participant.texts[before:]]
+
+    resent = asyncio.run(go())
+    assert any(m["type"] == "addressed.state" and m["direct_only"] is True for m in resent)

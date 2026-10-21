@@ -17,7 +17,7 @@
       Like `run`, but the candidate is a model playing the persona in SPEC (scripts/flow_scenarios/personas/*.json): it answers what the
       interviewer actually said, types code, goes quiet and highlights the problem. Its resume is the profile the blueprint was prepared
       from. Also writes the persona's id, first name, silences, selections and its own usage (kept apart from the interviewer's).
-      Paid: the interviewer's models and the candidate model (default deepseek/deepseek-v4.1-flash, reasoning low).
+      Paid: the interviewer's models and the candidate model (default deepseek/deepseek-v4.1-flash-1017, reasoning low).
       `--realism-seed N` (also on `run`): a stored blueprint was prepared before the realism stage and has no `realism` block, so the run would
       only test the old behaviour. With a seed the block is built in memory from the stored blueprint (traits, speech habits, the outline with its
       promises, the change stance; the classic opening's intro swap from the seed) with the prep's own code, and attached before the run. The
@@ -153,7 +153,8 @@ async def cmd_run(args: argparse.Namespace) -> int:
     transcript: list[str] = []
     talker, fallback, director = build_chats(settings)
     try:
-        run = await simulate(blueprint, context, lines, talker, director, fallback_chat=fallback, out=lambda s: transcript.append(str(s)))
+        run = await simulate(blueprint, context, lines, talker, director, fallback_chat=fallback, out=lambda s: transcript.append(str(s)),
+                             addressed_mode=settings.addressed_check)
     finally:
         await talker.aclose()
         if fallback is not None:
@@ -165,7 +166,7 @@ async def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-CANDIDATE_MODEL = "deepseek/deepseek-v4.1-flash"
+CANDIDATE_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 JUDGE_MODEL = "anthropic/claude-sonnet-5.5"
 
 
@@ -213,7 +214,8 @@ async def cmd_persona(args: argparse.Namespace) -> int:
     transcript: list[str] = []
     talker, fallback, director = build_chats(settings)
     try:
-        run = await simulate(blueprint, context, persona, talker, director, fallback_chat=fallback, out=lambda s: transcript.append(str(s)))
+        run = await simulate(blueprint, context, persona, talker, director, fallback_chat=fallback, out=lambda s: transcript.append(str(s)),
+                             addressed_mode=settings.addressed_check)
     finally:
         await talker.aclose()
         if fallback is not None:

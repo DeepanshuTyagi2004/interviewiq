@@ -244,7 +244,8 @@ class LeakGuard:
             return Verdict(False, "difficulty", m.group(0))
         return Verdict(True)
 
-    def check_insight(self, text: str, *, current_slot: str | None, candidate_said: str = "", hint_step: int = 0, last_said: str = "") -> Verdict:
+    def check_insight(self, text: str, *, current_slot: str | None, candidate_said: str = "", hint_step: int = 0, last_said: str = "",
+                      next_step_allowed: bool = True) -> Verdict:
         """The interviewer says the candidate's half-formed idea back more completely than they said it: two or more distinctive words of the
         key insight that neither they, the statement nor a hint already given has used."""
         words = self.insights.get(current_slot or "")
@@ -254,7 +255,9 @@ class LeakGuard:
             return Verdict(True)
         given: set[str] = set()
         for step, stems in self.ladders.get(current_slot or "", []):
-            if step <= hint_step + 1:          # the hint being given in this very turn is the next one
+            # The hint being given in this very turn is the next one, unless the turn may not give one (a refusal turn gave hint 1 and 2 in
+            # ladder words the guard exempted, live round 781a1f0a, turns 27-33).
+            if step <= hint_step + (1 if next_step_allowed else 0):
                 given |= stems
         hits = {w for w in _stems(text) if w in words} - _stems(candidate_said) - given
         return Verdict(False, "insight_completed", ",".join(sorted(hits))) if len(hits) >= 2 else Verdict(True)

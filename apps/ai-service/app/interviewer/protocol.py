@@ -21,7 +21,7 @@ SectionKind = Literal["constraints", "format", "clarification", "hint", "explana
 Author = Literal["interviewer", "candidate"]
 CodeLanguage = Literal["python", "javascript", "typescript", "java", "cpp", "go"]
 EndReason = Literal["completed", "ended_by_interviewer", "candidate_ended", "technical"]
-ProctorKind = Literal["tab_hidden", "window_blur", "external_display", "fullscreen_exit", "share_stopped"]
+ProctorKind = Literal["tab_hidden", "window_blur", "external_display", "fullscreen_exit", "share_stopped", "foreign_paste"]
 AwayKind = Literal["tab_hidden", "window_blur", "fullscreen_exit", "share_stopped"]
 
 
@@ -180,8 +180,14 @@ class SessionEnding(_Msg):
     message: str = Field(max_length=1000)
 
 
+class AddressedStateMsg(_Msg):
+    """Whether the interviewer is listening only for direct questions on the current item (it invited questions: "let me know if..."). The panel note follows it."""
+    type: Literal["addressed.state"]
+    direct_only: bool
+
+
 _AGENT_MODELS = (ShowProblem, AddSection, PanelHighlight, PanelClearHighlight, CodeComment, CodeInsert, CodeHighlight,
-                 CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding)
+                 CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding, AddressedStateMsg)
 AgentMessage = Annotated[Union[_AGENT_MODELS], Field(discriminator="type")]
 
 # ---------------------------------------------------------------- web → agent
@@ -248,6 +254,9 @@ class ProctorEventMessage(_Msg):
     weight: Literal[1, 0.5]
     at: int = Field(ge=0)
     counts: ProctorCounts
+    source: str | None = Field(default=None, max_length=40)
+    chars: int | None = Field(default=None, ge=0)
+    lines: int | None = Field(default=None, ge=0)
 
 
 class Hello(_Msg):
@@ -267,6 +276,11 @@ class ProctorAway(_Msg):
 
 class ProctorBack(_Msg):
     type: Literal["proctor.back"]
+    at: int = Field(ge=0)
+
+
+class AskInterviewer(_Msg):
+    type: Literal["ask.interviewer"]
     at: int = Field(ge=0)
 
 
@@ -369,7 +383,7 @@ class ActivityBatch(_Msg):
 
 
 _WEB_MODELS = (Ack, SectionAdded, HighlightAdded, CodeHighlightAdded, AskSelection, CodeSnapshot, BoardSummary,
-               ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, ActivityBatch, TypingWindow)
+               ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, AskInterviewer, ActivityBatch, TypingWindow)
 WebMessage = Annotated[Union[_WEB_MODELS], Field(discriminator="type")]
 
 _AGENT = TypeAdapter(AgentMessage)

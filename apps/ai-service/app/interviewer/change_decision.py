@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
-ChangeAction = Literal["resist", "change", "end_coding"]
+ChangeAction = Literal["resist", "change", "end_coding", "next_question"]
 ACTIONS: tuple[ChangeAction, ...] = ("resist", "change", "end_coding")
 DECISION_TIMEOUT_S = 1.2       # the call answers in ~0.6 s on the talker's chat (reasoning off); past this the persona's prior decides
 DECISION_MAX_TOKENS = 60
@@ -44,7 +44,7 @@ def fallback_action(refusals_prior: int, refusals_problem: int, allowed: frozens
     """The persona's prior when the model cannot decide: resist until the problem has had `refusals_prior` refusals, then the change if it is
     allowed, else the end of the coding part, else resist. With `refusals_prior` 1 this is today's rule (first ask resisted, then the round's
     one change, then after it a resist and the end of the coding)."""
-    if refusals_problem < refusals_prior:
+    if refusals_problem < refusals_prior and "resist" in allowed:
         return "resist"
     for action in ("change", "end_coding"):
         if action in allowed:
@@ -67,9 +67,9 @@ def _messages(*, firmness: str, refusals_problem: int, refusals_round: int, chan
 
 async def decide_change(chat: Any, *, firmness: str, refusals_problem: int, refusals_round: int, changes_round: int, candidate_text: str,
                         attempted: bool, minutes_left: float, allowed: frozenset[str], timeout_s: float = DECISION_TIMEOUT_S,
-                        refusals_prior: int | None = None) -> tuple[ChangeAction, str]:
-    """What the candidate's request gets, and where the answer came from: "model" or "fallback" (a timeout, an error, an answer that is not one of
-    `allowed`). Never raises. `chat` is the talker's chat at temperature 0, reasoning off. `refusals_prior` is the persona's stance for the fallback; without
+                        refusals_prior: int | None = None) -> tuple[ChangeAction, str, str]:
+    """What the candidate's request gets, where the answer came from ("model" or "fallback": a timeout, an error, an answer that is not one of
+    `allowed`) and the model's own reason ("" for a fallback; recorded on the turn after live round 781a1f0a, 2026-10-18). Never raises. `chat` is the talker's chat at temperature 0, reasoning off. `refusals_prior` is the persona's stance for the fallback; without
     it the firmness stands in for it (a firm persona refuses twice)."""
     prior = refusals_prior if refusals_prior is not None else (2 if firmness == "firm" else 1)
     fallback = fallback_action(prior, refusals_problem, allowed)
@@ -79,9 +79,10 @@ async def decide_change(chat: Any, *, firmness: str, refusals_problem: int, refu
         data, _ = await asyncio.wait_for(chat.json(messages, "change_decision", SCHEMA, DECISION_MAX_TOKENS), timeout_s)
         action = str((data or {}).get("action") or "").strip().lower()
         if action in allowed and action in ACTIONS:
-            logger.info("change decision: %s (%s)", action, str((data or {}).get("why") or "")[:120])
-            return action, "model"          # type: ignore[return-value]
+            why = str((data or {}).get("why") or "")[:120]
+            logger.info("change decision: %s (%s)", action, why)
+            return action, "model", why          # type: ignore[return-value]
         logger.warning("change decision outside what is allowed: %r", action)
     except Exception as exc:  # noqa: BLE001 - a decision that cannot be made never blocks the reply
         logger.warning("change decision failed: %s: %s", type(exc).__name__, exc)
-    return fallback, "fallback"
+    return fallback, "fallback", ""

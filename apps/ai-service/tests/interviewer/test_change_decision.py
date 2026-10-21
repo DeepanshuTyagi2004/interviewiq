@@ -159,7 +159,22 @@ class Chat:
 def _decide(chat, allowed=ALL, **over):
     started = time.monotonic()
     out = asyncio.run(decide_change(chat, allowed=allowed, **{**CALL, **over}))
-    return out, time.monotonic() - started
+    return out[:2], time.monotonic() - started                  # (action, source); the third element is the model's reason
+
+
+def test_the_fallback_never_resists_at_the_ceiling():
+    """(decided 2026-10-18 after live round 781a1f0a) A firm persona's prior of 3 refusals must not return a resist once resist is no longer allowed."""
+    at_ceiling = frozenset({"change", "end_coding"})
+    assert fallback_action(3, 3, at_ceiling) in at_ceiling and fallback_action(5, 3, at_ceiling) in at_ceiling
+    assert fallback_action(3, 3, frozenset({"end_coding"})) == "end_coding"
+    out = asyncio.run(decide_change(Chat(error=RuntimeError("boom")), allowed=at_ceiling, **{**CALL, "refusals_problem": 3}, refusals_prior=3))
+    assert out[0] in at_ceiling and out[1] == "fallback" and out[2] == ""
+
+
+def test_the_model_reason_comes_back_with_its_decision_and_is_empty_for_the_fallback():
+    action, source, why = asyncio.run(decide_change(Chat({"action": "change", "why": "stuck for long"}), allowed=ALL, **CALL))
+    assert (action, source, why) == ("change", "model", "stuck for long")
+    assert asyncio.run(decide_change(Chat(error=RuntimeError("boom")), allowed=ALL, **CALL))[2] == ""
 
 
 def test_the_model_answer_is_used_when_it_is_allowed():
@@ -378,7 +393,7 @@ def test_a_change_that_cannot_be_applied_or_decided_never_breaks_the_reply():
             raise RuntimeError("conductor exploded")
 
         run.conductor.apply_change_action = boom
-        run._apply_change(("change", "model", clock()))                      # logged, not raised
+        run._apply_change(("change", "model", clock(), "", ["resist"]))                      # logged, not raised
         run.conductor.allowed_change_actions = lambda: (_ for _ in ()).throw(RuntimeError("no limits"))
         run._change_pending = "Please, another problem."
         out = await run._decide_change()
@@ -386,3 +401,16 @@ def test_a_change_that_cannot_be_applied_or_decided_never_breaks_the_reply():
 
     run, out = asyncio.run(go())
     assert out is None and run._change_pending is None and not run._change_in_flight and not run.conductor.change_given
+
+
+def test_a_change_decision_is_stored_with_its_reason_and_the_allowed_actions():
+    from tests.interviewer.test_run import _round_with_two_problems, speak
+
+    async def go():
+        run, deps, clock = await _round_with_two_problems([say("I'd like you to stay with this one.")], PERSONA)
+        await speak(run, "Can you change the problem?")
+        return deps
+
+    deps = asyncio.run(go())
+    [turn] = [t for t in deps.store.turns if t["speaker"] == "interviewer" and t.get("change_decision")]
+    assert turn["change_decision"] == {"action": "resist", "source": "limit", "ms": 0, "why": "", "allowed": ["resist"]}

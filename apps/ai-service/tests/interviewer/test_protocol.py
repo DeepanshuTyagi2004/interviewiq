@@ -83,7 +83,9 @@ def test_integrity_messages_parse_and_reject_bad_values():
     assert parse_web(json.dumps({**EXAMPLES["typing.window"], "iki": {"median": 100}})) is None
 
 
-def test_an_unextended_worker_still_rejects_a_foreign_paste_event():
-    """Phase 2 teaches the worker this kind; until then it is dropped, never mistaken for a screen switch."""
+def test_a_foreign_paste_event_is_parsed_with_its_size_never_its_text():
+    """The worker records pastes for the report (Module 04); the run routes them to the paste ledger, never to the screen-switch ledger."""
     paste = {**EXAMPLES["proctor.event"], "kind": "foreign_paste", "source": "paste", "chars": 80, "lines": 3, "clipboard_cleared": True}
-    assert parse_web(json.dumps(paste)) is None
+    parsed = parse_web(json.dumps(paste))
+    assert parsed is not None and parsed.kind == "foreign_paste"
+    assert (parsed.source, parsed.chars, parsed.lines) == ("paste", 80, 3)

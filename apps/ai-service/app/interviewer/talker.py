@@ -22,7 +22,7 @@ from app.interviewer.closing import (has_leave_taking, leads_into_next_part, ref
 from app.interviewer.fillers import Fillers
 from app.interviewer.guard import LeakGuard
 from app.interviewer.lines import LINES, SAFETY_KEYS, contains, matches_any
-from app.interviewer.predicates import UNREADABLE_BOARD, echoes, plain, restates
+from app.interviewer.predicates import UNREADABLE_BOARD, content_overlap, content_words, echoes, plain, restates, restates_candidate, restates_first, lone_so_paraphrase
 from app.interviewer.llm import LLMUnavailable, StreamEvent, ToolCall
 from app.interviewer.said import LOOP_AT, SaidTracker
 from app.interviewer.tools import FLOW_TOOLS, TOOLS, ToolExecutor
@@ -39,6 +39,18 @@ def _is_end_line(text: str) -> bool:
 
 SENTENCE_END = re.compile(r"(?<=[.!?\u3002\uff01\uff1f])\s+")
 _I_MEAN = "i mean,"
+
+
+# A refusal sentence this close (Jaccard of its content words) to an earlier one makes the same point in other words (live round 781a1f0a, turns 27 and 29).
+REFUSAL_OVERLAP = 0.6
+REFUSAL_MIN_WORDS = 5
+
+
+def repeats_a_refusal(text: str, earlier: list[str]) -> str:
+    """The earlier sentence this one repeats in other words (five or more content words, overlap of at least REFUSAL_OVERLAP), or ''."""
+    if len(content_words(text)) < REFUSAL_MIN_WORDS:
+        return ""
+    return next((e for e in earlier if content_overlap(text, e) >= REFUSAL_OVERLAP), "")
 
 
 def split_sentences(buffer: str) -> tuple[list[str], str]:
@@ -70,7 +82,12 @@ _INTERNAL_BASE = re.compile(
     # Its own decision about the path, said aloud (a rehearsal: "They jumped straight into their intro, so let me take it. ... let me
     # acknowledge and go with the plan."). The decision travels in the tool calls only.
     r"\b(?:go|stick|stay|keep)\s+with\s+the\s+plan\b|\bnote\s+the\s+plan\b|\bthe\s+plan\s+as\s+done\b|\blet me (?:take it|acknowledge)\b|"
-    r"^\s*(?:they|he|she)\s+(?:jumped|went)\s+straight\s+(?:in)?to\b",
+    r"^\s*(?:they|he|she)\s+(?:jumped|went)\s+straight\s+(?:in)?to\b|"
+    # The plan's bookkeeping said aloud ("Both areas are covered, so let's move on", live round 781a1f0a, turn 56).
+    # Statements about areas or topics only, never a question and never parts or items (final review: "What does your loop return once all the items are
+    # done?" is coding talk).
+    r"\b(?:both|all|the|these|those)\s+(?:areas?|topics?)\b[^.?!]{0,20}\b(?:covered|done)\b(?![^.?!]*\?)|"
+    r"\b(?:areas?|topics?)\s+(?:are|is|were|was)\s+(?:all\s+)?covered\b(?![^.?!]*\?)",
     re.IGNORECASE)
 # What a model "thinks aloud" instead of saying to the candidate: its reading of the live state, of its last turn, of the plan.
 NARRATION = re.compile(
@@ -344,6 +361,10 @@ _ACK_LEAD = re.compile(r"^\W*(?:great|good|nice|right|yes|perfect|exactly|okay|o
 ASKS_SOMETHING = re.compile(r"^(?:tell|walk|show|try|give|let'?s|let me|go ahead|can you|could you|what|how|why|when|which)\b|\?\s*$", re.IGNORECASE)
 
 
+# The interviewer saying it did not hear what they said.
+MISSED_IT = re.compile(r"\b(?:didn'?t|did not) (?:quite )?(?:catch|get|hear)\b|\bmissed (?:that|the last)\b", re.I)
+
+
 def ACKNOWLEDGES(sentence: str) -> bool:
     """The sentence acknowledges or evaluates what the candidate said: the verdict openers, "That's/This is a <word> <evaluative word>", or
     "Nice/Good/Great/Solid/Fair/Makes sense/Got it/Understood". A question and a transition ("Alright, let's...", "Now", "So", "Let me",
@@ -358,6 +379,21 @@ def ACKNOWLEDGES(sentence: str) -> bool:
 # are neutral acknowledgements and never one. The clause up to the first comma or dash is the verdict.
 _VERDICT_OPENER = re.compile(rf"^\W*(?:(?:that'?s|that is|this is)\s+(?:(?:a|an)\s+)?(?:[\w'-]+,?\s+){{0,2}}?{_EVALUATIVE}\b|"
                              r"(?:yes|right|exactly|correct|perfect|great|good|nice|solid|well done)\b|" + VERDICT_PATTERN + r"\b)", re.IGNORECASE)
+# Praise for their background or answer, anywhere in a sentence ("Ah, got it \u2014 ..., that's a solid mix of product work", live round
+# 781a1f0a, turns 9/14/41/43): the interviewer does not grade what the candidate is, whichever word the sentence opens with.
+STOCK_PRAISE = re.compile(r"\b(?:that'?s|that is|this is|what)\s+(?:a|an)\s+(?:(?:really|very|pretty)\s+)?(?:solid|great|clean|excellent|strong|nice)\b", re.I)
+# A lead-in before the real opening of a sentence ("Ah, got it \u2014 that's exactly right"); it hides a verdict from the ^-anchored detectors.
+_LEAD_IN = re.compile(r"^\W*(?:(?:ah|oh|okay|ok|right|alright|sure|yeah|mm|hmm)(?:,?\s*got it)?|got it|i see|understood)\s*[,.\u2014\u2013-]\s+", re.IGNORECASE)
+
+
+def strip_lead_in(sentence: str) -> str:
+    """The sentence without a leading "Ah, got it \u2014" / "Okay," / "I see." when three or more words remain, else unchanged."""
+    text = sentence.strip()
+    m = _LEAD_IN.match(text)
+    rest = text[m.end():].strip() if m else text
+    return rest if m and len(rest.split()) >= 3 else sentence
+
+
 _VERDICT_CLAUSE = re.compile(r"[,;\u2014\u2013]|\s-\s")
 NEUTRAL_ACK = re.compile(r"^\W*(?:okay|ok|mm+,?(?:\s+okay)?|hmm+,?(?:\s+okay)?|okay,?\s+cool|got it|alright|all right|sure|fair(?:\s+enough)?|makes sense|understood|i see|"
                          + BARE_PATTERN + r")\W*$", re.IGNORECASE)         # ...and every neutral acknowledgement and backchannel of the speech vocabulary
@@ -382,7 +418,7 @@ def strip_verdict(sentence: str) -> str | None:
 
 def opens_with_verdict(sentence: str) -> bool:
     """The sentence opens with an evaluative verdict (not a neutral acknowledgement): what the verdict budget counts."""
-    return strip_verdict(sentence) is not None
+    return strip_verdict(sentence) is not None or strip_verdict(strip_lead_in(sentence)) is not None
 
 
 def confirmation_of(sentence: str) -> str | None:
@@ -391,6 +427,26 @@ def confirmation_of(sentence: str) -> str | None:
     if m is None:
         return None
     return "That's correct." if (m.group(1) or m.group(2)).lower() == "correct" else "Right."
+
+
+# Live round c8e70bb8: an approach said outside a recorded hint (turn 62, "a plain nested-loop version that checks each pair"), and a hint that
+# graded the candidate's idea (turn 49, "the memo isn't quite enough" when the ladder's next step was that very idea).
+APPROACH_SUGGESTION = re.compile(
+    r"\b(?:plain|brute[- ]?force|simple|naive|nested[- ]loop|two[- ]loop)\s+(?:version|approach|solution)\b|"
+    r"\bchecks?\s+each\s+pair\b|"
+    r"\btry\s+(?:sorting|a\s+hash\s?map|binary\s+search|dp|dynamic\s+programming|recursion)\b", re.IGNORECASE)
+ANNOUNCES_CODING = re.compile(
+    r"\blet(?:'|\u2019)?s\s+(?:now\s+)?(?:get|move|go|dive|jump|turn|switch)\b(?!\s+back)[^.?!]{0,20}\b(?:to|into|onto)\b[^.?!]{0,12}\bcoding\b|"
+    r"\btime\s+(?:for|to)\b[^.?!]{0,12}\bcoding\b|\bmove\s+on\s+to\b[^.?!]{0,12}\bcoding\b", re.IGNORECASE)
+# The terms an approach sentence can be built from; one the candidate used themselves (any form) makes it their own approach, not a hint.
+APPROACH_TERMS = {t: re.compile(rx, re.IGNORECASE) for t, rx in {
+    "brute": r"\bbrute", "nested": r"\bnested", "loop": r"\bloops?\b", "pair": r"\bpairs?\b", "hash": r"\bhash", "sort": r"\bsort",
+    "binary": r"\bbinary", "dp": r"\bdp\b|\bdynamic", "recursion": r"\brecurs", "pointer": r"\bpointers?\b", "window": r"\bwindow",
+    "plain": r"\bplain\b", "simple": r"\bsimple\b", "naive": r"\bnaive\b"}.items()}
+PRAISES_THEIRS = re.compile(r"\b(?:that(?:'|\u2019)s|that is|your|it(?:'|\u2019)s|this is|you(?:'ve| have)? (?:got|chose|picked))\b", re.IGNORECASE)
+JUDGES_THEIR_IDEA = re.compile(
+    r"\b(?:isn(?:'|\u2019)t|is\s+not|aren(?:'|\u2019)t)\s+(?:quite\s+)?enough\b|\bwon(?:'|\u2019)t\s+work\b|\bdoes(?:n(?:'|\u2019)t|\s+not)\s+(?:quite\s+)?work\b|"
+    r"\bnot\s+quite\s+right\b|\bdoesn(?:'|\u2019)t\s+(?:quite\s+)?capture\b|\bthat(?:'|\u2019)s\s+wrong\b", re.IGNORECASE)
 
 
 # Describing code that is not there (p18/smoke/strong_fresher: "I see you've already written the two-pointer solution" over an empty editor).
@@ -431,6 +487,12 @@ TIME_PRESSURE = re.compile(r"\b(?:(?:nearly|almost|running|about|close to) out o
 # A mock round has no team behind it: a live closing said "someone from the team will be in touch about next steps".
 NEXT_STEPS_PROMISE = re.compile(r"\b(?:will|'ll) be in touch\b|\bnext steps\b|\b(?:get|getting) back to you\b|"
                                 r"\bhear (?:back )?from (?:us|the team|them|someone)\b|\bsomeone (?:from|on) (?:the|our) team\b", re.IGNORECASE)
+# The promises that a person follows up: the same alternatives without "next steps", which is true when it is said of the platform.
+PEOPLE_FOLLOW_UP = re.compile(r"\b(?:will|'ll) be in touch\b|\b(?:get|getting) back to you\b|"
+                              r"\bhear (?:back )?from (?:us|the team|them|someone)\b|\bsomeone (?:from|on) (?:the|our) team\b", re.IGNORECASE)
+# "you'll see the next steps there" after the feedback is on the platform is the real next step; a live closing was cut to a bare thanks
+# because of it (live round 781a1f0a, turn 58).
+PLATFORM_NEXT = re.compile(r"\b(?:on|in) (?:the|your) (?:platform|report|dashboard)\b|\byour (?:report|feedback|debrief)\b", re.I)
 # Brush-offs and vague extra transitions: a live round left the coding with "I'll leave you with that. Let's move to another part,
 # you can think about that offline." before the prescribed "That wraps up the coding part." and one question.
 DISMISSIVE = re.compile(r"\bi'?ll leave you with (?:that|this|it)\b|\b(?:think|work) (?:about|on) (?:it|that|this) (?:offline|later|after\b)",
@@ -1026,8 +1088,11 @@ class TalkerTurn:
         # Set by the run per turn: on a turn that refuses a change of problem, the points the round's earlier refusals already made (closing.refusal_points);
         # None on any other turn. A sentence that makes one of them again, or one already made in this turn, is dropped (decided 2026-10-18).
         self.refusal_said: set[str] | None = None
+        # The sentences the round's earlier refusals spoke (set beside `refusal_said`): a sentence close to one in its words is a repeat too.
+        self.refusal_sentences: list[str] = []
         self._confirm_asked = False
         self._intro_begun = False
+        self._held_tail: list[str] = []                 # sentences held until the turn's tools have run (hint and move checks)
         self._held_soft: tuple[str, str] | None = None   # a first sentence (an echo) or a lone verdict, held until something else is said
         self._questions = 0
         self._remarks = 0
@@ -1133,6 +1198,7 @@ class TalkerTurn:
         self._remarks = len(self._before)
         self._check_ack = check_empty_ack           # they said something that needs a real answer: a bare acknowledgement is not one
         self._held_ack = None
+        self._held_tail = []
         self._held_failure = None
         self._speak_after_tools = speak_after_tools  # a reply to the candidate is owed: a model that only calls tools is asked again for the words
         self._fillers_on = fillers_allowed          # off for the greeting: nobody has asked for anything, so "give me a second" means nothing
@@ -1154,7 +1220,7 @@ class TalkerTurn:
                     if call.arguments.get("set_aside"):
                         result.decision |= {"set_aside": call.arguments["set_aside"], "set_aside_why": call.arguments.get("set_aside_why")}
                     continue
-                if call.name == "show_problem" and self._questions >= 1 and not self.tools._on_screen():
+                if call.name == "show_problem" and self._asks_this_turn() and not self.tools.in_play():
                     # A turn that asks them something never also puts a problem up: they cannot answer both, and the question is left hanging
                     # (decided 2026-10-18; rehearsal run_a seq 9). The problem goes up in the next turn, once the plan has moved onto it.
                     result.tool_calls.append({"name": call.name, "arguments": call.arguments, "result": {
@@ -1166,6 +1232,8 @@ class TalkerTurn:
                                           "result": {k: v for k, v in outcome.items() if k != "image"}})
                 if call.name == "look_at_board" and outcome.get("image"):
                     image = outcome["image"]
+            for sentence in self._flush_tail(result, current_slot, candidate_said):      # even when a follow-up request failed: it is already worded
+                yield sentence
             if self._held_failure is not None:
                 raise self._held_failure
             refused_move = any(c["name"] in MOVE_TOOLS and c["result"].get("ok") is False for c in result.tool_calls)
@@ -1334,6 +1402,7 @@ class TalkerTurn:
                 await stream.aclose()
 
         buffer = ""
+        deferred: list[str] = []
         wrote = False                                   # the model produced text of its own (even only <silent>)
         try:
             async with aclosing(events()) as incoming:
@@ -1345,6 +1414,9 @@ class TalkerTurn:
                         buffer += event.text
                         done, buffer = split_sentences(buffer)
                         for sentence in done:
+                            if deferred or self._hint_risk(sentence, current_slot, candidate_said):
+                                deferred.append(sentence)       # held with everything after it until the tools are known
+                                continue
                             outs = self._screen(sentence, result, current_slot, candidate_said)
                             if outs and recovery:
                                 result.spoken.insert(len(result.spoken) - len(outs), recovery)
@@ -1360,19 +1432,25 @@ class TalkerTurn:
                         result.usage, result.provider = event.usage, event.provider
         except LLMUnavailable as exc:
             result.error = str(exc)  # a broken stream mid-reply: keep what was already spoken
-        outs = self._screen(buffer, result, current_slot, candidate_said)
-        if self._held_ack is not None:                  # the reply was only that acknowledgement: ask the model for a real one
-            result.blocked.append({"sentence": self._held_ack, "rule": "empty_ack", "match": "only an acknowledgement or a bare promise"})
-            self._held_ack = None
+        holding = False
+        if deferred or self._hint_risk(buffer, current_slot, candidate_said):
+            deferred.append(buffer)
+            if may_follow_up:
+                # What the tools then did decides these sentences (a hint given, a move made): run() flushes them once the tools have run.
+                self._held_tail, holding, outs = deferred, True, []
+            else:
+                outs = self._resolve_deferred(deferred, result, current_slot, candidate_said)
+        else:
+            outs = self._screen(buffer, result, current_slot, candidate_said)
+        if not holding:
+            self._drop_held_ack(result)
         if outs and recovery:
             result.spoken.insert(len(result.spoken) - len(outs), recovery)
             yield recovery
         for out in outs:
             yield out
-        if self._held_soft is not None:                 # nothing was said after it: an empty turn is worse than an echo or a lone verdict
-            (held, _), self._held_soft = self._held_soft, None
-            if (kept := self._check(held, result, current_slot, candidate_said, release=True)) is not None:
-                yield kept
+        if not holding and (kept := self._release_soft(result, current_slot, candidate_said)) is not None:
+            yield kept
         if may_follow_up and self._speak_after_tools and calls and not wrote and not result.error:
             # Tool calls and no words (some models do this on most turns): the tools stay held and run after the speech, as always; the words
             # come from one more request to the same chats (same hedging and failover) with no tools offered, told what was decided.
@@ -1394,7 +1472,12 @@ class TalkerTurn:
         outs: list[str] = []
         if self._held_ack is not None and sentence.strip() and sentence.strip() != SILENT:
             held, self._held_ack = self._held_ack, None
-            if (ack := self._check(held, result, current_slot, candidate_said, release=True)) is not None:
+            verdict = self.guard.check_sentence(sentence, current_slot=current_slot, candidate_said=candidate_said)
+            if not verdict.ok and verdict.rule == "statement_read_aloud":
+                # The sentence after a bare promise ("Let me explain it.") restates the problem and is blocked: the promise is dropped with it, not
+                # released alone (live round 781a1f0a, turns 18-23).
+                result.blocked.append({"sentence": held, "rule": "empty_ack", "match": "a bare promise whose follow-up was blocked"})
+            elif (ack := self._check(held, result, current_slot, candidate_said, release=True)) is not None:
                 outs.append(ack)
         if (out := self._check(sentence, result, current_slot, candidate_said)) is not None:
             if self._held_soft is not None and sentence.strip() and sentence.strip() != SILENT:
@@ -1402,9 +1485,91 @@ class TalkerTurn:
                 # the held one stays and is spoken at the end.
                 held, rule = self._held_soft
                 self._held_soft = None
-                outs.extend(self._drop_held(held, rule, result, current_slot, candidate_said))
+                if rule == "echo_so":
+                    # A lone "So ..." paraphrase is only dropped when it is the whole turn; with more after it, it is said.
+                    if (kept := self._check(held, result, current_slot, candidate_said, release=True)) is not None:
+                        outs.append(kept)
+                else:
+                    outs.extend(self._drop_held(held, rule, result, current_slot, candidate_said))
             outs.append(out)
         return outs
+
+    def _drop_held_ack(self, result: TurnResult) -> None:
+        if self._held_ack is not None:                  # the reply was only that acknowledgement: ask the model for a real one
+            result.blocked.append({"sentence": self._held_ack, "rule": "empty_ack", "match": "only an acknowledgement or a bare promise"})
+            self._held_ack = None
+
+    def _release_soft(self, result: TurnResult, current_slot: str | None, candidate_said: str) -> str | None:
+        """Nothing was said after the held sentence: an empty turn is worse than a lone verdict; an echo gives way to a short acknowledgement."""
+        if self._held_soft is None:
+            return None
+        (held, rule), self._held_soft = self._held_soft, None
+        if rule in ("echo", "echo_so"):
+            # Never the echo itself: a short neutral acknowledgement stands in for it (a bare confirmation after a reported trace).
+            result.blocked.append({"sentence": held, "rule": "echo", "match": "gives their answer back to them"})
+            kept = None
+            if self._trace_reported and (confirmation := confirmation_of(held)) is not None:
+                kept = self._check(confirmation, result, current_slot, candidate_said, release=True)
+            if kept is None and (ack := self._neutral_ack()) is not None:
+                kept = self._check(ack, result, current_slot, candidate_said, release=True)
+            return kept
+        return self._check(held, result, current_slot, candidate_said, release=True)
+
+    def _resolve_deferred(self, deferred: list[str], result: TurnResult, current_slot: str | None, candidate_said: str) -> list[str]:
+        """Screen the held sentences now that the turn's tool results are known: an approach is a hint only if give_hint succeeded; a hint turn
+        never grades their idea; an announcement of the coding stands only if the turn moved to a problem that was not on screen."""
+        ok = lambda c, *names: c["name"] in names and (c.get("result") or {}).get("ok") is True  # noqa: E731
+        gave_hint = any(ok(c, "give_hint") for c in result.tool_calls)
+        moved = any(ok(c, "next_item") or (ok(c, "show_problem") and not c["result"].get("already")) for c in result.tool_calls)
+        outs: list[str] = []
+        for sentence in deferred:
+            kind = self._hint_risk(sentence, current_slot, candidate_said)
+            if kind == "approach" and not gave_hint:
+                result.blocked.append({"sentence": sentence, "rule": "unrecorded_hint", "match": APPROACH_SUGGESTION.search(sentence).group(0)})
+            elif kind == "judge" and gave_hint:
+                result.blocked.append({"sentence": sentence, "rule": "hint_grades", "match": JUDGES_THEIR_IDEA.search(sentence).group(0)})
+            elif kind == "coding" and not moved:
+                result.blocked.append({"sentence": sentence, "rule": "coding_already_on", "match": ANNOUNCES_CODING.search(sentence).group(0)})
+            else:
+                outs.extend(self._screen(sentence, result, current_slot, candidate_said))
+        return outs
+
+    def _asks_this_turn(self) -> bool:
+        """This turn has asked them something (a question sentence spoken, or held until the tools ran): it puts no problem up and opens no coding problem."""
+        return self._questions >= 1 or any(x.rstrip().endswith("?") for x in self._held_tail)
+
+    def _flush_tail(self, result: TurnResult, current_slot: str | None, candidate_said: str) -> list[str]:
+        """The sentences held for the tools, screened after they ran, then what the end of a stream would have released."""
+        deferred, self._held_tail = self._held_tail, []
+        if not deferred:
+            return []
+        outs = self._resolve_deferred(deferred, result, current_slot, candidate_said)
+        self._drop_held_ack(result)
+        if (kept := self._release_soft(result, current_slot, candidate_said)) is not None:
+            outs.append(kept)
+        return outs
+
+    def _hint_risk(self, sentence: str, current_slot: str | None, candidate_said: str) -> str | None:
+        """"approach" when the sentence suggests how to solve the problem (a hint that only counts with give_hint), "judge" when it grades their idea
+        (dropped in a hint turn), else None. Speech streams before the tools are seen, so such sentences wait for the end of the stream."""
+        if not current_slot or not sentence.strip():
+            return None
+        if "?" in sentence:
+            return None                                  # a question asks, it never hands over an approach, a grade or a move
+        said = " ".join([self._echo_of, candidate_said or ""]).lower()
+        if self._shown_number is not None and ANNOUNCES_CODING.search(sentence):
+            return "coding"
+        if APPROACH_SUGGESTION.search(sentence) and not PRAISES_THEIRS.search(sentence):
+            terms = {t for t, rx in APPROACH_TERMS.items() if rx.search(sentence)}
+            if not any(APPROACH_TERMS[t].search(said) for t in terms):
+                return "approach"
+        if JUDGES_THEIR_IDEA.search(sentence):
+            return "judge"
+        return None
+
+    def _neutral_ack(self) -> str | None:
+        lines = self.said.lines
+        return lines.pick("backchannel") if lines is not None else "Okay."
 
     def _drop_held(self, held: str, rule: str, result: TurnResult, current_slot: str | None, candidate_said: str) -> list[str]:
         """A held sentence given up: an echo after a reported trace leaves its bare confirmation ("Right."), the rest is blocked."""
@@ -1453,6 +1618,11 @@ class TalkerTurn:
         if (fixed := repair_false_link(text, recent, " ".join([self._heard, self.said.text(), recent]))) != text:
             result.repaired.append((text, fixed))
             text, original = fixed, repair_false_link(original, recent, " ".join([self._heard, self.said.text(), recent]))
+        if (hit := MISSED_IT.search(text)) is not None and any(x.strip() and not ACKNOWLEDGES(x) for x in [*self._before, *result.spoken]):
+            # "I didn't quite catch that" after a sentence that answered them says they were heard and not heard in one breath (live round
+            # 781a1f0a, turn 49: "Ah, got it — keys help React tell items apart... I didn't quite catch that."). As the first sentence it is fine.
+            result.blocked.append({"sentence": text, "rule": "unclear_after_content", "match": hit.group(0)})
+            return None
         if not self._line_trouble_ok and (hit := CLAIMS_LINE_DROPPING.search(text)) is not None:
             # Transcripts are arriving, so unclear words are a mishearing, never the line (decided 2026-10-18): ask again, once, in the plain way.
             if any(contains("unclear", x) for x in [*self._before, *result.spoken]):
@@ -1462,8 +1632,16 @@ class TalkerTurn:
             result.repaired.append((text, fixed))
             text, original = fixed, fixed
         if (self._echo_of and not release and not result.spoken and not self._before and self._held_soft is None
-                and echoes(text, self._echo_of)):
-            self._held_soft = (original, "echo")
+                and (restates_first(text, self._echo_of) or lone_so_paraphrase(text, self._echo_of))):
+            self._held_soft = (original, "echo" if restates_first(text, self._echo_of) else "echo_so")
+            return None
+        if self._echo_of and not release and result.spoken and restates_candidate(text, self._echo_of):
+            # A later sentence that gives their answer back in other words (live round 781a1f0a, turns 9/14/41/43/54/56: "Okay, so you owned it
+            # end to end." after a thank-you). Only the first sentence of a turn is held softly; here the turn has already said something.
+            result.blocked.append({"sentence": text, "rule": "echo", "match": "restates what the candidate said"})
+            return None
+        if (hit := STOCK_PRAISE.search(text)) is not None:
+            result.blocked.append({"sentence": text, "rule": "stock_praise", "match": hit.group(0)})
             return None
         if self._check_ack and not release and not result.spoken and EMPTY_ACK.match(text):
             self._held_ack = original
@@ -1486,7 +1664,7 @@ class TalkerTurn:
         if ROUND_VERDICT.search(text):
             result.blocked.append({"sentence": text, "rule": "round_verdict", "match": ROUND_VERDICT.search(text).group(0)})
             return None
-        if NEXT_STEPS_PROMISE.search(text):
+        if NEXT_STEPS_PROMISE.search(text) and (PEOPLE_FOLLOW_UP.search(text) or not PLATFORM_NEXT.search(text)):
             result.blocked.append({"sentence": text, "rule": "next_steps_promise", "match": NEXT_STEPS_PROMISE.search(text).group(0)})
             return None
         if DISMISSIVE.search(text):
@@ -1561,6 +1739,9 @@ class TalkerTurn:
             return None
         if self.refusal_said is not None and (again := refusal_points(text) & (self.refusal_said | refusal_points(" ".join(prior)))):
             result.blocked.append({"sentence": text, "rule": "repeated_refusal", "match": f"makes a point about staying with the problem again: {', '.join(sorted(again))}"})
+            return None
+        if self.refusal_said is not None and (close := repeats_a_refusal(text, [*self.refusal_sentences, *result.spoken])):
+            result.blocked.append({"sentence": text, "rule": "repeated_refusal", "match": f"says an earlier refusal again in other words: {close[:60]}"})
             return None
         if problem_line_part(text) is None and any(problem_line_part(x) is not None for x in prior):
             result.blocked.append({"sentence": text, "rule": "after_problem_line", "match": "speaks after the problem line, which ends the turn"})
@@ -1645,7 +1826,7 @@ class TalkerTurn:
             result.blocked.append({"sentence": text, "rule": v3.rule, "match": v3.match})
             return None
         v2 = self.guard.check_insight(text, current_slot=current_slot, candidate_said=candidate_said, hint_step=self._hint_step,
-                                        last_said=self._echo_of)
+                                        last_said=self._echo_of, next_step_allowed=self.refusal_said is None)
         if not v2.ok or INSIGHT_PRAISE.search(text):
             result.blocked.append({"sentence": text, "rule": "insight_completed", "match": v2.match or INSIGHT_PRAISE.search(text).group(0)})
             return None
@@ -1659,7 +1840,10 @@ class TalkerTurn:
         turn_so_far = [*self._before, *result.spoken]
         # A sentence the turn has already said inside a longer one ("…the shorter pointer is safe holds up. That reasoning holds up.") is a repeat.
         contained = lambda prev: _words_within(text, prev)
-        if any(_overlap(text, prev) >= 0.6 or plain(text) == plain(prev) or contained(prev) for prev in turn_so_far) or (turn_so_far and restates(text, turn_so_far[-1])):
+        # A question that builds on the statement before it ("So a single number per position. How would you use that number...?") is not a repeat.
+        builds_on = text.rstrip().endswith("?") and bool(turn_so_far) and "?" not in turn_so_far[-1]
+        if (not builds_on and any(_overlap(text, prev) >= 0.6 or plain(text) == plain(prev) or contained(prev) for prev in turn_so_far)) \
+                or (not builds_on and turn_so_far and restates(text, turn_so_far[-1])):
             result.blocked.append({"sentence": text, "rule": "repeat_in_turn", "match": "says again what this turn already said"})
             return None
         if BARE_ACK.match(text) and any(BARE_ACK.match(x) for x in turn_so_far):

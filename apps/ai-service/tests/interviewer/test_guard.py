@@ -163,6 +163,18 @@ def test_confirming_a_guess_and_then_explaining_why_it_works_completes_the_insig
         assert g.check_insight(fine, current_slot=slot, candidate_said=said).ok, fine
 
 
+def test_a_ladder_hint_is_blocked_in_a_turn_that_may_not_give_the_next_step():
+    """(live round 781a1f0a, turns 27-33) A refusal turn gave hint 1 and then hint 2 in words the ladder exempted as "the next step"."""
+    bp = blueprint()
+    # The fixture's step 1 carries one insight word, and the guard needs two to block: give step 1 two, as a real ladder does.
+    bp["slots"][0]["hint_ladder"][0]["hint"] = "Is it enough to remember each value as you scan?"
+    g = LeakGuard(bp)
+    sentence = "Ask yourself whether it is enough to remember each value while you scan."          # step 1, reworded in its opening words
+    assert g.check_insight(sentence, current_slot="core-1", hint_step=0).ok
+    assert not g.check_insight(sentence, current_slot="core-1", hint_step=0, next_step_allowed=False).ok
+    assert g.check_insight(sentence, current_slot="core-1", hint_step=1, next_step_allowed=False).ok          # a step already given stays exempt
+
+
 def test_saying_the_problem_requires_something_its_text_does_not_say_is_blocked_but_a_requirement_it_states_is_not():
     """b0 strong_fresher: "the problem asks for O of 1 extra space" turned a follow-up into a requirement the statement does not have."""
     g = guard()

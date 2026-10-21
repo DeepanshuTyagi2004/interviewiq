@@ -25,10 +25,15 @@ def render(run: dict[str, Any] | None, turns: list[dict[str, Any]], briefs: list
             brief, outcome = doc.get("brief", {}), doc.get("outcome", {})
             lines.append(f"  BRIEF (position {brief.get('for_position')}): {brief.get('goal', '')}"
                          + (" [stale]" if outcome.get("stale") else "")
-                         + (f" applied={len(outcome.get('applied', []))} dropped={len(outcome.get('dropped', []))}" if outcome else ""))
+                         + (f" applied={len(outcome.get('applied', []))} dropped={len(outcome.get('dropped', []))}" if outcome else "")
+                         + (" (" + ", ".join([f"latency {doc['latency_ms']}ms", *(doc.get("triggers") or [])]) + ")" if doc.get("latency_ms") is not None else ""))
             continue
         if doc.get("speaker") == "candidate":
             lines.append(f"#{doc['seq']} CANDIDATE: {doc.get('text', '')}")
+            if doc.get("addressed"):
+                ad = doc["addressed"]
+                detail = f"{ad.get('source')} {ad.get('confidence') or 0:.2f}" + (f", {ad['ms']} ms" if ad.get("ms") is not None else "")
+                lines.append(f"    addressed: {ad.get('result')} ({detail})" + (", direct-only" if ad.get("direct_only") else ""))
             continue
         if doc.get("speaker") == "event":
             lines.append(f"#{doc['seq']} EVENT: {doc.get('text', '')}")
@@ -48,6 +53,9 @@ def render(run: dict[str, Any] | None, turns: list[dict[str, Any]], briefs: list
                      + ("  (never played)" if doc.get("spoken") is False else ""))
         if doc.get("cut_off"):
             lines.append(f"    HEARD (cut off): {doc.get('heard', '')}")
+        if doc.get("change_decision"):
+            cd = doc["change_decision"]
+            lines.append(f"    change {cd.get('action')} via {cd.get('source')} ({cd.get('ms')} ms; allowed {cd.get('allowed')}): {cd.get('why', '')}")
         lines += [f"    order [{o['kind']}] {o['text']}" for o in doc.get("orders", [])]
         lines += [f"    blocked ({b['rule']}): {b['sentence']}" for b in doc.get("blocked", [])]
         lines += [f"    tool {c['name']} {c.get('arguments')} → {c.get('result')}" for c in doc.get("tool_calls", [])]

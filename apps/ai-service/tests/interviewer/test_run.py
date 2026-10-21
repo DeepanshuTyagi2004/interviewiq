@@ -110,6 +110,36 @@ def test_a_stale_brief_keeps_its_summary_but_drops_its_moves():
     assert deps.store.briefs[0]["outcome"]["stale"] is True
 
 
+def test_a_brief_for_a_part_already_left_is_asked_for_again_once():
+    """(live round 781a1f0a) a brief that took 27 s came back for a part the plan had left, so nothing of it applied and no new one came."""
+    async def go():
+        stale = {"for_position": 99, "goal": "old"}
+        run, deps, _ = make([], briefs=[{"for_position": 99, "goal": "again"}, {"for_position": 99, "goal": "yet again"}])
+        await run.start(None)
+        await run.director.idle()
+        before = len(deps.director_chat.calls)
+        from app.interviewer.brief import Brief
+        await run._on_brief(Brief.model_validate(stale), {"triggers": ["turns"]})
+        await run.director.idle()
+        after_first = len(deps.director_chat.calls)
+        # The re-run's own brief is stale again for the same position: it must not start a third run.
+        await run._on_brief(Brief.model_validate(stale), {"triggers": ["stale"]})
+        await run.director.idle()
+        return deps, before, after_first, len(deps.director_chat.calls)
+
+    deps, before, after_first, after_second = asyncio.run(go())
+    assert after_first == before + 1
+    assert after_second == after_first
+    assert deps.store.briefs[-2]["triggers"] == ["stale"]
+
+
+def test_the_trace_shows_each_briefs_latency_and_triggers():
+    from app.interviewer.trace import render
+    run_doc = {"session_id": "s1", "started_at": 0.0}
+    lines = render(run_doc, [], [{"at": 1.0, "brief": {"for_position": 4, "goal": "g"}, "outcome": {}, "latency_ms": 4274, "triggers": ["turns"]}])
+    assert any("latency 4274ms" in l and "turns" in l for l in lines)
+
+
 class _FailingSpeaker(FakeSpeaker):
     def reply(self):
         raise RuntimeError("AgentSession isn't running")
@@ -380,6 +410,7 @@ def test_a_first_director_concern_the_talker_missed_counts_once():
         from app.interviewer.brief import Brief
         run, deps, _ = make([])
         await run.start(None)
+        run.on_user_text("you stupid bot")                  # (a director finding is spoken only when the candidate's words pass the code screen)
         await run._on_brief(Brief.model_validate({"for_position": run.conductor.position, "conduct": {"concern": "warn", "reason": "abusive"}}), {"triggers": []})
         return run
 
@@ -1019,7 +1050,7 @@ def test_after_a_quick_solve_the_state_says_another_problem_follows_not_the_proj
         return run._next_part(), run._view([], [])["extra_problem"]
 
     part, extra = asyncio.run(go())
-    assert part == {"phase": "problem", "hint": None} and extra is True
+    assert part["phase"] == "problem" and extra is True
 
 
 def test_a_question_about_the_projects_after_a_quick_solve_does_not_end_the_problem_part_while_another_problem_is_due():
@@ -1056,7 +1087,7 @@ def test_inviting_the_candidates_questions_is_recognised_only_from_the_closing_s
 
 def test_a_background_turn_that_asks_the_candidate_nothing_is_followed_by_a_question():
     async def go():
-        run, deps, _ = make([say("Good, that's a clean architecture. Let's move into the core part of the round then."),
+        run, deps, _ = make([say("Good, that architecture makes sense. Let's move into the core part of the round then."),
                              say("What made you choose WebSockets over polling?")])
         await run.start(None)
         c = run.conductor
@@ -1260,16 +1291,16 @@ def test_describing_the_problem_they_are_on_or_naming_a_next_question_is_not_a_p
 def test_a_turn_cut_down_to_a_remark_with_no_question_is_asked_again_so_the_candidate_is_not_left_in_silence():
     async def go():
         run, deps, clock = await _round_with_two_problems([
-            say("That's a clean trace.", "Don't worry, this is an easy problem."),                  # the second sentence is blocked
+            say("That trace checks out.", "Don't worry, this is an easy problem."),                  # the second sentence is blocked
             say("One follow-up: how would you return the duplicate values instead?")])
         pieces = await speak(run, "that's my trace")
         return pieces, deps
 
     pieces, deps = asyncio.run(go())
-    assert pieces == ["That's a clean trace.", "One follow-up: how would you return the duplicate values instead?"]
+    assert pieces == ["That trace checks out.", "One follow-up: how would you return the duplicate values instead?"]
     assert len(deps.talker_chat.calls) == 2
     assert "not allowed at this point" in str(deps.talker_chat.calls[1][-1]["content"])
-    assert "already said" in str(deps.talker_chat.calls[1][-1]["content"]) and "That's a clean trace." in str(deps.talker_chat.calls[1][-1]["content"])
+    assert "already said" in str(deps.talker_chat.calls[1][-1]["content"]) and "That trace checks out." in str(deps.talker_chat.calls[1][-1]["content"])
 
 
 def test_a_retry_pass_does_not_add_a_second_acknowledgement_to_the_one_the_first_pass_spoke():
@@ -1613,6 +1644,28 @@ def test_resist_then_change_then_resist_then_the_coding_ends_with_the_projects_n
     assert [m["item_id"] for m in deps.workspace.of("panel.show_problem")] == ["core-2"]        # one problem put up by the run, none after the end
 
 
+def test_give_hint_cannot_skip_a_step_and_is_refused_in_a_keep_problem_turn():
+    """(live round 781a1f0a, turns 27-33) A refusal turn gave hint 1, and the next turn jumped to hint 2 at once."""
+    from app.interviewer.llm import ToolCall
+
+    async def go():
+        run, deps, clock = await _round_with_two_problems([
+            say("I'd like you to stay with this one, it is worth seeing your thinking.", tools=(("give_hint", {}),))])
+        run.conductor.current().turns = 6
+        clock.advance(600)
+        item = run.conductor.current()
+        skipped = await run.tools.execute(ToolCall(id="x", name="give_hint", arguments={"step": 2}), "9")
+        after_skip = item.hint_step
+        run.brief, run.brief_for = {"goal": "get them moving", "next_move": {"action": "hint", "detail": "give the nudge"}}, run.conductor.position
+        await speak(run, "Can you change the problem?")
+        return skipped, after_skip, item.hint_step, state_of(deps.talker_chat.calls[0])
+
+    skipped, after_skip, after_keep, state = asyncio.run(go())
+    assert skipped["ok"] is False and "step 1" in skipped["error"] and after_skip == 0
+    assert after_keep == 0                                          # the keep_problem turn's give_hint {} was refused
+    assert "Director brief" not in state and "What do you need to remember as you scan?" not in state
+
+
 def test_a_request_to_write_in_their_editor_reaches_the_talker_as_an_order_to_decline_in_one_sentence():
     async def go():
         run, deps, _ = await _round_with_two_problems([say("That's yours to write in the editor.")])
@@ -1649,7 +1702,7 @@ def test_when_everything_said_as_a_problem_went_up_was_held_back_the_candidate_h
         return await speak(run)
 
     out = asyncio.run(go())
-    assert len(out) == 1 and out[0] in LINES["intro:first"]
+    assert out[0] in LINES["put_up:first"] and out[-1] in LINES["intro:first"] and len(out) == 2      # "it is up", then the invitation to read it: never "what do you think?"
 
 
 def test_the_checkpoint_keeps_the_count_of_requests_for_a_different_problem():
@@ -2281,8 +2334,8 @@ def test_a_problem_that_has_just_gone_up_is_not_ended_by_a_stray_next_item():
 
     run = asyncio.run(go())
     assert run.conductor.current().item_id == "core-1"
-    assert run.talker.last.tool_calls[0]["result"] == {
-        "ok": False, "error": "the problem has just gone up: give them time to read it and start; do not move on"}
+    # The announcement is now dropped (the problem is already on screen), so the words no longer say they are leaving: either guard refuses it.
+    assert run.talker.last.tool_calls[0]["result"]["ok"] is False
 
 
 def test_an_outline_given_in_words_while_the_plan_is_on_small_talk_moves_the_plan_to_framing_then_the_introduction_follows():
@@ -3492,18 +3545,18 @@ def _away_run():
     return build()
 
 
-def test_not_back_four_seconds_after_the_warning_finished_playing_is_one_more_violation_said_as_the_final_warning():
+def test_still_away_five_seconds_after_the_episode_began_is_one_more_violation_said_as_the_final_warning():
     from app.interviewer.conductor import AWAY_OVERSTAY_LINES
 
     async def go():
         run, deps, clock, pieces = await _away_run()
         run.on_agent_state("speaking")
         clock.advance(2)
-        run.on_agent_state("listening")                    # the warning has finished: the 4 s count from here
-        clock.advance(3.9)
+        run.on_agent_state("listening")
+        clock.advance(2.8)                                 # 4.8 s into the episode
         await run.tick()
         early = [o.kind for o in run.conductor.pending_orders() if o.kind in ("final_warning", "mention_violation")]
-        clock.advance(0.2)
+        clock.advance(0.4)                                 # 5.2 s: counted from the start of the episode, not from the end of the first warning
         await run.tick()
         return run, early, [p async for p in run.reply(None)]
 
@@ -3513,7 +3566,7 @@ def test_not_back_four_seconds_after_the_warning_finished_playing_is_one_more_vi
     assert run.conductor.proctor[-1]["kind"] == "away_overstay"
 
 
-def test_back_within_four_seconds_costs_nothing_and_the_overstay_comes_once_per_episode():
+def test_back_before_five_seconds_costs_nothing_and_the_overstay_comes_once_per_episode():
     async def go():
         run, deps, clock, _ = await _away_run()
         run.on_agent_state("speaking")
@@ -3524,10 +3577,9 @@ def test_back_within_four_seconds_costs_nothing_and_the_overstay_comes_once_per_
         await run.tick()
         back_in_time = run.conductor.full_violations
         await run.on_web_message(web({"type": "proctor.away", "kinds": ["tab_hidden"], "at": 3}))
-        run.conductor.away["told_at"] = clock()
-        clock.advance(5)
+        clock.advance(5.2)
         await run.tick()
-        clock.advance(5)
+        clock.advance(1)
         await run.tick()
         return run, back_in_time
 
@@ -3536,19 +3588,16 @@ def test_back_within_four_seconds_costs_nothing_and_the_overstay_comes_once_per_
     assert run.conductor.full_violations == 2 and [e["kind"] for e in run.conductor.proctor].count("away_overstay") == 1
 
 
-def test_when_the_voice_never_says_the_warning_finished_the_clock_starts_from_its_expected_length():
+def test_the_final_warning_does_not_wait_for_the_voice_to_report_the_first_warning_finished():
     async def go():
         run, deps, clock, pieces = await _away_run()
-        clock.advance(9.5)                                  # 18 words take ~7.2 s, plus the grace for the voice to report
-        await run.tick()
-        started = run.conductor.away["told_at"]
         before = run.conductor.full_violations
-        clock.advance(2)
+        clock.advance(5.2)                                  # the voice never said anything: the clock is the episode's own
         await run.tick()
-        return run, started, before
+        return run, before
 
-    run, started, before = asyncio.run(go())
-    assert started is not None and before == 1 and run.conductor.full_violations == 2
+    run, before = asyncio.run(go())
+    assert before == 1 and run.conductor.full_violations == 2
 
 
 def test_still_away_at_the_cap_ends_the_interview_with_the_fixed_line_and_a_dropped_connection_is_not_an_episode():
@@ -3673,8 +3722,9 @@ def test_an_interviewer_turn_that_asks_about_a_promised_area_marks_it_covered_af
     assert run.conductor.promises["fundamentals:databases"] == "covered"
     assert run.conductor.uncovered() == ["projects:Relay", "fundamentals:Java"]
     view = run._view([], [])
-    assert view["promises"] == {"open": ["the questions about your Relay project", "the Java questions"], "covered": ["the databases questions"]}
-    assert "Promised to the candidate and not yet counted as asked" in state_block_for(view) and "never ask again: the databases questions" in state_block_for(view)
+    assert view["promises"] == {"open": ["the questions about your Relay project", "the Java questions"], "covered": ["the databases questions"],
+                                "focus": "the questions about your Relay project", "next": "the Java questions"}
+    assert "Now on: the questions about your Relay project" in state_block_for(view) and "never ask again: the databases questions" in state_block_for(view)
 
 
 def test_a_turn_that_takes_the_order_to_ask_about_a_promise_and_asks_covers_it_whatever_its_words():
@@ -3890,3 +3940,720 @@ def test_the_current_item_names_the_same_put_up_wording_as_the_order_that_moved_
         different += told != LINES["put_up:first"][0]
         assert run.conductor.put_up_line(1, take=True) == told                                    # the run's own put-up line says it too
     assert different >= 1                                        # at least one seed picks a wording other than the first: the check has teeth
+
+
+async def _cut_before_audio(text, dropped, follow_up=None, extra="Right, so tell me more."):
+    """A greeting, a candidate turn, then a reply the voice cut before any audio (LiveKit's empty interrupted item)."""
+    run, deps, clock = make([say("Hello."), say(dropped), say(extra)])
+    await run.start(None)
+    await speak(run)
+    run.on_user_text(text)
+    _ = [p async for p in run.reply(text)]                  # said, but never confirmed by the voice
+    run.on_conversation_item("assistant", "", True)         # LiveKit: cut before any audio
+    for _ in range(5):
+        await asyncio.sleep(0)
+    if follow_up is not None:
+        run.on_user_text(follow_up)
+    return run, deps, clock
+
+
+def test_a_reply_cut_before_its_audio_is_said_again_in_the_next_reply():
+    async def go():
+        run, deps, _ = await _cut_before_audio("I'm a 2026 graduate working at Salescode.", "What part of that work did you personally own?")
+        resay = [o for o in run.conductor.pending_orders() if o.kind == "resay"]
+        assert len(resay) == 1 and "What part of that work did you personally own?" in resay[0].text
+        assert any(t.get("spoken") is False for t in deps.store.turns if t["speaker"] == "interviewer")
+        assert run._cut_before_audio is True
+        run.on_user_text("Yeah.")
+        assert any(o.kind == "resay" for o in run.conductor.pending_orders())
+        _ = [p async for p in run.reply("Yeah.")]
+        return deps
+
+    deps = asyncio.run(go())
+    assert "[resay]" in json.dumps(deps.talker_chat.calls[-1])
+
+
+def test_a_resay_is_dropped_when_the_candidate_carries_on_with_something_else():
+    async def go():
+        run, _, _ = await _cut_before_audio("I'm a 2026 graduate working at Salescode.", "What part of that work did you personally own?",
+                                            follow_up="So mainly I built the export pipeline end to end.")
+        return run
+
+    run = asyncio.run(go())
+    assert not any(o.kind == "resay" for o in run.conductor.pending_orders())
+
+
+def test_a_dropped_turn_that_asked_nothing_is_not_said_again():
+    async def go():
+        run, _, _ = await _cut_before_audio("I'm a 2026 graduate working at Salescode.", "Okay, that helps.", extra="Noted, thanks.")   # the forced follow-up is no question either
+        return run
+
+    run = asyncio.run(go())
+    assert not any(o.kind == "resay" for o in run.conductor.pending_orders())
+
+
+def test_a_played_turn_followed_by_yeah_is_not_said_again():
+    async def go():
+        run, _, _ = make([say("Hello."), say("What part of that work did you personally own?")])
+        await run.start(None)
+        await speak(run)
+        await speak(run, "I'm a 2026 graduate working at Salescode.")      # confirmed by the voice
+        run.on_user_text("Yeah.")
+        return run
+
+    run = asyncio.run(go())
+    assert not any(o.kind == "resay" for o in run.conductor.pending_orders())
+
+
+def test_a_candidate_turn_left_unanswered_is_answered_after_the_dead_air_limit():
+    async def go():
+        run, _, clock = make([say("Hello."), say("Right, go on.")])
+        await run.start(None)
+        await speak(run)
+        run.on_user_text("Yeah.")                         # no reply started
+        before = run.speaker.replies
+        clock.advance(7)
+        await run.tick()
+        return run, before
+
+    run, before = asyncio.run(go())
+    assert run.speaker.replies == before + 1 and run.answer_late == "Yeah."
+
+
+def test_a_resay_reply_that_is_itself_dropped_unplayed_leaves_exactly_one_pending_resay():
+    async def go():
+        run, _, _ = await _cut_before_audio("I'm a 2026 graduate working at Salescode.", "What part of that work did you personally own?",
+                                            extra="So which part of it did you build yourself?")
+        run.on_user_text("Yeah.")
+        _ = [p async for p in run.reply("Yeah.")]          # carries the resay, and the voice cuts it before any audio too
+        run.on_conversation_item("assistant", "", True)
+        return run
+
+    run = asyncio.run(go())
+    assert len([o for o in run.conductor.pending_orders() if o.kind == "resay"]) == 1
+
+
+def test_a_fragment_whose_reply_was_cut_before_audio_is_answered_together_with_its_continuation():
+    """Live round 781a1f0a, turns 24 and 26: "Can you" got its reply cut, then "change it?" was answered alone."""
+    async def go():
+        run, deps, clock = make([say("Hello."), say("Let me think about that.")])
+        await run.start(None)
+        await speak(run)
+        run.on_user_text("This problem seems a little hard for me. Can you")
+        run.on_conversation_item("assistant", "", True)
+        clock.advance(2)
+        run.on_user_text("change it?")
+        _ = [p async for p in run.reply("change it?")]
+        return run, deps
+
+    run, deps = asyncio.run(go())
+    assert "Can you change it?" in json.dumps(deps.talker_chat.calls[-1])
+    assert [h["content"] for h in run.history if h["role"] == "user"][-1].endswith("Can you change it?")
+
+
+def test_fragments_are_not_merged_when_the_reply_between_them_played():
+    async def go():
+        run, _, _ = make([say("Hello."), say("Sure, go ahead.")])
+        await run.start(None)
+        await speak(run)
+        run.on_user_text("Yes.")
+        run.on_conversation_item("assistant", "Great.", False)
+        run.on_user_text("Can I start?")
+        return run
+
+    run = asyncio.run(go())
+    assert [h["content"] for h in run.history if h["role"] == "user"][-1] == "Can I start?"
+
+
+def test_an_ask_to_explain_the_problem_orders_an_explanation_on_screen_and_a_second_ask_asks_what_is_unclear():
+    """Live round 781a1f0a, turns 18-23: "Can you explain this problem?" matched no routing branch, so nothing was put on the screen."""
+    async def go():
+        run, deps, _ = make([say("I've put a short explanation on your screen.", tools=(("add_section", {"kind": "explanation", "title": "x", "body": "y"}),))])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        run.on_user_text("Can you explain this problem?")
+        o = next(o for o in run.conductor.pending_orders() if o.kind == "explain_request")
+        run.conductor.consume(run.conductor.pending_orders())
+        run.on_user_text("Can you explain it?")
+        o2 = next(o for o in run.conductor.pending_orders() if o.kind == "explain_request")
+        return o, o2
+
+    o, o2 = asyncio.run(go())
+    assert "add_section" in o.text and "kind=explanation" in o.text and "Do not explain it aloud" in o.text
+    assert "ONE plain spoken sentence" in o2.text and "add_section" not in o2.text and "no examples" in o2.text
+
+
+def test_a_shorter_or_simpler_ask_after_an_explanation_is_an_explain_request_and_not_before_one():
+    """Live round c8e70bb8, turn 25: "can you tell me in short words?" after the explanation got a refusal."""
+    async def go():
+        run, deps, _ = make([say("ok")])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        run.on_user_text("Okay, can you tell me in short words?")
+        before = [o for o in run.conductor.pending_orders() if o.kind == "explain_request"]
+        run.conductor.consume(run.conductor.pending_orders())
+        run.on_user_text("I can't understand this problem. Can you explain it to me?")
+        run.conductor.consume(run.conductor.pending_orders())
+        for ask in ("Okay, can you tell me in short words?", "Can you make it simpler please?", "Say it in one line please."):
+            run.on_user_text(ask)
+            o = [o for o in run.conductor.pending_orders() if o.kind == "explain_request"]
+            assert o and "ONE plain spoken sentence" in o[-1].text, ask
+            run.conductor.consume(run.conductor.pending_orders())
+        return before
+
+    assert asyncio.run(go()) == []
+
+
+
+def test_a_bare_promise_before_a_blocked_explanation_is_never_spoken_alone():
+    """Live round 781a1f0a, turns 18-23: "Let me explain it." was spoken alone when the restatement after it was blocked as the statement."""
+    async def go():
+        run, deps, _ = make([say("Let me explain it.", "Given an array of integers nums and an integer target, solve pair sum.",
+                                 "So how would you approach it?")])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        return await speak(run, "Can you explain this problem?")
+
+    pieces = asyncio.run(go())
+    assert "Let me explain it." not in pieces
+
+
+def test_a_deep_dive_reply_that_asks_nothing_gets_its_question_in_the_same_turn():
+    """Live round 781a1f0a, turns 49 and 50: a deep-dive reply asked nothing, so ask_follow_up spoke a second consecutive interviewer turn."""
+    async def go():
+        run, deps, _ = make([say("Ah, got it — that makes the list stable."), say("What breaks when an item is inserted in the middle?")])
+        _with_deep_dive(run)
+        run.conductor = type(run.conductor)(run.d.blueprint, run.round_seconds, run.d.rules, run.d.clock, run.skills)
+        await run.start(None)
+        c = run.conductor
+        while c.current().item_id != "deep_dive":
+            c.current().turns = 5
+            c.next_item("t")
+        c.current().turns = 1
+        before = len(deps.talker_chat.calls)
+        pieces = await speak(run, "Keys help React know which item is which.")
+        return run, deps, pieces, before
+
+    run, deps, pieces, before = asyncio.run(go())
+    assert pieces[-1].endswith("?") and len(deps.talker_chat.calls) == before + 2
+    assert "Add one short question" in str(deps.talker_chat.calls[-1][-1]["content"])
+    assert not any(o.kind == "open_item" for o in run.conductor.pending_orders())
+
+
+def test_a_wrap_up_reduced_to_a_bare_thanks_ends_with_the_goodbye_line():
+    """The closing of a live round was cut to "Thanks for your time." when its other sentence was blocked; the wrap-up always ends with
+    a goodbye, once, and never thanks twice (live round 781a1f0a, turn 58)."""
+    async def go(first):
+        run, deps, _ = make([say("Anything else?", tools=(("next_item", {"reason": "no more questions"}),)),
+                             say(*first), say("Okay, that's all from me.")])
+        await run.start(None)
+        _to(run, "candidate_questions", turns=1)
+        await speak(run, "No more questions.")
+        run.conductor.set_agent_speaking(True); run.conductor.set_agent_speaking(False)
+        pieces = await speak(run)
+        return run, pieces
+
+    import app.interviewer.run as run_module
+    run, pieces = asyncio.run(go(("Thanks for your time.", "Someone will be in touch soon.")))
+    assert pieces[0] == "Thanks for your time." and pieces[-1] == run_module.WRAP_UP_TAIL
+    assert run._wrap_goodbye_said
+    run, pieces = asyncio.run(go(("Okay, that's all from me.",)))
+    assert pieces[-1] == run._goodbye_line()
+
+
+def test_a_reply_that_moves_into_the_wrap_up_itself_still_ends_with_the_goodbye_line():
+    """The incident's own path (final review, live round 781a1f0a, turn 58): the reply began in candidate_questions and next_item moved the plan to
+    the wrap-up inside the turn, so the phase at the start of the reply was not wrap_up and the bare thanks stayed bare."""
+    async def go():
+        run, deps, _ = make([say("Thanks for your time.", "Someone from the team will be in touch about next steps.", tools=(("next_item", {"reason": "no questions"}),)),
+                             say("Okay.")])
+        await run.start(None)
+        _to(run, "candidate_questions", turns=1)
+        pieces = await speak(run, "Nothing. It's fine.")
+        return run, pieces
+
+    import app.interviewer.run as run_module
+    run, pieces = asyncio.run(go())
+    assert pieces[0] == "Thanks for your time." and pieces[-1] == run_module.WRAP_UP_TAIL
+    assert run._wrap_goodbye_said
+
+
+def test_a_merged_fragment_does_not_note_the_change_request_a_second_time():
+    """The first fragment ("Can you change the problem? It is") was routed and answered with a resist that was cut before any audio; the merged
+    text must not be routed again, or the change is granted on the first ask the candidate heard answered (final review, live round 781a1f0a)."""
+    async def go():
+        run, deps, clock = await _round_with_two_problems([say("I'd like to keep this one."), say("I'm staying with this one.")])
+        c = run.conductor
+        run.on_user_text("Can you change the problem? It is")
+        _ = [p async for p in run.reply("Can you change the problem? It is")]
+        run.on_conversation_item("assistant", "", True)
+        for _ in range(5):
+            await asyncio.sleep(0)
+        clock.advance(2)
+        run.on_user_text("too hard for me.")
+        _ = [p async for p in run.reply("too hard for me.")]
+        return c
+
+    c = asyncio.run(go())
+    assert c.change_requests.get("core-1") == 1 and c.changes_round == 0 and c.current().item_id == "core-1"
+
+
+def test_a_refusal_the_candidate_never_heard_is_taken_back_from_the_count():
+    """A resist cut before any audio was never heard, so it must not count toward the ceiling of 3 (final review, live round 781a1f0a)."""
+    async def go():
+        run, deps, clock = await _round_with_two_problems([say("I'd like to keep this one.")])
+        c = run.conductor
+        run.on_user_text("Can you change the problem?")
+        _ = [p async for p in run.reply("Can you change the problem?")]
+        counted = c.refusals.get("core-1", 0)
+        run.on_conversation_item("assistant", "", True)
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return counted, c.refusals.get("core-1", 0)
+
+    counted, after = asyncio.run(go())
+    assert counted == 1 and after == 0
+
+
+def test_a_deep_dive_with_no_area_left_does_not_force_another_question():
+    """Every area done (the last closed by "I don't know."): a reply that asks nothing is not pushed into another Java question, neither by the
+    same-turn retry nor by the follow-up order (final review, live round 781a1f0a)."""
+    async def go():
+        run, deps = _realism_run([say("That's fine, no problem."), say("What else would you check in a Java interface?")])
+        await run.start(None)
+        c = run.conductor
+        while c.current().item_id != "deep_dive":
+            c.next_item("done")
+        c.current().turns = 3
+        order = list(c.promises)
+        for p in order[:-1]:
+            c.promise_done.add(p)
+            c.promises[p] = "covered"
+        last = order[-1]
+        c.promise_asks[last] = 1
+        c.promises[last] = "covered"
+        run.transcript.append({"seq": 90, "speaker": "interviewer", "text": "How does a Java interface differ from an abstract class?"})
+        pieces = await speak(run, "I don't know.")
+        return run, deps, pieces
+
+    run, deps, pieces = asyncio.run(go())
+    assert run.conductor.focus_promise() is None
+    assert pieces == ["That's fine, no problem."]
+    assert not any(o.kind == "open_item" and "follow-up question" in o.text for o in run.conductor.pending_orders())
+
+
+def test_a_sweep_dropped_turn_is_not_said_again_after_a_substantive_candidate_turn():
+    """The sweep (UNPLAYED_AFTER_S in tick) found an unconfirmed question after the candidate had already carried on with something of their own:
+    the question is no longer owed (final review, live round 781a1f0a)."""
+    async def go(follow_up):
+        run, deps, clock = make([say("Hello."), say("What part of that work did you personally own?")])
+        await run.start(None)
+        await speak(run)
+        run.on_user_text("I'm a 2026 graduate working at Salescode.")
+        _ = [p async for p in run.reply("I'm a 2026 graduate working at Salescode.")]       # said, never confirmed
+        turn = next(iter(run._unconfirmed))
+        run.on_user_text(follow_up)
+        run._drop_unplayed(turn)                                                              # what the sweep calls
+        return run
+
+    run = asyncio.run(go("So mainly I built the export pipeline end to end."))
+    assert not any(o.kind == "resay" for o in run.conductor.pending_orders())
+    run = asyncio.run(go("Yeah."))
+    assert any(o.kind == "resay" for o in run.conductor.pending_orders())
+
+
+def test_foreign_paste_message_routes_to_on_paste():
+    async def go():
+        run, _, _ = make([say("Hello.")])
+        await run.start(None)
+        await run.on_web_message(web({"type": "proctor.event", "kind": "foreign_paste", "weight": 0.5, "at": 5, "source": "external", "chars": 300, "lines": 9,
+                                      "counts": {"tab_changes": 0, "screen_changes": 0, "full_violations": 0}}))
+        return run
+
+    run = asyncio.run(go())
+    assert run.conductor.pastes[0]["chars"] == 300 and run.conductor.pastes[0]["lines"] == 9
+    assert run.conductor.full_violations == 0 and run.conductor.proctor == []
+
+
+def test_finish_persists_board_scene():
+    import base64
+
+    async def go():
+        run, deps, _ = make([say("Hello.")])
+        await run.start(None)
+        deps.workspace.board_backup = (b"gzipbytes", {})
+        await run.finish("completed")
+        return deps
+
+    deps = asyncio.run(go())
+    assert deps.store.runs["s1"]["board_scene"] == base64.b64encode(b"gzipbytes").decode()
+
+
+def test_finish_finalizes_the_run_before_ending_it_in_the_api():
+    # The API's end starts the evaluation, which reads the finalized run: the run is written first (Module 04 I3a). A workspace
+    # without a board backup (the simulator's, the fake's) finishes too (M1).
+    order = []
+
+    async def go():
+        run, deps, _ = make([say("Hello.")])
+        await run.start(None)
+        assert not hasattr(deps.workspace, "board_backup")
+        finalize, end = deps.store.finalize_run, deps.api.end
+
+        async def finalize_spy(session_id, patch):
+            order.append("finalize")
+            await finalize(session_id, patch)
+
+        async def end_spy(session_id, reason, summary):
+            order.append("end")
+            return await end(session_id, reason, summary)
+
+        deps.store.finalize_run, deps.api.end = finalize_spy, end_spy
+        await run.finish("completed")
+        return deps
+
+    deps = asyncio.run(go())
+    assert order == ["finalize", "end"]
+    assert deps.store.runs["s1"]["end_reason"] == "completed" and deps.store.runs["s1"]["board_scene"] is None
+
+
+def test_what_a_restatement_is_checked_against_is_everything_said_since_the_last_played_turn():
+    """(live round c8e70bb8, turns 15/19) an answer split by a turn they never heard, or a fragment restated later, is still their words."""
+    run, _, _ = make([])
+    run.transcript = [{"seq": 1, "speaker": "interviewer", "text": "How did you do it?"},
+                      {"seq": 2, "speaker": "candidate", "text": "that a pair response with new code"},
+                      {"seq": 3, "speaker": "interviewer", "text": ""},                       # never played (or empty): not a boundary
+                      {"seq": 4, "speaker": "candidate", "text": "outcome to the user directly."}]
+    assert run._said_since_played("outcome to the user directly.") == "that a pair response with new code outcome to the user directly."
+    assert run._said_since_played("and one more thing") == "that a pair response with new code outcome to the user directly. and one more thing"
+    run.transcript.append({"seq": 5, "speaker": "interviewer", "text": "Okay."})
+    assert run._said_since_played("fresh") == "fresh"
+
+
+# ------------------------------------------------------------------ pass B (live round c8e70bb8): the transition is the run's own sentence
+
+def test_the_move_to_a_problem_is_a_sentence_of_the_runs_own_said_right_before_the_put_up_line():
+    async def go():
+        run, deps, _ = make([say("Okay.", "Let me get the first problem up on your screen.", tools=(("show_problem", {}),))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        run.conductor.consume(run.conductor.pending_orders())
+        run.conductor.current().turns = 5
+        run.conductor.next_item("t")
+        order = next(o for o in run.conductor.pending_orders() if o.kind == "open_item")
+        pieces = await speak(run, "ready")
+        return order, pieces, run
+
+    order, pieces, run = asyncio.run(go())
+    assert order.bridge in LINES["bridge:first"] and order.bridge not in order.text and "never say a connecting phrase of your own" in order.text
+    assert pieces[0] == "Okay." and pieces[1] == order.bridge and pieces[2] == "Let me get the first problem up on your screen."
+    assert pieces.count(order.bridge) == 1
+
+
+def test_a_model_that_improvised_its_own_connecting_phrase_gets_no_second_bridge():
+    async def go():
+        run, deps, _ = make([say("Alright, let's get into the coding now.", "Let me get the first problem up on your screen.", tools=(("show_problem", {}),))])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        run.conductor.consume(run.conductor.pending_orders())
+        run.conductor.current().turns = 5
+        run.conductor.next_item("t")
+        return await speak(run, "ready")
+
+    assert not any(x in LINES["bridge:first"] for x in asyncio.run(go()))
+
+
+def test_an_unplayed_turn_that_put_the_problem_up_is_not_re_armed_so_no_restatement_and_no_second_bridge():
+    async def go():
+        run, deps, _ = make([say("Okay.", "Let me get the first problem up on your screen.", tools=(("show_problem", {}),)),
+                             say("So the result gets applied to the instance. How do you keep it in sync?")])
+        await run.start(None)
+        _go_to(run, "candidate_intro")
+        run.conductor.consume(run.conductor.pending_orders())
+        run.conductor.current().turns = 5
+        run.conductor.next_item("t")
+        run.on_user_text("ready")
+        pieces = [p async for p in run.reply("ready")]          # the voice never confirms it: they carry on talking
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert run.tools._on_screen() and any(x in LINES["bridge:first"] for x in pieces)
+        run._drop_unplayed(run.seq)
+        assert not any(o.kind == "open_item" for o in run.conductor.pending_orders())
+        assert run._line_due is not None            # the invitation to read the problem is scheduled: the put-up line was never heard
+        run.conductor.consume(run.conductor.pending_orders())
+        run.on_user_text("that a pair response with some new code that we directly change")
+        return [p async for p in run.reply("that a pair response with some new code that we directly change")]
+
+    out = asyncio.run(go())
+    assert not any(x in LINES["bridge:first"] or x in LINES["put_up:first"] for x in out)
+
+
+def test_a_reply_that_lost_a_sentence_to_a_guard_and_asks_nothing_ends_with_a_neutral_prompt():
+    """Live round c8e70bb8, turns 41-44: the question was stripped, the turn ended as a statement, and the candidate's "yes" was skipped."""
+    async def go():
+        run, deps, _ = make([say("That's a clean loop.", "So the query goes to the model and comes back as code.")])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        out = await speak(run, "So the loop keeps a running maximum and updates it for each element of the array, and then it returns that value at the end.")
+        return run, out
+
+    run, out = asyncio.run(go())
+    assert out[-1] in LINES["neutral"] and "clean loop" not in " ".join(out) and run._owed_question is False
+
+
+def test_an_acknowledgement_is_never_skipped_while_a_question_is_owed():
+    async def go():
+        run, deps, _ = make([say("Okay.")])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        run._owed_question = False
+        free = run.skip_reply("Okay, let me think.")
+        run._owed_question = True
+        owed = run.skip_reply("Okay, let me think.")
+        run._owed_question = False
+        return free, owed
+
+    free, owed = asyncio.run(go())
+    assert owed is False and free is True
+
+
+def _backstop_fired(orders=(), tools=(), candidate="So the loop keeps a running maximum and updates it for each element of the array, and then it returns that value at the end.",
+                    say_extra="So the query goes to the model and comes back as code."):
+    async def go():
+        run, deps, _ = make([say("That's a clean loop.", say_extra, tools=tools)])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        deps.workspace.cards["core-1"] = {"sections": []}
+        run.conductor.consume(run.conductor.pending_orders())
+        for kind in orders:
+            run.conductor._order(kind, "x", run.conductor.clock())
+        return await speak(run, candidate)
+    return asyncio.run(go())[-1] in LINES["neutral"]
+
+
+def test_the_neutral_prompt_backstop_does_not_fire_on_refusals_hints_explanations_warnings_closings_or_typing():
+    assert _backstop_fired()                                   # the baseline fires
+    for kind in ("keep_problem", "explain_request", "mention_violation", "closing", "hint_request"):
+        assert not _backstop_fired(orders=(kind,)), kind
+    assert not _backstop_fired(tools=(("give_hint", {"step": 1}),))
+
+
+def test_a_candidate_ending_on_a_dangling_word_who_is_done_or_asking_is_not_still_talking():
+    async def go():
+        run, deps, _ = make([say("ok")])
+        await run.start(None)
+        _to(run, "core-1", turns=2)
+        return [run._still_talking(t, "") for t in ("That's all for this", "I'm done with this", "Can we end this", "I will try for every")]
+
+    assert asyncio.run(go()) == [False, False, False, True]
+
+
+def test_a_change_request_in_a_round_with_a_change_policy_makes_no_model_call_and_takes_the_one_allowed_action():
+    """Round packs (2026-10-20): a design round never changes its question, a behavioural question has its own rule: the conductor's single allowed
+    action is taken as it is, with no chat call, and recorded as coming from the policy."""
+    from tests.interviewer.test_conductor import _round_blueprint
+
+    async def go():
+        clock = Clock()
+        talker, conduct = FakeChat([]), FakeChat([])
+        deps = RunDeps(blueprint=_round_blueprint("system-design", slots=1, reserves=1), context=context(), talker_chat=talker, director_chat=FakeChat(briefs=[]),
+                       conduct_chat=conduct, workspace=FakeWorkspace(), api=FakeApi(), store=MemoryStore(), clock=clock, first_token_timeout_s=0.2)
+        run = InterviewRun(deps)
+        run.speaker = FakeSpeaker()
+        await run.start(None)
+        _go_to(run, "core-1")
+        clock.advance(30)
+        assert run.conductor.on_change_request() == frozenset({"resist"})
+        run._change_pending = "Can you give me a different question?"
+        decision = await run._decide_change()
+        run._apply_change(decision)
+        return run, decision, talker, conduct
+
+    run, decision, talker, conduct = asyncio.run(go())
+    assert decision[0] == "resist" and decision[1] == "policy" and decision[4] == ["resist"]
+    assert not talker.calls and not conduct.calls
+    assert run.change_decision["source"] == "policy" and run.conductor.refusals["core-1"] == 1
+
+
+def test_the_interview_is_paused_while_they_are_away_and_what_was_held_is_spoken_after_one_welcome_back():
+    from app.interviewer.lines import LINES
+
+    async def go():
+        run, deps, clock, _ = await _away_run()             # the warning was said: an episode with a spoken warning
+        run.on_agent_state("speaking")
+        run.on_agent_state("listening")
+        run.conductor.consume(run.conductor.pending_orders())
+        held = run.conductor._order("open_item", "open the next part", clock())
+        replies, calls = run.speaker.replies, len(deps.talker_chat.calls)
+        for _ in range(3):
+            clock.advance(1)                                # (under the 4 s return clock: no final warning yet)
+            await run.tick()
+            run._speak_soon(force=True)
+        paused = (run.speaker.replies == replies and len(deps.talker_chat.calls) == calls and not held.consumed)
+        await run.on_web_message(web({"type": "proctor.back", "at": 2}))
+        welcome = list(run.speaker.backchannels)
+        run._speak_soon()
+        right_away = run.speaker.replies
+        clock.advance(3)
+        await run.tick()
+        return paused, welcome, right_away - replies, run.speaker.replies - replies, held
+
+    paused, welcome, right_away, later, held = asyncio.run(go())
+    assert paused and len([w for w in welcome if w in LINES["away:back"]]) == 1
+    assert right_away == 0 and later >= 1                   # the held order waits for the welcome line, then is spoken
+
+
+def _to_intro_end(talk_last):
+    async def go():
+        nxt = (("next_item", {"reason": "done"}),)
+        run, deps, clock = make([say("Hello."), say("Let's get going. Tell me about yourself?", tools=nxt),     # greeting -> candidate_intro (a phase: moves)
+                                 say("Tell me more."), say("And that project?"), say("Why that choice?"), talk_last])
+        await run.start(None)
+        await speak(run)
+        await speak(run, "hi")
+        for text in ("I am a student.", "I built Relay.", "It uses WebSockets."):
+            await speak(run, text)
+        assert run.conductor.current().item_id == "candidate_intro"
+        before = (run.conductor.index, run.conductor.position, len(run.conductor.orders))
+        await speak(run, "ready")
+        return run, before
+    return asyncio.run(go())
+
+
+def test_a_turn_that_asks_something_does_not_open_a_coding_problem_but_a_statement_or_a_phase_move_does():
+    nxt = (("next_item", {"reason": "done"}),)
+    run, before = _to_intro_end(say("Anything else on that project?", tools=nxt))             # a question + a move to a coding problem: refused
+    assert (run.conductor.index, run.conductor.position, len(run.conductor.orders)) == before
+    assert run.talker.last.tool_calls[0]["result"]["ok"] is False and "not opened now" in run.talker.last.tool_calls[0]["result"]["error"]
+    run, before = _to_intro_end(say("Over to you.", tools=nxt))                                # a statement: moves as before
+    assert run.conductor.current().item_id == "core-1" and run.talker.last.tool_calls[0]["result"]["ok"] is True
+    # (a question + a move to a phase is the first exchange of _to_intro_end: greeting -> candidate_intro moved with "Tell me about yourself?")
+
+
+def test_while_they_are_away_the_plan_and_screen_tools_are_refused():
+    async def go():
+        from app.interviewer.llm import ToolCall
+        run, deps, clock = make([])
+        await run.start(None)
+        run.conductor.on_away(["tab_hidden"])
+        index = run.conductor.index
+        out = [await run.tools.execute(ToolCall("t", n, {}), "t1") for n in ("next_item", "go_to", "show_problem", "reveal")]
+        return run, index, out
+
+    run, index, out = asyncio.run(go())
+    assert all(o["ok"] is False and "away from the screen" in o["error"] for o in out) and run.conductor.index == index
+
+
+def test_a_refused_coding_move_leaves_the_move_on_order_pending_and_the_next_turn_moves():
+    async def go():
+        nxt = (("next_item", {"reason": "done"}),)
+        run, deps, clock = make([say("Hello."), say("Let's get going. Tell me about yourself?", tools=nxt), say("Tell me more."), say("And that project?"),
+                                 say("Why that choice?"), say("Anything else on that project?", tools=nxt + (("log_turn", {"condition": "c", "action": "ask_follow_up", "reason": "r"}),)),
+                                 say("Good. Over to you.", tools=nxt)])
+        await run.start(None); await speak(run); await speak(run, "hi")
+        for t in ("I am a student.", "I built Relay.", "It uses WebSockets."):
+            await speak(run, t)
+        c = run.conductor
+        order = c.move_on_order(c.current(), clock())
+        await speak(run, "ready")
+        stayed = (c.current().item_id, order.consumed, run.tools._on_screen())
+        assert not c.dropped
+        await asyncio.sleep(0.05)
+        stayed += (run.tools._on_screen(),)
+        await speak(run, "nothing else")
+        return stayed, c.current().item_id
+
+    stayed, after = asyncio.run(go())
+    assert stayed == ("candidate_intro", False, False, False) and after == "core-1"
+
+
+def test_while_away_a_candidate_sentence_gets_only_the_warning_and_is_answered_after_they_return():
+    async def go():
+        run, deps, clock = make([say("Sure, here is my answer.")])
+        await run.start(None)
+        await run.on_web_message(web({"type": "proctor.away", "kinds": ["tab_hidden"], "at": 1}))
+        await run.on_web_message(_tab_event())
+        calls = len(deps.talker_chat.calls)
+        run.on_user_text("Can you repeat the question please?")
+        run.conductor.reply_owed = True
+        pieces = [p async for p in run.reply("Can you repeat the question please?")]
+        return run, deps, calls, pieces
+
+    run, deps, calls, pieces = asyncio.run(go())
+    assert len(pieces) == 1 and matches("violation:tab_hidden", pieces[0]) and len(deps.talker_chat.calls) == calls
+    assert run.answer_late == "Can you repeat the question please?" and run.conductor.reply_owed
+
+
+def test_a_brief_arriving_while_away_is_stored_at_once_and_never_applied_after_the_round_ends():
+    async def go():
+        from app.interviewer.brief import Brief
+        run, deps, clock = make([])
+        await run.start(None)
+        await run.on_web_message(web({"type": "proctor.away", "kinds": ["tab_hidden"], "at": 1}))
+        await run._on_brief(Brief.model_validate({"for_position": run.conductor.position, "goal": "g", "summary": "s",
+                                                  "evidence": [{"item_id": "greeting", "signal": "ok", "observation": "x"}]}), {"triggers": ["turns"]})
+        stored = (len(deps.store.briefs), run.summary)
+        clock.advance(31)
+        await run.tick()
+        await run.on_web_message(web({"type": "proctor.back", "at": 2}))
+        return run, deps, stored
+
+    run, deps, stored = asyncio.run(go())
+    assert stored == (1, "") and run.conductor.ended and run.summary == "" and deps.store.briefs[0]["outcome"] == {"paused": True} and len(deps.store.evidence) == 1
+
+
+def _brief_with_conduct(run, reason, concern="warn"):
+    from app.interviewer.brief import Brief
+    return Brief.model_validate({"for_position": run.conductor.position, "goal": "g", "conduct": {"concern": concern, "reason": reason}})
+
+
+def test_a_director_conduct_flag_on_a_dismissive_remark_made_of_fragments_is_a_note_never_a_warning():
+    async def go():
+        run, deps, clock = make([])
+        await run.start(None)
+        for text in ("Can you", "See the solution yourself."):
+            run.on_user_text(text)
+        await run._on_brief(_brief_with_conduct(run, "Told the interviewer to 'see the solution yourself' instead of explaining his work, dismissive, not abusive."), {})
+        return run
+
+    run = asyncio.run(go())
+    assert not run.conductor.conduct and run.conductor.conduct_notes and run.conductor.conduct_notes[0]["severity"] == "note"
+    assert not [o for o in run.conductor.pending_orders() if o.kind == "conduct_warning"]
+
+
+def test_a_director_conduct_flag_on_real_abuse_still_gets_the_warning():
+    async def go():
+        run, deps, clock = make([])
+        await run.start(None)
+        run.on_user_text("you stupid bot")
+        await run._on_brief(_brief_with_conduct(run, "Called the interviewer a stupid bot."), {})
+        return run
+
+    run = asyncio.run(go())
+    assert run.conductor.conduct and run.conductor.conduct[0]["source"] == "director"
+    assert [o for o in run.conductor.pending_orders() if o.kind == "conduct_warning"] or run.conductor.ended
+
+
+def test_a_conduct_warning_pending_for_over_fifteen_seconds_is_dropped_as_stale_and_logged():
+    async def go():
+        run, deps, clock = make([say("Let's carry on.")])
+        await run.start(None)
+        run.conductor.on_conduct("inappropriate", "That is a stupid question", "t1", "model")
+        clock.advance(20)
+        text = "Okay, so do you see this for loop?"
+        run.on_user_text(text)
+        pieces = [p async for p in run.reply(text)]
+        return run, pieces
+
+    run, pieces = asyncio.run(go())
+    assert not any(matches("conduct_warning", p) for p in pieces) and any(d["kind"] == "conduct_warning" for d in run.conductor.dropped)

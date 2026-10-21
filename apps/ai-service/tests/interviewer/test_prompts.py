@@ -245,7 +245,7 @@ def test_when_the_talker_may_move_on_it_is_told_how_to_open_the_next_part_in_the
 def test_the_rules_forbid_internal_vocabulary_and_early_endings_in_speech():
     from app.interviewer.prompts import TALKER_RULES
 
-    assert "Never say slot, item, phase, plan, blueprint, conductor, director, timebox, brief, playbook, answer key or hint ladder" in TALKER_RULES
+    assert "Never say slot, item, phase, plan, covered, areas, blueprint, conductor, director, timebox, brief, playbook, answer key or hint ladder" in TALKER_RULES
     assert "Do not invite their questions or say goodbye until the live state says" in TALKER_RULES
 
 
@@ -748,3 +748,182 @@ def test_the_persona_phase_guidance_reaches_the_talker_without_a_length_of_time_
     assert "Spend a short while on their background" in details and not says_duration(details) and "5 minutes" not in details and "ten minutes" not in details
     prompt = persona_prompt({"company": "x"}, ["candidate_intro"], ["Arjun Mehta"])
     assert "Never give a length of time in phase guidance" in prompt and "Use ONLY the minutes" not in prompt
+
+
+def test_the_deep_dive_pool_shows_only_the_focus_area_and_names_what_comes_next():
+    from app.interviewer.prompts import item_details
+    from tests.interviewer.fixtures import realism_blueprint
+
+    bp = realism_blueprint(("projects:Relay", "fundamentals:Java"))
+    text = item_details(bp, {"kind": "phase", "phase": "deep_dive", "style": "", "next_phase": "candidate_questions",
+                             "focus": "projects:Relay", "focus_next": "fundamentals:Java"})
+    assert "Now on: the questions about your Relay project" in text and "How did you design the data schema" in text
+    assert "HashMap" not in text and "the Java questions comes after" in text
+    last = item_details(bp, {"kind": "phase", "phase": "deep_dive", "style": "", "next_phase": "candidate_questions", "focus": "fundamentals:Java"})
+    assert "HashMap" in last and "it is the last area" in last and "Relay" not in last.split("Now on:")[1].split("Ask only")[0]
+
+
+def test_the_talker_rules_do_not_invite_a_first_step_in_a_refusal():
+    """The order for a refusal already says "no hint"; the standing rule must not ask for a first step either (final review, live round 781a1f0a)."""
+    assert "first step" not in talker_prefix(blueprint(), context()) and "first step" not in TALKER_RULES
+    assert "why you would like them to stay with it" in TALKER_RULES
+
+
+# ---- round packs (task 6): the live prompts read the blueprint's rules block
+
+def _frozen_talker_rules(bp):
+    """Today's talker_rules, frozen before the packs edit (it read the DSA constant)."""
+    from app.interviewer.lines import habits_of
+    from app.interviewer.prompts import _ACK_RULE, _GO_AHEAD_EXAMPLE, _LINK_EXAMPLES, _LINK_INTENT, _neutral_acks
+    habits = habits_of(bp)
+    if habits is None:
+        return TALKER_RULES
+    acks = _neutral_acks(habits) or ["Okay."]
+    rules = TALKER_RULES.replace(_ACK_RULE, "(yours: " + ", ".join(f'"{a}"' for a in acks[:6]) + ")")
+    for n, old in enumerate(('Good: "Okay. And did that hold up', 'Good: "Okay. And how does that behave')):
+        rules = rules.replace(old, f'Good: "{acks[n % len(acks)]} ' + old.split('Okay. ', 1)[1])
+    return rules.replace(_LINK_EXAMPLES, _LINK_INTENT).replace(_GO_AHEAD_EXAMPLE, "answer the offer in a few words of your own")
+
+
+def _sd_blueprint():
+    bp = blueprint()
+    bp["round"] = {"company": "salescode", "type": "system-design", "level": "sde2", "duration_mins": 45}
+    bp["slots"] = [s for s in bp["slots"] if s["slot_id"] == "core-1"]
+    return bp
+
+
+def test_a_system_design_outline_says_design_question_and_never_coding_problem():
+    prefix = talker_prefix(_sd_blueprint(), context())
+    assert "- core-1: design question (20 min)" in prefix
+    assert "coding problem" not in prefix
+
+
+def test_a_dsa_round_with_a_culture_slot_labels_it_behavioural_and_the_cores_after_it_by_position():
+    from app.rounds.compose import compose_rules
+    bp = blueprint()
+    bp["round"] = {"company": "salescode", "type": "dsa", "level": "sde1", "duration_mins": 60}
+    culture = {**bp["slots"][0], "slot_id": "culture-1", "order": 0}
+    bp["slots"] = [culture] + bp["slots"]
+    bp["rules"] = compose_rules("dsa", "sde1")
+    prefix = talker_prefix(bp, context())
+    assert "- culture-1: a behavioural question (20 min)" in prefix
+    assert "- core-1: coding problem (20 min)" in prefix
+    assert "- core-2: second coding problem (only if the first goes well) (20 min)" in prefix
+
+
+def test_the_prefix_of_a_legacy_dsa_blueprint_equals_the_one_built_from_the_composed_dsa_rules():
+    from app.rounds.compose import compose_rules
+    legacy = blueprint()
+    stored = {**blueprint(), "rules": compose_rules("dsa", None)}
+    assert talker_prefix(legacy, context()) == talker_prefix(stored, context())
+
+
+def test_talker_rules_of_a_legacy_dsa_blueprint_equal_todays_output_with_and_without_realism():
+    from tests.interviewer.fixtures import realism_blueprint
+    with_acks = realism_blueprint()
+    with_acks["realism"]["habits"]["acks"] = ["Okay.", "Got it.", "Right."]       # habits_of is None without acknowledgements
+    for bp in (blueprint(), deep_dive_blueprint(), realism_blueprint(), with_acks):
+        assert talker_rules(bp) == _frozen_talker_rules(bp)
+    assert talker_rules(with_acks) != TALKER_RULES
+
+
+import pytest
+
+from app.interviewer.prompts import talker_rules
+from app.rounds.compose import PACKS, compose_rules
+
+
+@pytest.mark.parametrize("round_type", sorted(PACKS))
+def test_a_realism_blueprint_swaps_every_packs_link_examples_for_its_intent(round_type):
+    from tests.interviewer.fixtures import realism_blueprint
+    bp = realism_blueprint()
+    bp["realism"]["habits"]["acks"] = ["Okay.", "Got it."]           # habits_of is None without acknowledgements
+    bp["rules"] = compose_rules(round_type, "sde1")
+    text = talker_rules(bp)
+    assert bp["rules"]["link_examples"] not in text
+    assert bp["rules"]["link_intent"] in text
+
+
+def test_the_director_of_a_system_design_round_uses_its_own_rules_and_adds_the_focus_area_only_when_set():
+    bp = _sd_blueprint()
+    bp["rules"] = compose_rules("system-design", "sde2")
+    snapshot = {"position": 1, "items": [], "current": {}, "transcript": [], "summary": "", "code": None, "board": "",
+                "proctor": [], "conduct": [], "plan_changes": [], "last_brief": None}
+    msgs = director_messages(bp, context(), snapshot, None)
+    assert msgs[0]["content"].startswith(bp["rules"]["director"])
+    assert "focus_area" not in json.loads(msgs[1]["content"][0]["text"])
+    bp["rules"] = {**bp["rules"], "focus": "scaling the write path"}
+    assert json.loads(director_messages(bp, context(), snapshot, None)[1]["content"][0]["text"])["focus_area"] == "scaling the write path"
+
+
+def test_state_block_shows_this_question_only_when_the_view_carries_item_rules():
+    base = {"round_elapsed_min": 3, "round_min": 60,
+            "item": {"item_id": "culture-1", "kind": "slot", "phase": "core", "elapsed_min": 1, "max_min": 20, "hint_step": 0, "slot_id": "culture-1", "filler": None},
+            "orders": [], "brief": None, "follow_ups": [], "ask": None, "code": None, "board": "", "summary": ""}
+    assert "## This question" not in state_block(base)
+    shown = state_block({**base, "item_rules": "- Ask for a real example."})
+    assert "## This question" in shown and "- Ask for a real example." in shown
+
+
+# ---------------------------------------------------------------- round packs: the state speaks the round's words (final review I1, 2026-10-20)
+
+def _non_dsa_view(**extra):
+    base = {**_view_fixture(), "words": {"problem": "question"}, "noun": "question", "part": "the questions part", "gated": False,
+            "item": {"item_id": "Question 1", "kind": "slot", "phase": "core", "slot_id": "core-1", "elapsed_min": 2, "max_min": 6, "hint_step": 0, "filler": None}}
+    return {**base, **extra}
+
+
+def test_a_non_dsa_state_never_says_coding_in_the_next_part_skip_and_none_left_lines():
+    for words, noun, part in (({"problem": "question"}, "question", "the questions part"), ({"problem": "design question"}, "design question", "the design part")):
+        view = _non_dsa_view(words=words, noun=noun, part=part, next_part={"phase": "problem", "hint": ""}, problem_left=False)
+        text = state_block(view)
+        assert "The part after this one is the " + noun + "." in text and f"No {noun} is left in this interview" in text
+        text = state_block(_non_dsa_view(words=words, noun=noun, part=part, next_part={"phase": "deep_dive", "hint": ""}))
+        assert f"not the {noun}: do not mention or show a {words['problem']} yet" in text
+        for flag in ("skip_next_problem", "next_after_give_up"):
+            text = state_block(_non_dsa_view(words=words, noun=noun, part=part, **{flag: True}))
+            assert "coding" not in text.lower(), (flag, text)
+        assert "coding" not in state_block(_non_dsa_view(words=words, noun=noun, part=part, warnings={"summary": "one", "after_warning": True})).lower()
+
+
+def test_the_dsa_state_keeps_its_coding_words():
+    text = state_block({**_view_fixture(), "next_part": {"phase": "problem", "hint": ""}, "skip_next_problem": True, "problem_left": False,
+                        "item": {**_view_fixture()["item"], "kind": "slot"}})
+    assert "The part after this one is the coding problem." in text and "Wrap the coding up kindly" in text and "No coding problem is left" in text
+
+
+def test_a_following_question_is_not_gated_outside_dsa():
+    item = {"item_id": "Question 1", "kind": "slot", "phase": "core", "slot_id": "core-1", "elapsed_min": 2, "max_min": 6, "hint_step": 0, "filler": None}
+    text = state_block({**_view_fixture(), "item": item, "words": {"problem": "question"}, "gated": False, "next_part": {"phase": "problem", "hint": ""}})
+    assert "Another question follows this one:" in text and "if it goes well" not in text
+
+
+def test_the_per_slot_correctness_and_trace_lines_apply_only_to_code_packs():
+    code = item_details(blueprint(), {"item_id": "core-1", "kind": "slot", "slot_id": "core-1", "hint_step": 0, "phase": "core"})
+    no_code = item_details(blueprint(), {"item_id": "core-1", "kind": "slot", "slot_id": "core-1", "hint_step": 0, "phase": "core", "codes": False})
+    assert "Say that something is correct once." in code and "choose the input from the edge cases" in code
+    assert "correct once" not in no_code and "edge cases" not in no_code and "Never say a choice is right or wrong" in no_code
+
+
+def test_the_candidate_intro_links_to_the_rounds_own_part():
+    from app.rounds.compose import compose_rules
+    bp = blueprint()
+    assert "Link to the coding with a short connecting phrase first" in item_details(bp, {"item_id": "candidate_intro", "kind": "phase", "phase": "candidate_intro",
+                                                                                         "next_phase": "problem", "style": None})
+    bp["rules"] = compose_rules("system-design", "sde2")
+    text = item_details(bp, {"item_id": "candidate_intro", "kind": "phase", "phase": "candidate_intro", "next_phase": "problem", "style": None})
+    assert "Link to the design part with a short connecting phrase first" in text and "Link to the coding" not in text
+
+
+def test_every_non_dsa_pack_overrides_the_request_policies_the_base_rules_contradict():
+    from app.rounds.compose import PACKS
+    for pid, pack in PACKS.items():
+        if pid == "dsa":
+            continue
+        for kind in ("extend_time", "ask_solution"):
+            assert kind in pack.live_policy_overrides, (pid, kind)
+    live = {pid: p.live_policy_overrides for pid, p in PACKS.items()}
+    assert "Offer the next hint" not in "".join(live["online-assessment"].values()) and "hint" in live["online-assessment"]["ask_solution"]
+    for pid in ("behavioural", "hiring-manager"):
+        assert "ask_if_correct" in live[pid] and "right or wrong" in live[pid]["ask_if_correct"]
+    assert "never grant more time" not in live["behavioural"]["extend_time"] and "Decline firmly" in live["behavioural"]["extend_time"]

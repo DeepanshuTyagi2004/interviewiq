@@ -10,9 +10,36 @@ def test_session_id_comes_from_dispatch_metadata_then_the_room_name():
 
 
 def test_lists_missing_live_settings_without_values():
-    s = SimpleNamespace(livekit_url="wss://x", livekit_api_key="", livekit_api_secret="s", deepgram_api_key="d",
+    s = SimpleNamespace(livekit_url="wss://x", livekit_api_key="", livekit_api_secret="s", deepgram_api_key="d", sarvam_api_key="v",
+                        interviewer_tts_provider="sarvam", interviewer_stt_provider="sarvam",
                         openrouter_api_key="", mongodb_url="m", api_base_url="http://api", internal_api_key="k")
     assert missing_live_settings(s) == ["LIVEKIT_API_KEY", "OPENROUTER_API_KEY"]
+
+
+def test_the_speech_provider_decides_which_key_is_required():
+    base = dict(livekit_url="w", livekit_api_key="a", livekit_api_secret="s", openrouter_api_key="o", mongodb_url="m", api_base_url="h", internal_api_key="k")
+    both_sarvam = SimpleNamespace(**base, deepgram_api_key="", sarvam_api_key="", interviewer_tts_provider="sarvam", interviewer_stt_provider="sarvam")
+    assert missing_live_settings(both_sarvam) == ["SARVAM_API_KEY"]                       # no Deepgram key needed any more
+    deepgram_stt = SimpleNamespace(**base, deepgram_api_key="", sarvam_api_key="v", interviewer_tts_provider="sarvam", interviewer_stt_provider="deepgram")
+    assert missing_live_settings(deepgram_stt) == ["DEEPGRAM_API_KEY"]
+    deepgram_voice = SimpleNamespace(**base, deepgram_api_key="", sarvam_api_key="v", interviewer_tts_provider="deepgram", interviewer_stt_provider="sarvam")
+    assert missing_live_settings(deepgram_voice) == ["DEEPGRAM_API_KEY"]
+
+
+def test_build_stt_gives_sarvam_the_keyterms_as_its_prompt_and_deepgram_as_keyterms(monkeypatch):
+    from livekit.plugins import deepgram, sarvam
+
+    from app.interviewer import worker
+    monkeypatch.setattr(worker, "stt_keyterms", lambda context, blueprint: ["Deepanshu", "Relay"])
+    base = dict(interviewer_stt_keyterms=True, sarvam_api_key="v", sarvam_stt_stream_type="balanced", sarvam_stt_min_silence_ms=None,
+                deepgram_api_key="d", deepgram_mip_opt_out=True)
+    s = worker.build_stt(SimpleNamespace(**base, interviewer_stt_provider="sarvam"), {}, {})
+    assert isinstance(s, sarvam.STTRealtime) and s._opts.language == "en-IN" and s._opts.stream_type == "balanced"
+    assert s._opts.prompt == "Names and terms in this conversation: Deepanshu, Relay."
+    d = worker.build_stt(SimpleNamespace(**base, interviewer_stt_provider="deepgram"), {}, {})
+    assert isinstance(d, deepgram.STT)
+    quiet = worker.build_stt(SimpleNamespace(**{**base, "interviewer_stt_keyterms": False}, interviewer_stt_provider="sarvam"), {}, {})
+    assert quiet._opts.prompt is None
 
 
 def test_cannot_start_is_best_effort_it_tells_the_browser_and_deletes_the_room_even_if_the_api_fails():

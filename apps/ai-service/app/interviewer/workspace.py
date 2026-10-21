@@ -35,6 +35,7 @@ class WorkspaceBridge:
         self.board_summary = ""
         self.board_backup: tuple[bytes, dict[str, str]] | None = None
         self.room_state: dict[str, Any] | None = None   # the latest `room.state`, sent again after every hello
+        self.addressed_state: dict[str, Any] | None = None   # the latest `addressed.state`, sent again after every hello
         self.acks: dict[str, dict[str, Any]] = {}
         self._holding = False
         self._deferred: list[dict[str, Any]] = []     # screen changes made while holding, sent in order on release
@@ -99,6 +100,8 @@ class WorkspaceBridge:
                 await self._restore()
             if self.room_state is not None and not any(q["type"] == "room.state" for q in queued):
                 await self._send_text(self.room_state)    # a refreshed page needs the layout too
+            if self.addressed_state is not None and not any(q["type"] == "addressed.state" for q in queued):
+                await self._send_text(self.addressed_state)    # ...and whether the interviewer listens only for direct questions
             self._said_hello.set()
         elif m.type == "ack":
             self.acks[m.ref] = {"ok": m.ok, "reason": m.reason}
@@ -158,6 +161,8 @@ class WorkspaceBridge:
         t = m["type"]
         if t == "room.state":
             self.room_state = m
+        elif t == "addressed.state":
+            self.addressed_state = m
         elif t == "panel.show_problem":
             card = self.cards.get(m["item_id"], {"sections": [], "highlights": []})
             self.cards[m["item_id"]] = {**card, **{k: m[k] for k in ("item_id", "label", "kind", "statement", "examples")}}

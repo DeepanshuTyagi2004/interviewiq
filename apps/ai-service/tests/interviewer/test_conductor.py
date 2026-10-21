@@ -2,7 +2,7 @@
 import re
 from app.interviewer.change_decision import fallback_action
 from app.interviewer.lines import LINES, contains, matches
-from app.interviewer.conductor import (AWAY_CAP_S, AWAY_LIMIT_SCREEN_S, AWAY_OVERSTAY_LINES, AWAY_RETURN_S, CONDUCT_WARNING_LINE, FINAL_WARNING_LINES,
+from app.interviewer.conductor import (AWAY_CAP_S, AWAY_LIMIT_SCREEN_S, AWAY_FINAL_S, AWAY_OVERSTAY_LINES, CONDUCT_WARNING_LINE, FINAL_WARNING_LINES,
                                        PROCTOR_END_LINE, VIOLATION_LINES, Conductor, is_violation_line)
 from tests.interviewer.fixtures import Clock, _slot, blueprint
 
@@ -315,7 +315,7 @@ def test_entering_a_part_orders_the_interviewer_to_open_it_so_a_bare_transition_
     assert intro and "introduction" in intro[-1].text
     c.next_item("t")                                                     # core-1: a problem
     problem = [o for o in c.pending_orders() if o.kind == "open_item"][-1]
-    assert "show_problem" in problem.text and "on their screen" in problem.text
+    assert "show_problem" in problem.text and "on your screen" in problem.text and problem.bridge        # the put-up line is quoted; the bridge is the run's own
     assert "open_item" in __import__("app.interviewer.conductor", fromlist=["URGENT_ORDERS"]).URGENT_ORDERS
 
 
@@ -493,16 +493,17 @@ def test_moving_to_a_new_part_orders_a_connecting_phrase_before_its_first_questi
     assert "connecting phrase" in intro and "But before the coding, let's start with you." in intro
     c.next_item("t")                                                     # core-1
     problem = [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
-    assert "connecting phrase" in problem and "Alright, let's get into the coding now." in problem
-    assert "Here's your first question. Give it a read, and let me know if you have any questions." in problem
-    assert "think aloud" not in problem
+    o = [o for o in c.pending_orders() if o.kind == "open_item"][-1]
+    assert o.bridge in LINES["bridge:first"] and o.bridge not in problem and "never say a connecting phrase of your own" in problem   # decided pass B: the run says the bridge
+    assert any(v in problem for v in LINES["put_up:first"]) and "think aloud" not in problem
 
 
 def test_the_second_problem_is_introduced_as_the_second_question():
     c, _ = make()
     to_core(c)
     c.next_item("t")
-    assert "Here's your second question." in [o for o in c.pending_orders() if o.kind == "open_item"][-1].text
+    o = [o for o in c.pending_orders() if o.kind == "open_item"][-1]
+    assert any(v in o.text for v in LINES["put_up:second"]) and o.bridge in LINES["bridge:next"]
 
 
 def test_the_time_up_orders_ask_for_a_connecting_phrase_into_the_next_part():
@@ -540,6 +541,14 @@ def test_the_first_ask_for_a_different_problem_is_resisted_whatever_the_progress
     d.current().turns = 1
     dclock.advance(30)
     assert ask(d).kind == "keep_problem" and d.current().item_id == "core-1"      # no swap on the first ask
+
+
+def test_the_keep_problem_order_never_invites_a_first_step():
+    """(live round 781a1f0a, turns 27-33) The order's own example, "what a first step could be", got the talker to give hint 1 inside a refusal."""
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    order = ask(c)
+    assert order.kind == "keep_problem" and "first step" not in order.text and "no hint" in order.text
 
 
 def test_the_second_ask_with_no_planned_problem_left_swaps_in_a_non_harder_reserve_which_is_still_their_position():
@@ -1711,13 +1720,12 @@ def _away(kinds=("tab_hidden",)):
     return c, clock
 
 
-def test_not_back_four_seconds_after_the_warning_played_is_one_more_violation_up_the_ladder():
+def test_still_away_five_seconds_after_the_episode_began_is_one_more_violation_up_the_ladder():
     c, clock = _away()
     c.on_proctor("tab_hidden", 1, 1)                       # the violation itself: mention (1 of 3)
     clock.advance(2)
     assert c.away_warning_pending()
-    c.start_return_clock(clock())                          # the voice finished the warning
-    clock.advance(AWAY_RETURN_S - 0.1)
+    clock.advance(AWAY_FINAL_S - 2 - 0.1)                  # counted from the start of the episode, whatever the voice is doing
     assert [o for o in c.tick() if o.kind in ("final_warning", "mention_violation")] == []
     clock.advance(0.2)
     [order] = [o for o in c.tick() if o.kind == "final_warning"]
@@ -1732,9 +1740,7 @@ def test_the_return_warning_is_never_merged_into_the_mention_said_a_moment_befor
     c, clock = _away()
     first = c.on_proctor("fullscreen_exit", 0.5, 1)         # half a violation: a mention, not counted
     assert first.kind == "mention_violation" and c.full_violations == 0
-    clock.advance(1)
-    c.start_return_clock(clock())
-    clock.advance(AWAY_RETURN_S)
+    clock.advance(AWAY_FINAL_S)
     [order] = [o for o in c.tick() if o.kind in ("final_warning", "mention_violation")]
     assert order.kind == "mention_violation" and matches("away_overstay:mention_violation", order.line) and c.full_violations == 1
 
@@ -1744,28 +1750,40 @@ def test_the_return_warning_that_is_the_third_violation_ends_the_interview_with_
     c.on_proctor("tab_hidden", 1, 1)
     c.on_proctor("window_blur", 1, 2)
     c.on_away(["tab_hidden"])
-    c.start_return_clock(clock())
-    clock.advance(AWAY_RETURN_S)
+    clock.advance(AWAY_FINAL_S)
     [order] = [o for o in c.tick() if o.kind == "end"]
     assert matches("proctor_end", order.line) and c.ended
 
 
 def test_back_in_time_cancels_the_clock_and_a_clock_never_starts_without_a_warning():
     c, clock = _away()
-    c.start_return_clock(clock())
-    clock.advance(AWAY_RETURN_S - 1)
+    clock.advance(4)                                        # back at 4 s: nothing of the final warning or the end ever happens
     c.on_back()
     clock.advance(30)
-    assert not [o for o in c.tick() if o.kind != "nudge"]
-    assert c.full_violations == 0 and c.away is None
-    d, dclock = _away()                                     # nobody told them: the 4 s never starts, only the cap counts
-    dclock.advance(20)
+    assert not [o for o in c.tick() if o.kind in ("final_warning", "mention_violation", "end")]
+    assert c.full_violations == 0 and c.away is None and not c.ended
+    d, dclock = _away()
+    dclock.advance(AWAY_FINAL_S - 1)
     assert not [o for o in d.tick() if o.kind in ("final_warning", "mention_violation", "end")] and d.full_violations == 0
+
+
+def test_away_timing_final_warning_at_five_seconds_and_the_end_at_seven():
+    c, clock = _away()
+    c.on_proctor("tab_hidden", 1, 1)
+    clock.advance(4.9)
+    assert [o.kind for o in c.tick() if o.kind in ("final_warning", "mention_violation", "end")] == []
+    clock.advance(0.2)
+    assert [o.kind for o in c.tick() if o.kind in ("final_warning", "end")] == ["final_warning"]
+    clock.advance(1.8)
+    assert not c.ended
+    clock.advance(0.2)
+    [end] = [o for o in c.tick() if o.kind == "end"]
+    assert c.ended and end.about == "away_cap" and AWAY_CAP_S == 7.0 and AWAY_FINAL_S == 5.0
 
 
 def test_leaving_only_full_screen_or_the_share_has_the_looser_limit_from_the_start_of_the_episode():
     c, clock = _away(("fullscreen_exit",))
-    assert c.away_warning_pending() is False                # no warning is needed for it: the web counts down from the start
+    assert c.away_warning_pending() is False                # no warning is needed for it: the web counts down from the start (5 s, as for the tab)
     clock.advance(AWAY_LIMIT_SCREEN_S - 1)
     assert [o for o in c.tick() if o.kind in ("final_warning", "mention_violation")] == []
     clock.advance(1)
@@ -2362,3 +2380,567 @@ def test_a_deferral_between_a_sentence_initial_lead_and_the_ask_blocks_the_credi
                        ("On Java now: you built them after joining Zoho — how does dependency injection work there?", "fundamentals:Java")):
         c, _ = _deep_dive(("fundamentals:databases", "fundamentals:API design", "fundamentals:Java"))
         assert area in c.mark_covered(turn), turn
+
+
+def test_after_three_refusals_resist_is_no_longer_allowed():
+    """(decided 2026-10-18 after live round 781a1f0a, where a firm persona refused four times) The ceiling is 3 for everyone."""
+    from app.interviewer.conductor import REFUSAL_CEILING
+    assert REFUSAL_CEILING == 3
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    for _ in range(3):
+        c.on_change_request()
+        c.apply_change_action("resist")
+    assert c.refusals == {"core-1": 3}
+    assert c.on_change_request() == frozenset({"change", "end_coding"})
+    order = c.apply_change_action("resist")                      # the model asks to resist anyway: it maps to an allowed action
+    assert order.kind != "keep_problem" and c.refusals == {"core-1": 3}
+
+    d, dclock = make()
+    _worked_on_core_1(d, dclock)
+    d.changes_round = 1                                          # the round's one change is spent: nothing to give
+    d.refusals["core-1"] = 3
+    assert d.on_change_request() == frozenset({"end_coding"})
+    assert d.apply_change_action("resist").kind == "move_on" and d.no_more_problems and d.refusals == {"core-1": 3}
+
+
+# ---------------------------------------------------------------- the deep dive takes one promised area at a time (live round 781a1f0a, turns 41-54)
+
+def _two_areas():
+    return _deep_dive(promises=("projects:Relay", "fundamentals:Java"))
+
+
+def test_the_deep_dive_focuses_on_the_first_promise_and_moves_on_after_two_questions():
+    c, _ = _two_areas()
+    assert c.focus_promise() == "projects:Relay"
+    c.mark_covered("How did you model the schema in Relay?")
+    assert c.focus_promise() == "projects:Relay"
+    c.mark_covered("What was hardest about keeping Relay's command history consistent?")
+    assert c.focus_promise() == "fundamentals:Java"
+
+
+def test_a_dont_know_on_the_focus_area_moves_the_focus_on():
+    c, _ = _two_areas()
+    c.on_candidate_turn(text="I don't know.")            # nothing asked yet: nothing to give up on
+    assert c.focus_promise() == "projects:Relay"
+    c.mark_covered("How did you model the schema in Relay?")
+    c.on_candidate_turn(text="Honestly, I don't know.")
+    assert c.focus_promise() == "fundamentals:Java"
+
+
+def test_a_question_on_a_later_area_does_not_move_the_focus():
+    c, _ = _two_areas()
+    c.mark_covered("Can you explain how a Java HashMap works internally?")
+    assert c.focus_promise() == "projects:Relay" and c.promise_asks.get("fundamentals:Java", 0) == 0
+    assert c.promises["fundamentals:Java"] == "covered"          # the outline ledger still records it
+
+
+def test_the_deep_dive_may_end_once_every_promise_is_done():
+    c, _ = _two_areas()
+    assert c._min_turns(c.current()) > 0
+    for q in ("How did you model the schema in Relay?", "What was hardest about keeping Relay's command history consistent?",
+              "Can you explain how a Java HashMap works internally?", "How does a Java HashMap handle collisions?"):
+        c.mark_covered(q)
+    assert c.focus_promise() is None and c.uncovered() == []
+    assert c._min_turns(c.current()) == 0 and c.can_advance()[0] is True
+
+
+def test_the_focus_survives_a_restart():
+    c, _ = _two_areas()
+    c.mark_covered("How did you model the schema in Relay?")
+    c.mark_covered("What was hardest about keeping Relay's command history consistent?")
+    restored = Conductor.restore(c.blueprint, 3600, c.checkpoint())
+    assert restored.focus_promise() == "fundamentals:Java" and restored.promise_asks == c.promise_asks
+    old = c.checkpoint()
+    old.pop("promise_asks"), old.pop("promise_done")
+    assert Conductor.restore(c.blueprint, 3600, old).focus_promise() == "projects:Relay"
+
+
+def test_a_follow_up_order_in_the_deep_dive_stays_on_the_focus_area():
+    c, _ = _two_areas()
+    assert "Stay on the questions about your Relay project." in c.ask_follow_up().text
+
+
+def test_the_focus_never_lands_on_an_area_dropped_for_time():
+    """Relay asked once, Java dropped with a notice, a second Relay question: nothing is left, so the interviewer is not told to stay on Java
+    and the part does not wait for exchanges on it (final review, live round 781a1f0a)."""
+    c, _ = _deep_dive(promises=("projects:Relay", "fundamentals:Java"))
+    c.mark_covered("How did you model the schema in Relay?")
+    c.drop_with_notice(c.uncovered())
+    c.mark_covered("What was hardest about keeping Relay's command history consistent?")
+    assert c.focus_promise() is None
+    assert "Java" not in c.ask_follow_up().text and c._min_turns(c.current()) == 0
+
+
+def test_code_snapshot_recorded_on_active_slot():
+    c, _ = make()
+    to_core(c)
+    first = c.current()
+    c.on_code_change("def f(): pass", "python")
+    assert c.current().code_final == "def f(): pass" and c.current().code_language == "python"
+    c.next_item("done")
+    c.on_code_change("x=1", "python")
+    assert first.code_final == "def f(): pass"
+
+
+def test_board_summary_recorded_on_active_item():
+    c, _ = make()
+    to_core(c)
+    c.on_board_summary('rectangle "API"')
+    assert c.current().board_final == 'rectangle "API"'
+
+
+def test_paste_recorded_without_escalation():
+    c, _ = make()
+    to_core(c)
+    for n in range(3):
+        c.on_paste("external", 420, 12, 1000.0 + n)
+    assert len(c.pastes) == 3 and c.pastes[0]["item_id"] == "core-1" and c.pastes[0]["chars"] == 420
+    assert c.full_violations == 0
+    assert not any(o.kind in ("end", "final_warning") for o in c.orders)
+
+
+def test_restore_old_checkpoint_without_new_fields():
+    c, _ = make()
+    to_core(c)
+    data = c.checkpoint()
+    data.pop("pastes", None)
+    for i in data["items"]:
+        for k in ("code_final", "code_language", "board_final"):
+            i.pop(k, None)
+    r = Conductor.restore(blueprint(), 3600, data, clock=Clock(), skills=["Java", "SQL"])
+    assert r.pastes == [] and r.current().code_final == "" and r.current().board_final == ""
+    c.on_paste("external", 5, 1, 1.0)
+    assert Conductor.restore(blueprint(), 3600, c.checkpoint(), clock=Clock(), skills=["Java", "SQL"]).pastes == c.pastes
+
+
+def test_an_ask_to_close_the_coding_after_three_refusals_gets_the_change_or_the_end_never_a_refusal():
+    """Live round c8e70bb8, turns 37-40: "Sorry, can we close the coding round?" went unrecognised as an ask and was answered as chat."""
+    from app.interviewer.closing import asks_to_change_problem
+    assert asks_to_change_problem("Sorry, can we close the coding round?")
+    c, clock = make()
+    _worked_on_core_1(c, clock)
+    c.refusals["core-1"] = 3
+    allowed = c.on_change_request()
+    assert allowed and "resist" not in allowed
+    order = c.apply_change_action("resist")
+    assert order.kind != "keep_problem"
+
+
+# ---------------------------------------------------------------- round packs: the conductor speaks the round's language (2026-10-20)
+
+def _round_blueprint(round_type: str, slots: int = 3, reserves: int = 2, slot_prefix: str = "core-") -> dict:
+    """A blueprint of another round type: the same arc, `slots` core slots and `reserves` reserve slots of that type, with the pack's stored rules."""
+    from app.rounds.compose import compose_rules
+    bp = blueprint()
+    bp["round"] = {**bp["round"], "type": round_type, "level": "sde1"}
+    bp["rules"] = compose_rules(round_type, "sde1")
+    core = []
+    for n in range(1, slots + 1):
+        slot = _slot(f"{slot_prefix}{n}", "core", n, f"Question {n}")
+        slot["problem"]["round_type"] = round_type
+        slot["ask"]["opening"] = f"Tell me about a time number {n} went wrong."
+        core.append(slot)
+    reserve = []
+    for n in range(1, reserves + 1):
+        slot = _slot(f"reserve-{'alternate' if n == 1 else 'extra'}", "reserve", slots + n, f"Spare {n}")
+        slot["problem"]["round_type"] = round_type
+        reserve.append(slot)
+    bp["slots"] = core + reserve
+    return bp
+
+
+def _round_conductor(round_type: str, **kw) -> tuple[Conductor, Clock]:
+    clock = Clock()
+    c = Conductor(_round_blueprint(round_type, **kw), 3600, clock=clock)
+    c.start()
+    return c, clock
+
+
+def _to_slot(c: Conductor, n: int = 1) -> None:
+    while c.current().item_id != f"core-{n}":
+        c.next_item("done")
+    c.current().turns = 2
+
+
+def test_dsa_orders_are_identical_to_the_ones_written_before_the_round_packs():
+    """The DSA texts were recorded before the change (fixtures/dsa_orders.json): open, hint, reveal, explain, keep_problem, change, swap, end and timer orders."""
+    import json
+    from pathlib import Path
+    from tests.interviewer.snapshot_orders import record_dsa_orders
+    frozen = json.loads((Path(__file__).parent / "fixtures" / "dsa_orders.json").read_text())
+    assert record_dsa_orders() == frozen
+
+
+def test_a_behavioural_round_opens_its_question_aloud_and_helps_find_an_example_then_changes_then_resists():
+    c, clock = _round_conductor("behavioural")
+    while c.current().item_id != "core-1":
+        c.next_item("done")
+        opened = c.orders[-1]
+    assert opened.kind == "open_item" and not c.is_opened_aloud(c.current())
+    assert "show_problem" not in opened.text and "coding" not in opened.text.lower()
+    assert "Tell me about a time number 1 went wrong." in opened.text and opened.bridge is None
+    c.consume([opened])
+    assert c.is_opened_aloud(c.current())                              # opened once the turn was spoken
+    c.current().turns = 2
+    clock.advance(30)
+    assert c.on_change_request() == frozenset({"resist"})
+    first = c.apply_change_action("change")                            # the model asks for a change anyway: the first ask is still helped
+    assert first.kind == "keep_problem" and "college project" in first.text and "problem" not in first.text
+    assert c.on_change_request() == frozenset({"change"})
+    second = c.apply_change_action("resist")
+    assert second.kind == "move_on" and second.line and "show_problem" not in second.text
+    c.next_item("asked for another question")                          # the run moves on; the next question is opened aloud
+    nxt = c.orders[-1]
+    assert nxt.kind == "open_item" and "show_problem" not in nxt.text and "number 2" in nxt.text and nxt.opens_aloud == "core-2"
+    c.current().turns = 2
+    assert c.on_change_request() == frozenset({"resist"})              # first ask on the next item
+    assert "college project" in c.apply_change_action("resist").text
+    assert c.on_change_request() == frozenset({"next_question"})       # the second ask, but the round's one change is used: this question ends
+    ended = c.apply_change_action("change")
+    assert ended.kind == "move_on" and ended.line and "college project" not in ended.text
+
+
+def test_a_system_design_round_resists_three_times_then_ends_the_part_and_never_says_coding():
+    c, clock = _round_conductor("system-design", slots=1, reserves=1)
+    _to_slot(c)
+    texts = [o.text for o in c.orders if "candidate_intro" not in o.text]       # (the introduction's link is a plan.py / lines.py pool: Task 8)
+    clock.advance(30)
+    kinds = []
+    for _ in range(4):
+        allowed = c.on_change_request()
+        action = next(iter(allowed))
+        kinds.append(action)
+        order = c.apply_change_action("change")                        # whatever is asked for, only the allowed action happens
+        texts.append(order.text)
+    assert kinds == ["resist", "resist", "resist", "end_coding"]
+    assert not c._is_coding_problem(c.current())
+    assert c.may_leave_problem(c.current()) == (True, "")             # no "they have not written any code" hold in a design round
+    texts += [c.on_hint_request().text, c.on_explain_request().text, c.on_reveal_request("constraints").text, c.add_problem_line(1).text, c.on_edit_request().text]
+    texts += [o.text for o in c.orders if "candidate_intro" not in o.text]
+    assert not any("coding" in t.lower() for t in texts), [t for t in texts if "coding" in t.lower()]
+    assert any("design question" in t for t in texts) and "The design part is over" in texts[4]
+    assert "Name one dimension or responsibility their design is missing, as a question; never a component, pattern or design" in c.on_hint_request().text
+
+
+def test_a_system_design_hint_still_advances_the_step_and_an_online_assessment_never_does():
+    d, _ = _round_conductor("system-design", slots=1, reserves=1)
+    _to_slot(d)
+    d.on_hint_request()
+    assert d.current().hint_step == 1
+    o, _ = _round_conductor("online-assessment", slots=2, reserves=1)
+    _to_slot(o)
+    assert o._is_coding_problem(o.current())                            # the assessment gets the write-code check
+    assert o.may_leave_problem(o.current())[0] is False and "written any code" in o.may_leave_problem(o.current())[1]
+    order = o.on_hint_request()
+    assert o.current().hint_step == 0
+    assert "on your own here" in order.text and "Call give_hint with step" not in order.text
+
+
+def test_an_online_assessment_never_changes_the_problem():
+    c, clock = _round_conductor("online-assessment", slots=2, reserves=1)
+    _to_slot(c)
+    clock.advance(30)
+    seen = []
+    for _ in range(4):
+        seen.append(next(iter(c.on_change_request())))
+        c.apply_change_action("change")
+    assert seen == ["resist", "resist", "resist", "resist"]            # (final review I5: a plain decline every time, never end_coding)
+
+
+def test_a_culture_slot_in_a_dsa_round_follows_the_behavioural_policy_and_is_opened_aloud():
+    bp = blueprint()
+    culture = _slot("culture-1", "core", 3, "Conflict story")
+    culture["problem"]["round_type"] = "behavioural"
+    culture["ask"]["opening"] = "Tell me about a disagreement with a teammate."
+    bp["slots"] = [bp["slots"][0], culture, culture | {"slot_id": "culture-2", "order": 4}, bp["slots"][2]]
+    clock = Clock()
+    c = Conductor(bp, 3600, clock=clock)
+    c.start()
+    while c.current().item_id != "culture-1":
+        c.next_item("done")
+    order = c.orders[-1]
+    assert order.kind == "open_item" and "Tell me about a disagreement with a teammate." in order.text and "show_problem" not in order.text
+    assert c.words_for(c.current())["problem"] == "question" and c.policy_for(c.current()) == "on_no_example"
+    assert not c._is_coding_problem(c.current())
+    c.current().turns = 2
+    c.refusals["core-1"] = 1
+    assert c.on_change_request() == frozenset({"resist"})
+    assert "college project" in c.apply_change_action("resist").text
+    assert c.on_change_request() == frozenset({"change"})
+    assert c.hints_for(c.current()) == "narrow"
+    assert "Narrow what kind of example fits" in c.on_hint_request().text and c.current().hint_step == 1
+
+
+def test_an_aloud_open_item_is_opened_only_when_carried_out_and_survives_a_checkpoint():
+    c, _ = _round_conductor("behavioural")
+    while c.current().item_id != "core-1":
+        c.next_item("done")
+    order = c.orders[-1]
+    assert order.opens_aloud == "core-1" and not c.is_opened_aloud(c.current())
+    assert order in c.pending_orders()                          # an unrelated turn (run.py's "satisfied" path) leaves it pending, so it is still asked
+    c.consume([order])
+    assert c.is_opened_aloud(c.current())
+    r = Conductor.restore(_round_blueprint("behavioural"), 3600, c.checkpoint(), clock=Clock())
+    assert r.is_opened_aloud(r.current())
+
+
+def test_no_example_phrases_are_a_change_ask_on_a_behavioural_item_and_not_on_a_dsa_item():
+    phrases = ["I don't have an example for this.", "I have no experience with that, something else maybe.", "Can I talk about a different project instead?"]
+    b, _ = _round_conductor("behavioural")
+    _to_slot(b)
+    d, _ = make()
+    to_core(d)
+    for text in phrases:
+        assert b.is_change_ask(text), text
+        assert not d.is_change_ask(text), text
+
+
+def test_an_aloud_order_is_carried_out_only_by_a_turn_that_asks_the_items_question():
+    c, _ = _round_conductor("behavioural")
+    while c.current().item_id != "core-1":
+        c.next_item("done")
+    order = c.orders[-1]
+    assert c.asks_the_item(order, "Thanks. Tell me about a time number 1 went wrong.")
+    assert not c.asks_the_item(order, "Which languages do you enjoy the most?")
+
+
+def test_a_no_example_phrase_that_goes_on_with_a_story_or_names_another_project_is_an_answer():
+    from app.interviewer.closing import asks_for_other_example
+    assert not asks_for_other_example("I don't have an example of a failure that big, but in college we lost a hackathon deadline.")
+    assert not asks_for_other_example("On another project we had a similar clash with the designer.")
+    assert asks_for_other_example("I don't have an example for this.") and asks_for_other_example("Can I talk about a different project instead?")
+
+
+# ---------------------------------------------------------------- round packs: final fix wave (2026-10-20)
+
+def _nudges(c: Conductor) -> list:
+    return [o for o in c.orders if o.kind == "nudge"]
+
+
+def test_a_behavioural_question_that_runs_its_whole_timebox_never_skips_the_questions_after_it():
+    c, clock = _round_conductor("behavioural")
+    _to_slot(c)
+    clock.advance(c.current().max_seconds + 30)                        # the pack asks for a deep probe: the question used all its time
+    assert c.performance(c.current()) == "strong" and not c.will_skip_next_problem()
+    c.next_item("time")
+    assert c.current().item_id == "core-2" and not c.no_more_problems
+    assert [i.status for i in c.items if i.item_id == "core-3"] == ["pending"]
+
+
+def test_two_narrowing_asks_in_a_behavioural_round_do_not_make_the_candidate_struggle():
+    c, _ = _round_conductor("behavioural")
+    _to_slot(c)
+    c.on_hint_request(); c.on_hint_request()
+    assert c.current().hint_step == 2 and c.performance(c.current()) == "strong" and not c.will_skip_next_problem()
+    c.next_item("done")
+    assert c.current().item_id == "core-2" and not c.no_more_problems
+
+
+def test_a_system_design_round_never_gains_a_second_core_even_for_a_strong_candidate():
+    c, clock = _round_conductor("system-design", slots=1, reserves=1)
+    _to_slot(c)
+    c.signals[c.current().item_id] = "strong"
+    clock.advance(120)
+    assert c.slack_s() >= 360 and not c.would_extend() and c.plan_extra_problem() is None
+    assert sum(1 for i in c.items if i.kind == "slot") == 1
+
+
+def test_a_dsa_round_still_skips_by_performance():
+    c, clock = make()
+    _worked_on_core_1(c, clock, seconds=60)
+    c.signals["core-1"] = "struggling"
+    assert c.performance(c.current()) == "struggled" and c.will_skip_next_problem()
+
+
+def test_an_old_stored_rules_block_without_gate_second_defaults_it_from_its_pack():
+    from app.rounds.compose import compose_rules, rules_of
+    bp = _round_blueprint("behavioural")
+    del bp["rules"]["flags"]["gate_second"]
+    assert rules_of(bp)["flags"]["gate_second"] is False
+    dsa = blueprint()
+    dsa["rules"] = compose_rules("dsa", "sde1")
+    del dsa["rules"]["flags"]["gate_second"]
+    assert rules_of(dsa)["flags"]["gate_second"] is True
+
+
+def test_an_online_assessment_always_gives_the_second_problem_and_declines_every_change_ask_plainly():
+    c, clock = _round_conductor("online-assessment", slots=2, reserves=1)
+    _to_slot(c)
+    clock.advance(c.current().max_seconds + 30)                        # the first problem timed out: the second is still given
+    assert not c.will_skip_next_problem() and not c.would_extend()
+    for _ in range(5):
+        assert c.on_change_request() == frozenset({"resist"})
+        order = c.apply_change_action("end_coding")                    # whatever is asked for, only a plain decline happens
+        assert order.kind == "keep_problem" and "Both problems stay" in order.text and "why it is worth it" not in order.text
+    assert not c.no_more_problems and c.current().item_id == "core-1"
+    c.next_item("time")
+    assert c.current().item_id == "core-2" and c.current().status == "active"
+
+
+def test_the_outline_label_for_a_second_problem_says_only_if_it_goes_well_only_in_a_gated_round():
+    from app.interviewer.prompts import talker_prefix
+    ctx = {"round": {"type": "dsa"}}
+    assert "second coding problem (only if the first goes well)" in talker_prefix(blueprint(), ctx)
+    assert "(only if the first goes well)" not in talker_prefix(_round_blueprint("online-assessment", slots=2), ctx)
+
+
+def test_on_no_example_the_second_ask_with_no_change_possible_ends_the_question_and_later_asks_resist():
+    c, _ = _round_conductor("behavioural", slots=1, reserves=0)
+    _to_slot(c)
+    assert not c._change_possible()
+    assert c.on_change_request() == frozenset({"resist"}) and "college project" in c.apply_change_action("resist").text
+    assert c.on_change_request() == frozenset({"next_question"})
+    order = c.apply_change_action("resist")
+    assert order.kind == "move_on" and order.line and "next_item" in order.text and "coding" not in order.text.lower()
+    assert c.gave_up(c.current()) and not c.no_more_problems
+    assert c.on_change_request() == frozenset({"resist"})              # a later ask on the same question is resisted again
+
+
+def test_on_no_example_with_a_change_still_possible_changes_first():
+    c, _ = _round_conductor("behavioural")
+    _to_slot(c)
+    c.on_change_request(); c.apply_change_action("resist")
+    assert c.on_change_request() == frozenset({"change"})
+
+
+def test_the_silence_check_in_uses_each_packs_own_words_and_an_online_assessment_has_none():
+    texts = {}
+    for rt in ("online-assessment", "system-design", "lld", "behavioural", "hiring-manager"):
+        c, clock = _round_conductor(rt, slots=2, reserves=1)
+        _to_slot(c)
+        clock.advance(c.rules.silence_coding_s + 5)
+        c.tick()
+        texts[rt] = [o.text for o in _nudges(c)]
+    assert texts["online-assessment"] == []
+    for rt in ("system-design", "lld"):
+        assert len(texts[rt]) == 1 and "board" in texts[rt][0] and "design question" in texts[rt][0] and "code" not in texts[rt][0].lower()
+    for rt in ("behavioural", "hiring-manager"):
+        assert len(texts[rt]) == 1 and "take their time" in texts[rt][0] and "code" not in texts[rt][0].lower() and "board" not in texts[rt][0]
+    d, clock = make()
+    _worked_on_core_1(d, clock, seconds=1)
+    clock.advance(d.rules.silence_coding_s + 5)
+    d.tick()
+    assert "no code changes for a while" in _nudges(d)[0].text
+
+
+def test_a_culture_question_in_a_dsa_round_closes_as_one_question_not_a_part():
+    bp = blueprint()
+    culture = _slot("culture-1", "core", 3, "Conflict story")
+    culture["problem"]["round_type"] = "behavioural"
+    bp["slots"] = [bp["slots"][0], culture, bp["slots"][2]]
+    c = Conductor(bp, 3600, clock=Clock())
+    c.start()
+    while c.current().item_id != "culture-1":
+        c.next_item("done")
+    assert c._part_name(c.current()) == "the question" and c._part_done(c.current()) == "That wraps up that question."
+    assert c._part_name() == "the coding part"                          # the round's own part is unchanged
+
+
+def test_a_checkpoint_from_before_round_packs_restores_a_begun_culture_slot_as_opened():
+    bp = blueprint()
+    culture = _slot("culture-1", "core", 3, "Conflict story")
+    culture["problem"]["round_type"] = "behavioural"
+    bp["slots"] = [bp["slots"][0], culture, bp["slots"][2]]
+    c = Conductor(bp, 3600, clock=Clock())
+    c.start()
+    while c.current().item_id != "culture-1":
+        c.next_item("done")
+    data = c.checkpoint()
+    data.pop("opened_aloud")
+    r = Conductor.restore(bp, 3600, data, clock=Clock())
+    assert r.is_opened_aloud(r.current())
+
+
+# ---------------------------------------------------------------- the interview pauses while they are away (owner 2026-10-20)
+
+
+def test_away_pauses_the_plan_and_the_timers_then_the_cap_ends_it():
+    c, clock = make()
+    to_core(c)
+    c.on_away(["tab_hidden"])
+    c.take_triggers()
+    produced = []
+    for _ in range(AWAY_CAP_S.__int__() + 10):
+        clock.advance(1)
+        produced += c.tick()
+        if c.ended:
+            break
+    kinds = {o.kind for o in produced}
+    assert kinds <= {"end", "mention_violation", "final_warning"} and "end" in kinds and "open_item" not in kinds and "move_on" not in kinds and c.ended and c.proctor[-1]["kind"] == "away_cap"
+    assert AWAY_CAP_S == 7.0 and AWAY_LIMIT_SCREEN_S <= AWAY_CAP_S
+
+
+def test_away_makes_no_timer_order_nudge_or_director_trigger():
+    c, clock = make()
+    to_core(c)
+    c.on_away(["fullscreen_exit"])
+    c.take_triggers()
+    clock.advance(AWAY_LIMIT_SCREEN_S - 1)
+    assert c.tick() == [] and c.take_triggers() == set()
+
+
+def test_orders_queued_when_they_leave_are_held_until_they_are_back():
+    c, clock = make()
+    to_core(c)
+    c.hold_until = 0.0
+    queued = c._order("open_item", "open it", clock())
+    warning = c._order("mention_violation", "w", clock())
+    c.on_away(["tab_hidden"])
+    assert c.away_paused() and c.speakable_orders() == [warning]       # the warning is deliverable, the open_item waits
+    assert queued in c.pending_orders()
+    clock.advance(20)
+    c.on_back()
+    assert not c.away_paused() and queued in c.speakable_orders()
+
+
+def test_time_away_does_not_consume_the_part_or_the_round():
+    c, clock = make()
+    to_core(c)
+    item = c.current()
+    clock.advance(100)
+    before = c.remaining_seconds(item) if hasattr(c, "remaining_seconds") else item.max_seconds - (clock() - item.started_at)
+    round_before = clock() - c.started_at
+    c.on_away(["tab_hidden"])
+    clock.advance(20)
+    c.on_back()
+    after = item.max_seconds - (clock() - item.started_at)
+    assert abs(after - before) < 1e-6 and abs((clock() - c.started_at) - round_before) < 1e-6
+
+
+def test_back_reports_a_welcome_only_when_a_warning_was_spoken_in_the_episode():
+    c, clock = make()
+    c.on_away(["tab_hidden"])
+    clock.advance(3)
+    assert c.on_back() is False
+    c.on_away(["tab_hidden"])
+    c.note_warning("mention_violation", "tab_hidden", 4)
+    clock.advance(3)
+    assert c.on_back() is True and c.on_back() is False
+
+
+def test_the_pause_survives_a_checkpoint():
+    c, clock = make()
+    to_core(c)
+    queued = c._order("open_item", "open it", clock())
+    c.on_away(["tab_hidden"])
+    c.note_warning("mention_violation", "tab_hidden", 4)
+    clock.advance(3)                                   # before the final warning at AWAY_FINAL_S (5 s)
+    r = Conductor.restore(blueprint(), 3600, c.checkpoint(), None, clock, ["Java"])
+    assert r.away_paused() and r.away["warned"] and len(r.pending_orders()) == len(c.pending_orders())
+    assert r.speakable_orders() == [] and r.tick() == []
+    clock.advance(10)
+    assert r.on_back() is True and r.speakable_orders() == r.pending_orders() and r.speakable_orders()
+
+
+def test_returning_never_pushes_a_time_set_during_the_episode_past_now_and_leaves_a_finished_part_alone():
+    c, clock = make()
+    to_core(c)
+    done = next(i for i in c.items if i.item_id == "candidate_intro")
+    ran = (done.ended_at or 0) - (done.started_at or 0)
+    c.on_away(["tab_hidden"])
+    clock.advance(10)
+    c.last_activity = clock()                          # set during the episode
+    clock.advance(10)
+    c.on_back()
+    assert c.last_activity <= clock() and (done.ended_at or 0) - (done.started_at or 0) == ran

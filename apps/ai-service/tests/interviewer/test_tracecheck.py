@@ -217,6 +217,24 @@ def test_a_claim_about_code_before_any_was_typed_is_found_but_not_after_and_reco
     assert found(_persona(iv(1, "Once you've written it, walk me through a test case."))) == []
 
 
+def test_false_continuity_ignores_an_empty_interrupted_turn_in_the_window():
+    """(live round 781a1f0a) the live window never holds an empty cut turn, so the check must not count one as a recent turn."""
+    rec = record(iv(1, "Why do list items need keys in React?"), cand(2, "So it can tell which item changed."),
+                 iv(3, "Okay, and how does it decide what to redraw?"), cand(4, "It compares the old tree with the new one."),
+                 iv(5, "", interrupted=True), cand(6, "Sorry, I meant it compares them node by node."),
+                 iv(7, "Now, one more on React: what breaks if keys are wrong?"))
+    assert found(rec) == []
+
+
+def test_false_continuity_keeps_an_interrupted_turn_that_has_words_in_the_window():
+    """(live round 781a1f0a) a cut turn with words is in the live history as "... (interrupted)", so it still supplies the topic."""
+    rec = record(iv(1, "Why do list items need keys in React", interrupted=True), cand(2, "So it can tell which item changed."),
+                 iv(3, "Okay, and how does it decide what to redraw?"), cand(4, "It compares the old tree with the new one."),
+                 iv(5, "", interrupted=True), cand(6, "Sorry, I meant it compares them node by node."),
+                 iv(7, "Now, one more on React: what breaks if keys are wrong?"))
+    assert found(rec) == []
+
+
 def test_a_link_to_a_topic_that_was_not_discussed_is_found():
     hashmap = "A HashMap is an array of buckets and the hash of the key picks one."
     rec = record(iv(1, "Why do long buckets become trees?"), cand(2, hashmap), iv(3, "Let me stay on SQL for one more: what is the difference between WHERE and HAVING?"))
@@ -734,3 +752,49 @@ def test_double_ack_finds_two_bare_acknowledgements_in_a_turn_but_not_the_runs_o
     assert "double_ack" not in [c for c, _ in found(one)]
     own = record(iv(3, "Mm-hmm. Okay. How did you pick that structure?", fixed=["Mm-hmm."]))
     assert "double_ack" not in [c for c, _ in found(own)]
+
+
+def test_repeated_refusal_finds_a_reason_repeated_in_other_words():
+    a = "I'd like to keep this one, honestly — it's a good one to see how you reason through a tricky ordering question, and you don't need to land the full solution for it to be worth your while."
+    b = "It's a good problem for seeing how you reason through a tricky ordering question, and honestly you don't need the full solution for it to be worth your while."
+    twice = record(_refusal(2, a), cand(3, "Please change it."), _refusal(4, b))
+    assert [(c, s) for c, s in found(twice) if c == "repeated_refusal"] == [("repeated_refusal", 4)]
+
+
+def _round_bp(round_type):
+    from tests.interviewer.fixtures import blueprint
+    bp = blueprint()
+    bp["round"]["type"] = round_type
+    return bp
+
+
+def test_round_words_fail_on_a_word_the_round_forbids():
+    turn = iv(1, "Go ahead and write the code.", "core-1")
+    assert ("round_words", 1) in found({**record(turn), "blueprint": _round_bp("system-design")})
+    assert "round_words" not in [c for c, _ in found({**record(turn), "blueprint": _round_bp("dsa")})]
+    assert "round_words" not in [c for c, _ in found(record(turn))]            # no blueprint: nothing to judge by
+
+
+def test_round_words_judge_a_culture_slot_by_the_behavioural_set_unless_the_turn_moves_on():
+    said = "Alright, let's get into the coding now."
+    stay = iv(1, said, "culture-1")
+    assert ("round_words", 1) in found({**record(stay), "blueprint": _round_bp("dsa")})
+    move = iv(1, said, "culture-1", tool_calls=[{"name": "next_item", "arguments": {}, "result": {"ok": True}}])
+    assert "round_words" not in [c for c, _ in found({**record(move), "blueprint": _round_bp("dsa")})]
+
+
+def test_round_words_flag_a_model_sentence_equal_to_another_packs_wording():
+    turn = iv(1, "Okay, so I think it's time to head into the coding now.", "core-1")
+    assert ("round_words", 1) in found({**record(turn), "blueprint": _round_bp("system-design")})
+    own = {**turn, "fixed": [turn["text"]]}
+    assert "round_words" not in [c for c, _ in found({**record(own), "blueprint": _round_bp("system-design")})]
+
+
+def test_round_words_one_finding_per_offending_sentence():
+    turn = iv(1, "Write the code first. Then write the code again.", "core-1")
+    assert [c for c in found({**record(turn), "blueprint": _round_bp("system-design")}) if c[0] == "round_words"] == [("round_words", 1)] * 2
+
+
+def test_round_words_fail_on_a_hint_in_an_online_assessment():
+    turn = iv(1, "Here's a hint: think about a hash map.", "core-1")
+    assert ("round_words", 1) in found({**record(turn), "blueprint": _round_bp("online-assessment")})

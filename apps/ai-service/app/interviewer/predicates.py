@@ -116,7 +116,7 @@ _ECHO_STOP = frozenset("""about above after again also another because before be
     under very want what when where which while will with would your yours actually really still tell mean think sounds point thing things
     something everything anything going those being""".split())
 # Something new in the sentence (a correction, a contrast, a negation) means it is not just an echo.
-_NEW_FACT = re.compile(r"\b(?:but|however|except|actually|wait|careful|not quite|though|although|no|not|never|nothing|neither|nor|without|instead)\b|n'?t\b",
+_NEW_FACT = re.compile(r"\b(?:but|however|except|actually|wait|careful|not quite|though|although|no|not|never|nothing|neither|nor|without|instead)\b|\w+n['\u2019]t\b",
                        re.IGNORECASE)
 _NUMBER = re.compile(r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twenty|hundred|thousand|million|twice|double|half)\b")
 _REQUEST = re.compile(r"^\W*(?:tell|walk|show|try|give|let'?s|let me|go ahead|can you|could you|what|how|why|when|which|where|who|do you|did you)\b|\?\s*$",
@@ -137,3 +137,110 @@ def echoes(sentence: str, candidate_said: str) -> bool:
     if set(_NUMBER.findall(text.lower())) - set(_NUMBER.findall(theirs.lower())):
         return False
     return len(echo_stems(text) & echo_stems(theirs)) >= 3
+
+
+
+# A statement that gives the candidate's answer back in other words, a lead-in plus "so" and their content words (live round 781a1f0a,
+# turns 9/14/41/43/54/56: "Okay, so you owned it end to end." over "I own it end to end."). It is not the strict echo above.
+_RESTATE_OPENER = re.compile(r"^\W*(?:(?:okay|ok|right|alright|ah|oh|i see|got it|gotcha|understood)[\s,.\u2014-]+)*so\b", re.IGNORECASE)
+_RESTATE_ASK = re.compile(r"^\W*(?:tell me|walk me|talk me|let(?:'|\u2019)?s|let us|describe|explain)\b", re.IGNORECASE)
+_RESTATE_WORD = re.compile(r"[a-z][a-z']*")
+_RESTATE_STOP = frozenset("you your you're you've the and that this with for from about have been was were are its it's".split())
+
+
+def _restate_key(word: str) -> str:
+    """Words of six letters or more match on their first six; shorter ones after a final ed/ing/s is cut."""
+    word = word.replace("'", "")
+    return word[:6] if len(word) >= 6 else re.sub(r"(?:ed|ing|s)$", "", word)
+
+
+def _restate_words(text: str) -> set[str]:
+    return {_restate_key(w) for w in _RESTATE_WORD.findall((text or "").lower()) if len(w.replace("'", "")) >= 3 and w not in _RESTATE_STOP}
+
+
+def restates_candidate(sentence: str, candidate_said: str) -> bool:
+    """The sentence gives back what the candidate said: the strict echo, or a "So ..." statement whose content words are mostly theirs
+    (two or more shared, half or more of the sentence's own). A question is never a restatement."""
+    text = (sentence or "").strip()
+    if not text or "?" in text:
+        return False
+    from app.interviewer.closing import addresses_the_candidate      # local: closing imports from modules that import this one
+    opener = _RESTATE_OPENER.search(text)
+    if addresses_the_candidate(text) or _RESTATE_ASK.search(text[opener.end():] if opener else text):
+        return False        # "So tell me about the Redis retries." asks for more on their own detail (final review, live round 781a1f0a)
+    if echoes(text, candidate_said):
+        return True
+    if opener is None:
+        return False
+    mine = _restate_words(text)
+    shared = mine & _restate_words(candidate_said)
+    return len(shared) >= 2 and len(shared) / len(mine) >= 0.5
+
+
+# The first sentence of a turn that only gives the candidate's words back (live round c8e70bb8: "Sure, Vibe it is." over "can we discuss Vibe?",
+# "Okay, DP it is.", "Sliding window.", "So a single number per position." over "I will store the maximum count").
+_IT_IS = re.compile(r"^\W*(?:(?:sure|okay|ok|right|alright|gotcha)\b[\s,.\u2014-]*)?[\w\s+#.-]{1,20}?\bit is\W*$", re.IGNORECASE)
+_FRAGMENT_STOP = frozenset("""okay right sure alright exactly correct great good nice thanks thank yeah gotcha fine understood absolutely definitely
+    here there that this what well just then also""".split())
+
+
+def _fragment_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9+#]+", (text or "").lower().replace("'", "")) if len(w) >= 2 and w not in _FRAGMENT_STOP and w not in _RESTATE_STOP}
+
+
+def restates_first(sentence: str, candidate_said: str) -> bool:
+    """The first sentence of a turn gives back what the candidate said, in one of the shapes a live round showed: the strict echo or a
+    restatement (above); a "So ..." statement (a lone one that nothing after it addresses to the candidate is a paraphrase); a fragment
+    of four words or fewer repeating one of their content words ("Sliding window."); "<X> it is" with X theirs ("Okay, DP it is.")."""
+    text, theirs = (sentence or "").strip(), (candidate_said or "").strip()
+    if not text or not theirs or "?" in text:
+        return False
+    if restates_candidate(text, theirs):
+        return True
+    from app.interviewer.closing import addresses_the_candidate      # local: closing imports from modules that import this one
+    if addresses_the_candidate(text) or _REQUEST.search(text) or _NEW_FACT.search(text):
+        return False
+    mine = _fragment_words(text)
+    if _IT_IS.match(text) and mine & _fragment_words(theirs):
+        return True
+    words = text.split()
+    if len(words) <= 4 and "?" not in theirs and not _RESTATE_OPENER.search(text) and (long := {w for w in mine if len(w) >= 5}) and long <= _fragment_words(theirs):
+        return True      # every content word is theirs: "Sliding window." (but "That trace checks out." says something of its own)
+    return _so_statement(text, theirs) and bool(_content4(text) & _content4(theirs))
+
+
+def _content4(text: str) -> set[str]:
+    return {w for w in _fragment_words(text) if len(w) >= 4}
+
+
+def _so_statement(text: str, theirs: str) -> bool:
+    opener = _RESTATE_OPENER.search(text)
+    return (opener is not None and "?" not in text and "?" not in theirs and not _RESTATE_ASK.search(text[opener.end():])
+            and not (set(_NUMBER.findall(text.lower())) - set(_NUMBER.findall(theirs.lower()))))
+
+
+def lone_so_paraphrase(sentence: str, candidate_said: str) -> bool:
+    """A short "So ..." statement (seven words or fewer, nothing new in it) that shares no word with them: a paraphrase ("So a single number per
+    position."), dropped only when it would be the whole turn."""
+    text, theirs = (sentence or "").strip(), (candidate_said or "").strip()
+    if not text or not theirs or len(text.split()) > 7:
+        return False
+    from app.interviewer.closing import addresses_the_candidate
+    return (not addresses_the_candidate(text) and not _REQUEST.search(text) and not _NEW_FACT.search(text) and _so_statement(text, theirs))
+
+
+# ---- overlap: two sentences that say the same thing in other words
+
+_CONTENT_WORD = re.compile(r"[a-z]{4,}")
+
+
+def content_words(text: str) -> set[str]:
+    """The lowercased words of four or more letters of a text."""
+    return set(_CONTENT_WORD.findall((text or "").lower().replace("\u2019", "'").replace("'", "")))
+
+
+def content_overlap(a: str, b: str) -> float:
+    """The Jaccard similarity of the two texts' content word sets (words of four or more letters); 0.0 when either has none. A refusal that
+    repeats an earlier one in new words still shares most of its words (live round 781a1f0a, turns 27 and 29)."""
+    wa, wb = content_words(a), content_words(b)
+    return len(wa & wb) / len(wa | wb) if wa and wb else 0.0

@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from livekit import rtc
 from livekit.agents import AgentSession, JobContext, WorkerOptions, cli, room_io
-from livekit.plugins import deepgram
+from livekit.plugins import deepgram, sarvam
 
 from app.blueprint import store as bp_store
 from app.config import Settings, get_settings
@@ -37,14 +37,17 @@ WAIT_FOR_CANDIDATE_S = 15 * 60   # a waiting interviewer leaves after this long 
 ENTRY_GRACE_S = 60.0             # a candidate who is in the room when that wait ends gets this long more for their hello
 BLUEPRINT_CHECK_S = 30.0         # while it waits, the interviewer checks this often that its blueprint is still the current one
 _REQUIRED = {"livekit_url": "LIVEKIT_URL", "livekit_api_key": "LIVEKIT_API_KEY", "livekit_api_secret": "LIVEKIT_API_SECRET",
-             "deepgram_api_key": "DEEPGRAM_API_KEY", "openrouter_api_key": "OPENROUTER_API_KEY", "mongodb_url": "MONGODB_URL",
+             "openrouter_api_key": "OPENROUTER_API_KEY", "mongodb_url": "MONGODB_URL",
              "api_base_url": "API_BASE_URL", "internal_api_key": "INTERNAL_API_KEY"}
 
 
 def missing_live_settings(settings: Any) -> list[str]:
     missing = [env for attr, env in _REQUIRED.items() if not getattr(settings, attr, "")]
-    if uses_sarvam(settings) and not getattr(settings, "sarvam_api_key", ""):
+    sarvam_stt = uses_sarvam_stt(settings)
+    if (sarvam_stt or uses_sarvam(settings)) and not getattr(settings, "sarvam_api_key", ""):
         missing.append("SARVAM_API_KEY")
+    if (not sarvam_stt or not uses_sarvam(settings)) and not getattr(settings, "deepgram_api_key", ""):
+        missing.append("DEEPGRAM_API_KEY")        # Deepgram is still needed when either the speech-to-text or the voice uses it
     return missing
 
 
@@ -155,18 +158,27 @@ class TalkerWarmUp:
             task.cancel()
 
 
+def uses_sarvam_stt(settings: Any) -> bool:
+    return str(getattr(settings, "interviewer_stt_provider", "sarvam")).strip().lower() == "sarvam"
+
+
 def build_stt(settings: Settings, context: dict[str, Any], blueprint: dict[str, Any]):
-    """The speech-to-text, with the round's own names as keyterms (see `keyterms.py`); any trouble building them falls back to none."""
-    options: dict[str, Any] = dict(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key, mip_opt_out=settings.deepgram_mip_opt_out)
+    """The speech-to-text, with the round's own names as keyterms (see `keyterms.py`); any trouble building them falls back to none.
+    Sarvam's realtime model has no keyterm list: the same terms go in as its plain-text `prompt` hint (decided 2026-10-18)."""
+    terms: list[str] = []
     if settings.interviewer_stt_keyterms:
         try:
             terms = stt_keyterms(context, blueprint)
             if terms:
                 logger.info("stt keyterms: %d (%s)", len(terms), ", ".join(terms[:8]))
-                return deepgram.STT(**options, keyterm=terms)
         except Exception:  # noqa: BLE001 - recognition still works without them
             logger.warning("stt keyterms rejected; continuing without them", exc_info=True)
-    return deepgram.STT(**options)
+    if uses_sarvam_stt(settings):
+        return sarvam.STTRealtime(language="en-IN", api_key=settings.sarvam_api_key, stream_type=settings.sarvam_stt_stream_type,
+                                  vad_min_silence_ms=settings.sarvam_stt_min_silence_ms,
+                                  prompt=("Names and terms in this conversation: " + ", ".join(terms) + ".") if terms else None)
+    options: dict[str, Any] = dict(model="nova-3", language="en-IN", api_key=settings.deepgram_api_key, mip_opt_out=settings.deepgram_mip_opt_out)
+    return deepgram.STT(**options, keyterm=terms) if terms else deepgram.STT(**options)
 
 
 async def blueprint_changed(session_id: str, loaded: dict[str, Any]) -> bool:
@@ -296,7 +308,8 @@ async def entrypoint(ctx: JobContext) -> None:
         pacing = dataclasses.replace(Pacing.scaled(hedge_s), deadline_s=settings.interviewer_talker_deadline_seconds)
         run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker, director_chat=director,
                                    workspace=bridge, api=api, store=store, first_token_timeout_s=hedge_s,
-                                   fallback_chat=talker_fallback, pacing=pacing))
+                                   fallback_chat=talker_fallback, pacing=pacing,
+                                   addressed_mode=settings.addressed_check))
         if settings.interviewer_warm_up and hasattr(talker, "warm_up"):
             warm = TalkerWarmUp(talker, run.prefix, TOOLS)
             warm.start()                                  # the interviewer is early: the candidate's browser says hello later

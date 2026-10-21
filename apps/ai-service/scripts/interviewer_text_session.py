@@ -228,7 +228,7 @@ async def main(args: argparse.Namespace) -> None:
     speaker = sim.SimSpeaker()
     run = InterviewRun(RunDeps(blueprint=blueprint, context=context, talker_chat=talker, director_chat=director, workspace=workspace,
                                api=sim.SimApi(lambda line: None), store=MemoryStore(), clock=clock, first_token_timeout_s=3.0,
-                               fallback_chat=fallback))
+                               fallback_chat=fallback, addressed_mode=settings.addressed_check))
     run.speaker = speaker
     session = Session(run, clock, workspace, speaker, log, jsonl)
     session.say(f"== text session: {rnd.get('company')} {rnd.get('level')} {rnd.get('type')} round, {rnd.get('duration_mins')} min, "

@@ -13,6 +13,8 @@ import random
 import re
 from typing import Any, Callable, Collection
 
+from app.rounds.compose import PACKS, rules_of
+
 ORDINALS = ("first", "second", "third", "fourth")
 SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
 
@@ -61,6 +63,32 @@ def _final(ask: str, then: str) -> tuple[str, ...]:
 
 
 LINES: dict[str, tuple[str, ...]] = {
+    # Addressed-to-interviewer pools (decided 2026-10-19): a check-in when an unclear utterance may or may not be for the interviewer, a nudge
+    # after silence following it, and a reading remark while the candidate reads the problem aloud. Neutral; none echoes the candidate's words.
+    "addressed:checkin": (
+        "Is that one for me, or are you thinking it through?", "Was that a question for me, or are you working it out?",
+        "Do you want me to answer that, or are you thinking out loud?", "Is that for me, or just thinking aloud?",
+        "Are you asking me, or working through it yourself?", "Should I jump in on that, or are you still thinking?",
+        "Is that something you'd like me to answer?", "Was that aimed at me, or part of your thinking?",
+        "Do you want my input there, or are you mid-thought?", "Is that for me, or are you talking it through?",
+        "Quick check: was that a question for me?", "Just to be sure, are you asking me that?",
+        "Do you want me to weigh in, or are you still working on it?", "Was that directed at me, or are you reasoning it out?",
+        "Should I answer that one, or let you think?", "Is that a question for me, or one you're asking yourself?",
+        "Do you need something from me there, or are you thinking?", "Was that for me? Happy to answer, or to let you think.",
+        "Are you looking for an answer from me on that?", "Is that you thinking out loud, or something for me?",
+        "Just checking, should I respond to that?", "Is that one you want me to take, or are you on it?",
+        "Do you want me to step in there, or keep going?", "Was that meant for me, or are you working through it?"),
+    "addressed:nudge": (
+        "Take your time.", "No rush, I'm here whenever you want me.", "Go ahead whenever you're ready.", "Whenever you're ready, just say.",
+        "I'm happy to wait.", "Whenever you want to continue, go ahead.", "Think it through, I'll wait.",
+        "Let me know if you'd like me to weigh in.", "No pressure, keep going when you're ready.", "I'm here if you need me.",
+        "Feel free to keep thinking.", "All good, carry on when you're ready.", "Take a moment, there's no hurry.",
+        "Just say if you want me to jump in.", "Keep going at your own pace.", "I'll wait, carry on whenever you like."),
+    "addressed:reading": (
+        "Take your time reading it.", "No rush, read it through.", "Read it at your own pace.", "Take as long as you need with it.",
+        "Go ahead and read it through.", "Take a moment with it.", "No hurry, have a good read.", "Read it through, I'll wait.",
+        "Take your time with the problem.", "Have a read, no rush at all.", "Go through it at your own pace.",
+        "Settle into it, take your time."),
     "swap_put_up": ("Sure, no problem. Let me put a different problem on your screen.", "Of course. Let me put a different problem on your screen.",
                     "Okay. I'll put a different problem up on your screen.", "No problem. Let me bring a different problem up on your screen.",
                     "Alright, let me swap it. I'll put a different problem on your screen."),
@@ -68,6 +96,11 @@ LINES: dict[str, tuple[str, ...]] = {
                 "I hear you. Let's leave this one there.", "That's fine, let's leave this one there.", "No problem, let's leave this one there."),
     "coding_over": ("Okay, that's fine.", "Alright, that's fine.", "No problem, that's fine.", "Sure, that's alright.", "No worries, that's fine.",
                     "That's alright."),
+    # The sentence that moves from the conversation to a problem, said by the run on its own just before the put-up line (the model never improvises
+    # it, decided 2026-10-18 after live round c8e70bb8): "first" for the first problem of the round, "next" for a later one.
+    "bridge:first": ("Okay, so I think it's time to head into the coding now.", "Alright, I think we can move into the coding part now.",
+                     "Okay, so I think we should go into the coding now.", "Alright, I think we're ready to head into the coding now."),
+    "bridge:next": ("Let's go on to the next problem.", "Let's turn to the next problem.", "Let's head to the next problem."),
     "unclear": ("Sorry, I didn't quite catch that.", "I didn't quite catch that.", "I missed that, sorry.", "I didn't get that last part."),
     "presence": ("Yes, I'm here.", "I'm here.", "Still here, yes.", "I'm with you."),
     "line_check": ("Yes, I'm here.", "I can hear you fine.", "You're coming through fine.", "I hear you loud and clear."),
@@ -94,6 +127,9 @@ LINES: dict[str, tuple[str, ...]] = {
     "away_overstay:final_warning": ("You're still away from the screen. This is your final warning: come back now, or I'll have to end the interview.",
                                     "You still haven't come back to the screen. This is your final warning: come back now, or I'll have to end the interview.",
                                     "You're still not back on the screen. Final warning: come back now, or I'll have to end the interview."),
+    # Said once when they come back after a warning (owner 2026-10-20); the round carries on from where it stopped. Nothing about time or the screen.
+    "away:back": ("Welcome back.", "Okay, welcome back.", "Good, you're back.", "Alright, welcome back.", "Thanks for coming back.",
+                  "Okay, let's pick up where we were.", "Good to have you back.", "Alright, let's carry on."),
 }
 for _n, _o in enumerate(ORDINALS):
     LINES[f"put_up:{_o}"] = tuple(v.format(o=_o) for v in _PUT_UP)
@@ -115,7 +151,7 @@ def _norm(text: str) -> str:
 
 
 def _group(key: str) -> str:
-    return key.split(":")[0]
+    return key.split("@")[0].split(":")[0]
 
 
 def _sentences(text: str) -> list[str]:
@@ -143,7 +179,9 @@ _FORMS = _index()
 
 def keys_of(key: str) -> list[str]:
     """`key` itself, or every key of the group it names ("put_up" is put_up:first, put_up:second, ...)."""
-    return [key] if key in LINES else [k for k in LINES if k.startswith(key + ":")]
+    if key in LINES:
+        return [key, *(k for k in LINES if k.startswith(key + "@"))]       # the pack wordings of the same line count too
+    return [k for k in LINES if k.startswith(key + ":")]
 
 
 def matches(key: str, text: str) -> bool:
@@ -179,21 +217,22 @@ def sentence_part(key: str, sentence: str) -> int | None:
 def ordinal_of(sentence: str) -> str | None:
     """The position a put-up or intro sentence names ("second"), None for any other sentence."""
     t = _norm(sentence)
-    return next((o for o in ORDINALS if t and (t in _FORMS[f"put_up:{o}"] or t in _FORMS[f"intro:{o}"])), None)
+    return next((o for o in ORDINALS if t and any(t in _FORMS[k] for k in (*keys_of(f"put_up:{o}"), *keys_of(f"intro:{o}")))), None)
 
 
-def _put_up_patterns() -> list[re.Pattern[str]]:
-    return [re.compile(r"\b" + re.escape(v.rstrip(".")).replace(re.escape("{o}"), "(first|second|third|fourth)").replace("'", "['\u2019]") + r"\b", re.IGNORECASE)
-            for v in _PUT_UP]
+def _put_up_pattern(template: str) -> re.Pattern[str]:
+    return re.compile(r"\b" + re.escape(template.rstrip(".")).replace(re.escape("{o}"), "(first|second|third|fourth)").replace("'", "['\u2019]") + r"\b",
+                      re.IGNORECASE)
 
 
-_PUT_UP_PATTERNS = _put_up_patterns()
+# (pattern, the ordinal it names when the wording has no "{o}": a design pack's "the design question" is the first)
+_PUT_UP_PATTERNS: list[tuple[re.Pattern[str], str | None]] = [(_put_up_pattern(v), None) for v in _PUT_UP]
 
 
 def put_up_ordinals(text: str) -> list[str]:
     """The positions named by every put-up wording found inside the text ("Let me put the second problem on your screen" gives ["second"]):
     what `puts_up_problem_again` reads. Searches, so a wording inside a longer sentence counts."""
-    return [m.group(1).lower() for p in _PUT_UP_PATTERNS for m in p.finditer(text or "")]
+    return [(fixed or m.group(1)).lower() for p, fixed in _PUT_UP_PATTERNS for m in p.finditer(text or "")]
 
 
 # ------------------------------------------------------------------ picking
@@ -304,9 +343,58 @@ BRIDGE_POOLS: dict[str, tuple[str, ...]] = {
 }
 
 
-def bridge_variant(blueprint: dict[str, Any] | None, key: str) -> str:
-    """The link for `key` in this session: the persona's wording of the pool when the blueprint has a realism block, else today's."""
-    pool = BRIDGE_POOLS[key]
+def bridge_variant(blueprint: dict[str, Any] | None, key: str, pack_id: str | None = None) -> str:
+    """The link for `key` in this session: the persona's wording of the pool when the blueprint has a realism block, else today's. The pool is the
+    round pack's own (system design says "the design", not "the coding"), or `pack_id`'s when given (a culture slot uses the behavioural pack's)."""
+    pool = BRIDGE_POOLS[pack_key(key, pack_id or pack_id_of(blueprint))]
     if realism_of(blueprint) is None:
         return pool[0]
     return pool[int(hashlib.sha256(f"{seed_of(blueprint)}:{key}".encode()).hexdigest(), 16) % len(pool)]
+
+
+# ------------------------------------------------------------------ the pack pools
+
+def pack_key(key: str, pack_id: str) -> str:
+    """The key of the round pack's own pool for this line ("bridge:first@system-design"), or `key` itself when the pack has none (the DSA pack never
+    has: its lines are the defaults above)."""
+    k = f"{key}@{pack_id}"
+    return k if k in LINES or k in BRIDGE_POOLS else key
+
+
+def pack_id_of(blueprint: dict[str, Any] | None) -> str:
+    return str(rules_of(blueprint).get("pack") or "dsa")
+
+
+def _add_put_up_patterns(variants: tuple[str, ...], ordinal: str | None) -> None:
+    for v in variants:
+        pattern = _put_up_pattern(v)
+        if not any(p.pattern == pattern.pattern and fixed == ordinal for p, fixed in _PUT_UP_PATTERNS):      # the design packs share their wordings
+            _PUT_UP_PATTERNS.append((pattern, ordinal))
+
+
+def _register_packs() -> None:
+    """Add every pack's line pools next to the defaults, as "<key>@<pack id>" (decided 2026-10-20, round packs). A put-up or intro wording may carry
+    "{o}", filled per ordinal as the defaults are; one without it is the pool of that key's own ordinal only. The matchers are rebuilt to cover them."""
+    global _FORMS
+    for pack in PACKS.values():
+        for key, variants in pack.lines.items():
+            name = f"{key}@{pack.pack_id}"
+            if key in BRIDGE_POOLS:
+                BRIDGE_POOLS[name] = tuple(variants)
+                continue
+            head, _, ordinal = key.partition(":")
+            if head in ("put_up", "intro") and any("{o}" in v for v in variants):      # one pool per position, as the defaults are
+                for o in ORDINALS:
+                    if f"{head}:{o}" in pack.lines and f"{head}:{o}" != key:      # a position the pack words on its own keeps its own pool
+                        continue
+                    LINES[f"{head}:{o}@{pack.pack_id}"] = tuple(v.format(o=o) for v in variants)
+                if head == "put_up":
+                    _add_put_up_patterns(variants, None)
+                continue
+            LINES[name] = tuple(variants)
+            if head == "put_up":
+                _add_put_up_patterns(variants, ordinal)
+    _FORMS = _index()
+
+
+_register_packs()
