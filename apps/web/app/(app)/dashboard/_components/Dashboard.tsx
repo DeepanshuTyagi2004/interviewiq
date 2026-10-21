@@ -21,7 +21,7 @@ import { isJoinable } from "@/features/interview/presentation";
  * the page width and padding.
  */
 export function Dashboard() {
-  const { user } = useCurrentUser();
+  const { user, interviewBlocked } = useCurrentUser();
   const sessions = useMySessions();
   const loops = useLoops();
 
@@ -37,6 +37,8 @@ export function Dashboard() {
     <div className="flex min-w-0 flex-col">
       <Greeting
         name={user?.name}
+        // Viewing a booked round is fine; booking or joining needs interview access.
+        actionBlocked={interviewBlocked && !(next && !isJoinable(next))}
         roomHref={next ? sessionHref(next) : ready ? `${ROUTES.loops}/${ready.id}` : ROUTES.interviews}
         roomLabel={
           next

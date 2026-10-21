@@ -12,6 +12,9 @@ vi.mock("@/features/report", async () => {
 import * as jump from "./jumpToTurn";
 import { ReportView } from "./ReportView";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 const session = { id: "s1", loopId: "loop-1", jobDescriptionId: "jd-1", roundType: "dsa", company: "meesho", companyName: "Meesho" };
 
 const ready = {

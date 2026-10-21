@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Card } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { ROUTES } from "@/lib/constants/shared";
 import { useSession, type InterviewSession } from "@/features/interview";
 import { bookingHref, roundLabel } from "@/features/interview/presentation";
@@ -75,6 +77,9 @@ function railCta(report: RoundReport, session: InterviewSession | undefined): Ra
 }
 
 function Ready({ report, session, sessionId }: { report: RoundReport; session: InterviewSession | undefined; sessionId: string }) {
+  const { interviewBlocked } = useCurrentUser();
+  // Booking the next round or retaking is an interview action: without access show the note instead.
+  const cta = railCta(report, session);
   const nav: RailNavItem[] = [
     { id: "overview", label: "Overview" },
     { id: "score", label: "Score build-up" },
@@ -86,7 +91,8 @@ function Ready({ report, session, sessionId }: { report: RoundReport; session: I
   ];
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <ScoreRail report={report} cta={railCta(report, session)} nav={nav} />
+      {cta && interviewBlocked ? <InterviewAccessNote className="lg:col-span-2" /> : null}
+      <ScoreRail report={report} cta={interviewBlocked ? null : cta} nav={nav} />
       <div className="flex min-w-0 flex-col gap-10">
         <section id="overview" className="scroll-mt-20">
           <OverviewCard report={report} />

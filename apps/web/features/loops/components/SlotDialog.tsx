@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +15,7 @@ import { roundTypeLabel } from "../graph";
 import { SlotPicker } from "./SlotPicker";
 import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -21,6 +23,7 @@ function SlotDialogBody({ title, description, confirmLabel, ignoreSessionId, pen
   title: string; description: string; confirmLabel: string; ignoreSessionId?: string; pending: boolean;
   onConfirm: (scheduledAt: string) => void; allowNow?: boolean;
 }) {
+  const { interviewBlocked } = useCurrentUser();
   const sessions = useMySessions().data?.sessions ?? [];
   const [day, setDay] = useState<Date | null>(null);
   const [hour, setHour] = useState<number | null>(null);
@@ -31,18 +34,25 @@ function SlotDialogBody({ title, description, confirmLabel, ignoreSessionId, pen
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
-      <SlotPicker day={day} hour={hour} onChange={(d, h) => { setDay(d); setHour(h); }} sessions={sessions} ignoreSessionId={ignoreSessionId} />
-      <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-        {allowNow ? (
-          <Button variant="outline" disabled={pending} onClick={() => onConfirm(new Date(Date.now() + 60_000).toISOString())}>
-            Start now
-          </Button>
-        ) : null}
-        <Button disabled={!slot || pending} onClick={() => slot && onConfirm(slot.toISOString())}>
-          {pending ? <Loader2 aria-hidden className="animate-spin" /> : null}
-          {slot ? `${confirmLabel} ${slotText(slot)}` : confirmLabel}
-        </Button>
-      </div>
+      {/* Backstop: the buttons that open this dialog are already hidden without access. */}
+      {interviewBlocked ? (
+        <InterviewAccessNote />
+      ) : (
+        <>
+          <SlotPicker day={day} hour={hour} onChange={(d, h) => { setDay(d); setHour(h); }} sessions={sessions} ignoreSessionId={ignoreSessionId} />
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+            {allowNow ? (
+              <Button variant="outline" disabled={pending} onClick={() => onConfirm(new Date(Date.now() + 60_000).toISOString())}>
+                Start now
+              </Button>
+            ) : null}
+            <Button disabled={!slot || pending} onClick={() => slot && onConfirm(slot.toISOString())}>
+              {pending ? <Loader2 aria-hidden className="animate-spin" /> : null}
+              {slot ? `${confirmLabel} ${slotText(slot)}` : confirmLabel}
+            </Button>
+          </div>
+        </>
+      )}
     </>
   );
 }

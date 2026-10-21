@@ -4,6 +4,7 @@ import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 import { useState } from "react";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +12,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { useJds, type JdSummary } from "@/features/jobs";
@@ -111,6 +113,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
   const { data: jds, isLoading: jdsLoading } = useJds();
   const loops = useLoops();
   const create = useCreateSession();
+  const { canInterview, interviewBlocked } = useCurrentUser();
 
   const [mode, setMode] = useState<BookingMode>("now");
   // Hundreds of practice templates would bury the researched roles: they are opt-in in the list.
@@ -353,8 +356,10 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         </p>
       )}
 
+      {interviewBlocked ? <InterviewAccessNote /> : null}
       <Button
-        disabled={!canSubmit}
+        disabled={!canSubmit || !canInterview}
+        title={!interviewBlocked ? undefined : "Ask an admin for interview access"}
         onClick={mode === "now" ? submitNow : submitSchedule}
         size="lg" className="w-full text-[14px]"
       >

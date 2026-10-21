@@ -2,6 +2,7 @@
 
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Check, Clock, Info, Lock } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Chip, StatusDot } from "@/components/ds";
 import { formatScore } from "@/features/report/presentation";
 import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
@@ -18,6 +19,8 @@ export type RoundFlowData = {
   /** Edit mode shows connection handles; view mode hides them. */
   editable: boolean;
   onBook?: (nodeId: string) => void;
+  /** The viewer may not take interviews: the Book button gives way to an access note. */
+  bookBlocked?: boolean;
 };
 export type InfoFlowData = { node: InfoNode };
 export type RoundFlowNode = Node<RoundFlowData, "round">;
@@ -90,7 +93,7 @@ function lookFor(state?: LoopNodeState): keyof typeof NODE_LOOK {
 }
 
 export function RoundFlowNodeView({ data, selected }: NodeProps<RoundFlowNode>) {
-  const { node, index, state, result, editable, onBook } = data;
+  const { node, index, state, result, editable, onBook, bookBlocked: interviewBlocked = false } = data;
   const meta = state ? STATE_META[state] : null;
   const look = lookFor(state);
   const done = look === "done";
@@ -126,7 +129,8 @@ export function RoundFlowNodeView({ data, selected }: NodeProps<RoundFlowNode>) 
       {node.topics.length > 0 ? (
         <p className={cn("m-0 mt-2 line-clamp-2 text-[11.5px] leading-[1.4]", done ? "opacity-60" : "text-ink-3")}>{node.topics.join(" · ")}</p>
       ) : null}
-      {state === "available" && onBook ? (
+      {state === "available" && onBook && interviewBlocked ? <InterviewAccessNote className="mt-3" /> : null}
+      {state === "available" && onBook && !interviewBlocked ? (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onBook(node.id); }}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card, PageHeader, StatusDot, type DotState } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import { formatDate, formatRelativeTime } from "@/lib/utils/format";
@@ -149,6 +150,7 @@ function Details({ session }: { session: InterviewSession }) {
 /** Session detail: status, the next action, the interviewer's briefing, the booking's facts and the lifecycle so far. */
 export function SessionDetail({ sessionId }: { sessionId: string }) {
   const { data: session, isLoading, isError } = useSession(sessionId);
+  const { interviewBlocked } = useCurrentUser();
 
   if (isLoading) {
     return (
@@ -196,7 +198,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         description={statusLine(session)}
         actions={
           <>
-            {isFinished(session) ? (
+            {isFinished(session) && !interviewBlocked ? (
               <Button asChild variant="outline">
                 <Link href={session.loopId && !session.jobDescriptionId ? `${ROUTES.loops}/${session.loopId}` : bookingHref({ jd: session.jobDescriptionId ?? undefined, round: session.roundType })}>Practise again</Link>
               </Button>

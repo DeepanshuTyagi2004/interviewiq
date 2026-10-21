@@ -11,6 +11,11 @@ export type Role = components["schemas"]["Role"];
 /** GET /api/v1/users/me — generated from the contract (incl. onboardingComplete, emailVerified, hasPassword). */
 export type CurrentUser = components["schemas"]["CurrentUser"];
 
+/** Only candidates and admins may book, reschedule, retry prep or join interviews. */
+export function canInterviewRole(role: Role | undefined | null): boolean {
+  return role === "CANDIDATE" || role === "ADMIN";
+}
+
 /**
  * The authenticated user's profile incl. role. Fetched once authenticated (the
  * access token is set), cached for the session. Drives admin-only UI: the
@@ -28,6 +33,10 @@ export function useCurrentUser() {
   return {
     user: query.data ?? null,
     isAdmin: query.data?.role === "ADMIN",
+    // false while the user is still loading, so no action flashes on before we know
+    canInterview: canInterviewRole(query.data?.role),
+    // true only once the user has loaded and has no interview access: show the "ask an admin" note only then
+    interviewBlocked: query.data !== undefined && !canInterviewRole(query.data.role),
     // true only while actually fetching (disabled query reports not-loading in v5)
     isLoading: query.isLoading && isAuthenticated,
   };

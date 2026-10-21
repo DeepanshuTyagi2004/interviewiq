@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Count, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import { useMySessions, type InterviewSession } from "@/features/interview";
@@ -22,10 +24,12 @@ import { RoomLink } from "@/features/interview-live/RoomLink";
 
 /** The one action a row offers, keyed on status: join, rejoin, retry prep, or open the debrief. */
 function RowAction({ session }: { session: InterviewSession }) {
+  const { interviewBlocked } = useCurrentUser();
   const base = `${ROUTES.interviews}/${session.id}`;
 
   switch (session.status) {
     case "PREP_READY":
+      if (interviewBlocked) return <InterviewAccessNote className="relative z-10" />;
       return session.liveAvailable ? (
         <Button asChild size="sm" className="relative z-10">
           <RoomLink href={`${base}/live`}>Join</RoomLink>
@@ -36,6 +40,7 @@ function RowAction({ session }: { session: InterviewSession }) {
         </Button>
       );
     case "LIVE_IN_PROGRESS":
+      if (interviewBlocked) return <InterviewAccessNote className="relative z-10" />;
       return (
         <Button asChild size="sm" className="relative z-10">
           <RoomLink href={`${base}/live`}>Rejoin</RoomLink>

@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { padCount } from "@/components/hud";
 import { Chip } from "@/components/ds";
@@ -30,6 +34,7 @@ export interface RoundCardProps {
  * state: gating isn't built.
  */
 export function RoundCard({ round, index, jdId, number, practiceTemplate = false }: RoundCardProps) {
+  const { canInterview, interviewBlocked } = useCurrentUser();
   const info = round.kind === "info";
   const n = number ?? roundNumber(round, index);
   const title = roundTitle(round, index);
@@ -103,7 +108,9 @@ export function RoundCard({ round, index, jdId, number, practiceTemplate = false
 
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:col-start-3 sm:flex-col sm:items-end sm:justify-center">
         {note ? <span className="text-[12.5px] text-ink-3">{note}</span> : null}
-        {info ? null : (
+        {info ? null : interviewBlocked ? (
+          <InterviewAccessNote />
+        ) : !canInterview ? null : (
           <Button asChild variant="secondary" size="sm">
             <Link href={bookHref(jdId, round.type)} aria-label={`${cta}: ${title}`}>
               {cta}

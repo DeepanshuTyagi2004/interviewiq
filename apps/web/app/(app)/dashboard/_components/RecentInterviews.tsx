@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +11,7 @@ import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { dayMonth, outcomeChip, scoreText } from "./sessions";
 
@@ -23,6 +27,7 @@ export interface RecentInterviewsProps {
 
 /** Finished rounds with their score and outcome; each row links to its report. */
 export function RecentInterviews({ sessions, isLoading, isError, now = new Date(), className }: RecentInterviewsProps) {
+  const { interviewBlocked } = useCurrentUser();
   return (
     <section aria-label="Recent results" className={className}>
       <SectionHeader
@@ -52,9 +57,13 @@ export function RecentInterviews({ sessions, isLoading, isError, now = new Date(
             title="No results yet"
             hint="Every round you finish shows up here with its score and debrief."
           >
-            <Button asChild variant="secondary">
-              <Link href={ROUTES.interviews}>Schedule a round</Link>
-            </Button>
+            {interviewBlocked ? (
+              <InterviewAccessNote />
+            ) : (
+              <Button asChild variant="secondary">
+                <Link href={ROUTES.interviews}>Schedule a round</Link>
+              </Button>
+            )}
           </EmptyState>
         </div>
       ) : (

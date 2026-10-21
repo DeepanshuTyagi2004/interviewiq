@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
@@ -15,11 +17,13 @@ import { RoomLink } from "@/features/interview-live/RoomLink";
  * can't be joined until the live interviewer is available (`liveAvailable`), so the button is off.
  */
 export function SessionAction({ session, className }: { session: InterviewSession; className?: string }) {
+  const { interviewBlocked } = useCurrentUser();
   const base = `${ROUTES.interviews}/${session.id}`;
   const cls = cn(className);
 
   switch (session.status) {
     case "PREP_READY":
+      if (interviewBlocked) return <InterviewAccessNote />;
       if (!session.liveAvailable) {
         return (
           <Button className={cls} disabled title="Live sessions open soon">
@@ -30,6 +34,7 @@ export function SessionAction({ session, className }: { session: InterviewSessio
       }
     // falls through
     case "LIVE_IN_PROGRESS":
+      if (interviewBlocked) return <InterviewAccessNote />;
       return (
         <Button asChild className={cls}>
           <RoomLink href={`${base}/live`}>

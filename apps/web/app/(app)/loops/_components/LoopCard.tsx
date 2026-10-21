@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, Orb, SegmentBar } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { roundTypeLabel, useSetLoopStatus, type Loop } from "@/features/loops";
 import { KindPill, LoopStatusPill, loopHref } from "./loopUi";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { levelLabel } from "@/lib/constants/engineering-levels";
 
 export function loopNextRounds(loop: Loop) {
@@ -19,6 +21,7 @@ export function loopNextRounds(loop: Loop) {
 /** One loop as a wide row: role, how far along it is, what unlocks next, and quick actions. */
 export function LoopCard({ loop, onBook }: { loop: Loop; onBook?: (loop: Loop, nodeId: string) => void }) {
   const setStatus = useSetLoopStatus();
+  const { canInterview, interviewBlocked } = useCurrentUser();
   const [abandoning, setAbandoning] = useState(false);
   const { total, completed } = loop.progress;
   const next = loop.status === "active" ? loopNextRounds(loop) : [];
@@ -67,14 +70,15 @@ export function LoopCard({ loop, onBook }: { loop: Loop; onBook?: (loop: Loop, n
         </div>
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          {next.map((n) =>
+          {next.length > 0 && interviewBlocked ? <InterviewAccessNote /> : null}
+          {canInterview ? next.map((n) =>
             n.kind === "round" ? (
               <Button key={n.id} size="sm" className="max-w-[calc(100%-44px)]" title={`Book ${n.name}`} onClick={() => onBook?.(loop, n.id)} disabled={!onBook}>
                 <span className="truncate">Book {n.name}</span>
                 {roundTypeLabel(n.type).toLowerCase() !== n.name.toLowerCase() ? <span className="hidden flex-none text-[12px] opacity-70 xl:inline">{roundTypeLabel(n.type)}</span> : null}
               </Button>
             ) : null,
-          )}
+          ) : null}
           {next.length === 0 ? <Button asChild variant="outline" size="sm"><Link href={loopHref(loop.id)}>Open track</Link></Button> : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

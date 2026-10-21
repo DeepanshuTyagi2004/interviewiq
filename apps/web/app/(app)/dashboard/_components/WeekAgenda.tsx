@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, EmptyState, SectionHeader, StatusDot } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { levelLabel } from "@/lib/constants/engineering-levels";
@@ -6,6 +9,7 @@ import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
 import { statusDotState } from "@/app/(app)/interviews/_components/StatusPill";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { sessionPill, weekSessions } from "./sessions";
 
@@ -33,6 +37,7 @@ export function WeekAgenda({
   now?: Date;
   className?: string;
 }) {
+  const { interviewBlocked } = useCurrentUser();
   const week = weekSessions(sessions, now);
   const shown = week.slice(0, MAX_ROWS);
   return (
@@ -45,9 +50,13 @@ export function WeekAgenda({
             title="Nothing this week"
             hint="Rounds you book for the next seven days show up here."
           >
-            <Button asChild variant="secondary">
-              <Link href={ROUTES.interviews}>Book a round</Link>
-            </Button>
+            {interviewBlocked ? (
+              <InterviewAccessNote />
+            ) : (
+              <Button asChild variant="secondary">
+                <Link href={ROUTES.interviews}>Book a round</Link>
+              </Button>
+            )}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col p-0">

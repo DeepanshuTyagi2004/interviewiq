@@ -1,7 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { InterviewSession } from "@/features/interview";
 import { UpNextCard } from "./UpNextCard";
+
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
 
 function session(partial: Partial<InterviewSession>): InterviewSession {
   return {

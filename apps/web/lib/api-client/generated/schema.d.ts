@@ -977,6 +977,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every user with their role. */
+        get: operations["listAdminUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set a user's role (USER, CANDIDATE or ADMIN). */
+        patch: operations["updateAdminUserRole"];
+        trace?: never;
+    };
     "/api/v1/admin/companies": {
         parameters: {
             query?: never;
@@ -2268,8 +2304,23 @@ export interface components {
              */
             password: string;
         };
-        /** @enum {string} */
-        Role: "USER" | "ADMIN";
+        /**
+         * @description USER cannot run interviews; CANDIDATE can; ADMIN can and manages users.
+         * @enum {string}
+         */
+        Role: "USER" | "CANDIDATE" | "ADMIN";
+        AdminUser: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            name: string;
+            role: components["schemas"]["Role"];
+            onboardingComplete: boolean;
+            emailVerified: boolean;
+            hasPassword: boolean;
+            hasGoogle: boolean;
+        };
         CurrentUser: {
             /** Format: uuid */
             id: string;
@@ -2609,7 +2660,7 @@ export interface components {
             focus?: {
                 title: string;
                 why: string;
-                /** @description The candidate's own words from this round, shown apart from the advice. */
+                /** @description The candidate's own words from this round */
                 exampleQuote?: string;
                 /** @description A coach's note on the quote. */
                 exampleNote?: string;
@@ -5500,6 +5551,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description `interview_access_required` — the account has the USER role and cannot run interviews. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getInterviewSession: {
@@ -5613,6 +5673,15 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /** @description `interview_access_required` — the account has the USER role and cannot run interviews. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             404: components["responses"]["NotFound"];
             /** @description `prep_not_failed`: the session is not in PREP_FAILED. */
             409: {
@@ -5679,6 +5748,15 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /** @description `interview_access_required` — the account has the USER role and cannot run interviews. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             404: components["responses"]["NotFound"];
             /** @description `live_unavailable` or `session_not_ready`. */
             409: {
@@ -5826,6 +5904,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            /** @description `interview_access_required` — the account has the USER role and cannot run interviews. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Slot taken or session can no longer be moved. */
@@ -6207,6 +6294,101 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listAdminUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Not an admin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updateAdminUserRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role: components["schemas"]["Role"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            /** @description `invalid_role` — role must be USER, CANDIDATE or ADMIN. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Not an admin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `user_not_found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description `last_admin` — the change would remove the last ADMIN. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
             };
         };
     };
@@ -6984,6 +7166,15 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /** @description `interview_access_required` — the account has the USER role and cannot run interviews. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };

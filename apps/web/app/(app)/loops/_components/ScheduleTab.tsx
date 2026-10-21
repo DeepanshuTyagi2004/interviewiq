@@ -11,6 +11,7 @@ import { StatusPill } from "@/app/(app)/interviews/_components/StatusPill";
 import { useMySessions, type InterviewSession } from "@/features/interview";
 import { companyLabel, formatSlot, partitionSessions, roundLabel } from "@/features/interview/presentation";
 import { useLoops } from "@/features/loops";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { RescheduleDialog, useCancelWithToast } from "@/features/loops/components/SlotDialog";
 import { ROUTES } from "@/lib/constants/shared";
 import { loopHref } from "./loopUi";
@@ -19,6 +20,7 @@ const MOVABLE = new Set(["SCHEDULED", "PREP_READY", "PREP_FAILED"]);
 
 function Row({ s, loopTitle, onMove }: { s: InterviewSession; loopTitle: string | null; onMove: (s: InterviewSession) => void }) {
   const { cancel, pending, confirmation } = useCancelWithToast();
+  const { canInterview } = useCurrentUser();
   const movable = MOVABLE.has(s.status);
   const round = roundLabel(s.roundType);
   const company = companyLabel(s);
@@ -51,7 +53,7 @@ function Row({ s, loopTitle, onMove }: { s: InterviewSession; loopTitle: string 
           {s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL" ? (
             <Button asChild size="sm" variant="outline"><Link href={`${ROUTES.interviews}/${s.id}/report`}>Debrief</Link></Button>
           ) : null}
-          {movable ? <Button size="sm" variant="ghost" onClick={() => onMove(s)}>Reschedule</Button> : null}
+          {movable && canInterview ? <Button size="sm" variant="ghost" onClick={() => onMove(s)}>Reschedule</Button> : null}
           {movable ? <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={pending} onClick={() => cancel(s.id)}>Cancel</Button> : null}
         </div>
       </TableCell>

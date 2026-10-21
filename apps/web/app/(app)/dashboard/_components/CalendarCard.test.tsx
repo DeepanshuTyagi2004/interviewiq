@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { InterviewSession } from "@/features/interview";
 import { CalendarCard } from "./CalendarCard";
+
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
 
 const NOW = new Date(2026, 9, 2, 18, 0);
 

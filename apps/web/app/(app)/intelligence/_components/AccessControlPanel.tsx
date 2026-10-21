@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { ApiFetchError } from "@/lib/api-client/errors";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonoPill } from "@/components/patterns";
 import { CardEmpty, ConsoleCard, HeaderCount } from "@/components/observability/ConsoleCard";
@@ -9,6 +9,9 @@ import { padCount } from "@/components/hud";
 import { HairlineHead, HairlineTable, Td, Th, Tr } from "@/components/observability/HairlineTable";
 import { useCurrentUser, type Role } from "@/lib/hooks/useCurrentUser";
 import { useUpdateUserRole, useUsers, type AdminUser } from "@/features/intelligence";
+
+const ROLES: Role[] = ["CANDIDATE", "USER", "ADMIN"];
+const ROLE_LABEL: Record<Role, string> = { CANDIDATE: "Candidate", USER: "User", ADMIN: "Admin" };
 
 export function AccessControlPanel() {
   const { data: users, isLoading, isError } = useUsers();
@@ -20,12 +23,13 @@ export function AccessControlPanel() {
       { id: target.id, role },
       {
         onSuccess: () =>
-          toast.success(
-            role === "ADMIN"
-              ? `${target.name || target.email} is now an admin.`
-              : `${target.name || target.email} is now a regular user.`,
+          toast.success(`${target.name || target.email} is now ${/^[aeiou]/i.test(ROLE_LABEL[role]) ? "an" : "a"} ${ROLE_LABEL[role].toLowerCase()}.`),
+        onError: (err) =>
+          toast.error(
+            err instanceof ApiFetchError && err.code === "last_admin"
+              ? "Cannot remove the last admin"
+              : "Could not update the role.",
           ),
-        onError: () => toast.error("Could not update the role."),
       },
     );
   }
@@ -69,7 +73,6 @@ export function AccessControlPanel() {
           <tbody>
             {users.map((u) => {
               const isSelf = me?.id === u.id;
-              const target: Role = u.role === "ADMIN" ? "USER" : "ADMIN";
               const pending = updateRole.isPending && updateRole.variables?.id === u.id;
               return (
                 <Tr key={u.id}>
@@ -82,15 +85,20 @@ export function AccessControlPanel() {
                     <MonoPill tone={u.role === "ADMIN" ? "ink" : "soft"}>{u.role}</MonoPill>
                   </Td>
                   <Td className="text-right">
-                    <Button
-                      size="sm"
-                      variant={u.role === "ADMIN" ? "outline" : "strong"}
+                    <select
+                      aria-label={`Role for ${u.name || u.email}`}
+                      value={u.role}
                       disabled={pending || isSelf}
-                      onClick={() => changeRole(u, target)}
+                      onChange={(e) => changeRole(u, e.target.value as Role)}
                       title={isSelf ? "You can't change your own role" : undefined}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
                     >
-                      {u.role === "ADMIN" ? "Demote to user" : "Promote to admin"}
-                    </Button>
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABEL[r]}
+                        </option>
+                      ))}
+                    </select>
                   </Td>
                 </Tr>
               );

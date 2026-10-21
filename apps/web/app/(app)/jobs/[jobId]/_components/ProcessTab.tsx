@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { Card, EmptyState } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import type { JdDetail } from "@/features/jobs";
@@ -9,6 +13,7 @@ import { bookHref, isAdminVerifiedProcess } from "./rounds";
 
 /** The suggested process as a timeline of round cards, or an honest empty state when there's no brief yet. */
 export function ProcessTab({ jd }: { jd: JdDetail }) {
+  const { canInterview, interviewBlocked } = useCurrentUser();
   const rounds = jd.interviewProcess?.rounds ?? [];
   const confidence = confidenceWord(jd.dataConfidence ?? jd.interviewProcess?.data_confidence);
   const verified = isAdminVerifiedProcess(jd.interviewProcess);
@@ -20,9 +25,13 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
           title="No interview data yet"
           hint="This role's interview process hasn't been researched yet, or there wasn't enough shared data to build one. You can still book a practice round for it."
         >
-          <Button asChild size="sm">
-            <Link href={bookHref(jd.id, null)}>Book a round</Link>
-          </Button>
+          {canInterview ? (
+            <Button asChild size="sm">
+              <Link href={bookHref(jd.id, null)}>Book a round</Link>
+            </Button>
+          ) : interviewBlocked ? (
+            <InterviewAccessNote />
+          ) : null}
         </EmptyState>
       </Card>
     );

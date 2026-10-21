@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { PageHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/shared";
@@ -28,10 +29,12 @@ export interface GreetingProps {
   /** What the primary action does there. */
   roomLabel?: string;
   now?: Date;
+  /** The account has no interview access: show a note instead of the book/join action. */
+  actionBlocked?: boolean;
 }
 
 /** Date eyebrow, time-of-day greeting and the two header actions. */
-export function Greeting({ name, roomHref, roomLabel = "Schedule a round", now = new Date() }: GreetingProps) {
+export function Greeting({ name, roomHref, roomLabel = "Schedule a round", now = new Date(), actionBlocked = false }: GreetingProps) {
   const firstName = name?.trim().split(/\s+/)[0];
   const hello = partOfDay(now.getHours());
 
@@ -44,12 +47,16 @@ export function Greeting({ name, roomHref, roomLabel = "Schedule a round", now =
           <Button asChild variant="secondary">
             <Link href={ROUTES.jobs}>Explore companies</Link>
           </Button>
-          <Button asChild>
-            <RoomLink href={roomHref}>
-              <Plus aria-hidden />
-              {roomLabel}
-            </RoomLink>
-          </Button>
+          {actionBlocked ? (
+            <InterviewAccessNote />
+          ) : (
+            <Button asChild>
+              <RoomLink href={roomHref}>
+                <Plus aria-hidden />
+                {roomLabel}
+              </RoomLink>
+            </Button>
+          )}
         </>
       }
     />

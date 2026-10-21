@@ -6,6 +6,9 @@ import type { components } from "@/lib/api-client/generated/schema";
 import { PublishedDetails, publishedRange } from "./PublishedDetails";
 import { Roadmap } from "./Roadmap";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 // These tests exercise published facts and round cards; track actions have their own query lifecycle.
 vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
 vi.mock("./RoleActions", () => ({ RoleActions: () => null }));

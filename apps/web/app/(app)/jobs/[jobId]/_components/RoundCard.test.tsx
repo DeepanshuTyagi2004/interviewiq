@@ -5,6 +5,9 @@ import { ProcessTab } from "./ProcessTab";
 import { RoundCard } from "./RoundCard";
 import { ReadinessMeter, roadmapMeta } from "./RoadmapHeader";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
 vi.mock("./RoleActions", () => ({ RoleActions: () => null }));
 

@@ -1,5 +1,4 @@
 import type { components } from "@/lib/api-client/generated/schema";
-import type { Role } from "@/lib/hooks/useCurrentUser";
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 
@@ -160,12 +159,8 @@ export type TriggerResponse = {
   already_running: boolean;
 };
 
-export type AdminUser = {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-};
+/** From the contract (GET /admin/users); re-exported here so existing imports keep working. */
+export type AdminUser = components["schemas"]["AdminUser"];
 
 /** Summary row for a persisted brief (from GET /intelligence/briefs). */
 export type BriefSummary = {

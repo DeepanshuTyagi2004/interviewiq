@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
@@ -6,6 +9,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
 import { isJoinable, roundLength } from "@/features/interview/presentation";
 import { levelLabel } from "@/lib/constants/engineering-levels";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import { RoomLink } from "@/features/interview-live/RoomLink";
 import { formatSlot, sessionHref, whenLabel } from "./sessions";
@@ -41,6 +45,7 @@ export function UpNextCard({
   className?: string;
   now?: Date;
 }) {
+  const { canInterview, interviewBlocked } = useCurrentUser();
   if (!session) {
     return (
       <div className={cn("flex flex-col", className)}>
@@ -50,9 +55,13 @@ export function UpNextCard({
             title="No round booked yet"
             hint="Pick a company and role to see its real interview process, then book round one."
           >
-            <Button asChild>
-              <Link href={ROUTES.interviews}>Schedule a round</Link>
-            </Button>
+            {interviewBlocked ? (
+              <InterviewAccessNote />
+            ) : (
+              <Button asChild>
+                <Link href={ROUTES.interviews}>Schedule a round</Link>
+              </Button>
+            )}
           </EmptyState>
         </Card>
       </div>
@@ -101,7 +110,14 @@ export function UpNextCard({
             </small>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
-            {joinable ? (
+            {joinable && interviewBlocked ? (
+              <>
+                <Button asChild variant="outline">
+                  <Link href={briefing}>Open briefing</Link>
+                </Button>
+                <InterviewAccessNote />
+              </>
+            ) : joinable ? (
               <>
                 <Button asChild variant="outline">
                   <Link href={briefing}>Open briefing</Link>
@@ -112,7 +128,7 @@ export function UpNextCard({
               </>
             ) : (
               <>
-                {reschedule ? (
+                {reschedule && canInterview ? (
                   <Button asChild variant="outline">
                     <Link href={reschedule}>Reschedule</Link>
                   </Button>

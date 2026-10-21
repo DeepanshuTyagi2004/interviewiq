@@ -16,6 +16,7 @@ import { formatSlot } from "@/features/interview/presentation";
 import { readinessLine, useLoop, useSetLoopStatus } from "@/features/loops";
 import { scoreChipText } from "@/features/report/presentation";
 import { FlowCanvas } from "@/features/loops/components/FlowCanvas";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { BookRoundDialog, RescheduleDialog, useCancelWithToast } from "@/features/loops/components/SlotDialog";
 import { ApiFetchError } from "@/lib/api-client/errors";
 import { ROUTES } from "@/lib/constants/shared";
@@ -29,6 +30,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
   const loop = useLoop(loopId);
   useBreadcrumbNames({ track: loop.data?.jd ? `${loop.data.jd.companyName} · ${loop.data.jd.title}` : loop.data?.name });
   const mySessions = useMySessions();
+  const { canInterview, interviewBlocked } = useCurrentUser();
   const setStatus = useSetLoopStatus();
   const { cancel, pending: cancelling, confirmation: cancelConfirmation } = useCancelWithToast();
   const [booking, setBooking] = useState<string | null>(null);
@@ -106,6 +108,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
           nodeStates={l.nodeStates}
           nodeResults={l.nodeResults}
           onBookNode={l.status === "active" ? setBooking : undefined}
+          bookBlocked={interviewBlocked}
         />
         <p className="m-0 mt-3 text-[12.5px] leading-[1.5] text-ink-3">
           A round unlocks once every round leading into it is completed.{" "}
@@ -146,7 +149,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
                       <div className="flex flex-wrap items-center justify-end gap-1.5">
                         {s.status === "PREP_READY" || s.status === "LIVE_IN_PROGRESS" ? <Button asChild size="sm"><Link href={`${ROUTES.interviews}/${s.id}`}>{s.status === "PREP_READY" ? "Join" : "Rejoin"}</Link></Button> : null}
                         {s.status === "COMPLETED" || s.status === "ABORTED_TECHNICAL" ? <Button asChild size="sm" variant="outline"><Link href={`${ROUTES.interviews}/${s.id}/report`}>Debrief</Link></Button> : null}
-                        {MOVABLE.has(s.status) && byId.has(s.id) ? <Button size="sm" variant="ghost" onClick={() => setMoving(s.id)}>Reschedule</Button> : null}
+                        {canInterview && MOVABLE.has(s.status) && byId.has(s.id) ? <Button size="sm" variant="ghost" onClick={() => setMoving(s.id)}>Reschedule</Button> : null}
                         {MOVABLE.has(s.status) ? <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={cancelling} onClick={() => cancel(s.id)}>Cancel</Button> : null}
                       </div>
                     </TableCell>

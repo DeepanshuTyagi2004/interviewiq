@@ -66,6 +66,8 @@ export interface FlowCanvasProps {
   onSelect?: (id: string | null) => void;
   onGraphChange?: (graph: ProcessGraph) => void;
   onBookNode?: (nodeId: string) => void;
+  /** True when the viewer cannot take interviews; round nodes then show an access note instead of Book. */
+  bookBlocked?: boolean;
   /** Called with a palette payload and the flow position it was dropped at (edit mode). */
   onDropPreset?: (payload: string, position: { x: number; y: number }) => void;
   /** Edit mode only: pixels of the canvas covered by floating panels, so the fit keeps nodes clear of them. */
@@ -73,7 +75,7 @@ export interface FlowCanvasProps {
   className?: string;
 }
 
-function Inner({ graph, mode, nodeStates, nodeResults, selectedId, onSelect, onGraphChange, onBookNode, onDropPreset, insets, className }: FlowCanvasProps) {
+function Inner({ graph, mode, nodeStates, nodeResults, selectedId, onSelect, onGraphChange, onBookNode, bookBlocked, onDropPreset, insets, className }: FlowCanvasProps) {
   const editable = mode === "edit";
   // Read-only canvases fit tightly and never shrink below a legible zoom (wider graphs pan instead);
   // the editor keeps its roomier fit.
@@ -157,14 +159,14 @@ function Inner({ graph, mode, nodeStates, nodeResults, selectedId, onSelect, onG
           ? ({
               id: n.id, type: "round", position: n.position, selected: selectedId === n.id,
               deletable: editable, draggable: editable, connectable: editable,
-              data: { node: n, index: roundIndex.get(n.id) ?? 0, state: nodeStates?.[n.id], result: nodeResults?.[n.id], editable, onBook: onBookNode },
+              data: { node: n, index: roundIndex.get(n.id) ?? 0, state: nodeStates?.[n.id], result: nodeResults?.[n.id], editable, onBook: onBookNode, bookBlocked },
             } satisfies RoundFlowNode)
           : ({
               id: n.id, type: "info", position: n.position, selected: selectedId === n.id,
               deletable: editable, draggable: editable, connectable: false, data: { node: n },
             } satisfies InfoFlowNodeT),
       ),
-    [graph.nodes, roundIndex, nodeStates, nodeResults, selectedId, editable, onBookNode],
+    [graph.nodes, roundIndex, nodeStates, nodeResults, selectedId, editable, onBookNode, bookBlocked],
   );
 
   // Domain graphs deliberately omit React Flow's measured/dragging/selection

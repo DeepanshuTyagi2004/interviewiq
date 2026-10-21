@@ -48,6 +48,9 @@ vi.mock("sonner", () => ({
 
 import { BookingForm } from "./BookingForm";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 describe("BookingForm", () => {
   beforeEach(() => {
     mutateMock.mockClear();

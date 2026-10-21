@@ -5,6 +5,9 @@ import { newRoundNode } from "../graph";
 import type { Loop } from "../types";
 import { BookRoundDialog } from "./SlotDialog";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 const mocks = vi.hoisted(() => ({ book: vi.fn() }));
 vi.mock("@/features/interview", () => ({ useCreateSession: () => ({ mutate: mocks.book }), useMySessions: () => ({ data: { sessions: [] } }) }));
 vi.mock("./SlotPicker", () => ({ SlotPicker: () => null }));

@@ -12,6 +12,9 @@ vi.mock("@/features/interview", () => ({
 
 import { SessionsList } from "./SessionsList";
 
+// The viewer may book and join in these tests.
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ canInterview: true, interviewBlocked: false }) }));
+
 describe("SessionsList", () => {
   const baseSession: InterviewSession = {
     id: "session-1",

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, SectionHeader, StatusDot } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 import type { InterviewSession } from "@/features/interview";
 import { isJoinable } from "@/features/interview/presentation";
@@ -69,6 +71,7 @@ export interface CalendarCardProps {
  * between months.
  */
 export function CalendarCard({ sessions, now = new Date(), className }: CalendarCardProps) {
+  const { canInterview, interviewBlocked } = useCurrentUser();
   const today = dayKey(now);
   const [view, setView] = useState(() => startOfMonth(now));
   const [selected, setSelected] = useState(() => now);
@@ -249,11 +252,15 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
               </ul>
             )}
           </div>
-          <Button asChild size="sm" variant={joinable ? "default" : "outline"}>
-            <RoomLink href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
-              {joinable ? "Enter room" : "Book a round"}
-            </RoomLink>
-          </Button>
+          {canInterview ? (
+            <Button asChild size="sm" variant={joinable ? "default" : "outline"}>
+              <RoomLink href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
+                {joinable ? "Enter room" : "Book a round"}
+              </RoomLink>
+            </Button>
+          ) : interviewBlocked ? (
+            <InterviewAccessNote />
+          ) : null}
         </div>
       </Card>
     </div>
