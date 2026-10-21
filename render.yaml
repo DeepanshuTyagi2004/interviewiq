@@ -1,0 +1,105 @@
+# Render Blueprint — dev environment (free plan). Web is on Vercel; databases are Supabase + Atlas.
+# Dashboard → New → Blueprint → pick this repo. Every `sync: false` value is asked for once, then lives in Render.
+# Free web services sleep after ~15 min idle (first request ~30-60 s), so in-process schedulers pause while asleep.
+services:
+  - type: web
+    name: interviewiq-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/main/healthcheck
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: LOG_LEVEL
+        value: info
+      - key: DATABASE_URL # Supabase session pooler string
+        sync: false
+      - key: DATABASE_SSL
+        value: auto
+      - key: DATABASE_MIGRATE_ON_START
+        value: "true"
+      - key: MONGODB_URI # Atlas dev cluster
+        sync: false
+      - key: MONGODB_DATABASE
+        value: interviewiq_dev
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: API_PUBLIC_URL # the public URL users' browsers reach the API at (the web URL once Vercel proxies /api)
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_CONNECTIONS_REDIRECT
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: lax
+      - key: ADMIN_EMAILS
+        value: tyagideepanshu.400@gmail.com
+      - key: GITHUB_OAUTH_CLIENT_ID
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_TOKEN_KEY
+        sync: false
+      - key: AI_SERVICE_BASE_URL # https://interviewiq-ai-service.onrender.com
+        sync: false
+      - key: INTERNAL_API_KEY # same value in the ai-service
+        sync: false
+      # Live rounds need the voice worker running somewhere always-on (not on Render free).
+      # Entering a live round needs this switch on AND a CANDIDATE or ADMIN role.
+      - key: LIVE_INTERVIEWER_AVAILABLE
+        value: "true"
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: PROFILE_SCORING_SCHEDULER_ENABLED
+        value: "true"
+
+  - type: web
+    name: interviewiq-ai-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/ai-service/Dockerfile
+    dockerContext: ./apps/ai-service
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URL # Atlas dev cluster
+        sync: false
+      - key: MONGODB_DB
+        value: interviewiq_intelligence_dev
+      - key: INTERNAL_API_KEY # same value as the api
+        sync: false
+      - key: API_BASE_URL # https://interviewiq-api.onrender.com
+        sync: false
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: EXA_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL_NAME
+        value: gemma-3-27b-it
+      - key: LLM_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: ADDRESSED_CHECK
+        value: shadow
+      - key: LOG_LEVEL
+        value: INFO
