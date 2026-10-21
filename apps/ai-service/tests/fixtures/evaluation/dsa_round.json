@@ -1,0 +1,936 @@
+{
+ "blueprint": {
+  "blueprint_id": "bp1",
+  "session_id": "s1",
+  "candidate_id": "c1",
+  "version": 1,
+  "status": "current",
+  "input_hash": "h",
+  "run_id": "run1",
+  "created_at": "2026-10-08T00:00:00+00:00",
+  "round": {
+   "company": "salescode",
+   "type": "dsa",
+   "duration_mins": 60
+  },
+  "persona": {
+   "name": "Siddharth Menon",
+   "seniority": "Software Engineer",
+   "style": "warm, asks probing follow-ups",
+   "disposition": "Patient and curious; lets the candidate think.",
+   "opening": "Hi, I'm Siddharth. Thanks for joining.",
+   "closing": "Thanks for your time today. That's all from my side.",
+   "grounded_in": []
+  },
+  "arc": [
+   {
+    "phase": "greeting",
+    "timebox_mins": 1,
+    "scored": false,
+    "guidance": "Greet warmly."
+   },
+   {
+    "phase": "candidate_intro",
+    "timebox_mins": 2,
+    "scored": true,
+    "guidance": "Ask for a short intro."
+   },
+   {
+    "phase": "core",
+    "timebox_mins": 40,
+    "scored": true,
+    "guidance": ""
+   },
+   {
+    "phase": "candidate_questions",
+    "timebox_mins": 4,
+    "scored": true,
+    "guidance": "Invite their questions."
+   },
+   {
+    "phase": "wrap_up",
+    "timebox_mins": 1,
+    "scored": false,
+    "guidance": "Close warmly."
+   }
+  ],
+  "personalization": {
+   "rapport_hooks": [
+    {
+     "line": "I saw your split-bill app.",
+     "source": "projects"
+    }
+   ],
+   "resume_probes": [
+    {
+     "prompt": "Tell me about the split-bill app's settlement logic.",
+     "grounded_in": "projects",
+     "what_it_tests": "ownership"
+    }
+   ],
+   "level_expectations": "SDE-1: working code, complexity, a few edge cases.",
+   "round_questions": []
+  },
+  "slots": [
+   {
+    "slot_id": "core-1",
+    "kind": "core",
+    "order": 1,
+    "purpose": "",
+    "timebox_mins": 20,
+    "problem": {
+     "round_type": "dsa",
+     "slug": "slug-core-1",
+     "title": "Pair Sum",
+     "difficulty": "medium",
+     "content_hash": "h",
+     "content": {
+      "statement": "Given an array of integers nums and an integer target, solve pair sum.",
+      "examples": [
+       {
+        "args": {
+         "nums": [
+          2,
+          7,
+          11,
+          15
+         ],
+         "target": 9
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "2 + 7 = 9"
+       },
+       {
+        "args": {
+         "nums": [
+          3,
+          3
+         ],
+         "target": 6
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "3 + 3 = 6"
+       }
+      ],
+      "constraints": [
+       "2 <= len(nums) <= 10^4",
+       "exactly one answer"
+      ],
+      "input_format": "nums: list[int], target: int",
+      "output_format": "list[int] of two indices",
+      "patterns": [
+       "hash map"
+      ]
+     }
+    },
+    "answer_key": {
+     "key": {
+      "approaches": [
+       {
+        "name": "Brute force",
+        "idea": "check every pair",
+        "time_complexity": "O(n^2)",
+        "space_complexity": "O(1)"
+       },
+       {
+        "name": "One pass",
+        "idea": "remember each value's index",
+        "time_complexity": "O(n)",
+        "space_complexity": "O(n)"
+       }
+      ],
+      "complexity_target": "O(n) time",
+      "key_insights": [
+       "look up the complement",
+       "one pass is enough"
+      ],
+      "common_wrong_paths": [
+       {
+        "path": "sorting first",
+        "why_wrong": "loses the indices",
+        "nudge": "What happens to the indices?"
+       }
+      ],
+      "edge_cases": [
+       "duplicates",
+       "negative numbers"
+      ],
+      "reference_solution": {
+       "language": "python",
+       "entry_point": "pair_sum",
+       "code": "def pair_sum(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n"
+      }
+     }
+    },
+    "ask": {
+     "opening": "Let's work on a problem about pair sum.",
+     "clarifications": [
+      {
+       "question": "Can values repeat?",
+       "answer": "Yes."
+      }
+     ]
+    },
+    "hint_ladder": [
+     {
+      "step": 1,
+      "hint": "What do you need to remember as you scan?"
+     },
+     {
+      "step": 2,
+      "hint": "A lookup structure could help."
+     },
+     {
+      "step": 3,
+      "hint": "Store each value's index as you go."
+     }
+    ],
+    "branches": [
+     {
+      "condition": "stuck",
+      "action": "give_hint",
+      "say": "Let's take a step back.",
+      "notes": ""
+     },
+     {
+      "condition": "asks_for_answer",
+      "action": "decline_politely",
+      "say": "I'd rather see how you think it through.",
+      "notes": ""
+     }
+    ],
+    "probes": [
+     "Why that structure?"
+    ],
+    "follow_ups": [
+     "What if the array were sorted?"
+    ],
+    "expectations": {
+     "must_show": [
+      "an O(n) approach"
+     ],
+     "strong_signals": [],
+     "weak_signals": []
+    },
+    "evaluation_signals": [
+     {
+      "signal": "approach",
+      "observe": "moves from brute force to one pass"
+     }
+    ]
+   },
+   {
+    "slot_id": "core-2",
+    "kind": "core",
+    "order": 2,
+    "purpose": "",
+    "timebox_mins": 20,
+    "problem": {
+     "round_type": "dsa",
+     "slug": "slug-core-2",
+     "title": "Window Peak",
+     "difficulty": "medium",
+     "content_hash": "h",
+     "content": {
+      "statement": "Given an array of integers nums and an integer target, solve window peak.",
+      "examples": [
+       {
+        "args": {
+         "nums": [
+          2,
+          7,
+          11,
+          15
+         ],
+         "target": 9
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "2 + 7 = 9"
+       },
+       {
+        "args": {
+         "nums": [
+          3,
+          3
+         ],
+         "target": 6
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "3 + 3 = 6"
+       }
+      ],
+      "constraints": [
+       "2 <= len(nums) <= 10^4",
+       "exactly one answer"
+      ],
+      "input_format": "nums: list[int], target: int",
+      "output_format": "list[int] of two indices",
+      "patterns": [
+       "hash map"
+      ]
+     }
+    },
+    "answer_key": {
+     "key": {
+      "approaches": [
+       {
+        "name": "Brute force",
+        "idea": "check every pair",
+        "time_complexity": "O(n^2)",
+        "space_complexity": "O(1)"
+       },
+       {
+        "name": "One pass",
+        "idea": "remember each value's index",
+        "time_complexity": "O(n)",
+        "space_complexity": "O(n)"
+       }
+      ],
+      "complexity_target": "O(n) time",
+      "key_insights": [
+       "look up the complement",
+       "one pass is enough"
+      ],
+      "common_wrong_paths": [
+       {
+        "path": "sorting first",
+        "why_wrong": "loses the indices",
+        "nudge": "What happens to the indices?"
+       }
+      ],
+      "edge_cases": [
+       "duplicates",
+       "negative numbers"
+      ],
+      "reference_solution": {
+       "language": "python",
+       "entry_point": "pair_sum",
+       "code": "def pair_sum(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n"
+      }
+     }
+    },
+    "ask": {
+     "opening": "Let's work on a problem about window peak.",
+     "clarifications": [
+      {
+       "question": "Can values repeat?",
+       "answer": "Yes."
+      }
+     ]
+    },
+    "hint_ladder": [
+     {
+      "step": 1,
+      "hint": "What do you need to remember as you scan?"
+     },
+     {
+      "step": 2,
+      "hint": "A lookup structure could help."
+     },
+     {
+      "step": 3,
+      "hint": "Store each value's index as you go."
+     }
+    ],
+    "branches": [
+     {
+      "condition": "stuck",
+      "action": "give_hint",
+      "say": "Let's take a step back.",
+      "notes": ""
+     },
+     {
+      "condition": "asks_for_answer",
+      "action": "decline_politely",
+      "say": "I'd rather see how you think it through.",
+      "notes": ""
+     }
+    ],
+    "probes": [
+     "Why that structure?"
+    ],
+    "follow_ups": [
+     "What if the array were sorted?"
+    ],
+    "expectations": {
+     "must_show": [
+      "an O(n) approach"
+     ],
+     "strong_signals": [],
+     "weak_signals": []
+    },
+    "evaluation_signals": [
+     {
+      "signal": "approach",
+      "observe": "moves from brute force to one pass"
+     }
+    ],
+    "bonus": true
+   },
+   {
+    "slot_id": "reserve-alternate",
+    "kind": "reserve",
+    "order": 3,
+    "purpose": "",
+    "timebox_mins": 20,
+    "problem": {
+     "round_type": "dsa",
+     "slug": "slug-reserve-alternate",
+     "title": "Island Count",
+     "difficulty": "medium",
+     "content_hash": "h",
+     "content": {
+      "statement": "Given an array of integers nums and an integer target, solve island count.",
+      "examples": [
+       {
+        "args": {
+         "nums": [
+          2,
+          7,
+          11,
+          15
+         ],
+         "target": 9
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "2 + 7 = 9"
+       },
+       {
+        "args": {
+         "nums": [
+          3,
+          3
+         ],
+         "target": 6
+        },
+        "expected": [
+         0,
+         1
+        ],
+        "explanation": "3 + 3 = 6"
+       }
+      ],
+      "constraints": [
+       "2 <= len(nums) <= 10^4",
+       "exactly one answer"
+      ],
+      "input_format": "nums: list[int], target: int",
+      "output_format": "list[int] of two indices",
+      "patterns": [
+       "hash map"
+      ]
+     }
+    },
+    "answer_key": {
+     "key": {
+      "approaches": [
+       {
+        "name": "Brute force",
+        "idea": "check every pair",
+        "time_complexity": "O(n^2)",
+        "space_complexity": "O(1)"
+       },
+       {
+        "name": "One pass",
+        "idea": "remember each value's index",
+        "time_complexity": "O(n)",
+        "space_complexity": "O(n)"
+       }
+      ],
+      "complexity_target": "O(n) time",
+      "key_insights": [
+       "look up the complement",
+       "one pass is enough"
+      ],
+      "common_wrong_paths": [
+       {
+        "path": "sorting first",
+        "why_wrong": "loses the indices",
+        "nudge": "What happens to the indices?"
+       }
+      ],
+      "edge_cases": [
+       "duplicates",
+       "negative numbers"
+      ],
+      "reference_solution": {
+       "language": "python",
+       "entry_point": "pair_sum",
+       "code": "def pair_sum(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n"
+      }
+     }
+    },
+    "ask": {
+     "opening": "Let's work on a problem about island count.",
+     "clarifications": [
+      {
+       "question": "Can values repeat?",
+       "answer": "Yes."
+      }
+     ]
+    },
+    "hint_ladder": [
+     {
+      "step": 1,
+      "hint": "What do you need to remember as you scan?"
+     },
+     {
+      "step": 2,
+      "hint": "A lookup structure could help."
+     },
+     {
+      "step": 3,
+      "hint": "Store each value's index as you go."
+     }
+    ],
+    "branches": [
+     {
+      "condition": "stuck",
+      "action": "give_hint",
+      "say": "Let's take a step back.",
+      "notes": ""
+     },
+     {
+      "condition": "asks_for_answer",
+      "action": "decline_politely",
+      "say": "I'd rather see how you think it through.",
+      "notes": ""
+     }
+    ],
+    "probes": [
+     "Why that structure?"
+    ],
+    "follow_ups": [
+     "What if the array were sorted?"
+    ],
+    "expectations": {
+     "must_show": [
+      "an O(n) approach"
+     ],
+     "strong_signals": [],
+     "weak_signals": []
+    },
+    "evaluation_signals": [
+     {
+      "signal": "approach",
+      "observe": "moves from brute force to one pass"
+     }
+    ]
+   }
+  ],
+  "policies": {
+   "version": "pol1",
+   "requests": [
+    {
+     "kind": "extend_time",
+     "decision": "partial",
+     "how": "Allow a minute or two."
+    },
+    {
+     "kind": "ask_solution",
+     "decision": "decline",
+     "how": "Decline kindly; offer a hint."
+    }
+   ],
+   "off_topic": "Steer back.",
+   "time_management": "Watch the timebox.",
+   "integrity": "Ask them to explain.",
+   "fallback": "Act as a fair interviewer."
+  },
+  "evaluation": {
+   "global_signals": [
+    {
+     "signal": "communication",
+     "observe": "thinks aloud"
+    }
+   ]
+  },
+  "briefing": {
+   "interviewer_name": "Siddharth Menon",
+   "interviewer_style": "warm",
+   "format": "coding",
+   "duration_mins": 60
+  },
+  "provenance": {}
+ },
+ "run": {
+  "session_id": "s1",
+  "candidate_id": "c1",
+  "checkpoint": {
+   "items": [
+    {
+     "item_id": "greeting",
+     "kind": "phase",
+     "phase": "greeting",
+     "max_seconds": 60,
+     "slot_id": null,
+     "status": "done",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": null,
+     "hint_step": 0,
+     "filler": null,
+     "turns": 0,
+     "must": false,
+     "bonus": false,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "",
+     "code_language": "",
+     "board_final": ""
+    },
+    {
+     "item_id": "candidate_intro",
+     "kind": "phase",
+     "phase": "candidate_intro",
+     "max_seconds": 120,
+     "slot_id": null,
+     "status": "done",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": null,
+     "hint_step": 0,
+     "filler": null,
+     "turns": 0,
+     "must": true,
+     "bonus": false,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "",
+     "code_language": "",
+     "board_final": ""
+    },
+    {
+     "item_id": "core-1",
+     "kind": "slot",
+     "phase": "core",
+     "max_seconds": 1200,
+     "slot_id": "core-1",
+     "status": "done",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": "timebox",
+     "hint_step": 2,
+     "filler": null,
+     "turns": 3,
+     "must": true,
+     "bonus": false,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "def pair_sum(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n",
+     "code_language": "python",
+     "board_final": ""
+    },
+    {
+     "item_id": "core-2",
+     "kind": "slot",
+     "phase": "core",
+     "max_seconds": 1200,
+     "slot_id": "core-2",
+     "status": "skipped",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": "passed over",
+     "hint_step": 0,
+     "filler": null,
+     "turns": 0,
+     "must": true,
+     "bonus": true,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "",
+     "code_language": "",
+     "board_final": ""
+    },
+    {
+     "item_id": "candidate_questions",
+     "kind": "phase",
+     "phase": "candidate_questions",
+     "max_seconds": 240,
+     "slot_id": null,
+     "status": "done",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": null,
+     "hint_step": 0,
+     "filler": null,
+     "turns": 1,
+     "must": true,
+     "bonus": false,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "",
+     "code_language": "",
+     "board_final": ""
+    },
+    {
+     "item_id": "wrap_up",
+     "kind": "phase",
+     "phase": "wrap_up",
+     "max_seconds": 60,
+     "slot_id": null,
+     "status": "done",
+     "started_at": null,
+     "ended_at": null,
+     "ended_by": null,
+     "hint_step": 0,
+     "filler": null,
+     "turns": 0,
+     "must": true,
+     "bonus": false,
+     "origin": "plan",
+     "why": "",
+     "title": "",
+     "parent": null,
+     "style": "",
+     "coded": false,
+     "code_base": "",
+     "code_final": "",
+     "code_language": "",
+     "board_final": ""
+    }
+   ],
+   "proctor": [
+    {
+     "kind": "tab_hidden",
+     "weight": 1.0,
+     "at": 1700000100000,
+     "seen_at": 1.0
+    },
+    {
+     "kind": "window_blur",
+     "weight": 0.5,
+     "at": 1700000200000,
+     "seen_at": 2.0
+    },
+    {
+     "kind": "away_overstay",
+     "weight": 1.0,
+     "at": 1700000300000,
+     "seen_at": 3.0
+    }
+   ],
+   "conduct": [],
+   "pastes": [
+    {
+     "source": "external",
+     "chars": 120,
+     "lines": 6,
+     "at": 1700000250000,
+     "item_id": "core-1"
+    }
+   ],
+   "change_requests": {
+    "core-1": 1
+   },
+   "changes_round": 0,
+   "change_given": false,
+   "warnings_given": [
+    {
+     "kind": "mention_violation",
+     "about": "tab_hidden",
+     "turn": 4,
+     "at": 1.0
+    },
+    {
+     "kind": "conduct_warning",
+     "about": "conduct",
+     "turn": 6,
+     "at": 2.0
+    },
+    {
+     "kind": "final_warning",
+     "about": "conduct",
+     "turn": 8,
+     "at": 3.0
+    }
+   ],
+   "away": null,
+   "flow_log": [],
+   "ended": true,
+   "end_reason": "completed"
+  },
+  "end_reason": "completed"
+ },
+ "turns": [
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 1,
+   "speaker": "interviewer",
+   "text": "Hi, I am Siddharth. Thanks for joining today.",
+   "at": 1700000000.0,
+   "item_id": "greeting",
+   "orders": [
+    {
+     "kind": "open_item",
+     "text": "SECRET ORDER"
+    }
+   ],
+   "tool_calls": [
+    {
+     "name": "next_item"
+    }
+   ]
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 2,
+   "speaker": "candidate",
+   "text": "Hi, thanks for having me.",
+   "at": 1700000008.0,
+   "item_id": "greeting"
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 3,
+   "speaker": "interviewer",
+   "text": "Let's work on a problem. Given an array and a target, find two indices that sum to it.",
+   "at": 1700000020.0,
+   "item_id": "core-1",
+   "blocked": []
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 4,
+   "speaker": "candidate",
+   "text": "Um, so I think, um, we can just check every pair, like, brute force, um.",
+   "at": 1700000040.0,
+   "item_id": "core-1"
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 5,
+   "speaker": "interviewer",
+   "text": "That works. Can you do better? Drop me a hint if you want. Honestly you are doing great.",
+   "at": 1700000050.0,
+   "item_id": "core-1",
+   "blocked": [
+    {
+     "rule": "no_verdict",
+     "sentence": "Honestly you are doing great."
+    }
+   ],
+   "endpointing_ms": 900
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 6,
+   "speaker": "interviewer",
+   "text": "What do you need to remember as you scan?",
+   "at": 1700000060.0,
+   "item_id": "core-1",
+   "spoken": false
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 7,
+   "speaker": "candidate",
+   "text": "I could store each value in a hash map and look up the complement as I scan.",
+   "at": 1700000090.0,
+   "item_id": "core-1"
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 8,
+   "speaker": "interviewer",
+   "text": "Great, that is the idea. Go ahead and write it down in the editor, then walk me through an example.",
+   "at": 1700000100.0,
+   "item_id": "core-1",
+   "interrupted": true,
+   "heard": "Great, that is the idea.",
+   "cut_off": true
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 9,
+   "speaker": "candidate",
+   "text": "Sure.",
+   "at": 1700000104.0,
+   "item_id": "core-1"
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 10,
+   "speaker": "interviewer",
+   "text": "Thanks. Any questions for me?",
+   "at": 1700000300.0,
+   "item_id": "candidate_questions"
+  },
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "seq": 11,
+   "speaker": "candidate",
+   "text": "What does the team's onboarding look like for a new graduate here?",
+   "at": 1700000312.0,
+   "item_id": "candidate_questions"
+  }
+ ],
+ "evidence": [
+  {
+   "session_id": "s1",
+   "candidate_id": "c1",
+   "item_id": "core-1",
+   "signal": "approach",
+   "observations": [
+    {
+     "text": "went from brute force to a hash map after a hint",
+     "turn_ids": [
+      4,
+      7
+     ]
+    }
+   ]
+  }
+ ]
+}

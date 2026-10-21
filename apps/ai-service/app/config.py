@@ -199,13 +199,21 @@ class Settings(BaseSettings):
     key_review_gate_skip_below: float = Field(0.05, ge=0.0, le=0.5, alias="KEY_REVIEW_GATE_SKIP_BELOW")
     key_review_gate_audit_rate: float = Field(0.05, ge=0.0, le=1.0, alias="KEY_REVIEW_GATE_AUDIT_RATE")
     decision_gate_log_ttl_days: int = Field(60, ge=1, alias="DECISION_GATE_LOG_TTL_DAYS")
+    # Post-interview report grading (spec 2026-10-18): the graders and the synthesis go through the interviewer's OpenRouter client.
+    evaluation_model: str = Field("deepseek/deepseek-v4.1-flash-1017", alias="EVALUATION_MODEL")
+    evaluation_model_b: str | None = Field(None, alias="EVALUATION_MODEL_B")
+    evaluation_tiebreak_model: str | None = Field(None, alias="EVALUATION_TIEBREAK_MODEL")
+    evaluation_timeout_s: float = Field(90.0, alias="EVALUATION_TIMEOUT_S")
+    evaluation_max_parallel_runs: int = Field(2, alias="EVALUATION_MAX_PARALLEL_RUNS")
+    evaluation_run_timeout_seconds: float = Field(1200.0, alias="EVALUATION_RUN_TIMEOUT_SECONDS")
+    evaluation_run_retention_days: int = Field(30, alias="EVALUATION_RUN_RETENTION_DAYS")
     interviewer_agent_name: str = Field("interviewer", alias="INTERVIEWER_AGENT_NAME")
     # Comma-separated host:port or URLs; the worker stops itself when one stays unreachable ("" = never). Dev only: `pnpm dev` sets it.
     interviewer_stop_when_down: str = Field("", alias="INTERVIEWER_STOP_WHEN_DOWN")
-    interviewer_talker_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_TALKER_MODEL")
+    interviewer_talker_model: str = Field("deepseek/deepseek-v4.1-flash-1017", alias="INTERVIEWER_TALKER_MODEL")
     # "none" turns reasoning off on the speaking path; anything else is sent as OpenRouter's reasoning effort.
     interviewer_talker_reasoning: str = Field("none", alias="INTERVIEWER_TALKER_REASONING")
-    interviewer_director_model: str = Field("deepseek/deepseek-v4.1-flash", alias="INTERVIEWER_DIRECTOR_MODEL")
+    interviewer_director_model: str = Field("deepseek/deepseek-v4.1-flash-1017", alias="INTERVIEWER_DIRECTOR_MODEL")
     interviewer_director_reasoning: str = Field("medium", alias="INTERVIEWER_DIRECTOR_REASONING")
     # Sampling temperature (decided 2026-10-18): moderate for the speaking path so two interviewers do not say the same words, low for the director.
     interviewer_talker_temperature: float = Field(0.7, alias="INTERVIEWER_TALKER_TEMPERATURE", ge=0.0, le=2.0)
@@ -242,10 +250,18 @@ class Settings(BaseSettings):
     # A max_tokens=1 request sent when the interviewer joins and when the candidate enters the room, so the greeting does not pay
     # the cold first call (a round measured 4.4 s with no cached tokens).
     interviewer_warm_up: bool = Field(True, alias="INTERVIEWER_WARM_UP")
+    # Is the candidate talking to the interviewer? off = today's behaviour; shadow = classify and record only; on = act on it (decided 2026-10-19).
+    addressed_check: Literal["off", "shadow", "on"] = Field("shadow", alias="ADDRESSED_CHECK")
     interviewer_stt_keyterms: bool = Field(True, alias="INTERVIEWER_STT_KEYTERMS")      # nova-3 keyterm prompting from the resume, company and names
+    # Speech-to-text provider (decided 2026-10-18): "sarvam" (saaras:v3-realtime over the realtime WebSocket) or "deepgram" (nova-3). Sarvam's realtime
+    # model takes the keyterms as a plain-text `prompt` hint; its latency profile is fast, balanced or simulated; the silence that ends a turn on its
+    # server-side VAD is Sarvam's own default unless set (in ms, 0 or more). Deepgram stays available as the way back.
+    interviewer_stt_provider: str = Field("sarvam", alias="INTERVIEWER_STT_PROVIDER")
+    sarvam_stt_stream_type: str = Field("balanced", alias="SARVAM_STT_STREAM_TYPE")
+    sarvam_stt_min_silence_ms: int | None = Field(None, alias="SARVAM_STT_MIN_SILENCE_MS", ge=0)
     # Turn-taking (decided 2026-10-18). LiveKit's built-in turn detector (local model, no download) scores from the candidate's audio whether they
     # have finished. A turn it judges finished is committed after this many seconds of silence (it was a flat 1.0 s); one it judges unfinished
-    # waits the 6 s ceiling. Off = no detector and a flat 1.0 s wait. See the comment above TURN_HANDLING in app/interviewer/agent.py.
+    # waits the 3 s ceiling (`agent.ENDPOINTING_MAX_DELAY_S`). Off = no detector and a flat 1.0 s wait. See the comment above TURN_HANDLING in app/interviewer/agent.py.
     interviewer_turn_detector: bool = Field(True, alias="INTERVIEWER_TURN_DETECTOR")
     interviewer_endpointing_min_delay_seconds: float = Field(0.5, alias="INTERVIEWER_ENDPOINTING_MIN_DELAY_SECONDS", gt=0)
     # The detector's "this turn is unfinished" line: a score under it waits the long ceiling. The server's calibrated default

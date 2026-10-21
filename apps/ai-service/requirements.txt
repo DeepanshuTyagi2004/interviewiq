@@ -10,5 +10,5 @@ apscheduler>=3.10      # in-process scheduler (no separate worker for V1)
 pypdf>=4.0            # résumé PDF -> text extraction (onboarding parse)
 openai>=2.0                      # Live interviewer: OpenRouter (OpenAI-compatible) for the talker and director
 livekit-agents~=1.8.5            # Live interviewer worker (voice pipeline, built-in Silero VAD + turn detector)
-livekit-plugins-sarvam~=1.8.5    # Live interviewer: Sarvam Bulbul v4 Flash voice (Indian English)
-livekit-plugins-deepgram~=1.8.5  # Live interviewer: Deepgram speech-to-text and the Flux (Indian-English) voice; 1.8.5 is the first with Flux TTS
+livekit-plugins-sarvam~=1.8.5    # Live interviewer: Sarvam speech-to-text (saaras:v3-realtime) and Bulbul v4 Flash voice (Indian English)
+livekit-plugins-deepgram~=1.8.5  # Live interviewer: Deepgram speech-to-text (fallback provider) and the Flux (Indian-English) voice; 1.8.5 is the first with Flux TTS

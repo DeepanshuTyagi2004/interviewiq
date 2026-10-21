@@ -83,6 +83,10 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     from app.blueprint.store import ensure_blueprint_indexes
     await ensure_blueprint_indexes(db)
 
+    # Post-interview evaluations: runs and per-version round evaluations (app/evaluation).
+    from app.evaluation.store import ensure_evaluation_indexes
+    await ensure_evaluation_indexes(db)
+
     # Decision-gate log (app/gates): Jev verdicts next to the LLM's, TTL-pruned. Optional
     # infrastructure: an index problem here is logged and never blocks startup.
     try:

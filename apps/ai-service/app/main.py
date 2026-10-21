@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from app.api.admin import router as admin_router
 from app.api.routes import router
 from app.blueprint.api import admin_router as blueprint_admin_router, router as blueprint_router
+from app.evaluation.api import admin_router as evaluation_admin_router, router as evaluation_router
 from app.linkedin.api import router as linkedin_router
 from app.config import get_settings
 from app.db import mongo
@@ -67,6 +68,12 @@ async def lifespan(app: FastAPI):
             logger.warning("marked %d interrupted blueprint run(s) failed", interrupted)
     except Exception as exc:  # noqa: BLE001 — recovery is housekeeping; it must never block startup
         logger.warning("blueprint run recovery skipped: %s", exc)
+    from app.evaluation.store import recover_interrupted_runs as recover_evaluation_runs
+    try:
+        if (interrupted := await recover_evaluation_runs(settings.evaluation_run_retention_days, settings.evaluation_run_timeout_seconds)):
+            logger.warning("marked %d interrupted evaluation run(s) failed", interrupted)
+    except Exception as exc:  # noqa: BLE001 — recovery is housekeeping; it must never block startup
+        logger.warning("evaluation run recovery skipped: %s", exc)
     app.state.exa = build_exa_client(settings)
 
     research = None
@@ -105,3 +112,5 @@ app.include_router(admin_router)
 app.include_router(research_router)
 app.include_router(blueprint_router)
 app.include_router(blueprint_admin_router)
+app.include_router(evaluation_router)
+app.include_router(evaluation_admin_router)

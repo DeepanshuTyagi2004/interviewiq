@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 import app.api.routes as routes
 from app.blueprint import store
+from app.evaluation import store as evaluation_store
 from app.interviewer import store as live_store
 
 
@@ -24,10 +25,18 @@ def test_purge_route_deletes_blueprints_runs_and_live_interviews(monkeypatch):
 
     monkeypatch.setattr(store, "purge", _purge)
     monkeypatch.setattr(live_store, "purge", _purge_live)
+
+    async def _purge_evaluations(candidate_id, session_ids):
+        seen.update(evaluations=(candidate_id, session_ids))
+        return {"deleted_evaluations": 4, "deleted_evaluation_runs": 6}
+
+    monkeypatch.setattr(evaluation_store, "purge", _purge_evaluations)
     out = asyncio.run(routes.purge_user(routes.PurgeUserRequest(candidate_id="c1", session_ids=["s1", "s2"])))
     assert out == {"deleted_blueprints": 2, "deleted_runs": 3, "deleted_live_runs": 1, "deleted_live_turns": 40,
-                   "deleted_live_briefs": 12, "deleted_live_evidence": 5}
-    assert seen == {"candidate_id": "c1", "session_ids": ["s1", "s2"], "live": ("c1", ["s1", "s2"])}
+                   "deleted_live_briefs": 12, "deleted_live_evidence": 5, "deleted_evaluations": 4,
+                   "deleted_evaluation_runs": 6}
+    assert seen == {"candidate_id": "c1", "session_ids": ["s1", "s2"], "live": ("c1", ["s1", "s2"]),
+                    "evaluations": ("c1", ["s1", "s2"])}
 
 
 def test_purge_request_caps_ids_at_1000():
