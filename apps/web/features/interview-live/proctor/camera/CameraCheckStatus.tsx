@@ -36,7 +36,7 @@ export function CameraCheckStatus() {
   const showBar = s.phase === 'downloading' || s.phase === 'paused'
 
   return (
-    <div data-testid="camera-check-status" data-phase={s.phase} className="flex items-start gap-3 rounded-[14px] border border-line-2 px-4 py-3">
+    <div data-testid="camera-check-status" data-phase={s.phase} className="flex items-start gap-3 rounded-tile border border-line px-4 py-3">
       <span
         aria-hidden
         className={cn(

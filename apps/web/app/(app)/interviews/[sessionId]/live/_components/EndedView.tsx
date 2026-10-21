@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import { Orb } from '@/components/ds'
 import { Button } from '@/components/ui/button'
+import { BarsMascot } from '@/components/mascot/BarsMascot'
 import type { EndReason } from '@/features/interview-live/protocol/messages'
 import { useLiveSession } from '@/features/interview-live/session/useLiveSession'
 import { RoomCentered } from './RoomFrame'
@@ -12,7 +14,7 @@ const COPY: Record<EndReason, { title: string; body: (message: string | null) =>
   completed: {
     title: 'Interview complete',
     body: (m) => m ?? 'Thanks for taking the round.',
-    note: 'Your debrief will appear here once scoring is live.',
+    note: null,
     debrief: true,
   },
   ended_by_interviewer: {
@@ -42,9 +44,9 @@ export function EndedView({ sessionId, meta }: { sessionId: string; meta?: RoomM
   if (state === 'ending' || !ctx.endedReason) {
     return (
       <RoomCentered className="items-center text-center">
-        <div role="status" className="flex flex-col items-center gap-3">
-          <Loader2 aria-hidden data-motion className="h-6 w-6 animate-spin text-faint" />
-          <p className="m-0 text-[13.5px] text-muted-foreground">Ending the interview…</p>
+        <div role="status" className="flex flex-col items-center gap-4 py-6">
+          <Orb seed="ending" size={56} state="breathing" />
+          <p className="m-0 text-[13.5px] text-ink-2">Ending the interview…</p>
         </div>
       </RoomCentered>
     )
@@ -52,23 +54,28 @@ export function EndedView({ sessionId, meta }: { sessionId: string; meta?: RoomM
 
   const copy = COPY[ctx.endedReason]
   return (
-    <RoomCentered>
-      <div className="flex flex-col gap-2.5">
-        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-        <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">{copy.title}</h1>
-        <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">{copy.body(ctx.endedMessage)}</p>
-        {copy.note ? <p className="m-0 text-[14px] leading-[1.5] text-foreground">{copy.note}</p> : null}
+    <RoomCentered className="items-center text-center">
+      {/* The mascot bounces a little past its box, so nothing around it clips and it has room above and below. */}
+      <div className="flex justify-center px-6 pb-3 pt-4">
+        <BarsMascot mood="idle" size={104} />
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col items-center gap-2.5">
+        <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+        <h1 className="m-0 font-display text-[28px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[34px]">{copy.title}</h1>
+        <p className="m-0 max-w-[460px] text-[15px] leading-[1.5] text-ink-2">{copy.body(ctx.endedMessage)}</p>
+        {copy.note ? <p className="m-0 text-[14px] leading-[1.5] text-foreground">{copy.note}</p> : null}
+        {copy.debrief ? <p className="m-0 text-[14px] leading-[1.5] text-foreground">Your report is being prepared — usually a few minutes.</p> : null}
+      </div>
+      <div className="flex flex-wrap justify-center gap-2 pt-1">
         {copy.debrief ? (
-          <Button asChild className="h-11 px-5 text-[14px]">
+          <Button asChild className="h-11 px-6 text-[14px]">
             <Link href={`/interviews/${sessionId}/report`}>
               View debrief
               <ArrowRight aria-hidden />
             </Link>
           </Button>
         ) : null}
-        <Button asChild variant="strong" className="h-11 px-5 text-[14px]">
+        <Button asChild variant="outline" className="h-11 px-6 text-[14px]">
           <Link href="/interviews">Back to interviews</Link>
         </Button>
       </div>

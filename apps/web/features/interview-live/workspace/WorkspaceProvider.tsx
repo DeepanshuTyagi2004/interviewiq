@@ -67,6 +67,7 @@ interface WorkspaceCtx {
 const Ctx = createContext<WorkspaceCtx | null>(null)
 // Its own context, so a layout change doesn't re-render everything that only reads the workspace state.
 const RoomCtx = createContext<RoomView>(DEFAULT_ROOM_VIEW)
+const DirectOnlyCtx = createContext<boolean>(false)
 
 export function WorkspaceProvider({ session, children }: { session: LiveSession; children: React.ReactNode }) {
   const [panel, setPanel] = useState<PanelState>(EMPTY_PANEL)
@@ -83,6 +84,7 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
   const [expanded, setExpanded] = useState<Expanded>('none')
   const [panelFull, setPanelFull] = useState(false)
   const [room, setRoom] = useState<RoomView>(DEFAULT_ROOM_VIEW)
+  const [directOnly, setDirectOnly] = useState(false)
 
   const applyPanel = useCallback((a: PanelAction) => {
     panelRef.current = panelReducer(panelRef.current, a)
@@ -147,6 +149,9 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
       case 'room.state':
         // The interviewer sends the whole state each time, so it replaces the old one (same values: nothing changes).
         setRoom((r) => (r.layout === m.layout && r.slow === m.slow ? r : { layout: m.layout, slow: m.slow }))
+        return { ok: true }
+      case 'addressed.state':
+        setDirectOnly(m.direct_only)
         return { ok: true }
       case 'session.ending':
         return null // LiveSessionProvider ends the round
@@ -228,7 +233,7 @@ export function WorkspaceProvider({ session, children }: { session: LiveSession;
 
   return (
     <Ctx.Provider value={value}>
-      <RoomCtx.Provider value={room}>{children}</RoomCtx.Provider>
+      <RoomCtx.Provider value={room}><DirectOnlyCtx.Provider value={directOnly}>{children}</DirectOnlyCtx.Provider></RoomCtx.Provider>
     </Ctx.Provider>
   )
 }
@@ -243,4 +248,9 @@ export function useWorkspace(): WorkspaceCtx {
  * it is `{ layout: 'talk', slow: false }`. */
 export function useRoomState(): RoomView {
   return useContext(RoomCtx)
+}
+
+/** True while the interviewer answers only direct questions on the current problem (`addressed.state`). False before it says so and outside a provider. */
+export function useDirectOnly(): boolean {
+  return useContext(DirectOnlyCtx)
 }

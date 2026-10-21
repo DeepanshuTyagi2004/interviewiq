@@ -26,7 +26,8 @@ export interface SceneElement {
 export type Skeleton = Record<string, unknown>
 
 /** The brand orange, hsl(16.3 100% 56.1%): interviewer marks on the whiteboard. */
-export const INTERVIEWER_STROKE = '#ff5c1f'
+// Literal hex: Excalidraw needs a colour value. Mid grey reads on both themes; interviewer elements are told apart by a dashed stroke.
+export const INTERVIEWER_STROKE = '#85837e'
 
 const SHAPE_W = 180
 const SHAPE_H = 80
@@ -191,7 +192,7 @@ export function skeletonsFor(elements: DrawElement[], origin: { x: number; y: nu
     return p
   }
   return elements.map((e) => {
-    const base = { id: e.id, strokeColor: INTERVIEWER_STROKE }
+    const base = { id: e.id, strokeColor: INTERVIEWER_STROKE, strokeStyle: 'dashed' as const }
     if (e.type === 'arrow') {
       return {
         ...base, type: 'arrow', x: origin.x, y: origin.y + SHAPE_H + GAP,

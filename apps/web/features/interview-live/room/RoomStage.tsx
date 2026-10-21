@@ -19,8 +19,8 @@ function SlowNotice({ slow, talk }: { slow: boolean; talk: boolean }) {
   return (
     <div role="status" aria-live="polite" className={cn('flex-none', talk ? 'px-4' : 'px-3')}>
       {slow ? (
-        <p className="m-0 flex items-center gap-2 py-2 text-[12.5px] text-muted-foreground">
-          <span aria-hidden data-motion className="h-1.5 w-1.5 flex-none animate-pulse rounded-full bg-faint-2" />
+        <p className="m-0 flex items-center gap-2 py-2 text-[12.5px] text-ink-3">
+          <span aria-hidden data-motion className="iq-breathe h-1.5 w-1.5 flex-none rounded-full bg-ink-3" />
           Your interviewer is taking a moment…
         </p>
       ) : null}
@@ -59,7 +59,7 @@ export function RoomStage({
       )}
     >
       {/* min-w-[260px] keeps the narrow column readable on small screens, as it always was. */}
-      <aside aria-label="Interviewer" className={cn('flex min-h-0 min-w-[260px] flex-col', !talk && 'border-r border-line-2')}>
+      <aside aria-label="Interviewer" className={cn('flex min-h-0 min-w-[260px] flex-col', !talk && 'border-r border-line')}>
         {/* Wide rooms: a centred column of comfortable reading width. In the narrow column it is simply full width. */}
         <div className="mx-auto flex min-h-0 w-full max-w-[760px] flex-1 flex-col">
           <InterviewerStrip name={name} agentState={agentState} stream={stream} micOn={micOn} layout={layout} cameraCheck={cameraCheck} />
@@ -81,7 +81,7 @@ export function RoomStage({
           talk && 'invisible',
         )}
       >
-        <ActivityPane aria-label="Workspace" className="min-h-0 min-w-0 p-2">
+        <ActivityPane aria-label="Workspace" className="min-h-0 min-w-0 p-3 pr-2">
           <WorkspaceSplit panel={<ProblemPanel />} work={<WorkArea session={session} />} />
         </ActivityPane>
         <ToolRail />

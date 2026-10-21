@@ -18,10 +18,9 @@ export function WorkArea({ session }: { session: LiveSession }) {
   const title = surface === 'code' ? 'Code editor' : 'Whiteboard'
 
   return (
-    <section aria-label={title} className="flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] border border-line-2 bg-card">
-      <header className="flex h-[38px] flex-none items-center gap-2 border-b border-line-2 px-3">
-        <h2 className="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground">{surface === 'code' ? 'Code' : 'Whiteboard'}</h2>
-        <span aria-hidden className="h-px w-4 bg-line-3" />
+    <section aria-label={title} className="flex h-full min-h-0 flex-col overflow-hidden rounded-card border border-line bg-background shadow-ring">
+      <header className="flex h-11 flex-none items-center gap-2 border-b border-line px-4">
+        <h2 className="m-0 text-[13px] font-medium text-foreground">{surface === 'code' ? 'Code' : 'Whiteboard'}</h2>
         <Button
           type="button"
           variant="ghost"

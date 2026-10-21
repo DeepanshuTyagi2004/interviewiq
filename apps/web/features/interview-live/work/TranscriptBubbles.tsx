@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { TranscriptSegment } from '../session/transcript'
 
-/** The conversation as chat bubbles: the interviewer on the left, the candidate on the right, interim
- * words dimmed until final, room notices as centred mono chips. Follows the newest line.
- * `comfortable` sets the type a little larger, for when the conversation has the room to itself. */
+/** The conversation as a clean caption column: each run of lines under a small speaker label, the interviewer in
+ * ink and the candidate in a softer ink behind a hairline, interim words dimmed until final, room notices as
+ * centred pills. Follows the newest line. `comfortable` sets the type a little larger, for when the conversation
+ * has the room to itself. (Name kept from the chat-bubble version.) */
 export function TranscriptBubbles({ segments, interviewerName, comfortable = false }: { segments: TranscriptSegment[]; interviewerName: string; comfortable?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const last = segments[segments.length - 1]
@@ -27,17 +28,17 @@ export function TranscriptBubbles({ segments, interviewerName, comfortable = fal
       tabIndex={0}
       onTransitionEnd={scrollToEnd} // the type size animates with the room's layout change; once it settles the text has re-wrapped
       className={cn(
-        'flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto py-2 transition-[font-size,line-height] duration-500 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring motion-reduce:transition-none',
+        'flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto rounded-md py-2 transition-[font-size,line-height] duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
         comfortable ? 'text-[15.5px] leading-[1.55]' : 'text-[13.5px] leading-[1.5]',
       )}
     >
       {segments.length === 0 ? (
-        <p className="m-auto text-center text-[13px] text-faint">The conversation will appear here.</p>
+        <p className="m-auto text-center text-[13px] text-ink-3">The conversation will appear here.</p>
       ) : (
         segments.map((s, i) => {
           if (s.speaker === 'system') {
             return (
-              <p key={s.id} role="note" className="m-0 my-1 self-center rounded-full border border-dashed border-line-4 px-2.5 py-1 text-center font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+              <p key={s.id} role="note" className="m-0 my-1 self-center rounded-full bg-surface-2 px-3 py-1 text-center text-[12px] text-ink-2">
                 {s.text}
               </p>
             )
@@ -45,16 +46,16 @@ export function TranscriptBubbles({ segments, interviewerName, comfortable = fal
           const mine = s.speaker === 'candidate'
           const runStart = i === 0 || segments[i - 1].speaker !== s.speaker
           return (
-            <div key={s.id} className={cn('flex max-w-[88%] flex-col', mine ? 'items-end self-end' : 'items-start self-start')}>
+            <div key={s.id} className={cn('flex flex-col', mine && 'border-l-2 border-line pl-3')}>
               {runStart ? (
-                <span className="mb-0.5 px-1 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">{mine ? 'You' : interviewerName}</span>
+                <span className="mb-0.5 mt-1.5 text-[11.5px] font-medium text-ink-3">{mine ? 'You' : interviewerName}</span>
               ) : null}
               <p
                 data-final={s.final}
                 className={cn(
-                  'm-0 whitespace-pre-wrap rounded-[16px] px-3 py-2',
-                  mine ? 'rounded-br-[6px] bg-inv text-white' : 'rounded-bl-[6px] bg-panel text-foreground',
-                  !s.final && 'opacity-70',
+                  'm-0 whitespace-pre-wrap',
+                  mine ? 'text-ink-2' : 'text-foreground',
+                  !s.final && 'opacity-60',
                 )}
               >
                 {s.text}

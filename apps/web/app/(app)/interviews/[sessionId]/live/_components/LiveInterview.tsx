@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Orb } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
 import { ScriptedLiveSession } from "@/features/interview-live/session/ScriptedLiveSession";
@@ -26,7 +26,7 @@ import { EndedView } from "./EndedView";
  * shaped page while the gate resolves. */
 function GateShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex bg-frame">
+    <div className="fixed inset-0 z-50 flex bg-background">
       <RoomFrame leave={false}>
         <RoomCentered className="items-center text-center">{children}</RoomCentered>
       </RoomFrame>
@@ -38,8 +38,8 @@ function GateShell({ children }: { children: React.ReactNode }) {
 function RoomSpinner({ label }: { label: string }) {
   return (
     <div role="status" className="flex flex-col items-center gap-3">
-      <Loader2 aria-hidden data-motion className="h-6 w-6 animate-spin text-faint" />
-      <p className="m-0 text-[13.5px] text-muted-foreground">{label}</p>
+      <Orb size={44} state="breathing" seed="room" />
+      <p className="m-0 text-[13.5px] text-ink-2">{label}</p>
     </div>
   );
 }
@@ -97,13 +97,13 @@ export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; met
       return (
         <RoomFrame leave={false}>
           <RoomCentered className="items-center text-center">
-            <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-            <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">
+            <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+            <p className="m-0 max-w-md text-[15px] leading-[1.5] text-ink-2">
               Something went wrong connecting to your interview. You can try again from the
               interviews list.
             </p>
             <Button
-              className="h-10 px-4 text-[13.5px]"
+              className="h-10 px-5 text-[13.5px]"
               onClick={() => {
                 if (document.fullscreenElement) void document.exitFullscreen();
                 router.push("/interviews");
@@ -135,7 +135,7 @@ export function MockRoom({ sessionId, meta }: { sessionId: string; meta?: RoomMe
   const [session] = useState(() => new ScriptedLiveSession());
   return (
     <LiveSessionProvider sessionId={sessionId} session={session}>
-      <div className="fixed inset-0 z-50 flex bg-frame">
+      <div className="fixed inset-0 z-50 flex bg-background">
         <LiveInterviewInner sessionId={sessionId} meta={meta} />
       </div>
     </LiveSessionProvider>
@@ -199,12 +199,12 @@ export default function LiveInterview({
   if (isError) {
     return (
       <GateShell>
-        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-        <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+        <p className="m-0 max-w-md text-[15px] leading-[1.5] text-ink-2">
           Something went wrong loading your interview. You can try again from the interviews
           list.
         </p>
-        <Button className="h-10 px-4 text-[13.5px]" onClick={() => router.push("/interviews")}>
+        <Button className="h-10 px-5 text-[13.5px]" onClick={() => router.push("/interviews")}>
           Back to interviews
         </Button>
       </GateShell>
@@ -231,7 +231,7 @@ export default function LiveInterview({
   if (isEnterable) {
     return (
       <LiveSessionProvider sessionId={sessionId} session={session}>
-        <div className="fixed inset-0 z-50 flex bg-frame">
+        <div className="fixed inset-0 z-50 flex bg-background">
           <LiveInterviewInner sessionId={sessionId} meta={meta} />
         </div>
       </LiveSessionProvider>
@@ -240,17 +240,17 @@ export default function LiveInterview({
 
   return (
     <GateShell>
-      <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
+      <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
       {status ? <StatusPill status={status} /> : null}
-      <h1 className="m-0 text-[28px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[32px]">
+      <h1 className="m-0 font-display text-[28px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[32px]">
         This interview isn&apos;t ready to join yet.
       </h1>
-      <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">{notReadyNote(status)}</p>
+      <p className="m-0 max-w-md text-[15px] leading-[1.5] text-ink-2">{notReadyNote(status)}</p>
       <div className="flex flex-wrap justify-center gap-2">
-        <Button className="h-10 px-4 text-[13.5px]" onClick={() => router.push("/interviews")}>
+        <Button className="h-10 px-5 text-[13.5px]" onClick={() => router.push("/interviews")}>
           Back to interviews
         </Button>
-        <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
+        <Button asChild variant="strong" className="h-10 px-5 text-[13.5px]">
           <Link href={`/interviews/${sessionId}`}>View interview</Link>
         </Button>
       </div>

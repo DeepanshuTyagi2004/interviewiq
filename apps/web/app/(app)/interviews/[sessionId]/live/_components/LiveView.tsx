@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { StatusDot } from '@/components/hud'
 import { getLive } from '@/features/interview/api'
 import { ActivityProvider } from '@/features/interview-live/activity/ActivityProvider'
 import { BottomBar } from '@/features/interview-live/controls/BottomBar'
@@ -11,7 +10,7 @@ import { holdVisionDownload } from '@/features/interview-live/proctor/camera/vis
 import { attachRoomCopyGuard, attachRoomFieldGuard } from '@/features/interview-live/proctor/editorClipboard'
 import { clipboardRulesActive, forgetBuffer } from '@/features/interview-live/proctor/localClipboard'
 import { ProctorActionsProvider } from '@/features/interview-live/proctor/ProctorContext'
-import { ProctorBars } from '@/features/interview-live/proctor/ProctorBars'
+import { ProctorBanner, ProctorBars } from '@/features/interview-live/proctor/ProctorBars'
 import { useProctor } from '@/features/interview-live/proctor/useProctor'
 import { RoomStage } from '@/features/interview-live/room/RoomStage'
 import { useInterviewerPresence } from '@/features/interview-live/session/useInterviewerPresence'
@@ -59,14 +58,13 @@ export function LiveView({ sessionId, meta, reconnecting = false }: { sessionId:
           <div className="flex h-full min-h-0 w-full flex-col">
             <RoomHeader meta={meta} ledger={proctor.ledger} cameraFlags={camera.status === 'unavailable' ? undefined : camera.flags.length} />
             {reconnecting ? (
-              <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
-                <StatusDot state="warn" srLabel="Reconnecting" />
+              <ProctorBanner label="Reconnecting" pulse>
                 <span>Connection lost. Reconnecting… what you have written is kept.</span>
-              </div>
+              </ProctorBanner>
             ) : null}
             <ProctorBars outOfFullscreen={proctor.outOfFullscreen} shareStopped={proctor.shareStopped} toast={proctor.toast} away={proctor.away} presence={presence} camera={camera.status === 'violation' ? camera.reason : null} />
             <RoomStage session={session} name={name} agentState={agentState} stream={stream} micOn={micOn} transcript={transcript} cameraCheck={camera.status} />
-            <BottomBar micOn={micOn} stream={stream} onToggleMic={toggleMic} onEnd={requestEnd} />
+            <BottomBar micOn={micOn} stream={stream} onToggleMic={toggleMic} onEnd={requestEnd} onAsk={() => session.send({ type: 'ask.interviewer', at: Date.now() })} />
           </div>
         </WorkspaceProvider>
       </ActivityProvider>

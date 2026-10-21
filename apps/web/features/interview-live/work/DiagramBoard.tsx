@@ -13,7 +13,7 @@ import { createBoardApi, type ExcalidrawBoardApi, type ExcalidrawLike } from './
 
 const Excalidraw = dynamic(async () => (await import('@excalidraw/excalidraw')).Excalidraw, {
   ssr: false,
-  loading: () => <div data-motion className="h-full animate-pulse bg-panel" />,
+  loading: () => <div data-motion className="h-full animate-pulse bg-surface" />,
 })
 
 type ExcalidrawProps = React.ComponentProps<typeof import('@excalidraw/excalidraw').Excalidraw>

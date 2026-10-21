@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RoomHeader } from '@/app/(app)/interviews/[sessionId]/live/_components/RoomHeader'
@@ -13,12 +13,11 @@ import { BottomBar } from './BottomBar'
 vi.mock('../proctor/screenShare', () => ({ requestEntireScreen: vi.fn(async () => ({ ok: false, reason: 'not_entire_screen' })) }))
 
 describe('RoomHeader', () => {
-  it('shows the round, the two counters and the clock', () => {
+  it('shows the round, the combined screen switches counter and the clock', () => {
     const ledger = recordEvent(recordEvent(EMPTY_LEDGER, 'tab_hidden', 0).ledger, 'fullscreen_exit', 9000).ledger
     render(<RoomHeader meta={{ company: 'Salescode', level: 'SDE I', round: 'DSA', interviewer: 'Asha' }} ledger={ledger} />)
     expect(screen.getByText('Salescode · SDE I · DSA')).toBeInTheDocument()
-    expect(screen.getByText('1 tab changes')).toBeInTheDocument()
-    expect(screen.getByText('0.5')).toBeInTheDocument()
+    expect(screen.getByText('1.5 screen switches')).toBeInTheDocument()
     expect(screen.getByRole('timer')).toHaveTextContent('00:00')
   })
 })
@@ -27,7 +26,7 @@ describe('BottomBar', () => {
   it('toggles the mic and ends only after confirming', async () => {
     const onEnd = vi.fn()
     const onToggleMic = vi.fn()
-    render(<BottomBar micOn stream={null} onToggleMic={onToggleMic} onEnd={onEnd} />)
+    render(<BottomBar micOn stream={null} onToggleMic={onToggleMic} onEnd={onEnd} onAsk={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /mute microphone/i }))
     expect(onToggleMic).toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'End interview' }))
@@ -35,6 +34,23 @@ describe('BottomBar', () => {
     const confirm = screen.getAllByRole('button', { name: 'End interview' }).at(-1)!
     await userEvent.click(confirm)
     expect(onEnd).toHaveBeenCalled()
+  })
+})
+
+describe('BottomBar ask', () => {
+  afterEach(() => { vi.unstubAllEnvs() })
+
+  it('is absent while the addressed check is off', () => {
+    render(<BottomBar micOn stream={null} onToggleMic={vi.fn()} onEnd={vi.fn()} onAsk={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Ask interviewer' })).not.toBeInTheDocument()
+  })
+
+  it('tells the interviewer the next words are for them', async () => {
+    vi.stubEnv('NEXT_PUBLIC_ADDRESSED_CHECK', 'on')
+    const onAsk = vi.fn()
+    render(<BottomBar micOn stream={null} onToggleMic={vi.fn()} onEnd={vi.fn()} onAsk={onAsk} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Ask interviewer' }))
+    expect(onAsk).toHaveBeenCalledTimes(1)
   })
 })
 

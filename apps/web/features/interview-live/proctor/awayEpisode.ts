@@ -5,13 +5,13 @@
  */
 import type { AwayKind } from '../protocol/messages'
 
-/** Leaving the tab or the window: back within this, or it counts as another violation (decided 2026-10-18: 4 s, it was 15). The worker's own
- * return clock (AWAY_RETURN_S in conductor.py) counts the same 4 s from the end of the interviewer's warning, so it is never earlier than this. */
-export const AWAY_LIMIT_TAB_S = 4
-/** Leaving full screen or stopping the share, and nothing else. */
-export const AWAY_LIMIT_SCREEN_S = 30
-/** Away this long ends the interview, whatever the cause. */
-export const AWAY_CAP_S = 60
+/** Away this long from the start of the episode, whatever the cause: back by now, or it counts as another violation (the final warning). The
+ * worker (AWAY_FINAL_S in conductor.py) counts the same 5 s from the start of the episode (owner 2026-10-21; it was 4 s after the first warning). */
+export const AWAY_LIMIT_TAB_S = 5
+/** Leaving full screen or stopping the share, and nothing else: the same 5 s now. */
+export const AWAY_LIMIT_SCREEN_S = 5
+/** Away this long ends the interview, whatever the cause (AWAY_CAP_S in conductor.py: 7 s at most). */
+export const AWAY_CAP_S = 7
 
 export interface AwaySignals {
   fullscreen: boolean

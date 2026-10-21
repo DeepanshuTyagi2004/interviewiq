@@ -84,7 +84,7 @@ export function Statement({ card }: { card: ProblemCard }) {
       </p>
       {card.examples.map((ex, i) => (
         <div key={i} className="mt-4">
-          <p className="iq-eyebrow m-0 mb-1.5">Example {i + 1}</p>
+          <p className="m-0 mb-1.5 text-[12px] font-medium text-ink-3">Example {i + 1}</p>
           <div className="rounded-[11px] border border-line-2 bg-panel/60 px-3 py-2.5 font-mono text-[12.5px] leading-[1.6]">
             <p className="m-0 whitespace-pre-wrap"><span className="text-faint">Input: </span>{ex.input}</p>
             <p className="m-0 whitespace-pre-wrap"><span className="text-faint">Output: </span>{ex.output}</p>

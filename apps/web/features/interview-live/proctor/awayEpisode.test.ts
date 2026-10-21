@@ -50,11 +50,11 @@ describe('nextEpisode', () => {
 
   it('ends the episode when everything is back and says whether it ran past the limit', () => {
     const screen: AwayEpisode = { startedAt: 0, kinds: ['fullscreen_exit'], tight: false }
-    expect(nextEpisode(screen, [], 29_000)).toEqual({ episode: null, change: { type: 'back', awayMs: 29_000, overLimit: false, limitS: 30 } })
-    expect(nextEpisode(screen, [], 30_000).change).toMatchObject({ overLimit: true })
+    expect(nextEpisode(screen, [], 4_000)).toEqual({ episode: null, change: { type: 'back', awayMs: 4_000, overLimit: false, limitS: 5 } })
+    expect(nextEpisode(screen, [], 5_000).change).toMatchObject({ overLimit: true })
     const tab: AwayEpisode = { startedAt: 0, kinds: ['tab_hidden'], tight: true }
-    expect(nextEpisode(tab, [], 4_000).change).toMatchObject({ overLimit: true, limitS: AWAY_LIMIT_TAB_S })
-    expect(nextEpisode(tab, [], 3_999).change).toMatchObject({ overLimit: false })
+    expect(nextEpisode(tab, [], 5_000).change).toMatchObject({ overLimit: true, limitS: AWAY_LIMIT_TAB_S })
+    expect(nextEpisode(tab, [], 4_999).change).toMatchObject({ overLimit: false })
   })
 
   it('has nothing to say when there was no episode and there is none', () => {
@@ -68,12 +68,12 @@ describe('countdown', () => {
   it('counts down to the limit, rounding up', () => {
     expect(countdown(tab, 10_000)).toEqual({ phase: 'limit', seconds: AWAY_LIMIT_TAB_S })
     expect(countdown(tab, 10_001)).toEqual({ phase: 'limit', seconds: AWAY_LIMIT_TAB_S })
-    expect(countdown(tab, 13_500)).toEqual({ phase: 'limit', seconds: 1 })
+    expect(countdown(tab, 14_500)).toEqual({ phase: 'limit', seconds: 1 })
   })
 
   it('then counts down to the cap, and never below zero', () => {
-    expect(countdown(tab, 14_000)).toEqual({ phase: 'cap', seconds: AWAY_CAP_S - AWAY_LIMIT_TAB_S })
-    expect(countdown(tab, 70_000)).toEqual({ phase: 'cap', seconds: 0 })
+    expect(countdown(tab, 15_000)).toEqual({ phase: 'cap', seconds: AWAY_CAP_S - AWAY_LIMIT_TAB_S })
+    expect(countdown(tab, 20_000)).toEqual({ phase: 'cap', seconds: 0 })
     expect(countdown(tab, 500_000)).toEqual({ phase: 'cap', seconds: 0 })
   })
 

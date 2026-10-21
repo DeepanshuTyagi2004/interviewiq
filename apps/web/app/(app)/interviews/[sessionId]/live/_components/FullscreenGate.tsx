@@ -31,19 +31,19 @@ export function FullscreenGate({ meta, children }: { meta?: RoomMeta; children: 
   return (
     <RoomFrame>
       <RoomCentered className="items-center text-center">
-        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-        <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+        <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+        <h1 className="m-0 font-display text-[28px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[34px]">
           This interview runs in full screen
         </h1>
-        <p className="m-0 max-w-md text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 max-w-md text-[15px] leading-[1.5] text-ink-2">
           Go full screen to read the instructions and begin. You stay in full screen until the round ends.
         </p>
-        <Button className="h-11 px-5 text-[14px]" onClick={() => void enter()}>
+        <Button className="h-11 px-6 text-[14px]" onClick={() => void enter()}>
           <Maximize aria-hidden />
           Enter full screen
         </Button>
         {blocked ? (
-          <p role="alert" className="m-0 text-[13.5px] text-muted-foreground">
+          <p role="alert" className="m-0 text-[13.5px] text-ink-2">
             Your browser blocked full screen. Allow it for this site and try again.
           </p>
         ) : null}

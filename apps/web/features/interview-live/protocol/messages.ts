@@ -112,10 +112,13 @@ export const WorkspaceRestore = z.object({
 export const RoomLayout = z.enum(['talk', 'work'])
 export const RoomState = z.object({ ...header, type: z.literal('room.state'), layout: RoomLayout, slow: z.boolean() })
 export const SessionEnding = z.object({ ...header, type: z.literal('session.ending'), reason: EndReason, message: z.string().max(1000) })
+/** True while the interviewer answers only direct questions on the current problem (it invited questions, so everything else is thinking aloud).
+ * Sent when that turns on and again when the problem changes. */
+export const AddressedState = z.object({ ...header, type: z.literal('addressed.state'), direct_only: z.boolean() })
 
 export const AgentMessage = z.discriminatedUnion('type', [
   ShowProblem, AddSection, PanelHighlight, PanelClearHighlight, CodeComment, CodeInsert, CodeHighlight,
-  CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding,
+  CodeClearHighlight, BoardRequestSnapshot, BoardDraw, WorkspaceRestore, RoomState, SessionEnding, AddressedState,
 ])
 
 // ---------------------------------------------------------------- web → agent
@@ -155,6 +158,8 @@ export const ProctorAway = z.object({
 })
 /** Everything is back: visible, focused, full screen, sharing. */
 export const ProctorBack = z.object({ ...header, type: z.literal('proctor.back'), at: z.number().int().min(0) })
+/** The candidate pressed Ask interviewer: their next words are for the interviewer. */
+export const AskInterviewer = z.object({ ...header, type: z.literal('ask.interviewer'), at: z.number().int().min(0) })
 
 // ---------------------------------------------------------------- activity (web → agent)
 
@@ -196,7 +201,7 @@ export const TypingWindow = z.object({
 
 export const WebMessage = z.discriminatedUnion('type', [
   Ack, SectionAdded, HighlightAdded, CodeHighlightAdded, AskSelection, CodeSnapshot, BoardSummary,
-  ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, ActivityBatch, TypingWindow,
+  ProctorEventMessage, Hello, EndRequest, ProctorAway, ProctorBack, AskInterviewer, ActivityBatch, TypingWindow,
 ])
 
 export const WorkspaceMessage = z.union([AgentMessage, WebMessage])

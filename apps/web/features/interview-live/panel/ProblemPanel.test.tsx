@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { stampAgent, type AgentMessageBody } from '../protocol/messages'
@@ -43,6 +43,9 @@ function selectText(el: HTMLElement, text: string) {
 }
 
 describe('ProblemPanel', () => {
+  beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_ADDRESSED_CHECK', 'on') })
+  afterEach(() => { vi.unstubAllEnvs() })
+
   it('waits for the interviewer, then shows the statement and both examples under a generic label', async () => {
     const { agent } = mount()
     expect(screen.getByText(/interviewer will put the problem here/i)).toBeInTheDocument()
@@ -52,6 +55,44 @@ describe('ProblemPanel', () => {
     expect(screen.getByText('Example 1')).toBeInTheDocument()
     expect(screen.getByText('Example 2')).toBeInTheDocument()
     expect(screen.queryByText(/constraints/i)).not.toBeInTheDocument()
+  })
+
+  it('tells the candidate they can think aloud once a problem is shown, and not before', async () => {
+    const { agent } = mount()
+    const note = "Think aloud freely. I'll only answer when you ask me directly."
+    expect(screen.queryByText(note)).not.toBeInTheDocument()
+    await agent(SHOW)
+    expect(screen.getByText(note)).toBeInTheDocument()
+  })
+
+  it('switches the note to the direct-questions text on addressed.state, and back', async () => {
+    const { agent } = mount()
+    const free = "Think aloud freely. I'll only answer when you ask me directly."
+    const direct = "Listening only for direct questions. Anything else I'll treat as thinking aloud."
+    await agent(SHOW)
+    expect(screen.getByText(free)).toBeInTheDocument()
+    await agent({ type: 'addressed.state', direct_only: true })
+    expect(screen.getByText(direct)).toBeInTheDocument()
+    expect(screen.queryByText(free)).not.toBeInTheDocument()
+    await agent({ type: 'addressed.state', direct_only: false })
+    expect(screen.getByText(free)).toBeInTheDocument()
+    expect(screen.queryByText(direct)).not.toBeInTheDocument()
+  })
+
+  it('shows neither note, even in direct-only, while the addressed check is off', async () => {
+    vi.stubEnv('NEXT_PUBLIC_ADDRESSED_CHECK', 'off')
+    const { agent } = mount()
+    await agent(SHOW)
+    await agent({ type: 'addressed.state', direct_only: true })
+    expect(screen.queryByText(/Listening only for direct questions/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Think aloud freely/)).not.toBeInTheDocument()
+  })
+
+  it('does not promise that, while the addressed check is off', async () => {
+    vi.stubEnv('NEXT_PUBLIC_ADDRESSED_CHECK', 'off')
+    const { agent } = mount()
+    await agent(SHOW)
+    expect(screen.queryByText("Think aloud freely. I'll only answer when you ask me directly.")).not.toBeInTheDocument()
   })
 
   it('shows interviewer sections and highlights in the interviewer colour', async () => {

@@ -46,6 +46,8 @@ describe('workspace protocol', () => {
     expect(parseAgentMessage(JSON.stringify({ ...examples['panel.add_section'], v: 2 }))).toBeNull()
     expect(parseAgentMessage(JSON.stringify({ ...examples['code.insert'], text: 'x'.repeat(2001) }))).toBeNull()
     expect(parseAgentMessage(JSON.stringify(examples['code.comment']))?.type).toBe('code.comment')
+    expect(parseAgentMessage(JSON.stringify(examples['addressed.state']))).toMatchObject({ type: 'addressed.state', direct_only: true })
+    expect(parseAgentMessage(JSON.stringify({ ...examples['addressed.state'], direct_only: 'yes' }))).toBeNull()
   })
 
   it('accepts a mixed activity batch and rejects oversized, malformed and unknown events', () => {
@@ -88,6 +90,10 @@ describe('workspace protocol', () => {
     expect(WebMessage.safeParse({ ...away, kinds: [] }).success).toBe(false)
     expect(WebMessage.safeParse({ ...away, kinds: ['external_display'] }).success).toBe(false)
     expect(WebMessage.safeParse(examples['proctor.back']).success).toBe(true)
+  })
+
+  it('accepts the Ask interviewer message', () => {
+    expect(WebMessage.safeParse({ v: 1, id: 'w1', type: 'ask.interviewer', at: 1 }).success).toBe(true)
   })
 
   it('accepts a typing window with or without timing statistics and rejects bad counts', () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { StatusDot, type DotState } from "@/components/hud";
+import { StatusDot, type DotState } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { enterFullscreen } from "@/features/interview-live/proctor/keyboardLock";
@@ -30,13 +30,13 @@ function useWideEnough(): boolean {
 
 /** Each check state as a status dot + its word. Only a check that's really running pulses. */
 const CHECK_DOT: Record<CheckStatus, { label: string; state: DotState; tone: string }> = {
-  checking: { label: "Checking", state: "live", tone: "text-muted-foreground" },
-  pass: { label: "OK", state: "active", tone: "text-foreground" },
+  checking: { label: "Checking", state: "live", tone: "text-ink-3" },
+  pass: { label: "OK", state: "active", tone: "text-ink-2" },
   warn: { label: "Warning", state: "warn", tone: "text-foreground" },
   fail: { label: "Action needed", state: "error", tone: "text-destructive" },
 };
 
-/** One check as a mono readout row (`MICROPHONE ──── ● OK`) over its detail message. */
+/** One check as a list row: its name, its status dot and word, and the detail line under them. */
 function CheckRow({
   label,
   status,
@@ -50,13 +50,12 @@ function CheckRow({
 }) {
   const dot = CHECK_DOT[status];
   return (
-    <li className="flex flex-col gap-1.5 border-b border-line px-[18px] py-4 last:border-b-0">
-      <div className="flex items-center gap-3 font-mono text-[12px] uppercase tracking-[0.06em]">
-        <p className="m-0 min-w-0 text-foreground">{label}</p>
-        <span aria-hidden className="h-px min-w-4 flex-1 bg-line-2" />
-        <StatusDot state={dot.state} label={dot.label} className={cn("text-[12px] tracking-[0.06em]", dot.tone)} />
+    <li className="flex flex-col gap-1 border-b border-line px-5 py-4 last:border-b-0">
+      <div className="flex items-center justify-between gap-3">
+        <p className="m-0 min-w-0 text-[14.5px] font-medium text-foreground">{label}</p>
+        <StatusDot state={dot.state} label={dot.label} className={cn("text-[12.5px]", dot.tone)} />
       </div>
-      <p className="m-0 text-[12.5px] leading-[1.5] text-muted-foreground">{detail}</p>
+      <p className="m-0 text-[13px] leading-[1.5] text-ink-2">{detail}</p>
       {action ? <div className="pt-1">{action}</div> : null}
     </li>
   );
@@ -182,17 +181,17 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
   return (
     <RoomCentered>
       <div className="flex flex-col gap-2.5">
-        <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-        <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+        <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+        <h1 className="m-0 font-display text-[28px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[34px]">
           System check
         </h1>
-        <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 text-[15px] leading-[1.5] text-ink-2">
           We run a quick check before entering the interview. Entering switches to full screen and clears your clipboard.
           Switching tabs, windows or screens is counted, and the interviewer will mention it.
         </p>
       </div>
 
-      <ul aria-label="System checks" className="m-0 list-none overflow-hidden rounded-[14px] border border-line-2 p-0">
+      <ul aria-label="System checks" className="m-0 list-none overflow-hidden rounded-tile border border-line p-0">
         <CheckRow
           label="Microphone"
           status={micStatus}
@@ -221,7 +220,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
           detail={shareDetail}
           action={
             shared ? null : (
-              <Button type="button" variant="outline" className="h-8 rounded-full border-line-3 px-3 text-[12.5px]" onClick={() => void shareScreen()}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void shareScreen()}>
                 Share entire screen
               </Button>
             )
@@ -236,7 +235,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
       </ul>
 
       <Button
-        className="h-12 w-full text-[14.5px]"
+        size="lg" className="w-full"
         disabled={!ready || entering}
         onClick={() => void handleEnter()}
       >
@@ -244,7 +243,7 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
         Enter interview
       </Button>
       {blocked ? (
-        <p role="status" className="m-0 text-center text-[13px] leading-[1.5] text-muted-foreground">
+        <p role="status" className="m-0 text-center text-[13px] leading-[1.5] text-ink-2">
           Allow microphone and camera access in your browser&apos;s site settings, then reload this page.
         </p>
       ) : null}

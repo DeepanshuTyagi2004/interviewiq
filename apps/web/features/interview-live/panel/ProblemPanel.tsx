@@ -1,12 +1,13 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import { Expand, Maximize2, Minimize2, Shrink } from 'lucide-react'
-import { HudEmpty } from '@/components/hud'
+import { EmptyState } from '@/components/ds'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import { useActivity } from '../activity/ActivityProvider'
 import { quoteAtPoint, selectedTextIn } from '../activity/panelActivity'
-import { useWorkspace } from '../workspace/WorkspaceProvider'
+import { addressedCheckOn } from '../addressedCheck'
+import { useDirectOnly, useWorkspace } from '../workspace/WorkspaceProvider'
 import { Sections } from './Sections'
 import { Statement } from './Statement'
 
@@ -19,6 +20,7 @@ const iconButton = 'h-7 w-7 text-muted-foreground hover:text-foreground'
  * while the work area is expanded. Stays at one tree position in every mode so nothing remounts. */
 export function ProblemPanel() {
   const { panel, selectCard, clearFlash, expanded, setExpanded, panelFull, setPanelFull } = useWorkspace()
+  const directOnly = useDirectOnly()
   const { record } = useActivity()
   const active = panel.cards.find((c) => c.itemId === panel.activeId) ?? null
   const strip = expanded === 'work' && !panelFull
@@ -66,13 +68,12 @@ export function ProblemPanel() {
       onMouseMove={onPointer}
       data-testid={panelFull ? 'panel-full' : undefined}
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-line-2 bg-card',
+        'flex min-h-0 flex-col overflow-hidden rounded-card border border-line bg-background shadow-ring',
         panelFull ? 'fixed inset-2 z-[60] shadow-hero' : 'h-full',
       )}
     >
-      <header className="flex h-[38px] flex-none items-center gap-2 border-b border-line-2 px-3">
-        <h2 className="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground">Problem</h2>
-        <span aria-hidden className="h-px w-4 bg-line-3" />
+      <header className="flex h-11 flex-none items-center gap-2 border-b border-line px-4">
+        <h2 className="m-0 text-[13px] font-medium text-foreground">Problem</h2>
         <div role="tablist" aria-label="Problems" className="flex min-w-0 gap-1 overflow-x-auto">
           {panel.cards.map((c) => (
             <button
@@ -85,9 +86,9 @@ export function ProblemPanel() {
                 if (strip) setExpanded('none')
               }}
               className={cn(
-                'h-[24px] flex-none rounded-full px-2.5 text-[12px] transition-colors',
-                c.itemId === panel.activeId ? 'bg-panel text-foreground' : 'text-faint hover:text-foreground',
-                panel.flashId === c.itemId && 'ring-2 ring-brand/50 motion-safe:animate-pulse',
+                'h-[26px] flex-none rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                c.itemId === panel.activeId ? 'bg-ink text-background' : 'text-ink-3 hover:bg-surface-2 hover:text-foreground',
+                panel.flashId === c.itemId && 'ring-2 ring-ink/50 motion-safe:animate-pulse',
               )}
             >
               {c.label}
@@ -125,14 +126,21 @@ export function ProblemPanel() {
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {active ? (
             <>
+              {addressedCheckOn() ? (
+                <p className="mb-3 text-[12.5px] text-ink-3">
+                  {directOnly
+                    ? "Listening only for direct questions. Anything else I'll treat as thinking aloud."
+                    : "Think aloud freely. I'll only answer when you ask me directly."}
+                </p>
+              ) : null}
               <Statement card={active} />
               <Sections card={active} />
             </>
           ) : (
-            <HudEmpty
-              tag="Waiting"
+            <EmptyState
               title="The interviewer will put the problem here."
               hint="Questions you discuss out loud don't appear here."
+              className="py-10"
             />
           )}
         </div>

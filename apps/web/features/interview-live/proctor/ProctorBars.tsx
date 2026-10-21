@@ -1,22 +1,38 @@
 'use client'
 import { useState } from 'react'
-import { StatusDot } from '@/components/hud'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils/cn'
 import type { AwayEpisode } from './awayEpisode'
 import { CAMERA_TEXT, type CameraFlagKind } from './camera/monitor'
 import { enterFullscreen } from './keyboardLock'
 import { requestEntireScreen } from './screenShare'
 import { useAwayCountdown } from './useAwayCountdown'
 
+/** A slim ink banner (spec §5.5): the dot is page-coloured so it reads on ink in both themes; `pulse` marks a running
+ * countdown. The label is for screen readers. */
+export function ProctorBanner({ label, pulse = false, children }: { label: string; pulse?: boolean; children: React.ReactNode }) {
+  return (
+    <div role="status" className="flex min-h-9 flex-none items-center gap-3 bg-ink px-4 py-1 text-[13px] text-background [&+&]:border-t [&+&]:border-background/15">
+      <span aria-hidden data-motion={pulse ? '' : undefined} className={cn('h-1.5 w-1.5 flex-none rounded-full bg-background', pulse && 'iq-breathe')} />
+      <span className="sr-only">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 function Bar({ text, action, onAction }: { text: string; action: string; onAction: () => void }) {
   return (
-    <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
-      <StatusDot state="warn" srLabel="Warning" />
+    <ProctorBanner label="Warning">
       <span className="min-w-0 flex-1">{text}</span>
-      <Button type="button" variant="outline" className="h-8 rounded-full border-line-3 px-3 text-[12.5px]" onClick={onAction}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-7 bg-background px-3 text-[12.5px] text-foreground hover:bg-surface-2 focus-visible:ring-background focus-visible:ring-offset-ink"
+        onClick={onAction}
+      >
         {action}
       </Button>
-    </div>
+    </ProctorBanner>
   )
 }
 
@@ -50,31 +66,28 @@ export function ProctorBars({
   return (
     <>
       {presence !== 'present' ? (
-        <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
-          <StatusDot state="live" srLabel="Waiting" />
+        <ProctorBanner label="Waiting" pulse>
           <span>{presence === 'joining' ? 'Connecting to your interviewer…' : 'Your interviewer is reconnecting…'}</span>
-        </div>
+        </ProctorBanner>
       ) : null}
       {toast ? (
-        <div role="alert" className="pointer-events-none fixed left-1/2 top-16 z-[70] -translate-x-1/2 rounded-full border border-line-3 bg-card px-4 py-2 text-[13px] shadow-hero">
+        <div role="alert" className="pointer-events-none fixed left-1/2 top-16 z-[70] -translate-x-1/2 rounded-full border border-line bg-background px-4 py-2 text-[13px] font-medium text-foreground shadow-float">
           {toast}
         </div>
       ) : null}
       {clock ? (
-        <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
-          <StatusDot state="warn" srLabel="Warning" />
+        <ProctorBanner label="Warning" pulse>
           <span className="min-w-0 flex-1">
             {clock.phase === 'limit'
               ? `Return to the interview within ${clock.seconds} s. After that it counts as another violation.`
               : `Return now. The interview ends in ${clock.seconds} s.`}
           </span>
-        </div>
+        </ProctorBanner>
       ) : null}
       {camera ? (
-        <div role="status" className="flex flex-none items-center gap-3 border-b border-line-2 bg-panel px-4 py-2 text-[13px]">
-          <StatusDot state="error" srLabel="Camera check" />
+        <ProctorBanner label="Camera check">
           <span className="min-w-0 flex-1">{CAMERA_TEXT[camera]}</span>
-        </div>
+        </ProctorBanner>
       ) : null}
       {outOfFullscreen ? (
         <Bar text="You're out of full screen. Leaving it is counted." action="Return to full screen" onAction={() => void enterFullscreen().catch(() => {})} />

@@ -162,6 +162,12 @@
     "reason": "completed",
     "message": "Thanks for your time today. That's the end of the interview."
   },
+  "addressed.state": {
+    "v": 1,
+    "id": "a_addr",
+    "type": "addressed.state",
+    "direct_only": true
+  },
   "ack": {
     "v": 1,
     "id": "w_ack",
@@ -339,6 +345,12 @@
     "id": "w_back",
     "type": "proctor.back",
     "at": 1760000012000
+  },
+  "ask.interviewer": {
+    "v": 1,
+    "id": "w_ask",
+    "type": "ask.interviewer",
+    "at": 1760000013000
   },
   "typing.window": {
     "v": 1,

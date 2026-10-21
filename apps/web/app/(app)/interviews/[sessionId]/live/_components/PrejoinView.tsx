@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, VideoOff, X } from "lucide-react";
-import { HudCard } from "@/components/hud";
+import { Card } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -28,17 +28,17 @@ const DONTS = [
   "Don't refresh or close this tab once the interview has started.",
 ];
 
-/** A rule list on the HUD card frame (the title is its mono header), rows in the pre-check style. */
+/** A rule list on a flush card (the title is its header), one hairline row per rule. */
 function RuleList({ title, items, kind }: { title: string; items: string[]; kind: "do" | "dont" }) {
   const Icon = kind === "do" ? Check : X;
   return (
-    <HudCard title={title}>
+    <Card title={title} flush headerClassName="pb-2">
       <ul className="m-0 list-none p-0">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-3.5 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5">
+          <li key={item} className="flex items-start gap-3.5 border-t border-line px-5 py-3.5">
             <span
               aria-hidden
-              className="mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[8px] border border-line-3 text-muted-foreground"
+              className="mt-px flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2"
             >
               <Icon className="h-3 w-3" />
             </span>
@@ -46,7 +46,7 @@ function RuleList({ title, items, kind }: { title: string; items: string[]; kind
           </li>
         ))}
       </ul>
-    </HudCard>
+    </Card>
   );
 }
 
@@ -65,12 +65,12 @@ function DeviceRow({
   onCheckedChange: (on: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b border-line px-[18px] py-3.5 last:border-b-0">
+    <div className="flex items-center gap-4 border-b border-line px-5 py-3.5 last:border-b-0">
       <div className="min-w-0 flex-1">
         <Label htmlFor={id} className="text-[14.5px] font-normal">
           {label}
         </Label>
-        <p className="m-0 text-[12.5px] text-faint">{hint}</p>
+        <p className="m-0 text-[12.5px] text-ink-3">{hint}</p>
       </div>
       <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
@@ -93,11 +93,11 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
       <div className="mx-auto grid w-full max-w-[1120px] items-start gap-8 px-5 py-8 sm:px-8 sm:py-12 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-10 lg:gap-14">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <div className="flex flex-col gap-2.5">
-            <p className="iq-eyebrow m-0">{roomEyebrow(meta)}</p>
-            <h1 className="m-0 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
+            <p className="m-0 text-[13px] text-ink-3">{roomEyebrow(meta)}</p>
+            <h1 className="m-0 font-display text-[28px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[34px]">
               Before you start
             </h1>
-            <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
+            <p className="m-0 text-[15px] leading-[1.5] text-ink-2">
               You&apos;ll be speaking with an AI interviewer. Answer out loud and
               treat this like a real interview loop.
             </p>
@@ -106,16 +106,16 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
           <RuleList title="Do" items={DOS} kind="do" />
           <RuleList title="Don't" items={DONTS} kind="dont" />
 
-          <p className="m-0 rounded-[14px] border border-line-2 bg-panel/60 px-[18px] py-3.5 text-[13.5px] leading-[1.55] text-muted-foreground">
+          <p className="m-0 rounded-tile bg-surface px-5 py-4 text-[13.5px] leading-[1.55] text-ink-2">
             While you work, the interviewer sees your cursor, what you type and draw, and what you say as you do it. Your answers and code are saved for your debrief; your cursor and keystroke trail are not, only short summaries of them. The interviewer also notices how you type, such as how steadily and whether text appears without typing, but never which keys you press.
           </p>
 
-          <div className="flex items-start gap-3.5 rounded-[14px] border border-line-2 px-[18px] py-4">
+          <div className="flex items-start gap-3.5 rounded-tile border border-line px-5 py-4">
             <Checkbox
               id="prejoin-terms"
               checked={agreed}
               onCheckedChange={(checked) => setAgreed(checked === true)}
-              className="mt-px h-[22px] w-[22px] rounded-[8px] border-faint-2 shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground"
+              className="mt-px h-[22px] w-[22px] rounded-full border-ink-3 shadow-none data-[state=checked]:border-ink data-[state=checked]:bg-ink data-[state=checked]:text-background"
             />
             <Label htmlFor="prejoin-terms" className="text-[14px] font-normal leading-[1.5]">
               I understand the interview runs in full screen with my entire
@@ -128,7 +128,7 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
           </div>
 
           <Button
-            className="h-12 w-full text-[14.5px]"
+            size="lg" className="w-full"
             disabled={!agreed}
             onClick={() => send({ type: "START_CHECKS" })}
           >
@@ -137,18 +137,18 @@ export function PrejoinView({ meta }: { meta?: RoomMeta } = {}) {
         </div>
 
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-0">
-          <p className="iq-eyebrow m-0">Your camera</p>
+          <p className="m-0 text-[13px] font-medium text-ink-2">Your camera</p>
           <CameraCheckStatus />
-          <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-inv">
+          <div className="relative aspect-video w-full overflow-hidden rounded-card bg-inv shadow-ring">
             <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
             {!camOn ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[13px] text-[#c9c8c3]">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[13px] text-white/70">
                 <VideoOff aria-hidden className="h-5 w-5" />
                 Camera is off
               </div>
             ) : null}
           </div>
-          <div className="overflow-hidden rounded-[14px] border border-line-2">
+          <div className="overflow-hidden rounded-tile border border-line">
             <DeviceRow
               id="prejoin-mic"
               label="Microphone"

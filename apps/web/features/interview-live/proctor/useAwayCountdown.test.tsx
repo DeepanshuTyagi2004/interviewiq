@@ -15,13 +15,13 @@ describe('useAwayCountdown', () => {
   it('counts down once a second, to the limit and then the cap, and shows it in the tab title', () => {
     const away: AwayEpisode = { startedAt: Date.now(), kinds: ['tab_hidden'], tight: true }
     const { result, unmount } = renderHook(() => useAwayCountdown(away))
-    expect(result.current).toEqual({ phase: 'limit', seconds: 4 })
-    expect(document.title).toBe('⚠ Return in 4 s')
+    expect(result.current).toEqual({ phase: 'limit', seconds: 5 })
+    expect(document.title).toBe('⚠ Return in 5 s')
     act(() => { vi.advanceTimersByTime(2000) })
     expect(result.current).toEqual({ phase: 'limit', seconds: 2 })
-    act(() => { vi.advanceTimersByTime(11_000) })
-    expect(result.current).toEqual({ phase: 'cap', seconds: 47 })
-    expect(document.title).toBe('⚠ Interview ends in 47 s')
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(result.current).toEqual({ phase: 'cap', seconds: 2 })
+    expect(document.title).toBe('⚠ Interview ends in 2 s')
     unmount()
     expect(document.title).toBe('Interview')
   })
@@ -35,7 +35,7 @@ describe('useAwayCountdown', () => {
   it('restores the title when the candidate comes back', () => {
     const away: AwayEpisode = { startedAt: Date.now(), kinds: ['fullscreen_exit'], tight: false }
     const { rerender } = renderHook(({ a }: { a: AwayEpisode | null }) => useAwayCountdown(a), { initialProps: { a: away as AwayEpisode | null } })
-    expect(document.title).toBe('⚠ Return in 30 s')
+    expect(document.title).toBe('⚠ Return in 5 s')
     rerender({ a: null })
     expect(document.title).toBe('Interview')
   })
