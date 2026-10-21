@@ -17,15 +17,16 @@ import { IdentityCard } from "./IdentityCard";
 import { LogoutButton } from "./LogoutButton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { ResumeFileRow } from "./ResumeFileRow";
-import { ScrollColumn } from "./ScrollColumn";
 import { SourceSignalCards } from "./SourceSignalCards";
-import { educationLine } from "./identity";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
+import { Chip, Orb } from "@/components/ds";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ProfileScoreCard, ProfileScoreReadout } from "@/features/profile-scoring";
 
-const SCAFFOLD = PAGE_SCAFFOLD;
-/** Desktop: the page fills the card and stops scrolling; the header stays put and each column scrolls. */
-const FILL = "lg:min-h-0 lg:flex-1 lg:pb-0";
+/** A profile column. Below `lg` it dissolves (`contents`) so its cards join the single column in their `order`. */
+function Column({ children }: { children: React.ReactNode }) {
+  return <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-5">{children}</div>;
+}
 
 /** One card's slot. `order` is its place in the phone/tablet column; on desktop the column decides. */
 function Cell({ order, children }: { order: string; children: React.ReactNode }) {
@@ -33,22 +34,23 @@ function Cell({ order, children }: { order: string; children: React.ReactNode })
 }
 
 /**
- * The profile. Desktop: short facts on the left (identity, resume file, contact, education, skills,
- * achievements, sources), the long parts on the right (experience, projects, activity),
- * each column scrolling on its own under a fixed header. Phones and tablets get one column in
- * reading order, scrolling with the page. Each resume section edits on its own.
+ * The profile. A header with the orb, name, headline, level and the beta profile score, then two
+ * columns of hairline cards: short facts on the left (identity, resume file, contact, education,
+ * skills, achievements, sources), the long parts on the right (experience, projects, activity).
+ * Phones and tablets get one column in reading order. Each resume section edits on its own.
  * Descriptive source sections remain separate from the provisional beta assessment card.
  */
 export function ProfileView() {
   const { data, isLoading, isError } = useProfile();
   const candidate = useCandidateProfile();
+  const { user } = useCurrentUser();
 
   if (isLoading) return <ProfileSkeleton />;
 
   if (isError || !data) {
     return (
-      <div className={SCAFFOLD}>
-        <p className="iq-eyebrow m-0">Profile</p>
+      <div>
+        <p className="m-0 text-[13px] text-ink-3">Profile</p>
         <p role="alert" className="m-0 mt-4 text-sm text-destructive">
           Could not load your profile. Please refresh the page.
         </p>
@@ -61,29 +63,34 @@ export function ProfileView() {
   const headline = data.user.headline ?? details?.headline ?? null;
 
   return (
-    <div className={cn(SCAFFOLD, FILL)}>
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-        <div className="min-w-0">
-          <p className="iq-eyebrow m-0">Profile</p>
-          <h1 className="m-0 mt-1.5 break-words text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
-            {name ?? "Your profile"}
-          </h1>
-          <p className="m-0 mt-1.5 text-[14px] leading-[1.5] text-muted-foreground">
-            {headline ?? "What your interviewer knows about you, from your resume and connected sources."}
-          </p>
+    <div>
+      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-6">
+        <div className="flex min-w-0 items-center gap-5">
+          <Orb seed={user?.id ?? name ?? "profile"} size={72} className="flex-none" />
+          <div className="min-w-0">
+            <h1 className="m-0 break-words font-display text-[32px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[40px]">
+              {name ?? "Your profile"}
+            </h1>
+            <p className="m-0 mt-2 max-w-xl text-[14px] leading-[1.55] text-ink-2">
+              {headline ?? "What your interviewer knows about you, from your resume and connected sources."}
+            </p>
+            {candidate.isSuccess ? (
+              <div className="mt-3">
+                <Chip tone="outline">{details?.level ? levelLabel(details.level) : "Level not set"}</Chip>
+              </div>
+            ) : (
+              <div aria-hidden className="mt-3 h-[26px]" />
+            )}
+          </div>
         </div>
         <ProfileScoreReadout />
-      </div>
+      </header>
 
       <DetailsProvider>
-        <div className="mt-5 flex flex-col gap-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:grid-rows-[minmax(0,1fr)]">
-          <ScrollColumn>
+        <div className="mt-10 flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+          <Column>
             <Cell order="order-1">
-              <IdentityCard
-                name={name}
-                subtitle={educationLine(details?.education) ?? headline}
-                skills={data.mostUsedSkills}
-              />
+              <IdentityCard skills={data.mostUsedSkills} />
             </Cell>
             <Cell order="order-2">
               <ProfileScoreCard />
@@ -106,9 +113,9 @@ export function ProfileView() {
             <Cell order="order-10">
               <ConnectedSourcesCard profile={data} />
             </Cell>
-          </ScrollColumn>
+          </Column>
 
-          <ScrollColumn>
+          <Column>
             <Cell order="order-3">
               <ExperienceSection />
             </Cell>
@@ -123,7 +130,7 @@ export function ProfileView() {
                 <LogoutButton />
               </div>
             </Cell>
-          </ScrollColumn>
+          </Column>
         </div>
       </DetailsProvider>
     </div>

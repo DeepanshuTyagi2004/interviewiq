@@ -1,10 +1,10 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { ComingSoon } from "@/components/ds/ComingSoon";
 
 export default function AdminReportsPage() {
   // TODO: reports
   return (
     <main className="flex-1">
-      <StubScreen title="Admin · Reports" />
+      <ComingSoon title="Admin · Reports" />
     </main>
   );
 }

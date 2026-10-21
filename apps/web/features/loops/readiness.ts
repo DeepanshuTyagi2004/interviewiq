@@ -1,12 +1,44 @@
-import type { Loop } from "./types";
+import { shortLevel } from "@/features/report/presentation";
+import type { Loop, ReadinessLevel } from "./types";
+
+const READINESS_ORDER: ReadinessLevel[] = ["getting_started", "progressing", "nearly_ready", "interview_ready"];
+const READINESS_LABEL: Record<ReadinessLevel, string> = {
+  getting_started: "Getting started",
+  progressing: "Progressing",
+  nearly_ready: "Nearly ready",
+  interview_ready: "Interview-ready",
+};
+
+export function readinessLabel(level: ReadinessLevel): string {
+  return READINESS_LABEL[level];
+}
+
+/**
+ * The readiness line for one loop, mock-framed (never a badge or an endorsement):
+ * "Readiness: Progressing · Meesho SDE1 mock process", or "Interview-ready · Meesho SDE1 mock process".
+ * Null for loops that do not count toward readiness (edited or standalone).
+ */
+export function readinessLine(loop: Pick<Loop, "readiness" | "jd" | "name" | "level">): string | null {
+  if (!loop.readiness) return null;
+  const level = loop.jd?.level ?? loop.level;
+  const subject = [loop.jd?.companyName, level ? shortLevel(level) : null, "mock process"].filter(Boolean).join(" ");
+  const label = readinessLabel(loop.readiness);
+  return loop.readiness === "interview_ready" ? `${label} · ${subject}` : `Readiness: ${label} · ${subject}`;
+}
 
 /** "2 of 4 rounds" across the unedited (official) tracks: the only ones that count. Null when there are none. */
-export function readinessSummary(loops: Loop[]): { completed: number; total: number } | null {
+export function readinessSummary(loops: Loop[]): { completed: number; total: number; label: string | null } | null {
   const official = loops.filter((l) => l.countsTowardReadiness && !l.jd?.practiceTemplate && l.status !== "abandoned");
   if (official.length === 0) return null;
+  // The label is the furthest level reached across the unedited tracks (null if the API sent none).
+  const best = official.reduce(
+    (b, l) => (l.readiness && READINESS_ORDER.indexOf(l.readiness) > b ? READINESS_ORDER.indexOf(l.readiness) : b),
+    -1,
+  );
   return {
     completed: official.reduce((n, l) => n + l.progress.completed, 0),
     total: official.reduce((n, l) => n + l.progress.total, 0),
+    label: best >= 0 ? READINESS_LABEL[READINESS_ORDER[best]!] : null,
   };
 }
 

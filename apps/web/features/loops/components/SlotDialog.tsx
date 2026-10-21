@@ -34,7 +34,7 @@ function SlotDialogBody({ title, description, confirmLabel, ignoreSessionId, pen
       <SlotPicker day={day} hour={hour} onChange={(d, h) => { setDay(d); setHour(h); }} sessions={sessions} ignoreSessionId={ignoreSessionId} />
       <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
         {allowNow ? (
-          <Button variant="strong" disabled={pending} onClick={() => onConfirm(new Date(Date.now() + 60_000).toISOString())}>
+          <Button variant="outline" disabled={pending} onClick={() => onConfirm(new Date(Date.now() + 60_000).toISOString())}>
             Start now
           </Button>
         ) : null}

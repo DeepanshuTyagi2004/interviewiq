@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { HudZoomOff } from "@/components/hud";
+import { Chip } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBreadcrumbNames } from "@/components/layout/app-shell/Breadcrumbs";
 import {
   graphProblems, isRound, newInfoNode, newPresetNode, roundNodesOf, ROUND_PRESETS,
   useConfirmLoop, useOfficialProcess, useProcess, useUpdateProcess,
@@ -25,7 +26,8 @@ import { cn } from "@/lib/utils/cn";
 import { NodePalette } from "./NodePalette";
 import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "@/lib/constants/engineering-levels";
 
-const field = "h-9 w-full rounded-lg border border-line-4 bg-card px-3 text-[13px] outline-none transition-colors hover:border-faint-2 focus-visible:ring-1 focus-visible:ring-ring";
+const field = "h-10 w-full rounded-full bg-background px-4 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50";
+const area = "w-full rounded-2xl bg-background px-4 py-2.5 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="iq-eyebrow">{children}</span>;
@@ -53,33 +55,33 @@ function Inspector({ node, onPatch, onDelete }: { node: ProcessNode; onPatch: (p
         <>
           <label className="flex flex-col gap-1.5">
             <Label>Round type</Label>
-            <CustomSelect label="Round type" className={field} value={node.type} options={types.map((t) => ({ value: t.value, label: t.label }))} onValueChange={(value) => { const type = types.find((t) => t.value === value)?.value; if (type) onPatch({ type }); }} />
+            <CustomSelect label="Round type" value={node.type} options={types.map((t) => ({ value: t.value, label: t.label }))} onValueChange={(value) => { const type = types.find((t) => t.value === value)?.value; if (type) onPatch({ type }); }} />
           </label>
           {/* Not editable: every mock round has the same length. */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Length</Label>
-              <span className="text-[13px] text-foreground">{ROUND_MINUTES_LABEL}, set when you book</span>
+              <span className="text-[13px]">{ROUND_MINUTES_LABEL}, set when you book</span>
             </div>
           </div>
         </>
       ) : (
         <label className="flex flex-col gap-1.5">
           <Label>Note</Label>
-          <textarea aria-label="Note" rows={4} maxLength={1000} className={cn(field, "h-auto resize-none py-2")} value={node.note} onChange={(e) => onPatch({ note: e.target.value })} />
-          <span className="text-xs text-faint">Info steps are shown for reference. They can&apos;t be connected and never count.</span>
+          <textarea aria-label="Note" rows={4} maxLength={1000} className={cn(area, "resize-none")} value={node.note} onChange={(e) => onPatch({ note: e.target.value })} />
+          <span className="text-[12.5px] text-ink-3">Info steps are shown for reference. They can&apos;t be connected and never count.</span>
         </label>
       )}
       <div className="flex flex-col gap-1.5"><Label>Difficulty{isRound(node) ? "" : " (optional)"}</Label>
-        <CustomSelect label="Difficulty" className={field} value={node.difficulty ?? ""} options={[...(!isRound(node) ? [{ value: "", label: "Not specified" }] : []), { value: "easy", label: "Easy" }, { value: "medium", label: "Medium" }, { value: "hard", label: "Hard" }]} onValueChange={(difficulty) => { if (difficulty === "easy" || difficulty === "medium" || difficulty === "hard") onPatch({ difficulty }); else if (!isRound(node)) onPatch({ difficulty: undefined }); }} />
+        <CustomSelect label="Difficulty" value={node.difficulty ?? ""} options={[...(!isRound(node) ? [{ value: "", label: "Not specified" }] : []), { value: "easy", label: "Easy" }, { value: "medium", label: "Medium" }, { value: "hard", label: "Hard" }]} onValueChange={(difficulty) => { if (difficulty === "easy" || difficulty === "medium" || difficulty === "hard") onPatch({ difficulty }); else if (!isRound(node)) onPatch({ difficulty: undefined }); }} />
       </div>
       <label className="flex flex-col gap-1.5"><Label>Topics (comma separated)</Label>
-        <textarea aria-label="Topics" aria-invalid={topicsInvalid} rows={3} className={cn(field, "h-auto resize-none py-2")} value={topics} onChange={(event) => { setTopics(event.target.value); onPatch({ topics: event.target.value.split(",").map((topic) => topic.trim()).filter(Boolean) }); }} />
-        <span className={cn("text-xs", topicsInvalid ? "text-destructive" : "text-faint")} role={topicsInvalid ? "alert" : undefined}>Up to 20 topics, 80 characters each.</span>
+        <textarea aria-label="Topics" aria-invalid={topicsInvalid} rows={3} className={cn(area, "resize-none")} value={topics} onChange={(event) => { setTopics(event.target.value); onPatch({ topics: event.target.value.split(",").map((topic) => topic.trim()).filter(Boolean) }); }} />
+        <span className={cn("text-[12.5px]", topicsInvalid ? "text-destructive" : "text-ink-3")} role={topicsInvalid ? "alert" : undefined}>Up to 20 topics, 80 characters each.</span>
       </label>
       <label className="flex flex-col gap-1.5"><Label>Interviewer instructions</Label>
-        <textarea aria-label="Interviewer instructions" rows={6} maxLength={4000} className={cn(field, "h-auto resize-y py-2")} placeholder="Describe what to focus on and how to run this round…" value={node.instructions ?? ""} onChange={(event) => onPatch({ instructions: event.target.value })} />
-        <span className="text-xs text-faint">Natural-language guidance for the interviewer. {(node.instructions ?? "").length}/4000{!isRound(node) ? " · reference only" : ""}</span>
+        <textarea aria-label="Interviewer instructions" rows={6} maxLength={4000} className={cn(area, "resize-y")} placeholder="Describe what to focus on and how to run this round…" value={node.instructions ?? ""} onChange={(event) => onPatch({ instructions: event.target.value })} />
+        <span className="text-[12.5px] text-ink-3">Natural-language guidance for the interviewer. {(node.instructions ?? "").length}/4000{!isRound(node) ? " · reference only" : ""}</span>
       </label>
       <Button variant="ghost" size="sm" className="self-start text-destructive hover:text-destructive" onClick={onDelete}>
         <Trash2 aria-hidden />Delete {isRound(node) ? "round" : "step"}
@@ -96,6 +98,7 @@ function Inspector({ node, onPatch, onDelete }: { node: ProcessNode; onPatch: (p
 export function ProcessEditor({ processId }: { processId: string }) {
   const router = useRouter();
   const process = useProcess(processId);
+  useBreadcrumbNames({ process: process.data?.name });
   const jdId = process.data?.jd?.jdId ?? "";
   const official = useOfficialProcess(jdId);
   const update = useUpdateProcess();
@@ -108,6 +111,15 @@ export function ProcessEditor({ processId }: { processId: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [action, setAction] = useState<"leave" | "reset" | null>(null);
+  // From md up the palette and inspector float over the canvas, so the fit keeps clear of them.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
   const saving = useRef(false);
   const starting = useRef(false);
   const latestGraph = useRef<ProcessGraph | null>(null);
@@ -135,15 +147,14 @@ export function ProcessEditor({ processId }: { processId: string }) {
   }, [dirty]);
 
   if (process.isLoading || (process.data && graph === null)) {
-    return <div className="fixed inset-0 z-50 bg-background p-6"><HudZoomOff /><Skeleton className="h-full w-full rounded-xl" /></div>;
+    return <div className="fixed inset-0 z-50 bg-surface p-3" aria-busy="true" aria-label="Loading process"><Skeleton className="h-full w-full rounded-card" /></div>;
   }
   if (process.isError || !process.data || graph === null) {
     const missing = process.error instanceof ApiFetchError && process.error.status === 404;
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background p-6 text-center">
-        <HudZoomOff />
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-surface p-6 text-center">
         <p className="m-0 text-sm">{missing ? "This process doesn't exist." : "Couldn't load this process."}</p>
-        <Button asChild variant="strong" size="sm"><Link href={ROUTES.processes}>Back to my processes</Link></Button>
+        <Button asChild variant="outline" size="sm"><Link href={ROUTES.processes}>Back to my processes</Link></Button>
       </div>
     );
   }
@@ -250,27 +261,29 @@ export function ProcessEditor({ processId }: { processId: string }) {
   const canConfirm = problems.length === 0 && nameOk && !confirm.isPending && !update.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <HudZoomOff />
-      <header className="flex flex-wrap items-center gap-3 border-b border-line-2 px-4 py-3 sm:px-5">
+    <div className="fixed inset-0 z-50 flex flex-col bg-surface text-foreground">
+      <header className="z-10 mx-3 mt-3 flex flex-none flex-wrap items-center gap-2 rounded-[28px] border border-line bg-background px-3 py-2 shadow-float md:rounded-full md:pl-2 md:pr-2.5">
         <Button variant="ghost" size="sm" onClick={leave}><ArrowLeft aria-hidden />Interview processes</Button>
         <input
           aria-label="Process name"
           value={name}
           disabled={update.isPending || confirm.isPending}
           maxLength={120}
+          title={name}
           onChange={(e) => setName(e.target.value)}
-          className="h-9 min-w-0 flex-[1_1_240px] rounded-lg border border-transparent bg-transparent px-2 text-[15px] outline-none hover:border-line-3 focus-visible:border-line-4 focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-9 min-w-0 flex-[1_1_220px] rounded-full border border-transparent bg-transparent px-3 font-display text-[16px] tracking-[-0.01em] outline-none transition-colors hover:border-line-3 focus-visible:ring-2 focus-visible:ring-ink"
         />
-        <CustomSelect label="Process level" value={level} disabled={update.isPending || confirm.isPending} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setLevel(value); }} className={cn(field, "w-40")} />
-        {!normalizeLegacyLevel(process.data.level) && !level ? <span className="text-xs text-muted-foreground">Saved level is unrecognized. Choose a level to save or start.</span> : null}
-        <span className="hidden truncate text-xs text-faint md:block">
+        <CustomSelect label="Process level" value={level} disabled={update.isPending || confirm.isPending} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setLevel(value); }} className="h-9 w-40" />
+        {!normalizeLegacyLevel(process.data.level) && !level ? <span className="text-[12.5px] text-ink-2">Saved level is unrecognized. Choose a level to save or start.</span> : null}
+        <span className="hidden max-w-[240px] truncate text-[12.5px] text-ink-3 lg:block" title={process.data.jd ? `${process.data.jd.companyName} · ${process.data.jd.title}` : undefined}>
           {process.data.jd ? `${process.data.jd.companyName} · ${process.data.jd.title} · ` : ""}Standalone practice
         </span>
-        <span className={cn("font-mono text-[11px] uppercase tracking-[0.08em]", dirty ? "text-brand" : "text-faint")} aria-live="polite">
-          {update.isPending ? "Saving…" : dirty ? "Unsaved" : "Saved"}
+        <span aria-live="polite">
+          <Chip tone={dirty || update.isPending ? "ink" : "outline"} dot={update.isPending ? "live" : dirty ? "filled" : "hollow"}>
+            {update.isPending ? "Saving…" : dirty ? "Unsaved" : "Saved"}
+          </Chip>
         </span>
-        <Button variant="strong" size="sm" disabled={!canSave} onClick={() => void save()}>
+        <Button variant="outline" size="sm" disabled={!canSave} onClick={() => void save()}>
           {update.isPending ? <Loader2 aria-hidden className="animate-spin" /> : null}Save
         </Button>
         <Button size="sm" disabled={!canConfirm} onClick={() => void saveAndConfirm()}>
@@ -278,21 +291,23 @@ export function ProcessEditor({ processId }: { processId: string }) {
         </Button>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 auto-rows-max overflow-y-auto md:grid-cols-[280px_minmax(0,1fr)_300px] md:grid-rows-[minmax(0,1fr)] md:overflow-hidden">
-        <NodePalette onAdd={addCatalogue} disabled={update.isPending || confirm.isPending} roundCount={roundNodesOf(g).length} infoCount={g.nodes.filter((node) => node.kind === "info").length} />
+      {/* The canvas fills the area; on md+ the palette and inspector float over it as rounded panels. */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto md:overflow-hidden">
+        <div className="flex flex-col gap-3 p-3 md:block md:p-0">
+          <NodePalette onAdd={addCatalogue} disabled={update.isPending || confirm.isPending} roundCount={roundNodesOf(g).length} infoCount={g.nodes.filter((node) => node.kind === "info").length} />
 
-        <main inert={update.isPending || confirm.isPending} className="h-[420px] min-h-0 min-w-0 p-3 md:h-auto">
-          <FlowCanvas graph={g} mode="edit" selectedId={selected} onSelect={setSelected} onGraphChange={(next) => { if (!saving.current && !starting.current && !update.isPending && !confirm.isPending) { latestGraph.current = next; setGraph(next); } }} onDropPreset={drop} className="h-full" />
-        </main>
+          <main inert={update.isPending || confirm.isPending} className="h-[420px] min-h-0 min-w-0 md:absolute md:inset-0 md:h-full md:p-3">
+            <FlowCanvas graph={g} mode="edit" selectedId={selected} onSelect={setSelected} onGraphChange={(next) => { if (!saving.current && !starting.current && !update.isPending && !confirm.isPending) { latestGraph.current = next; setGraph(next); } }} onDropPreset={drop} insets={wide ? { left: 304, right: 324 } : undefined} className="h-full" />
+          </main>
 
-        <aside aria-label="Inspector" inert={update.isPending || confirm.isPending} className="flex flex-col gap-4 overflow-y-auto border-t border-line-2 p-4 md:border-l md:border-t-0">
+          <aside aria-label="Inspector" inert={update.isPending || confirm.isPending} className="flex flex-col gap-4 overflow-y-auto rounded-card border border-line bg-background p-4 shadow-float md:absolute md:right-6 md:top-6 md:z-10 md:max-h-[calc(100%-3rem)] md:w-[300px]">
           {sel ? (
             <Inspector key={sel.id} node={sel} onPatch={(patch) => patchNode(sel.id, patch)} onDelete={() => removeNode(sel.id)} />
           ) : (
             <>
               <div>
                 <p className="iq-eyebrow m-0">How it works</p>
-                <ul className="m-0 mt-2 list-disc space-y-1.5 pl-4 text-[12.5px] leading-[1.5] text-muted-foreground">
+                <ul className="m-0 mt-2 list-disc space-y-1.5 pl-4 text-[12.5px] leading-[1.5] text-ink-2">
                   <li>Drag from a round&apos;s right dot to another round&apos;s left dot to set the order.</li>
                   <li>A round unlocks when every round leading into it is completed. Rounds with nothing leading in are open from the start.</li>
                   <li>Select a node to edit it. Delete removes the selected node or connection.</li>
@@ -301,7 +316,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
               <div>
                 <p className="iq-eyebrow m-0">Checks</p>
                 {problems.length === 0 ? (
-                  <p className="m-0 mt-2 text-[12.5px] text-muted-foreground">Looks good: {roundNodesOf(g).length} {roundNodesOf(g).length === 1 ? "round" : "rounds"}.</p>
+                  <p className="m-0 mt-2 text-[12.5px] text-ink-2">Looks good: {roundNodesOf(g).length} {roundNodesOf(g).length === 1 ? "round" : "rounds"}.</p>
                 ) : (
                   <ul role="alert" className="m-0 mt-2 list-disc space-y-1 pl-4 text-[12.5px] leading-[1.5] text-destructive">
                     {problems.map((p) => <li key={p}>{p}</li>)}
@@ -310,7 +325,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
               </div>
               {official.data ? (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   className="self-start"
                   onClick={() => setAction("reset")}
@@ -321,6 +336,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
             </>
           )}
         </aside>
+        </div>
       </div>
       <ConfirmationDialog open={action !== null} onOpenChange={(open) => { if (!open) setAction(null); }} title={action === "leave" ? "Leave without saving?" : "Replace these rounds?"} description={action === "leave" ? "Your unsaved changes will be lost." : "Replace your current canvas with the role's suggested rounds. You can edit the copy before saving."} confirmLabel={action === "leave" ? "Leave editor" : "Replace rounds"} destructive={action === "leave"} onConfirm={() => { if (action === "leave") router.push(ROUTES.processes); else if (official.data) { latestGraph.current = official.data; setGraph(official.data); setSelected(null); } }} />
     </div>

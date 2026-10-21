@@ -9,7 +9,6 @@ import { ProcessEditor } from "./ProcessEditor";
 const mocks = vi.hoisted(() => ({ data: null as InterviewProcess | null, graph: null as ProcessGraph | null, drop: null as null | ((payload: string, position: { x: number; y: number }) => void), change: null as null | ((graph: ProcessGraph) => void), update: vi.fn(), confirm: vi.fn(), push: vi.fn(), error: vi.fn(), pending: false }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: mocks.error } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
-vi.mock("@/components/hud", () => ({ HudZoomOff: () => null }));
 vi.mock("@/features/loops", async (original) => ({
   ...(await original<typeof import("@/features/loops")>()),
   useProcess: () => ({ data: mocks.data }), useOfficialProcess: () => ({}),

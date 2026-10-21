@@ -28,7 +28,7 @@ describe("ProfileScoreCard", () => {
   });
   it("keeps unknown beta profile evidence separate from the interview placeholder", async () => {
     fetchMock.mockResolvedValue({ ...PROFILE_SCORE_FIXTURE, current: null, history: [] });
-    render(<><IdentityCard name="Asha" subtitle={null} skills={[]} /><ProfileScoreCard /></>, { wrapper: scoringWrapper().wrapper });
+    render(<><IdentityCard skills={[]} /><ProfileScoreCard /></>, { wrapper: scoringWrapper().wrapper });
     await screen.findByLabelText("Profile score: Unknown");
     expect(screen.getByText(/Unknown does not mean zero/)).toBeInTheDocument();
     expect(screen.getByText(/Not a validated hiring assessment/)).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { HudCard, HudEmpty, SegmentMeter } from "@/components/hud";
+import { Card, Chip, EmptyState, Meter, Stat } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { JdFitBreakdown, JdFitEvidence, JdFitPart } from "@/features/jobs";
@@ -52,26 +52,30 @@ function PartRow({ part }: { part: JdFitPart }) {
   const dropped = part.status === "dropped";
   const details = part.evidence.map((e) => evidenceText(part, e)).filter(Boolean);
   return (
-    <li className={cn("flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0", dropped && "opacity-60")}>
+    <li className={cn("flex flex-col gap-2 py-4 first:pt-0 last:pb-0", dropped && "opacity-70")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="text-sm">{PART_LABEL[part.key]}</span>
-        <span className="font-mono text-xs tabular-nums text-faint">
+        <span className="text-[15px] font-medium">{PART_LABEL[part.key]}</span>
+        <span className="text-xs tabular-nums text-ink-3">
           {dropped ? "not scored" : `${Math.round(part.value * 100)}% · weight ${part.weight}`}
         </span>
       </div>
-      {dropped ? null : <SegmentMeter segments={10} filled={Math.round(part.value * 10)} label={`${PART_LABEL[part.key]}: ${Math.round(part.value * 100)}%`} />}
-      <p className={cn("m-0 text-[13px]", part.status === "missing" ? "text-foreground" : "text-muted-foreground")}>{partSummary(part)}</p>
+      {dropped ? null : <Meter value={part.value} label={`${PART_LABEL[part.key]}: ${Math.round(part.value * 100)}%`} />}
+      <p className={cn("m-0 text-[13px]", part.status === "missing" ? "text-foreground" : "text-ink-2")}>{partSummary(part)}</p>
       {details.length > 0 || part.uncovered.length > 0 ? (
         <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {details.map((d) => (
-            <li key={d} className="rounded-full border border-line-3 px-2.5 py-1 text-[11.5px] leading-none text-muted-foreground">
-              ✓ {d}
+            <li key={d} className="min-w-0 max-w-full">
+              <Chip className="max-w-full">
+                <span className="truncate" title={d}>{`✓ ${d}`}</span>
+              </Chip>
             </li>
           ))}
           {part.status === "scored"
             ? part.uncovered.map((u) => (
-                <li key={u} className="rounded-full border border-dashed border-line-3 px-2.5 py-1 text-[11.5px] leading-none text-faint">
-                  ✗ {u}
+                <li key={u} className="min-w-0 max-w-full">
+                  <Chip tone="outline" className="max-w-full border border-dashed border-line-4 text-ink-3 shadow-none">
+                    <span className="truncate" title={u}>{`✗ ${u}`}</span>
+                  </Chip>
                 </li>
               ))
             : null}
@@ -85,14 +89,15 @@ function PartRow({ part }: { part: JdFitPart }) {
 export function MatchTab({ fit, isLoading, isError, onRetry }: { fit: JdFitBreakdown | undefined; isLoading: boolean; isError: boolean; onRetry: () => void }) {
   if (isLoading) {
     return (
-      <div aria-busy="true" aria-label="Loading your match" className="flex flex-col gap-2.5">
-        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[76px] rounded-[14px]" />)}
+      <div aria-busy="true" aria-label="Loading your match" className="flex flex-col gap-3">
+        <Skeleton className="h-[110px] rounded-card" />
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[76px] rounded-card" />)}
       </div>
     );
   }
   if (isError || !fit) {
     return (
-      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line-2 px-5 py-4">
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface px-5 py-4 shadow-ring">
         <p className="m-0 text-sm text-destructive">Couldn&apos;t load your match for this role.</p>
         <Button variant="outline" size="sm" onClick={onRetry}>Try again</Button>
       </div>
@@ -100,30 +105,26 @@ export function MatchTab({ fit, isLoading, isError, onRetry }: { fit: JdFitBreak
   }
   if (fit.score === null) {
     return (
-      <HudCard as="div">
-        <HudEmpty title="No match score yet" hint="This role doesn't list a stack, domain, experience range or interview topics to match against yet." />
-      </HudCard>
+      <Card as="div" tone="surface">
+        <EmptyState title="No match score yet" hint="This role doesn't list a stack, domain, experience range or interview topics to match against yet." />
+      </Card>
     );
   }
   const gap = levelGapText(fit.levelGap, fit.jdLevel);
+  const note =
+    gap || fit.levelFactor !== null
+      ? `${gap ?? "One level below your level"}${fit.cap !== null ? ` · capped at ${fit.cap}% because this role is two or more levels above yours` : ""}${fit.levelFactor !== null ? ` · scored ×${fit.levelFactor} for the level gap` : ""}`
+      : null;
   return (
-    <HudCard
-      title="Your match"
-      titleAs="h3"
-      meta={<span className="font-mono tabular-nums">{fit.score}%</span>}
-      bodyClassName="flex flex-col gap-4 p-4 sm:p-5"
-    >
-      {gap || fit.levelFactor !== null ? (
-        <p className="m-0 text-[13px] text-muted-foreground">
-          {gap ?? "One level below your level"}
-          {fit.cap !== null ? ` · capped at ${fit.cap}% because this role is two or more levels above yours` : ""}
-          {fit.levelFactor !== null ? ` · scored ×${fit.levelFactor} for the level gap` : ""}
-        </p>
-      ) : null}
-      <ul className="m-0 list-none divide-y divide-line-2 p-0">
-        {fit.parts.map((part) => <PartRow key={part.key} part={part} />)}
-      </ul>
-      <p className="m-0 border-t border-line-2 pt-3 text-xs text-faint">{FOOTER}</p>
-    </HudCard>
+    <div className="flex flex-col gap-4">
+      <Card as="div" tone="stone">
+        <Stat label="Your match" value={`${fit.score}%`} note={note} />
+      </Card>
+      <Card title="How it adds up" titleAs="h3" footer={<p className="m-0 text-xs leading-[1.5] text-ink-3">{FOOTER}</p>}>
+        <ul className="m-0 list-none divide-y divide-line p-0">
+          {fit.parts.map((part) => <PartRow key={part.key} part={part} />)}
+        </ul>
+      </Card>
+    </div>
   );
 }

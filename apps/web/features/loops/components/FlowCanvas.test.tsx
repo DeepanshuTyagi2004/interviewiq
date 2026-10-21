@@ -207,7 +207,7 @@ describe("FlowCanvas fit and input boundaries", () => {
     expect(drop).toHaveBeenCalledWith("round:dsa", { x: 42, y: 99 });
     expect(canvas.parentElement).toHaveClass("relative", "flex-1", "min-h-[280px]");
     expect(canvas).toHaveClass("!absolute", "inset-0", "!h-auto");
-    expect(canvas.parentElement!.parentElement).toHaveClass("min-h-[280px]", "[zoom:calc(1/var(--hud-zoom,1))]");
+    expect(canvas.parentElement!.parentElement).toHaveClass("min-h-[280px]");
   });
 
   it("preserves the viewport after a real drop insertion, including delayed measurements, then fits a click-add", async () => {

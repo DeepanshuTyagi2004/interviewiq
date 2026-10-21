@@ -3,6 +3,7 @@ import type { LeetCodeFragment, ProfileResponse } from "@/features/profile";
 import { PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 import { ROUTES } from "@/lib/constants/shared";
 import { LanguageDistribution } from "@/components/visualizations/LanguageDistribution";
+import { StatusDot } from "@/components/ds";
 import { ProfileCard, CardEmpty } from "./ProfileCard";
 import { StatRow, StatTile } from "@/components/patterns";
 
@@ -25,15 +26,10 @@ function sourceRecord(profile: ProfileResponse, source: SignalSource) {
 
 function SourceStatus({ source, connected, partial }: { source: SignalSource; connected: boolean; partial?: boolean }) {
   const label = partial ? "Partial data" : connected ? "Connected" : "Not connected";
-  const tone = partial ? "text-amber-700 dark:text-amber-300" : connected ? "text-foreground" : "text-muted-foreground";
 
   return (
-    <span className={`inline-flex items-center gap-1.5 ${tone}`} aria-label={`${SOURCE_LABEL[source]}: ${label}`}>
-      <span
-        aria-hidden
-        className={`h-1.5 w-1.5 rounded-full ${partial ? "bg-amber-500" : connected ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-      />
-      {label}
+    <span aria-label={`${SOURCE_LABEL[source]}: ${label}`}>
+      <StatusDot state={partial ? "warn" : connected ? "active" : "idle"} label={label} />
     </span>
   );
 }
@@ -42,7 +38,7 @@ function ManageSource() {
   return (
     <a
       href={ROUTES.connections}
-      className="text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="text-[13px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
     >
       Manage
     </a>
@@ -78,7 +74,7 @@ function GithubSignalCard({ profile }: { profile: ProfileResponse }) {
          <SyncEmpty source="GITHUB" status={source?.status} connected={connected} />
       ) : (
         <div className="flex flex-col gap-5 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-3 text-[13px] text-ink-2">
             <SourceStatus source="GITHUB" connected={connected} />
             <span>{github.name || "Public profile"}</span>
           </div>
@@ -88,11 +84,11 @@ function GithubSignalCard({ profile }: { profile: ProfileResponse }) {
             <StatTile value={github.externalPRs.toLocaleString()} label="External PRs" className="px-3 py-4 sm:px-4" />
           </StatRow>
           <div className="flex flex-col gap-2.5">
-            <p className="iq-eyebrow m-0">Languages</p>
+            <p className="m-0 text-[13px] text-ink-3">Languages</p>
             {github.languages.length ? (
               <LanguageDistribution languages={github.languages} />
             ) : (
-              <p className="m-0 text-[13px] text-muted-foreground">No language data yet.</p>
+              <p className="m-0 text-[13px] text-ink-2">No language data yet.</p>
             )}
           </div>
         </div>
@@ -148,12 +144,12 @@ function LeetCodeSignalCard({ profile }: { profile: ProfileResponse }) {
          <SyncEmpty source="LEETCODE" status={source?.status} connected={connected} />
       ) : (
         <div className="flex flex-col gap-5 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-2">
             <SourceStatus source="LEETCODE" connected={connected} partial={leetcode.partial} />
             {leetcode.country ? <span>{leetcode.country}</span> : null}
           </div>
           {leetcode.partial ? (
-            <p role="status" className="m-0 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[13px] leading-[1.45] text-muted-foreground">
+            <p role="status" className="m-0 rounded-[12px] bg-surface-2 px-3 py-2 text-[13px] leading-[1.45] text-ink-2">
               Some LeetCode data could not be imported; unavailable fields are shown as em dashes.
             </p>
           ) : null}
@@ -162,10 +158,10 @@ function LeetCodeSignalCard({ profile }: { profile: ProfileResponse }) {
             <StatTile value={leetcode.contest ? leetcode.contest.rating.toLocaleString() : "—"} label="Contest rating" className="px-3 py-4 sm:px-4" />
           </StatRow>
           <div className="flex flex-col gap-2.5">
-            <p className="iq-eyebrow m-0">By difficulty</p>
+            <p className="m-0 text-[13px] text-ink-3">By difficulty</p>
             <DifficultyBlocks solved={leetcode.solved} />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-2">
             <span aria-label={`${topicCount.toLocaleString()} topics covered`}>
               <span className="font-mono tabular-nums text-foreground">{topicCount.toLocaleString()}</span>{" "}
               topics covered
@@ -181,7 +177,7 @@ function LeetCodeSignalCard({ profile }: { profile: ProfileResponse }) {
 /** Separate, descriptive source snapshots. These are source stats only — never a score or grade. */
 export function SourceSignalCards({ profile }: { profile: ProfileResponse }) {
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+    <div className="grid min-w-0 gap-5 xl:grid-cols-2">
       <GithubSignalCard profile={profile} />
       <LeetCodeSignalCard profile={profile} />
     </div>

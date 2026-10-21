@@ -1,6 +1,6 @@
 "use client";
 
-import { MonoPill } from "@/components/patterns";
+import { ErrorChip } from "./SyncChip";
 import { ConnectionButton } from "./ConnectionButton";
 import { DisconnectDialog } from "./DisconnectDialog";
 import { joinDetail, sourceDate } from "./format";
@@ -43,7 +43,7 @@ export function ProviderRow({
       // `errored` here is a failed OAuth connect, not a failed sync.
       stateLabel={errored ? "Connection failed" : undefined}
       unavailable={!provider.live}
-      pill={errored ? <MonoPill tone="alert">Error</MonoPill> : null}
+      pill={errored ? <ErrorChip /> : null}
       actions={
         connected ? (
           provider.live ? (

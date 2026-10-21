@@ -8,6 +8,7 @@ import { Roadmap } from "./Roadmap";
 
 // These tests exercise published facts and round cards; track actions have their own query lifecycle.
 vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
+vi.mock("./RoleActions", () => ({ RoleActions: () => null }));
 
 const hooks = vi.hoisted(() => ({ jd: null as JdDetail | null }));
 vi.mock("@/features/jobs", async (original) => ({ ...(await original<typeof import("@/features/jobs")>()), useJd: () => ({ data: hooks.jd, isLoading: false, isError: false }), useJdFit: () => ({ data: undefined, isLoading: false, isError: false, refetch: () => undefined }), useJobCompanies: () => ({ data: [] }) }));

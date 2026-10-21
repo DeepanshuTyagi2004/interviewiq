@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { EmptyState } from "@/components/patterns";
+import { Search } from "lucide-react";
+import { EmptyState, PageHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +16,6 @@ import {
   filterLibrary,
   type StatusFilter,
 } from "./library";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
 
 const STATUS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -23,8 +23,7 @@ const STATUS: { value: StatusFilter; label: string }[] = [
   { value: "researching", label: "Researching" },
 ];
 
-const grid =
-  "grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))]";
+const grid = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 function StatusSegments({
   value,
@@ -37,7 +36,7 @@ function StatusSegments({
     <div
       role="group"
       aria-label="Research status"
-      className="flex flex-none gap-0.5 rounded-full border border-line-3 p-[3px]"
+      className="flex flex-none gap-0.5 rounded-full bg-surface-2 p-1"
     >
       {STATUS.map((s) => (
         <button
@@ -46,10 +45,10 @@ function StatusSegments({
           aria-pressed={value === s.value}
           onClick={() => onChange(s.value)}
           className={cn(
-            "rounded-full px-3.5 py-2 text-[13px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "h-8 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             value === s.value
-              ? "bg-primary text-primary-foreground"
-              : "text-foreground hover:bg-accent",
+              ? "bg-background text-foreground shadow-ring"
+              : "text-ink-2 hover:text-foreground",
           )}
         >
           {s.label}
@@ -64,14 +63,11 @@ function LibrarySkeleton() {
     <div
       aria-busy="true"
       aria-label="Loading companies"
-      className="mt-5 flex flex-col gap-12"
+      className={cn(grid, "mt-8")}
     >
-      <div className={grid}>
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[176px] rounded-[14px]" />
-        ))}
-      </div>
-      <Skeleton className="h-40 rounded-[14px]" />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <Skeleton key={i} className="h-[176px] rounded-card" />
+      ))}
     </div>
   );
 }
@@ -107,41 +103,35 @@ export function CompanyLibrary() {
   const showControls = isLoading || (!jds.isError && entries.length > 0);
 
   return (
-    <div className={PAGE_SCAFFOLD}>
-      {/* Title on the left, search and filter on the right of the same row: the grid starts higher. */}
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
-        <div className="min-w-0">
-          <p className="iq-eyebrow m-0">Company library</p>
-          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
-            Companies
-          </h1>
-          <p className="m-0 mt-1.5 max-w-[560px] text-[14px] leading-[1.5] text-muted-foreground">
-            Real interview processes, researched from experiences candidates
-            share. Each page is honest about how much data is behind it.
-          </p>
-        </div>
+    <div>
+      <PageHeader
+        title="Companies"
+        description="Real interview processes, researched from experiences candidates share. Each page is honest about how much data is behind it."
+      />
 
-        {showControls ? (
-          <div className="flex w-full flex-wrap items-center gap-2.5 lg:w-[500px] lg:flex-nowrap">
+      {showControls ? (
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="relative min-w-0 flex-[1_1_260px] sm:max-w-[420px]">
+            <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
             <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search companies or roles"
               aria-label="Search companies or roles"
-              className="h-[42px] min-w-0 flex-[1_1_220px] border-line-3 px-3.5 text-sm md:text-sm"
+              className="h-11 pl-10 pr-4 text-sm md:text-sm"
             />
-            <StatusSegments value={status} onChange={setStatus} />
           </div>
-        ) : null}
-      </div>
+          <StatusSegments value={status} onChange={setStatus} />
+        </div>
+      ) : null}
 
       {isLoading ? (
         <LibrarySkeleton />
       ) : jds.isError ? (
         <div
           role="alert"
-          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line-2 px-5 py-4"
+          className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface px-5 py-4 shadow-ring"
         >
           <p className="m-0 text-sm text-destructive">
             Couldn&apos;t load the company library.
@@ -156,28 +146,27 @@ export function CompanyLibrary() {
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
-          className="mt-5"
+          className="mt-6"
           title="No companies yet"
           hint="Companies appear here once their interview processes are being researched. Check back soon."
         />
       ) : matches.length === 0 ? (
         <EmptyState
-          className="mt-5"
+          className="mt-6"
           title="No companies match"
           hint={
             query.trim()
               ? `Nothing matches “${query.trim()}” with this filter.`
               : "No companies have this status yet."
           }
-          action={
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          }
-        />
+        >
+          <Button variant="outline" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </EmptyState>
       ) : (
         <>
-          <div className={cn(grid, "mt-5")}>
+          <div className={cn(grid, "mt-8")}>
             {matches.map((m) => (
               <CompanyCard
                 key={m.entry.slug}

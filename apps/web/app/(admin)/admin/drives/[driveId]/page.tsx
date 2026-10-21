@@ -1,4 +1,4 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { ComingSoon } from "@/components/ds/ComingSoon";
 
 export default async function AdminDriveDetailPage({
   params,
@@ -9,7 +9,7 @@ export default async function AdminDriveDetailPage({
   // TODO: drive detail
   return (
     <main className="flex-1">
-      <StubScreen title={`Drive ${driveId}`} />
+      <ComingSoon title={`Drive ${driveId}`} />
     </main>
   );
 }

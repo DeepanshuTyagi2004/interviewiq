@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Readout } from "@/components/hud/Readout";
+import { Stat } from "@/components/ds/Stat";
 import { cn } from "@/lib/utils/cn";
 
 export interface StatTileProps {
@@ -8,12 +8,9 @@ export interface StatTileProps {
   className?: string;
 }
 
-/**
- * A single KPI: the HUD readout (mono label over a large Geist Mono value). Descriptive only —
- * never a score, rank, or comparison.
- */
+/** A single KPI: a big light number over a quiet label. Descriptive only, never a score, rank or comparison. */
 export function StatTile({ value, label, className }: StatTileProps) {
-  return <Readout label={label} value={value} className={cn("px-5 py-5", className)} />;
+  return <Stat label={label} value={value} size="sm" className={cn("px-5 py-5", className)} />;
 }
 
 export interface StatRowProps {
@@ -21,15 +18,12 @@ export interface StatRowProps {
   className?: string;
 }
 
-/**
- * Hairline-divided grid of StatTiles. Wraps the row in a card-bordered
- * container; vertical dividers between tiles via `divide-x`.
- */
+/** Hairline-divided grid of StatTiles inside a ringed tile. */
 export function StatRow({ children, className }: StatRowProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "grid grid-cols-2 divide-x divide-y divide-line overflow-hidden rounded-tile bg-background shadow-ring sm:grid-cols-4 sm:divide-y-0",
         className,
       )}
     >

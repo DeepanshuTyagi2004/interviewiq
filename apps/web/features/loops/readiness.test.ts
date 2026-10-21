@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { readinessSummary, trackStatus } from "./readiness";
+import { readinessLine, readinessSummary, trackStatus } from "./readiness";
 import type { Loop } from "./types";
 
 const loop = (over: Partial<Loop>): Loop => ({
-  id: "l", name: "SDE I", level: "fresher", jdId: "j", processId: null, kind: "official", status: "active", countsTowardReadiness: true,
-  confirmedAt: "2030-01-01T00:00:00Z", graph: { nodes: [], edges: [] }, nodeStates: {},
+  id: "l", name: "SDE I", level: "fresher", jdId: "j", processId: null, kind: "official", status: "active", countsTowardReadiness: true, readiness: "progressing",
+  confirmedAt: "2030-01-01T00:00:00Z", graph: { nodes: [], edges: [] }, nodeStates: {}, nodeResults: {},
   progress: { total: 4, completed: 1, nextNodeIds: [] }, sessions: [],
   jd: { practiceTemplate: false, jdId: "j", title: "SDE I", company: "meesho", companyName: "Meesho", role: "software-engineer", level: "fresher", specialization: null, techStack: [] },
   ...over,
@@ -28,9 +28,31 @@ describe("readinessSummary", () => {
   it("counts only unedited, non-abandoned tracks", () => {
     expect(readinessSummary([])).toBeNull();
     expect(readinessSummary([loop({ kind: "standalone", countsTowardReadiness: false })])).toBeNull();
-    expect(readinessSummary([loop({}), loop({ status: "abandoned" }), loop({ kind: "standalone", countsTowardReadiness: false })])).toEqual({ completed: 1, total: 4 });
+    expect(readinessSummary([loop({}), loop({ status: "abandoned" }), loop({ kind: "standalone", countsTowardReadiness: false })])).toEqual({ completed: 1, total: 4, label: "Progressing" });
     const template = loop({});
     template.jd!.practiceTemplate = true;
     expect(readinessSummary([template])).toBeNull();
+  });
+});
+
+describe("readinessSummary label", () => {
+  it("names the furthest level reached across unedited tracks", () => {
+    expect(readinessSummary([loop({ readiness: "getting_started" }), loop({ id: "m", readiness: "nearly_ready" })])?.label).toBe("Nearly ready");
+  });
+});
+
+describe("readinessLine", () => {
+  it("frames readiness as a mock process, for official loops only", () => {
+    expect(readinessLine(loop({}))).toBe("Readiness: Progressing · Meesho Fresher mock process");
+    expect(readinessLine(loop({ readiness: "interview_ready" }))).toBe("Interview-ready · Meesho Fresher mock process");
+    expect(readinessLine(loop({ kind: "standalone", countsTowardReadiness: false, readiness: null }))).toBeNull();
+  });
+
+  it("writes SDE1 for the sde1 level and never says badge, certified or cleared", () => {
+    const l = loop({ readiness: "interview_ready" });
+    l.jd!.level = "sde1";
+    const line = readinessLine(l)!;
+    expect(line).toBe("Interview-ready · Meesho SDE1 mock process");
+    expect(line).not.toMatch(/badge|certified|cleared/i);
   });
 });

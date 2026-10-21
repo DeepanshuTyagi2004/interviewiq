@@ -112,16 +112,16 @@ describe("LeetCodeRow", () => {
   });
 
   describe("status dot", () => {
-    /** The row's HUD dot: its sr-only label and the dot span before it. */
+    /** The row's dot: its sr-only label and the dot span before it. */
     function dot(label: string) {
       const text = screen.getAllByText(label).find((el) => el.classList.contains("sr-only"));
       expect(text).toBeDefined();
       return text!.previousElementSibling as HTMLElement;
     }
 
-    /** The row's HUD StatusDot (not the status pill's own breathing dot), found by its wrapper. */
+    /** The row's StatusDot (the status chip carries no dot of its own). */
     function hudDot(container: HTMLElement) {
-      const el = container.querySelector(".hud\\:inline-flex > [aria-hidden]");
+      const el = container.querySelector("span.inline-flex > [aria-hidden].h-1\\.5");
       expect(el).not.toBeNull();
       return el as HTMLElement;
     }

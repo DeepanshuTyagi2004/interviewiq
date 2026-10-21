@@ -1,10 +1,10 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { ComingSoon } from "@/components/ds/ComingSoon";
 
 export default function AdminDrivesNewPage() {
   // TODO: create new drive
   return (
     <main className="flex-1">
-      <StubScreen title="New Drive" />
+      <ComingSoon title="New Drive" />
     </main>
   );
 }

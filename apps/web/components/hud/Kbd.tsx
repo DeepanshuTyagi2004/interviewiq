@@ -1,11 +1,11 @@
 import * as React from "react";
-import { cn } from "@/lib/utils/cn";
+import { Kbd as DsKbd } from "@/components/ds/Kbd";
 
-/** Keycap in Geist Mono. `label` is what a screen reader hears instead of the glyphs. */
+/** Shim over `ds/Kbd`. `label` is what a screen reader hears instead of the glyphs. */
 export function Kbd({
   children,
   label,
-  size = "md",
+  size: _size,
   className,
 }: {
   children: React.ReactNode;
@@ -13,14 +13,9 @@ export function Kbd({
   size?: "sm" | "md";
   className?: string;
 }) {
+  void _size;
   return (
-    <kbd
-      className={cn(
-        "inline-flex flex-none items-center justify-center rounded-md border border-line-3 bg-card font-mono text-foreground",
-        size === "md" ? "h-6 min-w-6 px-1.5 text-[11px]" : "h-5 min-w-5 px-1 text-[10.5px]",
-        className,
-      )}
-    >
+    <DsKbd className={className}>
       {label ? (
         <>
           <span aria-hidden>{children}</span>
@@ -29,6 +24,6 @@ export function Kbd({
       ) : (
         children
       )}
-    </kbd>
+    </DsKbd>
   );
 }

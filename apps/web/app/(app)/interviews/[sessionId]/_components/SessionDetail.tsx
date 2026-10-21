@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { HudCard, StatusDot, padCount, type DotState } from "@/components/hud";
+import { Card, PageHeader, StatusDot, type DotState } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
@@ -21,14 +20,11 @@ import {
   sessionSteps,
   type SessionStep,
 } from "@/features/interview/presentation";
-import { StatusPill } from "../../_components/StatusPill";
-import { RetryPrepButton } from "../../_components/RetryPrepButton";
+import { StatusChip } from "../../_components/StatusPill";
 import { BriefingCard } from "./BriefingCard";
+import { PrepFailed } from "./PrepFailed";
 import { PrepPanel } from "./PrepPanel";
 import { SessionAction } from "./SessionAction";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
-
-const PAGE = PAGE_SCAFFOLD;
 
 /** One line on where the session stands, straight from its status. */
 function statusLine(session: InterviewSession): string {
@@ -55,13 +51,13 @@ function statusLine(session: InterviewSession): string {
 }
 
 /**
- * The step's dot on the rail. Done = solid ink, upcoming = idle, failed = error. The current step
- * is the brand dot, and it pulses only while that step is really running (prep in flight, or the
- * round live); a current step that's just waiting (ready to join, debrief) stays steady.
+ * The step's dot on the rail. Done = solid ink, upcoming = hollow, failed = error. The current step
+ * pulses only while that step is really running (prep in flight, or the round live); a current step
+ * that's just waiting (ready to join, debrief) stays steady.
  */
 function StepDot({ step, status }: { step: SessionStep; status: InterviewSession["status"] }) {
   if (step.state === "done") {
-    return <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-foreground" />;
+    return <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-ink" />;
   }
   const running =
     step.state === "current" &&
@@ -78,52 +74,25 @@ const STATE_TEXT: Record<SessionStep["state"], string> = {
   failed: "Needs attention",
 };
 
-/**
- * The lifecycle as a vertical step timeline: a dot per step on a 1px rail, the step with its mono
- * index, and a short note. The rail is drawn per step, from this dot down to the next one.
- *
- * From lg up every size is written `calc(N * --fu)`: `--fu` is the page's viewport-fit unit while the screen fits the
- * viewport (the prep screen) and unset, so exactly N px, anywhere else.
- */
-function Progress({ session, className }: { session: InterviewSession; className?: string }) {
-  const steps = sessionSteps(session.status);
+/** The lifecycle as a vertical step timeline: a dot per step on a hairline rail, the step and a short note. */
+function Progress({ session }: { session: InterviewSession }) {
+  const steps = sessionSteps(session.status, session.evaluationStatus);
   return (
-    <section
-      aria-labelledby="session-progress"
-      className={cn(
-        "flex min-w-0 flex-col gap-4 rounded-[14px] bg-panel p-4 sm:p-5 lg:gap-[calc(16*var(--fu,1px))] lg:p-[calc(20*var(--fu,1px))]",
-        className,
-      )}
-    >
-      <h2 id="session-progress" className="iq-eyebrow m-0 font-normal">
-        Progress
-      </h2>
-      <ol className="iq-float m-0 flex list-none flex-col px-4 py-1.5 lg:flex-1 lg:px-[calc(16*var(--fu,1px))] lg:py-[calc(6*var(--fu,1px))]">
+    <Card title="Progress">
+      <ol className="m-0 flex list-none flex-col p-0">
         {steps.map((step, i) => (
-          <li key={step.key} className="relative flex items-start gap-3.5 py-3 lg:flex-1 lg:gap-[calc(14*var(--fu,1px))] lg:py-[calc(12*var(--fu,1px))]">
+          <li key={step.key} className="relative flex items-start gap-3.5 pb-5 last:pb-0">
             {i < steps.length - 1 ? (
-              <span
-                aria-hidden
-                data-rail
-                className="absolute left-[5px] top-[23px] h-full w-px bg-line-3 lg:left-[calc(5*var(--fu,1px))] lg:top-[calc(23*var(--fu,1px))]"
-              />
+              <span aria-hidden data-rail className="absolute left-[5px] top-[23px] h-[calc(100%-23px)] w-px bg-line" />
             ) : null}
-            <span className="relative flex h-[22px] w-[11px] flex-none items-center justify-center lg:h-[calc(22*var(--fu,1px))] lg:w-[calc(11*var(--fu,1px))]">
+            <span className="relative flex h-[22px] w-[11px] flex-none items-center justify-center">
               <StepDot step={step} status={session.status} />
             </span>
             <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  "m-0 flex items-baseline gap-2 text-[14.5px] leading-[22px] lg:text-[length:calc(14.5*var(--fu,1px))] lg:leading-[calc(22*var(--fu,1px))]",
-                  step.state === "upcoming" ? "text-faint" : "text-foreground",
-                )}
-              >
-                <span aria-hidden className="font-mono text-[11px] tabular-nums text-faint lg:text-[length:calc(11*var(--fu,1px))]">
-                  {padCount(i + 1)}
-                </span>
+              <p className={cn("m-0 text-[14.5px] leading-[22px]", step.state === "upcoming" ? "text-ink-3" : "font-medium text-ink")}>
                 {step.label}
               </p>
-              <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground lg:text-[length:calc(12.5*var(--fu,1px))]">
+              <p className="m-0 mt-0.5 text-[13px] text-ink-3">
                 {step.key === "booked" ? `Booked ${formatDate(session.createdAt)}` : step.note}
               </p>
             </div>
@@ -132,12 +101,12 @@ function Progress({ session, className }: { session: InterviewSession; className
         ))}
       </ol>
       {!isFinished(session) ? (
-        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground lg:text-[length:calc(13*var(--fu,1px))]">
+        <p className="m-0 mt-5 border-t border-line pt-4 text-[13px] leading-[1.5] text-ink-3">
           The room runs full screen with your camera and microphone on. Leaving full screen or switching
           tabs pauses the round.
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -152,85 +121,43 @@ function Details({ session }: { session: InterviewSession }) {
     [
       "Slot",
       <>
-        <span className="font-mono tabular-nums">{formatSlot(session.scheduledAt)}</span>
-        <span className="block text-xs text-faint lg:text-[length:calc(12*var(--fu,1px))]">
-          {formatRelativeTime(session.scheduledAt)} · <span className="font-mono">{session.timezone}</span>
+        <span className="tabular-nums">{formatSlot(session.scheduledAt)}</span>
+        <span className="block text-[12.5px] text-ink-3">
+          {formatRelativeTime(session.scheduledAt)} · {session.timezone}
         </span>
       </>,
     ],
   ];
 
   return (
-    <HudCard title="Details">
-      <dl className="m-0 grid sm:grid-cols-3">
+    <Card title="Details">
+      <dl className="m-0 grid sm:grid-cols-2">
         {rows.map(([label, value]) => (
           <div
             key={label}
-            className="grid min-w-0 content-start grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-line px-4 py-3 text-[13.5px] sm:grid-cols-1 sm:gap-0.5 sm:px-5 sm:py-2 lg:gap-y-[calc(2*var(--fu,1px))] lg:px-[calc(20*var(--fu,1px))] lg:py-[calc(8*var(--fu,1px))] lg:text-[length:calc(13.5*var(--fu,1px))]"
+            className="grid min-w-0 content-start grid-cols-[110px_minmax(0,1fr)] gap-3 border-t border-line py-3 text-[14px] sm:grid-cols-1 sm:gap-0.5 sm:pr-4"
           >
-            <dt className="text-faint">{label}</dt>
-            <dd className="m-0 min-w-0 break-words text-foreground">{value}</dd>
+            <dt className="text-ink-3">{label}</dt>
+            <dd className="m-0 min-w-0 break-words text-ink">{value}</dd>
           </div>
         ))}
       </dl>
-    </HudCard>
+    </Card>
   );
 }
 
-/** A failed prep: what happened in plain words, a retry, and the stable code tucked into details. */
-function PrepFailed({ session }: { session: InterviewSession }) {
-  return (
-    <section aria-labelledby="prep-failed" className="flex min-w-0 flex-col gap-3 rounded-[14px] bg-panel p-4 sm:p-5">
-      <h2 id="prep-failed" className="iq-eyebrow m-0 font-normal">
-        Preparation
-      </h2>
-      <div className="iq-float flex flex-col gap-3 px-4 py-4">
-        <p role="alert" className="m-0 text-[14.5px] text-foreground">
-          We couldn&apos;t prepare this interview.
-        </p>
-        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
-          Nothing is lost: retry and we&apos;ll prepare it again. Your slot stays booked.
-        </p>
-        <div>
-          <RetryPrepButton session={session} className="h-9 px-4 text-[13px]" />
-        </div>
-        {session.prep.errorCode ? (
-          <details className="text-[12.5px] text-muted-foreground">
-            <summary className="cursor-pointer select-none">Details</summary>
-            <p className="m-0 mt-1.5">
-              Error code <span className="font-mono text-foreground">{session.prep.errorCode}</span>
-            </p>
-          </details>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      href={ROUTES.interviews}
-      className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-    >
-      <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
-      All interviews
-    </Link>
-  );
-}
-
-/** Session detail: status, the next action, the lifecycle so far and the booking's facts. */
+/** Session detail: status, the next action, the interviewer's briefing, the booking's facts and the lifecycle so far. */
 export function SessionDetail({ sessionId }: { sessionId: string }) {
   const { data: session, isLoading, isError } = useSession(sessionId);
 
   if (isLoading) {
     return (
-      <div className={PAGE} aria-busy="true" aria-label="Loading interview">
+      <div aria-busy="true" aria-label="Loading interview">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="mt-4 h-10 w-72 max-w-full" />
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <Skeleton className="h-80 rounded-[14px]" />
-          <Skeleton className="h-80 rounded-[14px]" />
+        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Skeleton className="h-80 rounded-card" />
+          <Skeleton className="h-80 rounded-card" />
         </div>
       </div>
     );
@@ -238,77 +165,57 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
 
   if (isError || !session) {
     return (
-      <div className={PAGE}>
-        <BackLink />
-        <div className="mt-6 rounded-[14px] border border-dashed border-line-4 px-6 py-12 text-center">
-          <p role="alert" className="m-0 text-sm text-foreground">
+      <div className="rounded-tile bg-surface">
+        <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+          <p role="alert" className="m-0 font-display text-[20px] font-normal tracking-[-0.02em]">
             We couldn&apos;t load this interview.
           </p>
-          <p className="m-0 mt-1 text-sm text-muted-foreground">It may have been removed, or the link is wrong.</p>
+          <p className="m-0 text-[14px] text-ink-3">It may have been removed, or the link is wrong.</p>
+          <Button asChild variant="outline" className="mt-3">
+            <Link href={ROUTES.interviews}>All interviews</Link>
+          </Button>
         </div>
       </div>
     );
   }
 
   const company = companyLabel(session);
-  // While the interviewer is being prepared the screen fits the viewport from lg up (no scrolling): the mascot and its
-  // steps on the left, the booking's details and the lifecycle on the right. Every other state keeps the plain page.
-  const fit = session.status === "SCHEDULED" || session.status === "PREP_QUEUED";
+  const preparing = session.status === "SCHEDULED" || session.status === "PREP_QUEUED";
+  const eyebrow = `${company} · ${levelLabel(session.level)}`;
 
-  const content = (
-    <>
-      <BackLink />
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-5 lg:mt-[calc(20*var(--fu,1px))] lg:gap-[calc(20*var(--fu,1px))]">
-        <div className="min-w-0">
-          <p className="iq-eyebrow m-0">
-            Interview · {company} · {levelLabel(session.level)}
-          </p>
-          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px] lg:text-[length:calc(30*var(--fu,1px))]">
-            {roundLabel(session.roundType)}
-          </h1>
-          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground lg:text-[length:calc(14*var(--fu,1px))]">
-            {statusLine(session)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusPill status={session.status} />
-          {isFinished(session) ? (
-            <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
-              <Link href={session.loopId && !session.jobDescriptionId ? `${ROUTES.loops}/${session.loopId}` : bookingHref({ jd: session.jobDescriptionId ?? undefined, round: session.roundType })}>Practise again</Link>
-            </Button>
-          ) : null}
-          <SessionAction session={session} />
-        </div>
-      </div>
+  return (
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow={
+          <span className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <StatusChip status={session.status} />
+            <span className="min-w-0 truncate" title={eyebrow}>{eyebrow}</span>
+          </span>
+        }
+        title={roundLabel(session.roundType)}
+        description={statusLine(session)}
+        actions={
+          <>
+            {isFinished(session) ? (
+              <Button asChild variant="outline">
+                <Link href={session.loopId && !session.jobDescriptionId ? `${ROUTES.loops}/${session.loopId}` : bookingHref({ jd: session.jobDescriptionId ?? undefined, round: session.roundType })}>Practise again</Link>
+              </Button>
+            ) : null}
+            <SessionAction session={session} />
+          </>
+        }
+      />
 
-      <div
-        className={cn(
-          "mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
-          fit && "lg:mt-[calc(20*var(--fu,1px))] lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-[calc(12*var(--fu,1px))]",
-        )}
-      >
-        <div className={cn("flex min-w-0 flex-col gap-3", fit && "lg:min-h-0")}>
-          {fit ? <PrepPanel session={session} /> : null}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
+          {preparing ? <PrepPanel session={session} /> : null}
           {session.status === "PREP_FAILED" ? <PrepFailed session={session} /> : null}
-          {fit ? null : <Progress session={session} />}
-        </div>
-        <div className={cn("flex min-w-0 flex-col gap-3", fit && "lg:min-h-0 lg:gap-[calc(12*var(--fu,1px))]")}>
           <BriefingCard session={session} />
           <Details session={session} />
-          {fit ? <Progress session={session} className="lg:min-h-0 lg:flex-1" /> : null}
         </div>
-      </div>
-    </>
-  );
-
-  if (!fit) return <div className={PAGE}>{content}</div>;
-  // `.iq-fit` makes this a size container from lg, so `--u` follows the room the card gives it (as on the dashboard) and
-  // `--fu` hands that unit to the sizes above. The padding is spelled out because `PAGE` is `.iq-page`, which would
-  // replace the unit with a viewport-based one.
-  return (
-    <div className="iq-fit mx-auto flex w-full max-w-[1760px] flex-none flex-col lg:min-h-0 lg:flex-1">
-      <div className="flex flex-col px-[calc(16*var(--u))] pb-[calc(24*var(--u))] pt-[calc(26*var(--u))] sm:px-[calc(26*var(--u))] lg:h-full lg:min-h-0 lg:[--fu:var(--u)]">
-        {content}
+        <div className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-[76px]">
+          <Progress session={session} />
+        </div>
       </div>
     </div>
   );

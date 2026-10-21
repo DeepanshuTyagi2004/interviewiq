@@ -4,7 +4,9 @@ import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 import { useState } from "react";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Card } from "@/components/ds";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -74,23 +76,21 @@ function slotLabel(d: Date, h: number): string {
   return `${day} · ${hourLabel(h)}`;
 }
 
-/** Chip styling shared by the day, time and round pickers: ink fill when chosen. */
+/** Chip styling shared by the day, time and round pickers: ink fill when chosen, a ringed pill on the stone card otherwise. */
 function chipClass(selected: boolean) {
   return cn(
-    "rounded-full border font-sans transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40",
-    selected
-      ? "border-foreground bg-primary text-primary-foreground"
-      : "border-line-3 bg-card text-foreground enabled:hover:border-faint-2",
+    "rounded-full font-sans outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:cursor-not-allowed disabled:opacity-40",
+    selected ? "bg-ink text-background" : "bg-background text-foreground shadow-ring enabled:hover:bg-surface",
   );
 }
 
 function FieldLabel({ children, hint, id }: { children: React.ReactNode; hint?: string; id?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span id={id} className="text-[13px] text-foreground">
+      <span id={id} className="text-[13px] font-medium text-ink">
         {children}
       </span>
-      {hint ? <span className="text-xs text-faint">{hint}</span> : null}
+      {hint ? <span className="text-[12.5px] text-ink-3">{hint}</span> : null}
     </div>
   );
 }
@@ -181,18 +181,22 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
   const laterDate = date && !days.some((d) => sameDay(date, d)) ? date : undefined;
 
   return (
-    <section
-      aria-labelledby="booking-title"
-      className="flex min-w-0 flex-col gap-[18px] rounded-[16px] border border-line-2 bg-card p-5 sm:p-[26px]"
+    <Card
+      tone="stone"
+      title="Book a round"
+      meta={
+        <span
+          className="block truncate"
+          title={selectedJd ? `${selectedJd.companyName} · ${selectedJd.title}` : undefined}
+        >
+          {selectedJd
+            ? `${selectedJd.companyName} · ${selectedJd.title}${roundType ? ` · ${roundLabel(roundType)}` : ""}`
+            : "Pick a role, then start now or choose a slot"}
+        </span>
+      }
+      className="gap-[18px] p-5 sm:p-[26px]"
+      headerClassName="mb-0"
     >
-      <div>
-        <p className="iq-eyebrow m-0 truncate">
-          {selectedJd ? `Book · ${selectedJd.companyName} · ${selectedJd.title}` : "Book a mock interview"}
-        </p>
-        <h2 id="booking-title" className="m-0 mt-1.5 text-[22px] font-normal leading-[1.15] tracking-[-0.03em]">
-          {roundType ? roundLabel(roundType) : "Book an interview"}
-        </h2>
-      </div>
 
       <ToggleGroup
         type="single"
@@ -201,17 +205,17 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
           if (value) setMode(value as BookingMode);
         }}
         aria-label="When"
-        className="grid grid-cols-2 gap-[3px] rounded-full border border-line-3 p-[3px]"
+        className="grid grid-cols-2 gap-[3px] rounded-full bg-background p-[3px] shadow-ring"
       >
         <ToggleGroupItem
           value="now"
-          className="h-8 rounded-full text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="h-8 rounded-full text-[13px] font-medium hover:bg-surface-2 hover:text-ink data-[state=on]:bg-ink data-[state=on]:text-background"
         >
           Start now
         </ToggleGroupItem>
         <ToggleGroupItem
           value="schedule"
-          className="h-8 rounded-full text-[13px] font-normal hover:bg-accent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="h-8 rounded-full text-[13px] font-medium hover:bg-surface-2 hover:text-ink data-[state=on]:bg-ink data-[state=on]:text-background"
         >
           Schedule for later
         </ToggleGroupItem>
@@ -222,15 +226,15 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         <CustomSelect
           id="booking-job-description"
           label="Job description"
-          className="h-10 w-full rounded-full border border-line-4 bg-card px-4 text-[13.5px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-10 w-full rounded-full bg-background px-4 text-[13.5px] text-foreground shadow-ring transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone"
           value={jdId}
           disabled={create.isPending || jdsLoading}
           onValueChange={setJobDescriptionId}
           options={[{ value: "", label: jdsLoading ? "Loading roles…" : "Select a role" }, ...roleOptions]}
         />
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground">
-          <input type="checkbox" className="h-3.5 w-3.5 accent-[hsl(var(--brand))]" checked={withTemplates} onChange={(e) => setWithTemplates(e.target.checked)} />
-          Include practice templates (simulated processes that never count towards readiness)
+        <label className="flex w-fit max-w-full cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] text-ink-2">
+          <Checkbox className="mt-px" checked={withTemplates} onCheckedChange={(v) => setWithTemplates(v === true)} />
+          <span>Include practice templates (simulated processes that never count towards readiness)</span>
         </label>
       </label>
 
@@ -247,7 +251,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setRoundType(selected ? null : r.value)}
-                className={cn(chipClass(selected), "h-8 px-3 text-[12.5px]")}
+                className={cn(chipClass(selected), "h-8 px-3.5 text-[12.5px] font-medium")}
               >
                 {r.label}
               </button>
@@ -274,7 +278,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                     onClick={() => setDate(d)}
                     className={cn(chipClass(selected), "py-2")}
                   >
-                    <span className="block text-[11px] uppercase opacity-70">
+                    <span className="block text-[10.5px] uppercase opacity-70">
                       {d.toLocaleDateString(undefined, { weekday: "short" })}
                     </span>
                     <span className="block text-[17px] leading-tight tabular-nums">{d.getDate()}</span>
@@ -293,7 +297,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                     }
                     className={cn(chipClass(Boolean(laterDate)), "flex flex-col items-center justify-center py-2")}
                   >
-                    <span className="block text-[11px] uppercase opacity-70">
+                    <span className="block text-[10.5px] uppercase opacity-70">
                       {laterDate ? laterDate.toLocaleDateString(undefined, { month: "short" }) : "Later"}
                     </span>
                     {laterDate ? (
@@ -334,7 +338,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                     aria-pressed={selected}
                     disabled={past}
                     onClick={() => setHour(h)}
-                    className={cn(chipClass(selected), "h-[38px] font-mono text-[12.5px] tabular-nums")}
+                    className={cn(chipClass(selected), "h-[38px] text-[12.5px] tabular-nums")}
                   >
                     {hourLabel(h)}
                   </button>
@@ -344,7 +348,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
           </div>
         </>
       ) : (
-        <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+        <p className="m-0 text-[13px] leading-[1.5] text-ink-3">
           We start preparing your interviewer straight away. Join from Upcoming once it reads Ready.
         </p>
       )}
@@ -352,7 +356,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
       <Button
         disabled={!canSubmit}
         onClick={mode === "now" ? submitNow : submitSchedule}
-        className="h-[42px] w-full text-[13.5px]"
+        size="lg" className="w-full text-[14px]"
       >
         {create.isPending ? <Loader2 aria-hidden data-motion className="animate-spin" /> : null}
         {mode === "now"
@@ -361,6 +365,6 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
             ? `Book ${slotLabel(date, hour)}`
             : "Book interview"}
       </Button>
-    </section>
+    </Card>
   );
 }

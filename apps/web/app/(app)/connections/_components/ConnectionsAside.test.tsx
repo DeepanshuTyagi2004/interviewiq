@@ -13,7 +13,6 @@ import { ConnectionsAside } from "./ConnectionsAside";
 import { PROVIDERS } from "./providers";
 
 const live = PROVIDERS.filter((p) => p.live).length;
-const pad = (n: number) => String(n).padStart(2, "0");
 
 describe("ConnectionsAside", () => {
   it("reads out linked sources as a padded count with a matching meter", () => {
@@ -22,7 +21,7 @@ describe("ConnectionsAside", () => {
     const { container } = render(<ConnectionsAside />);
 
     expect(screen.getByText("Sources linked")).toBeInTheDocument();
-    expect(screen.getByText(`02/${pad(live)}`)).toBeInTheDocument();
+    expect(screen.getByText(`of ${live}`)).toBeInTheDocument();
     expect(container.querySelectorAll("[data-seg]")).toHaveLength(live);
     expect(container.querySelectorAll("[data-seg='on']")).toHaveLength(2);
     // Screen readers still get the sentence.

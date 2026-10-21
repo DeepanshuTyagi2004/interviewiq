@@ -3,11 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { StatTile } from "./StatTile";
 
 describe("StatTile", () => {
-  it("renders the value in a font-mono element and the label", () => {
+  it("renders the value in a light display number and the label", () => {
     render(<StatTile value="1,204" label="Contributions" />);
     const value = screen.getByText("1,204");
     expect(value).toBeInTheDocument();
-    expect(value.className).toMatch(/font-mono/);
+    expect(value.className).toMatch(/font-display/);
     expect(screen.getByText("Contributions")).toBeInTheDocument();
   });
 

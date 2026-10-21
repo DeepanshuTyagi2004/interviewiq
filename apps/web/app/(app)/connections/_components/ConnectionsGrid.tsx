@@ -1,8 +1,7 @@
 "use client";
 
-import { Link2 } from "lucide-react";
 import { useProfile, type SourceKind } from "@/features/profile";
-import { EmptyState } from "@/components/patterns";
+import { EmptyState } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PROVIDERS } from "./providers";
 import { SourceList } from "./SourceList";
@@ -22,7 +21,7 @@ export function ConnectionsGrid({
   exclude?: SourceKind[];
   /** Merged onto the list container, e.g. for narrower containers like onboarding. */
   className?: string;
-  /** Current onboarding résumé URL, including a draft that has not saved yet. */
+  /** Current onboarding resume URL, including a draft that has not saved yet. */
   resumeLinkedInUrl?: string | null;
 }) {
   const { data, isLoading, isError } = useProfile();
@@ -31,7 +30,7 @@ export function ConnectionsGrid({
     return (
       <div className="grid gap-2" aria-busy="true" aria-label="Loading your sources">
         {PROVIDERS.map((p) => (
-          <Skeleton key={p.source} className="h-[58px] w-full rounded-lg" />
+          <Skeleton key={p.source} className="h-[70px] w-full rounded-[16px]" />
         ))}
       </div>
     );
@@ -48,7 +47,6 @@ export function ConnectionsGrid({
   if (PROVIDERS.length === 0) {
     return (
       <EmptyState
-        icon={<Link2 />}
         title="No sources available yet"
         hint="Connectable sources will appear here."
       />

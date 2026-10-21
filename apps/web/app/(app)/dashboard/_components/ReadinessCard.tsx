@@ -1,13 +1,15 @@
 "use client";
-import { levelLabel } from "@/lib/constants/engineering-levels";
 
 import Link from "next/link";
-import { HudCard, SegmentMeter } from "@/components/hud";
+import { Card, EmptyState, SectionHeader, SegmentBar } from "@/components/ds";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { readinessSummary, useLoops, type Loop } from "@/features/loops";
+import { readinessLabel, readinessSummary, useLoops, type Loop } from "@/features/loops";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUTES } from "@/lib/constants/shared";
+import { cn } from "@/lib/utils/cn";
 
-const u = (n: number) => `calc(${n}*var(--u))`;
+const MAX_ROWS = 4;
 
 /** Loops still in play, best-progressed first. */
 function liveLoops(loops: Loop[]): Loop[] {
@@ -16,17 +18,33 @@ function liveLoops(loops: Loop[]): Loop[] {
     .sort((a, b) => b.progress.completed / Math.max(b.progress.total, 1) - a.progress.completed / Math.max(a.progress.total, 1));
 }
 
-function nextLabel(l: Loop): string {
+function trackName(l: Loop): string {
+  return `${l.name}${l.level ? ` · ${levelLabel(l.level)}` : ""}`;
+}
+
+function progressText(l: Loop): string {
   if (l.status === "paused") return "Paused";
+  const { completed, total } = l.progress;
+  if (completed === 0) return Object.values(l.nodeStates).includes("booked") ? "Round booked" : "Not started";
+  return `${completed} of ${total} rounds passed`;
+}
+
+/** Mock-readiness wording beside a row. Edited tracks are standalone and carry no level. */
+/** "Next: Online coding" while a round is up next; null otherwise. */
+function nextText(l: Loop): string | null {
+  if (l.status === "paused") return null;
   const next = l.graph.nodes.find((n) => n.kind === "round" && l.progress.nextNodeIds.includes(n.id));
-  if (next) return `Next: ${next.name}`;
-  const booked = Object.values(l.nodeStates).includes("booked");
-  return booked ? "Round booked" : "Waiting";
+  return next ? `Next: ${next.name}` : null;
+}
+
+function levelText(l: Loop): string {
+  if (!l.countsTowardReadiness) return "Standalone";
+  return l.readiness ? readinessLabel(l.readiness) : "Getting started";
 }
 
 /**
- * Your loops and readiness. Readiness counts only rounds completed in unedited, suggested
- * processes; edited (standalone) loops are listed but never counted. Sizes follow `--u`.
+ * Your tracks and mock-interview readiness. Readiness counts only rounds passed in unedited,
+ * suggested processes; edited (standalone) tracks are listed but never counted.
  */
 export function ReadinessCard({ className }: { className?: string }) {
   const { data, isLoading } = useLoops();
@@ -35,65 +53,74 @@ export function ReadinessCard({ className }: { className?: string }) {
   const summary = readinessSummary(loops);
 
   return (
-    <HudCard
-      notch
-      glow="bl"
-      title="Tracks & readiness"
-      aria-label="Tracks and readiness"
-      className={className}
-      bodyClassName="flex flex-col gap-[calc(14*var(--u))] px-[calc(18*var(--u))] py-[calc(22*var(--u))] sm:px-[calc(26*var(--u))]"
-    >
-      {isLoading ? (
-        <Skeleton className="h-24 w-full rounded-xl" />
-      ) : live.length === 0 && !summary ? (
-        <>
-          <p className="m-0 text-[length:calc(34*var(--u))] leading-[1.1] tracking-[-0.035em]">Not started</p>
-          <SegmentMeter segments={4} filled={0} size="md" className="mt-[calc(4*var(--u))]" />
-          <p className="m-0 text-[length:calc(16*var(--u))] leading-[1.55] text-muted-foreground">
-            Confirm a role&apos;s process to start a track. Readiness rises as you complete rounds of an unedited process. Edited
-            tracks don&apos;t count.
-          </p>
-          <Link href={ROUTES.jobs} className="mt-auto self-start text-[length:calc(16*var(--u))] text-foreground underline underline-offset-[calc(4*var(--u))]">
-            Choose a target role
-          </Link>
-        </>
-      ) : (
-        <>
-          {summary ? (
-            <div>
-              <p className="m-0 text-[length:calc(30*var(--u))] leading-[1.1] tracking-[-0.035em] tabular-nums">
-                {summary.completed} of {summary.total} <span className="text-[length:calc(16*var(--u))] text-muted-foreground">rounds completed</span>
-              </p>
-              <SegmentMeter segments={Math.max(summary.total, 1)} filled={summary.completed} tone="brand" size="md" className="mt-[calc(10*var(--u))]" label={`${summary.completed} of ${summary.total} rounds completed`} />
-              <p className="m-0 mt-[calc(8*var(--u))] text-[length:calc(13*var(--u))] text-muted-foreground">Counts unedited processes only.</p>
-            </div>
-          ) : (
-            <p className="m-0 text-[length:calc(15*var(--u))] leading-[1.5] text-muted-foreground">
-               Your tracks are standalone practice and don&apos;t count towards readiness.
-            </p>
-          )}
-          <ul className="m-0 flex list-none flex-col gap-[calc(10*var(--u))] p-0">
-            {live.slice(0, 3).map((l) => (
-              <li key={l.id}>
-                <Link href={`${ROUTES.loops}/${l.id}`} className="block rounded-lg border border-line-2 px-[calc(12*var(--u))] py-[calc(10*var(--u))] transition-colors hover:border-faint-2">
-                  <span className="flex items-baseline justify-between gap-2 text-[length:calc(14.5*var(--u))]">
-                    <span className="truncate">{l.name}{l.level ? ` · ${levelLabel(l.level)}` : ""}</span>
-                    <span className="flex-none font-mono text-[length:calc(11.5*var(--u))] tabular-nums text-muted-foreground">{l.progress.completed}/{l.progress.total}</span>
-                  </span>
-                  <SegmentMeter segments={Math.max(l.progress.total, 1)} filled={l.progress.completed} tone="brand" className="mt-[calc(6*var(--u))]" />
-                  <span className="mt-[calc(6*var(--u))] flex justify-between gap-2 text-[length:calc(12.5*var(--u))] text-faint">
-                    <span className="truncate">{nextLabel(l)}</span>
-                    {!l.countsTowardReadiness ? <span className="flex-none">Standalone</span> : null}
-                  </span>
-                </Link>
-              </li>
+    <div className={cn("flex flex-col", className)}>
+      <SectionHeader title="Readiness" href={ROUTES.loops} />
+      <Card aria-label="Tracks and readiness" className="min-h-[260px] flex-1">
+        {isLoading ? (
+          <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading tracks">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
             ))}
-          </ul>
-          <Link href={ROUTES.loops} className="mt-auto self-start text-[length:calc(15*var(--u))] text-foreground underline underline-offset-[calc(4*var(--u))]">
-            {live.length > 3 ? `Manage all ${live.length} tracks` : "Manage tracks"}
-          </Link>
-        </>
-      )}
-    </HudCard>
+          </div>
+        ) : live.length === 0 ? (
+          <EmptyState
+            className="my-auto py-6"
+            title="Not started"
+            hint="Confirm a role's process to start a track. Readiness rises as you pass rounds of an unedited process. Counts unedited processes only."
+          >
+            <Button asChild variant="secondary">
+              <Link href={ROUTES.jobs}>Choose a target role</Link>
+            </Button>
+          </EmptyState>
+        ) : (
+          <>
+            <ul className="m-0 flex list-none flex-col p-0">
+              {live.slice(0, MAX_ROWS).map((l, i) => {
+                const company = l.jd?.companyName ?? l.name;
+                return (
+                  <li key={l.id} className={i === 0 ? "pb-3.5" : "border-t border-line py-3.5"}>
+                    <Link
+                      href={`${ROUTES.loops}/${l.id}`}
+                      className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      <span
+                        aria-hidden
+                        className="grid h-10 w-10 flex-none place-items-center rounded-[11px] bg-surface font-display text-[15px] font-semibold uppercase shadow-ring"
+                      >
+                        {company.trim().charAt(0) || "?"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium" title={trackName(l)}>
+                          {trackName(l)}
+                        </span>
+                        <small className="mt-0.5 block truncate text-[12.5px] text-ink-3">{progressText(l)}
+                          {nextText(l) ? <span title={nextText(l)!}> · {nextText(l)}</span> : null}
+                        </small>
+                        <SegmentBar
+                          segments={Math.max(l.progress.total, 1)}
+                          filled={l.progress.completed}
+                          className="mt-2"
+                        />
+                      </span>
+                      <span className="max-w-[40%] flex-none truncate text-[12.5px] text-ink-2">{levelText(l)}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line pt-3.5 text-[12.5px] text-ink-3">
+              <span>
+                {summary ? `${summary.completed} of ${summary.total} rounds passed · ` : ""}Counts unedited processes only.
+              </span>
+              {live.length > MAX_ROWS ? (
+                <Link href={ROUTES.loops} className="text-ink underline underline-offset-4">
+                  Manage all {live.length} tracks
+                </Link>
+              ) : null}
+            </div>
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

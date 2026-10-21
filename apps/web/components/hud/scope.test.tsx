@@ -28,10 +28,10 @@ describe("HudScope", () => {
 });
 
 describe("HudZoomOff", () => {
-  it("sets data-hud-zoom=off while mounted", () => {
-    const { unmount } = render(<HudZoomOff />);
-    expect(html().getAttribute("data-hud-zoom")).toBe("off");
-    unmount();
+  it("is a no-op: the zoom it used to turn off is gone", () => {
+    const { container, unmount } = render(<HudZoomOff />);
+    expect(container).toBeEmptyDOMElement();
     expect(html().hasAttribute("data-hud-zoom")).toBe(false);
+    unmount();
   });
 });

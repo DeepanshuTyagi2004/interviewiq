@@ -21,6 +21,12 @@ function session(partial: Partial<InterviewSession>): InterviewSession {
     briefing: null,
     liveAvailable: true,
     roundMinutes: 45,
+    passMark: null,
+    score: null,
+    outcome: null,
+    verdict: null,
+    retakeAfter: null,
+    evaluationStatus: null,
     endReason: null,
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
@@ -28,58 +34,68 @@ function session(partial: Partial<InterviewSession>): InterviewSession {
   };
 }
 
+const NOW = new Date(2026, 9, 2, 9, 0);
+
 describe("UpNextCard", () => {
-  it("points at the company library when nothing is booked", () => {
-    const { container } = render(<UpNextCard session={undefined} />);
+  it("is an empty state with a Schedule a round action when nothing is booked", () => {
+    const { container } = render(<UpNextCard session={undefined} now={NOW} />);
     const card = screen.getByRole("region", { name: "Up next" });
     expect(within(card).getByText("No round booked yet")).toBeInTheDocument();
-    expect(within(card).getByRole("link", { name: /browse companies/i })).toHaveAttribute("href", "/jobs");
+    expect(within(card).getByRole("link", { name: "Schedule a round" })).toHaveAttribute("href", "/interviews");
     expect(container.querySelector("dl")).toBeNull();
   });
 
-  it("shows a booked round as a readout strip with a steady (non-pulsing) dot", () => {
-    const { container } = render(<UpNextCard session={session({})} />);
-    expect(screen.getByText("BOOKED · OCT 04")).toBeInTheDocument();
-    expect(container.querySelector("[data-motion]")).toBeNull();
-    const strip = container.querySelector("dl");
-    expect(strip).not.toBeNull();
-    const terms = Array.from(strip!.querySelectorAll("dt")).map((dt) => dt.textContent);
-    expect(terms).toEqual(["Slot", "Level", "Track"]);
-    expect(within(strip as HTMLElement).getByText("backend")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /view schedule/i })).toHaveAttribute("href", "/interviews");
+  it("shows a booked round: chips, title, slot, length, track and the briefing action", () => {
+    render(<UpNextCard session={session({})} now={NOW} />);
+    expect(screen.getByText("in 2 days")).toBeInTheDocument();
+    expect(screen.getByText("DSA")).toBeInTheDocument();
+    expect(screen.getByText("Booked")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Meesho · SDE I mock process" })).toBeInTheDocument();
+    expect(screen.getByText("45 min")).toBeInTheDocument();
+    expect(screen.getByText("backend")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open briefing" })).toHaveAttribute("href", "/interviews/a");
+    expect(screen.queryByRole("link", { name: /enter room/i })).toBeNull();
   });
 
-  it("drops the Track cell without a specialization", () => {
-    const { container } = render(<UpNextCard session={session({ specialization: "" })} />);
-    const terms = Array.from(container.querySelectorAll("dl dt")).map((dt) => dt.textContent);
-    expect(terms).toEqual(["Slot", "Level"]);
+  it("drops the track without a specialization and names the interviewer from the briefing", () => {
+    render(
+      <UpNextCard
+        now={NOW}
+        session={session({
+          specialization: "",
+          briefing: { interviewerName: "Priya", interviewerStyle: "calm", format: "45-minute coding interview", durationMins: 45 },
+        })}
+      />,
+    );
+    expect(screen.queryByText("backend")).toBeNull();
+    expect(screen.getByText("Priya")).toBeInTheDocument();
   });
 
-  it("shows a ready round with a steady dot and the Enter room action", () => {
-    const { container } = render(<UpNextCard session={session({ status: "PREP_READY" })} />);
-    expect(screen.getByText("READY TO JOIN")).toBeInTheDocument();
-    expect(container.querySelector("[data-motion]")).toBeNull();
+  it("offers Reschedule only for a round that belongs to a track", () => {
+    const { unmount } = render(<UpNextCard session={session({})} now={NOW} />);
+    expect(screen.queryByRole("link", { name: "Reschedule" })).toBeNull();
+    unmount();
+    render(<UpNextCard session={session({ loopId: "L1" })} now={NOW} />);
+    expect(screen.getByRole("link", { name: "Reschedule" })).toHaveAttribute("href", "/loops/L1");
+  });
+
+  it("shows a ready round with the Enter room action next to the briefing", () => {
+    render(<UpNextCard session={session({ status: "PREP_READY" })} now={NOW} />);
+    expect(screen.getByText("Ready to join")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /enter room/i })).toHaveAttribute("href", "/interviews/a/live");
+    expect(screen.getByRole("link", { name: "Open briefing" })).toBeInTheDocument();
   });
 
-  it("pulses the dot while prep is running, without offering the room yet", () => {
-    const { container } = render(<UpNextCard session={session({ status: "PREP_QUEUED" })} />);
-    expect(screen.getByText("PREPARING")).toBeInTheDocument();
-    expect(container.querySelectorAll("[data-motion]")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: /view schedule/i })).toBeInTheDocument();
-  });
-
-  it("pulses the dot for a live round and links into the room", () => {
-    const { container } = render(<UpNextCard session={session({ status: "LIVE_IN_PROGRESS" })} />);
-    expect(screen.getByText("LIVE NOW")).toBeInTheDocument();
-    expect(container.querySelectorAll("[data-motion]")).toHaveLength(1);
+  it("labels preparing, live and failed rounds", () => {
+    const { unmount: u1 } = render(<UpNextCard session={session({ status: "PREP_QUEUED" })} now={NOW} />);
+    expect(screen.getByText("Preparing")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /enter room/i })).toBeNull();
+    u1();
+    const { unmount: u2 } = render(<UpNextCard session={session({ status: "LIVE_IN_PROGRESS" })} now={NOW} />);
+    expect(screen.getByText("Live now")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /enter room/i })).toBeInTheDocument();
-  });
-
-  it("marks a failed prep with the error dot, not a pulse", () => {
-    const { container } = render(<UpNextCard session={session({ status: "PREP_FAILED" })} />);
-    expect(screen.getByText("PREP FAILED")).toBeInTheDocument();
-    expect(container.querySelector("[data-motion]")).toBeNull();
-    expect(container.querySelector(".bg-destructive")).not.toBeNull();
+    u2();
+    render(<UpNextCard session={session({ status: "PREP_FAILED" })} now={NOW} />);
+    expect(screen.getByText("Prep failed")).toBeInTheDocument();
   });
 });

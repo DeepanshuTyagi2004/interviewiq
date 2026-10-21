@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 
-/** The three-bar mark: tall, medium, and a faded short bar. */
+/** The one InterviewIQ mark: an ink rounded square with three page-coloured bars (tall, medium, short). */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <span aria-hidden className={cn("flex h-[15px] items-end gap-[2px]", className)}>
-      <span className="h-[15px] w-1 bg-foreground" />
-      <span className="h-[10px] w-1 bg-foreground" />
-      <span className="h-[5px] w-1 bg-brand" />
+    <span aria-hidden className={cn("flex h-[22px] w-[22px] flex-none items-end justify-center gap-[2px] rounded-[7px] bg-foreground px-[5px] pb-[5px]", className)}>
+      <span className="h-3 w-[3px] rounded-[1px] bg-background" />
+      <span className="h-2 w-[3px] rounded-[1px] bg-background" />
+      <span className="h-[5px] w-[3px] rounded-[1px] bg-background" />
     </span>
   );
 }

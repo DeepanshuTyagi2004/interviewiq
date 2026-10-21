@@ -47,20 +47,20 @@ export function ContactSection({ className }: { className?: string }) {
       <dl className="m-0 grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-4 text-[13px] sm:px-5">
         {shown.map(([label, value]) => (
           <div key={label} className="contents">
-            <dt className="text-faint">{label}</dt>
+            <dt className="text-ink-3">{label}</dt>
             <dd className="m-0 min-w-0 break-words">{value}</dd>
           </div>
         ))}
       </dl>
       {profile?.portfolioWebsite ? (
         <div className="border-t border-line px-4 py-3.5 text-[13px] sm:px-5">
-          <span className="mr-4 text-faint">Portfolio</span>
+          <span className="mr-4 text-ink-3">Portfolio</span>
           {externalHref(profile.portfolioWebsite) ? (
             <a
               href={externalHref(profile.portfolioWebsite)!}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-faint hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
             >
               <span className="truncate">{displayLink(externalHref(profile.portfolioWebsite)!)}</span>
               <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
@@ -92,11 +92,11 @@ export function EducationSection({ className }: { className?: string }) {
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <p className="m-0 min-w-0 text-sm">{dash([e.degree, e.field], ", ") || e.institution || "—"}</p>
               {yearRange(e.startYear, e.endYear) ? (
-                <p className="m-0 flex-none font-mono text-[11.5px] text-faint">{yearRange(e.startYear, e.endYear)}</p>
+                <p className="m-0 flex-none font-mono text-[11.5px] text-ink-3">{yearRange(e.startYear, e.endYear)}</p>
               ) : null}
             </div>
             {dash([e.degree || e.field ? e.institution : null, e.grade]) ? (
-              <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">
+              <p className="m-0 mt-0.5 text-[12.5px] text-ink-2">
                 {dash([e.degree || e.field ? e.institution : null, e.grade])}
               </p>
             ) : null}
@@ -122,7 +122,7 @@ export function SkillsSection({ className }: { className?: string }) {
     >
       <ul className="m-0 flex list-none flex-wrap gap-[5px] px-4 py-4 sm:px-5">
         {skills.map((s) => (
-          <li key={s} className="rounded-full border border-line-3 px-2.5 py-1 text-xs">
+          <li key={s} className="rounded-full border border-line px-2.5 py-1 text-xs">
             {s}
           </li>
         ))}
@@ -170,21 +170,21 @@ export function ExperienceSection({ className }: { className?: string }) {
             <li key={i} className="px-4 py-4 sm:px-5 sm:py-5">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
                 <h3 className="m-0 min-w-0 text-sm font-normal">{x.title || x.company || "Untitled role"}</h3>
-                {dates ? <p className="m-0 flex-none font-mono text-[11.5px] text-faint">{dates}</p> : null}
+                {dates ? <p className="m-0 flex-none font-mono text-[11.5px] text-ink-3">{dates}</p> : null}
               </div>
-              {sub ? <p className="m-0 mt-0.5 text-[12.5px] text-muted-foreground">{sub}</p> : null}
+              {sub ? <p className="m-0 mt-0.5 text-[12.5px] text-ink-2">{sub}</p> : null}
               {externalHref(x.link ?? null) ? (
                 <a
                   href={externalHref(x.link ?? null)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-faint hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="mt-1 inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
                 >
                   <span className="truncate">{displayLink(externalHref(x.link ?? null)!)}</span>
                   <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
                   <span className="sr-only">(opens in a new tab)</span>
                 </a>
-              ) : x.link?.trim() ? <p className="m-0 mt-1 truncate font-mono text-[11.5px] text-faint">{x.link}</p> : null}
+              ) : x.link?.trim() ? <p className="m-0 mt-1 truncate font-mono text-[11.5px] text-ink-3">{x.link}</p> : null}
               <FormattedLines lines={x.bullets ?? []} className="mt-3 text-[13px] leading-[1.55]" />
             </li>
           );
@@ -213,29 +213,29 @@ export function ProjectsSection({ className }: { className?: string }) {
           const href = externalHref(p.link);
           const tech = p.tech ?? [];
           return (
-            <li key={i} className="flex min-w-0 flex-col rounded-lg border border-line-2 p-4">
+            <li key={i} className="flex min-w-0 flex-col rounded-lg border border-line p-4">
               <h3 className="m-0 text-sm font-normal">{p.name || "Untitled project"}</h3>
               {href ? (
                 <a
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-0.5 inline-flex min-w-0 items-center gap-1 self-start font-mono text-[11.5px] text-faint transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="mt-0.5 inline-flex min-w-0 items-center gap-1 self-start font-mono text-[11.5px] text-ink-3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
                 >
                   <span className="truncate">{displayLink(href)}</span>
                   <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
                   <span className="sr-only">(opens in a new tab)</span>
                 </a>
               ) : p.link?.trim() ? (
-                <p className="m-0 mt-0.5 truncate font-mono text-[11.5px] text-faint">{p.link}</p>
+                <p className="m-0 mt-0.5 truncate font-mono text-[11.5px] text-ink-3">{p.link}</p>
               ) : null}
               {p.description ? (
-                <p className="m-0 mt-2 text-[13px] leading-[1.5] text-muted-foreground">{p.description}</p>
+                <p className="m-0 mt-2 text-[13px] leading-[1.5] text-ink-2">{p.description}</p>
               ) : null}
               {tech.length ? (
                 <ul aria-label="Tech" className="m-0 mt-2.5 flex list-none flex-wrap gap-1 p-0">
                   {tech.map((t) => (
-                    <li key={t} className="rounded-full bg-panel px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                    <li key={t} className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-ink-2">
                       {t}
                     </li>
                   ))}

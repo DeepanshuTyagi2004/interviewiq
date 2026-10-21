@@ -5,9 +5,8 @@ import { FormProvider } from "react-hook-form";
 import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MonoPill } from "@/components/patterns";
-import { HudEmpty, padCount } from "@/components/hud";
-import { ProfileCard } from "../ProfileCard";
+import { Chip } from "@/components/ds";
+import { CardEmpty, ProfileCard } from "../ProfileCard";
 import { SECTION_LABEL, useDetails, type SectionKey } from "./DetailsProvider";
 
 export interface EditableSectionProps {
@@ -46,14 +45,11 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
     wasEditing.current = isEditing;
   }, [isEditing, editing]);
 
-  // Header counts read as a zero-padded mono readout ("02"); screen readers hear "2 entries".
+  // The count sits quietly under the title ("2 entries"); while editing it gives way to a chip.
   const meta = isEditing ? (
-    <MonoPill tone="brand">Editing</MonoPill>
+    <Chip tone="ink">Editing</Chip>
   ) : count ? (
-    <>
-      <span aria-hidden>{padCount(count)}</span>
-      <span className="sr-only">{`${count} ${count === 1 ? "entry" : "entries"}`}</span>
-    </>
+    `${count} ${count === 1 ? "entry" : "entries"}`
   ) : undefined;
 
   // -my-1 keeps the 32px button inside the header's 48px row, so the header doesn't grow with it
@@ -96,7 +92,7 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
           <div ref={bodyRef} className="px-4 py-5 sm:px-5">
             {fields}
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-line bg-panel/60 px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-end gap-2 border-t border-line bg-surface px-4 py-3 sm:px-5">
             <Button type="button" variant="ghost" size="sm" onClick={cancel} disabled={saving}>
               Cancel
             </Button>
@@ -109,7 +105,7 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
     );
   } else if (isEmpty) {
     body = (
-      <HudEmpty title={emptyHint}>
+      <CardEmpty title={emptyHint} hint="">
         <Button
           ref={editRef}
           variant="outline"
@@ -119,7 +115,7 @@ export function EditableSection({ section, count, isEmpty, emptyHint, children, 
         >
           <Plus aria-hidden /> Add
         </Button>
-      </HudEmpty>
+      </CardEmpty>
     );
   } else {
     body = children;

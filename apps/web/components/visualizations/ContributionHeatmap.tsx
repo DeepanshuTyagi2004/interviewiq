@@ -15,11 +15,10 @@ export function heatBin(count: number, max: number): number {
 }
 
 /**
- * GitHub-style green intensity ramp (one hue, light → dark). Bin 0 is the empty hairline cell;
- * bins 1–4 use the `--heat-*` tokens defined in globals.css (light + dark), so no raw hex lives here.
+ * Grey intensity ramp (line → ink). Bins 0–4 use the `--heat-0..4` tokens defined in globals.css (light + dark), so no raw hex lives here.
  */
 const BIN_COLOR = [
-  "hsl(var(--line-2))",
+  "hsl(var(--heat-0))",
   "hsl(var(--heat-1))",
   "hsl(var(--heat-2))",
   "hsl(var(--heat-3))",

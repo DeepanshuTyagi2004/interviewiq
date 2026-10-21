@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import {
   applyNodeChanges,
   Background,
+  BackgroundVariant,
   Controls,
   MarkerType,
   ReactFlow,
@@ -19,7 +20,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { cn } from "@/lib/utils/cn";
 import { isRound, wouldCreateCycle } from "../graph";
-import type { LoopNodeState, ProcessGraph } from "../types";
+import type { LoopNodeState, NodeResult, ProcessGraph } from "../types";
 import { InfoFlowNodeView, RoundFlowNodeView, type InfoFlowNodeT, type RoundFlowNode } from "./FlowNodes";
 
 export const PALETTE_MIME = "application/x-interviewiq-node";
@@ -59,18 +60,48 @@ export interface FlowCanvasProps {
   mode: "view" | "edit";
   /** Per-round state of a confirmed loop (view mode). */
   nodeStates?: Record<string, LoopNodeState>;
+  /** Latest finished attempt per round node (view mode). */
+  nodeResults?: Record<string, NodeResult>;
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
   onGraphChange?: (graph: ProcessGraph) => void;
   onBookNode?: (nodeId: string) => void;
   /** Called with a palette payload and the flow position it was dropped at (edit mode). */
   onDropPreset?: (payload: string, position: { x: number; y: number }) => void;
+  /** Edit mode only: pixels of the canvas covered by floating panels, so the fit keeps nodes clear of them. */
+  insets?: { left?: number; right?: number };
   className?: string;
 }
 
-function Inner({ graph, mode, nodeStates, selectedId, onSelect, onGraphChange, onBookNode, onDropPreset, className }: FlowCanvasProps) {
+function Inner({ graph, mode, nodeStates, nodeResults, selectedId, onSelect, onGraphChange, onBookNode, onDropPreset, insets, className }: FlowCanvasProps) {
   const editable = mode === "edit";
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  // Read-only canvases fit tightly and never shrink below a legible zoom (wider graphs pan instead);
+  // the editor keeps its roomier fit.
+  const insetLeft = editable ? (insets?.left ?? 0) : 0;
+  const insetRight = editable ? (insets?.right ?? 0) : 0;
+  const fitOptions = useMemo(
+    () =>
+      editable
+        ? {
+            padding: insetLeft || insetRight
+              ? { top: "20%", bottom: "20%", left: `${insetLeft + 24}px`, right: `${insetRight + 24}px` }
+              : 0.2,
+            // Floating panels can leave little room: let the fit go lower than the manual zoom floor.
+            ...(insetLeft || insetRight ? { minZoom: 0.1 } : {}),
+            maxZoom: 1,
+          }
+        : { padding: 0.08, minZoom: 0.8, maxZoom: 1 },
+    [editable, insetLeft, insetRight],
+  );
+  // View mode sizes the canvas to the laid-out nodes (a node is ~230 x 150, taller with a Book button).
+  const viewHeight = useMemo(() => {
+    if (editable || !graph.nodes.length) return undefined;
+    const ys = graph.nodes.map((n) => n.position.y);
+    const span = Math.max(...ys) - Math.min(...ys) + 180;
+    return Math.round(Math.min(560, Math.max(280, span + 64)));
+  }, [editable, graph.nodes]);
+  const rf = useReactFlow();
+  const { screenToFlowPosition, fitView } = rf;
   const nodesInitialized = useNodesInitialized();
   // Events can arrive several times before React commits the parent's next graph.
   const latestGraph = useRef(graph);
@@ -126,14 +157,14 @@ function Inner({ graph, mode, nodeStates, selectedId, onSelect, onGraphChange, o
           ? ({
               id: n.id, type: "round", position: n.position, selected: selectedId === n.id,
               deletable: editable, draggable: editable, connectable: editable,
-              data: { node: n, index: roundIndex.get(n.id) ?? 0, state: nodeStates?.[n.id], editable, onBook: onBookNode },
+              data: { node: n, index: roundIndex.get(n.id) ?? 0, state: nodeStates?.[n.id], result: nodeResults?.[n.id], editable, onBook: onBookNode },
             } satisfies RoundFlowNode)
           : ({
               id: n.id, type: "info", position: n.position, selected: selectedId === n.id,
               deletable: editable, draggable: editable, connectable: false, data: { node: n },
             } satisfies InfoFlowNodeT),
       ),
-    [graph.nodes, roundIndex, nodeStates, selectedId, editable, onBookNode],
+    [graph.nodes, roundIndex, nodeStates, nodeResults, selectedId, editable, onBookNode],
   );
 
   // Domain graphs deliberately omit React Flow's measured/dragging/selection
@@ -152,15 +183,29 @@ function Inner({ graph, mode, nodeStates, selectedId, onSelect, onGraphChange, o
       if (draggingIds.current.size) return;
       prevCount.current = count;
       // An animated auto-fit can still be moving when the next drag starts.
-      void fitView({ padding: 0.2, maxZoom: 1 });
+      void fitView(fitOptions);
     });
     return () => cancelAnimationFrame(id);
-  }, [count, dragging, nodesInitialized, fitView]);
+  }, [count, dragging, nodesInitialized, fitView, fitOptions]);
+
+  // A read-only graph wider than the canvas sits at the zoom floor: start at its first round, pannable to the rest.
+  const anchoredFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (editable || !nodesInitialized || anchoredFor.current === count) return;
+    const id = requestAnimationFrame(() => {
+      const view = rf.getViewport?.();
+      if (!view || view.zoom > (fitOptions.minZoom ?? 0) + 0.001) { anchoredFor.current = count; return; }
+      const left = Math.min(...rf.getNodes().map((n) => n.position.x));
+      anchoredFor.current = count;
+      void rf.setViewport({ x: 56 - left * view.zoom, y: view.y, zoom: view.zoom });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editable, nodesInitialized, count, rf, fitOptions]);
 
   const edges = useMemo<Edge[]>(
     () => graph.edges.map((e) => ({
       id: `${e.source}>${e.target}`, source: e.source, target: e.target, type: "smoothstep",
-      markerEnd: { type: MarkerType.ArrowClosed }, deletable: editable, selectable: editable,
+      markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--ink-3))", width: 16, height: 16 }, deletable: editable, selectable: editable,
     })),
     [graph.edges, editable],
   );
@@ -247,11 +292,11 @@ function Inner({ graph, mode, nodeStates, selectedId, onSelect, onGraphChange, o
   return (
     <div
       className={cn(
-        // Neutralize the page's CSS zoom, not React Flow's viewport transform.
-        // HudZoomOff already sets --hud-zoom=1 in the editor, so this is neutral there.
-        "flex min-h-[280px] min-w-0 w-full flex-col overflow-hidden rounded-xl border border-line-2 bg-panel [zoom:calc(1/var(--hud-zoom,1))] [--xy-edge-stroke:hsl(var(--faint))] [--xy-controls-button-background-color:hsl(var(--card))] [--xy-controls-button-color:hsl(var(--foreground))]",
+        // Dotted paper canvas; edges are ink-3 at 1.25px (spec §5.3).
+        "flex min-h-[280px] min-w-0 w-full flex-col overflow-hidden rounded-[20px] bg-background shadow-ring [--xy-edge-stroke:hsl(var(--ink-3))] [--xy-edge-stroke-width:1.25] [--xy-edge-stroke-selected:hsl(var(--ink))] [&_.react-flow__edge.selected_.react-flow__edge-path]:!stroke-[2] [--xy-controls-button-background-color:hsl(var(--background))] [--xy-controls-button-color:hsl(var(--ink))] [--xy-controls-button-border-color:hsl(var(--line))]",
         className,
       )}
+      style={viewHeight ? { height: viewHeight } : undefined}
     >
       <div className="relative min-h-[280px] w-full flex-1" onDragOver={onDragOver} onDrop={onDrop}>
         <ReactFlow
@@ -278,12 +323,12 @@ function Inner({ graph, mode, nodeStates, selectedId, onSelect, onGraphChange, o
           onNodeClick={(_, n) => onSelect?.(n.id)}
           onPaneClick={() => onSelect?.(null)}
           fitView
-          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+          fitViewOptions={fitOptions}
           minZoom={0.3}
           maxZoom={1.5}
           proOptions={{ hideAttribution: true }}
         >
-          <Background />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="hsl(var(--line-3))" />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>

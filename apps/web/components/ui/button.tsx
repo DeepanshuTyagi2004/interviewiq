@@ -5,29 +5,30 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils/cn"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-normal transition-colors duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        /** Primary CTA — the brand accent. */
-        default: "bg-brand text-brand-foreground hover:bg-brand-hover",
-        /** Solid ink — secondary emphasis (e.g. an active filter). */
-        ink: "bg-primary text-primary-foreground hover:bg-ink-hover",
+        /** Primary CTA: an ink pill. */
+        default: "bg-ink text-background hover:bg-ink-2",
+        /** Same ink pill, kept as an alias for existing call sites. */
+        ink: "bg-ink text-background hover:bg-ink-2",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-input bg-card text-foreground hover:border-faint-2",
-        /** Hairline-bordered secondary button — the design's "Book a demo" / "Explore…" buttons. */
-        strong: "border border-line-4 bg-transparent text-foreground hover:border-faint-2 hover:bg-accent",
-        secondary: "bg-panel text-secondary-foreground hover:bg-line-2",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-background text-foreground shadow-ring hover:bg-surface",
+        /** Alias of outline, kept for existing call sites. */
+        strong: "bg-background text-foreground shadow-ring hover:bg-surface",
+        /** A stone pill with the ring. */
+        secondary: "bg-stone text-foreground shadow-ring hover:bg-surface-2",
+        ghost: "text-foreground hover:bg-surface-2",
+        link: "rounded-md text-foreground underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-full px-3 text-[13px]",
-        lg: "h-11 rounded-full px-[18px] text-sm",
-        icon: "h-9 w-9",
+        default: "h-10 px-[18px]",
+        sm: "h-8 px-3.5 text-[13px]",
+        lg: "h-12 px-6 text-[15px]",
+        icon: "h-9 w-9 p-0",
       },
     },
     defaultVariants: {

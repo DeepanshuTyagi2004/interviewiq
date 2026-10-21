@@ -4,7 +4,7 @@ import { ROUTES } from "@/lib/constants/shared";
 import { parseBookingPrefill } from "@/features/interview/presentation";
 import { BookingForm } from "./_components/BookingForm";
 import { SessionsList } from "./_components/SessionsList";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
+import { PageHeader } from "@/components/ds";
 
 /**
  * Mock interviews hub: your sessions (upcoming and past) beside the booking form. A roadmap link
@@ -19,32 +19,27 @@ export default async function InterviewsPage({
   const prefill = parseBookingPrefill(await searchParams);
 
   return (
-    <div className={PAGE_SCAFFOLD}>
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div className="min-w-0">
-          <p className="iq-eyebrow m-0">Interviews</p>
-          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">
-            Mock interviews
-          </h1>
-          <p className="m-0 mt-1.5 max-w-[620px] text-[14px] leading-[1.5] text-muted-foreground">
-            Book a round and we prepare an interviewer from your own resume and the company&apos;s real
-            process. Join from here when it&apos;s ready.
-          </p>
-        </div>
-        <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]">
-          <Link href={ROUTES.jobs}>Browse companies</Link>
-        </Button>
-      </div>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow="Interviews"
+        title="Mock interviews"
+        description="Book a round and we prepare an interviewer from your own resume and the company's real process. Join from here when it's ready."
+        actions={
+          <Button asChild variant="outline">
+            <Link href={ROUTES.jobs}>Browse companies</Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-5 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
-        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
+        <div className="min-w-0 lg:sticky lg:top-[76px]">
           <BookingForm
             key={`${prefill.jobDescriptionId ?? ""}:${prefill.roundType ?? ""}`}
             initialJobDescriptionId={prefill.jobDescriptionId}
             initialRoundType={prefill.roundType}
           />
         </div>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+        <div className="min-w-0">
           <SessionsList />
         </div>
       </div>

@@ -17,3 +17,6 @@ export type TargetEntry = S["TargetList"]["targets"][number];
 export type JdLoopStatus = S["JdLoopStatus"];
 
 export const isRoundNode = (n: ProcessNode): n is RoundNode => n.kind === "round";
+export type ReadinessLevel = S["ReadinessLevel"];
+/** The latest finished attempt of a round node: score, pass mark and the retake date. */
+export type NodeResult = Loop["nodeResults"][string];

@@ -30,6 +30,12 @@ describe("SessionsList", () => {
     briefing: null,
     liveAvailable: true,
     roundMinutes: 45,
+    passMark: null,
+    score: null,
+    outcome: null,
+    verdict: null,
+    retakeAfter: null,
+    evaluationStatus: null,
     endReason: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -113,7 +119,7 @@ describe("SessionsList", () => {
     expect(retryButton).toBeInTheDocument();
   });
 
-  it("shows each group's count padded for the eye and in words for screen readers", () => {
+  it("shows each group's count and reads it in words for screen readers", () => {
     mockMySessions.mockReturnValue({
       data: { sessions: [baseSession] },
       isLoading: false,
@@ -123,9 +129,9 @@ describe("SessionsList", () => {
     render(<SessionsList />);
 
     // Upcoming has one session, Past none.
-    expect(screen.getByText("01")).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("1")).toHaveAttribute("aria-hidden");
     expect(screen.getByText("1 session")).toHaveClass("sr-only");
-    expect(screen.getByText("00")).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("0")).toHaveAttribute("aria-hidden");
     expect(screen.getByText("0 sessions")).toHaveClass("sr-only");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -33,10 +33,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Orb, StatusDot } from "@/components/ds";
 import { useThemeSwitch, type AppTheme } from "@/components/layout/useThemeSwitch";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
-import { initialsOf } from "@/lib/utils/format";
 
 interface LinkEntry {
   label: string;
@@ -67,13 +67,12 @@ const THEMES: { value: AppTheme; label: string; icon: LucideIcon }[] = [
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
-const panel =
-  "rounded-[16px] border-line-2 bg-popover p-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,.35)] dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,.8)]";
+const panel = "rounded-tile border-0 bg-popover p-1.5 shadow-float";
 const item =
-  "cursor-pointer gap-3 rounded-md px-2.5 py-[7px] text-[13.5px] focus:bg-foreground/[0.06] focus:text-foreground data-[state=open]:bg-foreground/[0.06] [&_svg]:text-muted-foreground focus:[&_svg]:text-foreground";
-const groupLabel = "px-2.5 pb-1 pt-2 font-mono text-[9.5px] font-normal uppercase tracking-[0.08em] text-faint";
-const separator = "-mx-1.5 my-1.5 bg-line-2";
-const kbd = "ml-auto rounded border border-line-3 px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-faint";
+  "cursor-pointer gap-3 rounded-[10px] px-2.5 py-[7px] text-[13.5px] focus:bg-surface-2 focus:text-ink data-[state=open]:bg-surface-2 [&_svg]:text-ink-3 focus:[&_svg]:text-ink";
+const groupLabel = "px-2.5 pb-1 pt-2 text-[12px] font-normal text-ink-3";
+const separator = "-mx-1.5 my-1.5 bg-line";
+const kbd = "ml-auto rounded-md border border-line px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-ink-3";
 
 export interface AccountMenuProps {
   name: string;
@@ -83,13 +82,21 @@ export interface AccountMenuProps {
   /** Lights the status dot; only true while a track is active. */
   statusActive?: boolean;
   isAdmin: boolean;
+  /** Seeds the orb (the user id); the name when absent. */
+  seed?: string;
   onOpenSearch: () => void;
-  onToggleMenu: () => void;
+  onToggleSidebar: () => void;
   onSignOut: () => void;
+  /** Replaces the default avatar button (the sidebar's account row). Must be a single focusable element. */
+  trigger?: ReactNode;
+  /** Accessible name of the trigger. */
+  triggerLabel?: string;
+  side?: "top" | "right" | "bottom" | "left";
+  align?: "start" | "center" | "end";
 }
 
 /**
- * The avatar's dropdown: who's signed in, quick links to their profile and settings, theme and
+ * The account dropdown (top bar avatar and the sidebar's account row): who's signed in, quick links to their profile and settings, theme and
  * keyboard shortcuts, help, and sign out.
  */
 export function AccountMenu({
@@ -98,9 +105,14 @@ export function AccountMenu({
   status,
   statusActive = false,
   isAdmin,
+  seed,
   onOpenSearch,
-  onToggleMenu,
+  onToggleSidebar,
   onSignOut,
+  trigger,
+  triggerLabel = "Account menu",
+  side = "bottom",
+  align = "end",
 }: AccountMenuProps) {
   const { theme, switchTo } = useThemeSwitch();
   // Actions that move focus elsewhere (search, the side menu) run once the dropdown has closed,
@@ -110,14 +122,20 @@ export function AccountMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Account menu"
-        className="ml-1 flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-brand text-[12.5px] text-brand-foreground transition-[background-color,box-shadow] hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card data-[state=open]:ring-2 data-[state=open]:ring-brand/35 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-card"
+        asChild={trigger != null}
+        aria-label={triggerLabel}
+        className={
+          trigger != null
+            ? undefined
+            : "flex h-9 w-9 flex-none items-center justify-center rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:ring-2 data-[state=open]:ring-ink data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background"
+        }
       >
-        {initialsOf(name)}
+        {trigger ?? <Orb seed={seed ?? name} size={34} />}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        align="end"
+        side={side}
+        align={align}
         sideOffset={10}
         collisionPadding={12}
         className={cn("w-[288px]", panel)}
@@ -130,27 +148,21 @@ export function AccountMenu({
         }}
       >
         <div className="flex items-center gap-3 px-2.5 pb-3 pt-2.5">
-          <span
-            aria-hidden
-            className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-brand text-sm font-medium text-brand-foreground"
-          >
-            {initialsOf(name)}
-          </span>
+          <Orb seed={seed ?? name} size={40} />
           <div className="min-w-0 flex-1">
             <p className="m-0 flex items-center gap-2 text-sm font-medium tracking-[-0.01em]">
               <span className="truncate">{name}</span>
               {isAdmin ? (
-                <span className="flex-none rounded border border-line-3 px-1.5 py-px font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="flex-none rounded-full bg-surface-2 px-2 py-px text-[11px] font-medium text-ink-2">
                   Admin
                 </span>
               ) : null}
             </p>
-            {email ? <p className="m-0 mt-0.5 truncate text-xs text-muted-foreground">{email}</p> : null}
+            {email ? <p className="m-0 mt-0.5 truncate text-xs text-ink-3">{email}</p> : null}
           </div>
         </div>
-        <p className="m-0 mx-1 mb-1 flex items-center gap-2 rounded-md bg-foreground/[0.05] px-2.5 py-2 text-xs text-muted-foreground">
-          <span aria-hidden className={cn("h-1.5 w-1.5 flex-none rounded-full", statusActive ? "bg-brand" : "bg-faint-2")} />
-          <span className="truncate">{status}</span>
+        <p className="m-0 mx-1 mb-1 rounded-[10px] bg-surface px-2.5 py-2 text-xs text-ink-2">
+          <StatusDot state={statusActive ? "active" : "idle"} label={<span className="truncate">{status}</span>} className="max-w-full" />
         </p>
 
         <DropdownMenuSeparator className={separator} />
@@ -174,7 +186,7 @@ export function AccountMenu({
             <DropdownMenuSubTrigger className={item}>
               {theme === "dark" ? <Moon aria-hidden strokeWidth={1.6} /> : <Sun aria-hidden strokeWidth={1.6} />}
               Theme
-              <span className="ml-auto text-xs capitalize text-faint">{theme}</span>
+              <span className="ml-auto text-xs capitalize text-ink-3">{theme}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={8} className={cn("w-[168px]", panel)}>
               <DropdownMenuRadioGroup value={theme} onValueChange={(v) => switchTo(v as AppTheme)}>
@@ -182,9 +194,9 @@ export function AccountMenu({
                   <DropdownMenuRadioItem
                     key={t.value}
                     value={t.value}
-                    className="cursor-pointer gap-3 rounded-md py-[7px] text-[13.5px] focus:bg-foreground/[0.06] focus:text-foreground [&>span>svg]:text-brand"
+                    className="cursor-pointer gap-3 rounded-[10px] py-[7px] text-[13.5px] focus:bg-surface-2 focus:text-ink [&>span>svg]:text-ink"
                   >
-                    <t.icon aria-hidden strokeWidth={1.6} className="h-4 w-4 text-muted-foreground" />
+                    <t.icon aria-hidden strokeWidth={1.6} className="h-4 w-4 text-ink-3" />
                     {t.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -204,13 +216,13 @@ export function AccountMenu({
                 <kbd className={kbd}>⌘K</kbd>
               </DropdownMenuItem>
               <DropdownMenuItem className={item} onSelect={() => {
-                  afterClose.current = onToggleMenu;
+                  afterClose.current = onToggleSidebar;
                 }}>
-                Open menu
+                Toggle sidebar
                 <kbd className={kbd}>M</kbd>
               </DropdownMenuItem>
               <DropdownMenuItem disabled className={cn(item, "data-[disabled]:opacity-100")}>
-                <span className="text-muted-foreground">Close menu or search</span>
+                <span className="text-ink-3">Close menu or search</span>
                 <kbd className={kbd}>Esc</kbd>
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -230,7 +242,7 @@ export function AccountMenu({
             <DropdownMenuGroup>
               <DropdownMenuLabel className={groupLabel}>Admin</DropdownMenuLabel>
               <LinkItem entry={{ label: "Intelligence", href: ROUTES.intelligence, icon: Activity }} />
-              <LinkItem entry={{ label: "Validation controls", href: "/admin/settings", icon: ShieldCheck }} />
+              <LinkItem entry={{ label: "Validation controls", href: ROUTES.admin.settings, icon: ShieldCheck }} />
             </DropdownMenuGroup>
           </>
         ) : null}

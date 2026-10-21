@@ -3,15 +3,14 @@ import { render, screen, within } from "@testing-library/react";
 import { IdentityCard } from "./IdentityCard";
 
 describe("IdentityCard", () => {
-  it("is a notched HUD card named 'About you'", () => {
-    render(<IdentityCard name="Asha Rao" subtitle="B.Tech CSE · RVCE · 2027" skills={[]} />);
+  it("is a region named 'About you'", () => {
+    render(<IdentityCard skills={[]} />);
     const card = screen.getByRole("region", { name: "About you" });
-    expect(card).toHaveClass("hud-card", "hud-notch");
-    expect(within(card).getByText("Asha Rao")).toBeInTheDocument();
+    expect(within(card).getByText("Interview score")).toBeInTheDocument();
   });
 
   it("shows the interview score as an honest dash, never a number — and no profile score", () => {
-    render(<IdentityCard name="Asha Rao" subtitle={null} skills={[]} />);
+    render(<IdentityCard skills={[]} />);
     expect(screen.queryByText("Profile score")).not.toBeInTheDocument();
     const tile = screen.getByText("Interview score").parentElement!;
     const dash = within(tile).getByText("—");
@@ -26,12 +25,9 @@ describe("IdentityCard", () => {
   it("lists most-used skills with their source, when the summary has run", () => {
     render(
       <IdentityCard
-        name={null}
-        subtitle={null}
         skills={[{ skill: "Python", evidence: "GitHub 52%, resume claimed", source: "GITHUB" }]}
       />,
     );
-    expect(screen.getByText("Your name")).toBeInTheDocument();
     expect(screen.getByText("Most-used skills")).toBeInTheDocument();
     expect(screen.getByText("(from GitHub)")).toHaveClass("sr-only");
   });

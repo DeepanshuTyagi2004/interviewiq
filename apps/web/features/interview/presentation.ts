@@ -140,11 +140,31 @@ export interface SessionStep {
   note: string;
 }
 
+/** The debrief step of a finished round, from how its grading went (the API's `evaluationStatus`). */
+function debriefStep(
+  status: SessionStatus,
+  evaluationStatus: InterviewSession["evaluationStatus"] | undefined,
+): Pick<SessionStep, "state" | "note"> {
+  switch (evaluationStatus) {
+    case "ready":
+      return { state: "done", note: "Your report is ready" };
+    case "failed":
+      return { state: "failed", note: "Your report is taking longer than usual" };
+    case "legacy":
+      return { state: "done", note: "Completed before scoring. Not scored" };
+    default:
+      // A dropped round the grader never saw has no status; anything else is being graded.
+      return status === "ABORTED_TECHNICAL" && !evaluationStatus
+        ? { state: "current", note: "Not scored" }
+        : { state: "current", note: "Being graded. Usually a few minutes" };
+  }
+}
+
 /**
  * A session's lifecycle as four steps (booked → interviewer prepared → interview → debrief), read
  * straight off its status. Describes where the session is; it says nothing about scores or gating.
  */
-export function sessionSteps(status: SessionStatus): SessionStep[] {
+export function sessionSteps(status: SessionStatus, evaluationStatus?: InterviewSession["evaluationStatus"]): SessionStep[] {
   const prep: Pick<SessionStep, "state" | "note"> =
     status === "SCHEDULED"
       ? { state: "upcoming", note: "Starts as soon as you book" }
@@ -175,7 +195,7 @@ export function sessionSteps(status: SessionStatus): SessionStep[] {
       key: "debrief",
       label: "Debrief",
       ...(finished
-        ? { state: "current" as const, note: "Scoring isn't live yet" }
+        ? debriefStep(status, evaluationStatus)
         : { state: "upcoming" as const, note: "After the round" }),
     },
   ];

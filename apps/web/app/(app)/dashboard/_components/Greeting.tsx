@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
+import { PageHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
-import { padCount } from "@/components/hud";
 import { ROUTES } from "@/lib/constants/shared";
 import { RoomLink } from "@/features/interview-live/RoomLink";
 
@@ -11,55 +12,46 @@ function partOfDay(hour: number): string {
 }
 
 /**
- * "Fri 02 Oct": the day the page was rendered, as a mono readout. Mixed case in the source:
- * `.iq-eyebrow` upper-cases it visually, and screen readers read words rather than spelling out
- * capitals. Date only: a clock time would freeze at render and go stale on an open tab.
+ * "Saturday, 18 October": the day the page was rendered. Date only: a clock time would freeze at
+ * render and go stale on an open tab.
  */
 export function dateEyebrow(now: Date): string {
-  const weekday = now.toLocaleDateString("en-US", { weekday: "short" });
-  const month = now.toLocaleDateString("en-US", { month: "short" });
-  return `${weekday} ${padCount(now.getDate())} ${month}`;
+  const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+  const month = now.toLocaleDateString("en-US", { month: "long" });
+  return `${weekday}, ${now.getDate()} ${month}`;
 }
 
 export interface GreetingProps {
   name: string | null | undefined;
-  /** One line on where things stand, e.g. "Your Meesho DSA round is ready to join." */
-  summary: string;
-  /** Where the primary action goes — the joinable session, the next round, a track with a round to book, or the interviews list. */
+  /** Where the primary action goes: the joinable session, the next round, a track with a round to book, or the interviews list. */
   roomHref: string;
-  /** What the primary action does there (defaults to entering the room). */
+  /** What the primary action does there. */
   roomLabel?: string;
   now?: Date;
 }
 
-/** Date eyebrow, time-of-day greeting, status line and the two primary actions. */
-export function Greeting({ name, summary, roomHref, roomLabel = "Enter interview room", now = new Date() }: GreetingProps) {
+/** Date eyebrow, time-of-day greeting and the two header actions. */
+export function Greeting({ name, roomHref, roomLabel = "Schedule a round", now = new Date() }: GreetingProps) {
   const firstName = name?.trim().split(/\s+/)[0];
   const hello = partOfDay(now.getHours());
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-[calc(24*var(--u))] gap-y-4">
-      <div className="min-w-0">
-        <p className="iq-eyebrow m-0 tabular-nums">{dateEyebrow(now)}</p>
-        <h1 className="m-0 mt-[calc(10*var(--u))] text-[length:calc(46*var(--u))] font-normal leading-[1.1] tracking-[-0.04em]">
-          {firstName ? `${hello}, ${firstName}` : hello}
-        </h1>
-        <p className="m-0 mt-[calc(8*var(--u))] text-[length:calc(18.5*var(--u))] leading-[1.5] text-muted-foreground">
-          {summary}
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-[calc(12*var(--u))]">
-        <Button
-          asChild
-          variant="strong"
-          className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]"
-        >
-          <Link href={ROUTES.jobs}>Browse companies</Link>
-        </Button>
-        <Button asChild className="h-[calc(48*var(--u))] px-[calc(24*var(--u))] text-[length:calc(16.5*var(--u))]">
-          <RoomLink href={roomHref}>{roomLabel}</RoomLink>
-        </Button>
-      </div>
-    </div>
+    <PageHeader
+      eyebrow={<span className="tabular-nums">{dateEyebrow(now)}</span>}
+      title={firstName ? `${hello}, ${firstName}` : hello}
+      actions={
+        <>
+          <Button asChild variant="secondary">
+            <Link href={ROUTES.jobs}>Explore companies</Link>
+          </Button>
+          <Button asChild>
+            <RoomLink href={roomHref}>
+              <Plus aria-hidden />
+              {roomLabel}
+            </RoomLink>
+          </Button>
+        </>
+      }
+    />
   );
 }

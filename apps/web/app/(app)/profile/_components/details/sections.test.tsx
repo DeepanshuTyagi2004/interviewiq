@@ -210,27 +210,23 @@ describe("profile detail sections", () => {
     expect(within(card("Contact")).getByText("Your name is required")).toBeInTheDocument();
   });
 
-  it("shows header counts as a zero-padded mono readout, read out as entries", async () => {
+  it("shows header counts as a quiet entry count", async () => {
     const user = userEvent.setup();
     renderSections();
-    const count = within(card("Skills")).getByText("02");
-    expect(count).toHaveAttribute("aria-hidden", "true");
-    expect(within(card("Skills")).getByText("2 entries")).toHaveClass("sr-only");
-    expect(within(card("Experience")).getByText("01")).toHaveAttribute("aria-hidden", "true");
-    expect(within(card("Experience")).getByText("1 entry")).toHaveClass("sr-only");
+    expect(within(card("Skills")).getByText("2 entries")).toBeInTheDocument();
+    expect(within(card("Experience")).getByText("1 entry")).toBeInTheDocument();
     // An empty section shows no count.
     expect(within(card("Projects")).queryByText(/^\d+$/)).toBeNull();
 
     // While editing, the count gives way to the "Editing" pill.
     await user.click(screen.getByRole("button", { name: "Edit skills" }));
     expect(within(card("Skills")).getByText("Editing")).toBeInTheDocument();
-    expect(within(card("Skills")).queryByText("02")).toBeNull();
+    expect(within(card("Skills")).queryByText("2 entries")).toBeNull();
   });
 
   it("an empty section offers Add, which opens it with one blank row", async () => {
     const user = userEvent.setup();
     renderSections();
-    expect(within(card("Projects")).getByText("No data")).toHaveAttribute("aria-hidden", "true");
     expect(within(card("Projects")).getByText("Add side, academic or open-source projects.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add projects" }));
     expect(within(card("Projects")).getAllByLabelText("Name")).toHaveLength(1);

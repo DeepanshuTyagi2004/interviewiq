@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MonoPill } from "@/components/patterns";
+import { Chip } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { useCandidateProfile } from "@/features/onboarding";
 import { ONBOARDING_QUERY_KEYS } from "@/lib/constants/onboarding";
@@ -156,7 +156,7 @@ export function LinkedInRow({ provider, variant = "stack", resumeLinkedInUrl }: 
     <>
       <SourceRow variant={variant} code={provider.code} name={provider.label} connected={connected}
         state={status.isError ? "error" : connected ? "active" : "idle"} stateLabel={connected ? "Snapshot imported, not live synced" : status.isError ? "Snapshot status unavailable" : "No snapshot imported"}
-        pill={connected ? <MonoPill tone="soft">{pdf ? "PDF snapshot" : "Public snapshot"}</MonoPill> : null}
+        pill={connected ? <Chip>{pdf ? "PDF snapshot" : "Public snapshot"}</Chip> : null}
         detail={connected ? `${linkedInSourceLabel(status.data)} snapshot · Not live synced${snapshotAt ? ` · ${pdf ? "imported" : "retrieved"} ${sourceDate(snapshotAt)}` : ""}` : provider.description}
         actions={<><Button type="button" variant={connected ? "strong" : "ink"} size="sm" className="min-w-[96px]" disabled={pending !== null} onClick={() => { reset(); changeOpen(true); }} aria-label={connected ? "Replace LinkedIn snapshot" : "Import LinkedIn"}>{connected ? "Replace snapshot" : "Import"}</Button>{connected ? <Button type="button" variant="ghost" size="sm" disabled={pending !== null} onClick={() => { setRemoveError(null); setRemoveOpen(true); }} aria-label="Remove LinkedIn source">Remove</Button> : null}</>}
       >
@@ -182,17 +182,17 @@ export function LinkedInRow({ provider, variant = "stack", resumeLinkedInUrl }: 
                 onDragLeave={() => setDragging(false)}
                 onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files?.[0]); }}
                 className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-line-4 bg-card p-5 text-center transition-colors duration-200 hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                  (dragging || file) && "border-faint-2",
-                  dragging && "bg-accent",
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-ink-3/50 bg-surface p-6 text-center transition-colors duration-150 hover:border-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  (dragging || file) && "border-ink-3",
+                  dragging && "bg-surface-2",
                   pending !== null && "pointer-events-none opacity-70",
                 )}
               >
-                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-primary text-primary-foreground">
+                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-background">
                   {file ? <FileText className="h-5 w-5" /> : <UploadCloud className="h-5 w-5" />}
                 </span>
                 <p className="m-0 break-all text-sm">{file ? file.name : "Drop your LinkedIn PDF here, or click to choose"}</p>
-                <p id={`${id}-file-hint`} className="m-0 text-[13px] text-faint">{file ? `${fileSize(file.size)} · click to choose a different file` : "PDF only, up to 5 MB"}</p>
+                <p id={`${id}-file-hint`} className="m-0 text-[13px] text-ink-3">{file ? `${fileSize(file.size)} · click to choose a different file` : "PDF only, up to 5 MB"}</p>
                 <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="LinkedIn PDF file" disabled={pending !== null}
                   onChange={(event) => { choose(event.target.files?.[0]); event.target.value = ""; }} />
               </div>

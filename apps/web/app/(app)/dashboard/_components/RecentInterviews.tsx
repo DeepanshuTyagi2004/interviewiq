@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { levelLabel } from "@/lib/constants/engineering-levels";
-import { ArrowRight } from "lucide-react";
-import { Count, HudCard, HudEmpty, padCount } from "@/components/hud";
-import { MonoPill } from "@/components/patterns";
+import { ChevronRight } from "lucide-react";
+import { Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
-import { formatDate } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
+import { dayMonth, outcomeChip, scoreText } from "./sessions";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
@@ -15,79 +17,121 @@ export interface RecentInterviewsProps {
   sessions: InterviewSession[];
   isLoading: boolean;
   isError: boolean;
+  now?: Date;
   className?: string;
 }
 
-/**
- * Finished rounds with a link to each debrief. Scores stay "—" until the scoring contract lands.
- * The list scrolls inside the card when the dashboard is fitted to a short viewport.
- */
-export function RecentInterviews({ sessions, isLoading, isError, className }: RecentInterviewsProps) {
+/** Finished rounds with their score and outcome; each row links to its report. */
+export function RecentInterviews({ sessions, isLoading, isError, now = new Date(), className }: RecentInterviewsProps) {
   return (
-    <HudCard
-      title="Recent interviews"
-      glow="tr"
-      className={className}
-      bodyClassName="min-h-0 overflow-y-auto"
-      meta={
-        sessions.length > 0 ? (
-          <Count n={sessions.length} label={`${sessions.length} ${sessions.length === 1 ? "interview" : "interviews"}`} />
-        ) : undefined
-      }
-      action={
-        <Link
-          href={ROUTES.interviews}
-          aria-label="All interviews"
-          className="inline-flex items-center gap-1 text-[length:calc(16*var(--u))] text-foreground hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          All
-          <ArrowRight aria-hidden className="size-[calc(16*var(--u))]" />
-        </Link>
-      }
-    >
+    <section aria-label="Recent results" className={className}>
+      <SectionHeader
+        title="Recent results"
+        href={ROUTES.interviews}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href={ROUTES.interviews} aria-label="All interviews">
+              View all
+            </Link>
+          </Button>
+        }
+      />
       {isLoading ? (
-        <div className="flex flex-col gap-2 p-4" aria-busy="true" aria-label="Loading interviews">
+        <div className="flex flex-col gap-2 rounded-tile p-4 shadow-ring" aria-busy="true" aria-label="Loading interviews">
           {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-11 w-full" />
+            <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
       ) : isError ? (
-        <p role="alert" className="m-0 px-5 py-6 text-sm text-destructive">
+        <p role="alert" className="m-0 rounded-tile px-5 py-6 text-sm text-destructive shadow-ring">
           Couldn&apos;t load your interviews. Refresh to try again.
         </p>
       ) : sessions.length === 0 ? (
-        <HudEmpty title="No interviews taken yet" hint="Every round you finish shows up here with its debrief." />
+        <div className="rounded-tile shadow-ring">
+          <EmptyState
+            title="No results yet"
+            hint="Every round you finish shows up here with its score and debrief."
+          >
+            <Button asChild variant="secondary">
+              <Link href={ROUTES.interviews}>Schedule a round</Link>
+            </Button>
+          </EmptyState>
+        </div>
       ) : (
-        <ul className="m-0 list-none p-0">
-          {sessions.map((s, i) => (
-            <li key={s.id} className="border-b border-line last:border-b-0">
-              <Link
-                href={`${ROUTES.interviews}/${s.id}/report`}
-                className="grid grid-cols-[calc(24*var(--u))_minmax(0,1fr)_auto_calc(24*var(--u))] items-center gap-[calc(14*var(--u))] px-[calc(18*var(--u))] py-[calc(13*var(--u))] transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-[calc(26*var(--u))]"
-              >
-                <span aria-hidden className="font-mono text-[length:calc(12*var(--u))] tabular-nums text-faint">
-                  {padCount(i + 1)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[length:calc(15.5*var(--u))]">
-                    {ROUND_LABEL.get(s.roundType) ?? s.roundType} · {s.companyName ?? s.company}
-                  </span>
-                  <span className="mt-0.5 block truncate font-mono text-[length:calc(12*var(--u))] text-faint">
-                    {levelLabel(s.level)} · {formatDate(s.scheduledAt)}
-                  </span>
-                </span>
-                <MonoPill tone={s.status === "COMPLETED" ? "soft" : "ghost"}>
-                  {s.status === "COMPLETED" ? "DONE" : "INTERRUPTED"}
-                </MonoPill>
-                <span className="text-right font-mono text-sm text-faint">
-                  <span aria-hidden>—</span>
-                  <span className="sr-only">No score yet</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <Table className="min-w-[640px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[34%] px-5">Round</TableHead>
+              <TableHead>Track</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Outcome</TableHead>
+              <TableHead className="w-10 pr-5">
+                <span className="sr-only">Report</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sessions.map((s) => {
+              const round = ROUND_LABEL.get(s.roundType) ?? s.roundType;
+              const company = s.companyName ?? s.company;
+              const track = s.loopId ? `${company} ${levelLabel(s.level)}` : "Standalone";
+              const score = scoreText(s.score);
+              const chip = outcomeChip(s, now);
+              return (
+                <TableRow key={s.id} className="relative">
+                  <TableCell className="px-5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Orb seed={s.id} size={34} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`${ROUTES.interviews}/${s.id}/report`}
+                          title={`${round} · ${company}`}
+                          className="block max-w-[260px] truncate rounded-sm font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-ink"
+                        >
+                          {round}
+                        </Link>
+                        <small className="block max-w-[260px] truncate text-[12.5px] text-ink-3">{company}</small>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block max-w-[200px] truncate" title={track}>
+                      {track}
+                    </span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-ink-2">{dayMonth(s.scheduledAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {score ? (
+                      <span className="font-display text-[20px] tracking-[-0.02em] tabular-nums">
+                        {score}
+                        <small className="font-sans text-[12px] text-ink-3"> /10</small>
+                      </span>
+                    ) : (
+                      <>
+                        <span aria-hidden className="text-ink-3">—</span>
+                        <span className="sr-only">No score</span>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      tone={chip.tone === "passed" ? "default" : "outline"}
+                      dot={chip.tone === "passed" ? "filled" : "hollow"}
+                      className={cn(chip.tone === "neutral" && "text-ink-3")}
+                    >
+                      {chip.label}
+                    </Chip>
+                  </TableCell>
+                  <TableCell className="pr-5">
+                    <ChevronRight aria-hidden className="h-4 w-4 text-ink-3" strokeWidth={1.8} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
-    </HudCard>
+    </section>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Count, HudCard, HudEmpty } from "@/components/hud";
+import { Count, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
@@ -15,6 +15,7 @@ import {
   partitionSessions,
   roundLabel,
 } from "@/features/interview/presentation";
+import { scoreChipText } from "@/features/report/presentation";
 import { RetryPrepButton } from "./RetryPrepButton";
 import { StatusPill } from "./StatusPill";
 import { RoomLink } from "@/features/interview-live/RoomLink";
@@ -26,31 +27,31 @@ function RowAction({ session }: { session: InterviewSession }) {
   switch (session.status) {
     case "PREP_READY":
       return session.liveAvailable ? (
-        <Button asChild size="sm" className="relative z-10 h-8 px-3.5">
+        <Button asChild size="sm" className="relative z-10">
           <RoomLink href={`${base}/live`}>Join</RoomLink>
         </Button>
       ) : (
-        <Button size="sm" variant="outline" disabled className="relative z-10 h-8 px-3.5" title="Live sessions open soon">
+        <Button size="sm" variant="outline" disabled className="relative z-10" title="Live sessions open soon">
           Ready
         </Button>
       );
     case "LIVE_IN_PROGRESS":
       return (
-        <Button asChild size="sm" className="relative z-10 h-8 px-3.5">
+        <Button asChild size="sm" className="relative z-10">
           <RoomLink href={`${base}/live`}>Rejoin</RoomLink>
         </Button>
       );
     case "PREP_FAILED":
-      return <RetryPrepButton session={session} label="Retry" size="sm" variant="outline" className="relative z-10 h-8 px-3" />;
+      return <RetryPrepButton session={session} label="Retry" size="sm" variant="outline" className="relative z-10" />;
     case "COMPLETED":
     case "ABORTED_TECHNICAL":
       return (
-        <Button asChild size="sm" variant="strong" className="relative z-10 h-8 px-3">
+        <Button asChild size="sm" variant="outline" className="relative z-10">
           <Link href={`${base}/report`}>Debrief</Link>
         </Button>
       );
     default:
-      return <ChevronRight aria-hidden className="h-4 w-4 text-faint" />;
+      return <ChevronRight aria-hidden className="h-4 w-4 text-ink-3" />;
   }
 }
 
@@ -62,26 +63,30 @@ function RowAction({ session }: { session: InterviewSession }) {
 function SessionRow({ session }: { session: InterviewSession }) {
   const title = `${roundLabel(session.roundType)} · ${companyLabel(session)}`;
   const meta = [levelLabel(session.level), formatSlot(session.scheduledAt)].join(" · ");
+  const score = scoreChipText(session.score, session.passMark);
 
   return (
     <li className="border-b border-line last:border-b-0">
       <div
         className={cn(
-          "relative grid items-center gap-x-3 gap-y-2 px-4 py-3.5 transition-colors hover:bg-accent has-[a:focus-visible]:bg-accent sm:gap-x-4 sm:px-5",
-          "grid-cols-[minmax(0,1fr)_auto] [grid-template-areas:'main_act'_'pill_act']",
-          "sm:grid-cols-[minmax(0,1fr)_auto_minmax(88px,auto)] sm:[grid-template-areas:'main_pill_act']",
+          "relative grid items-center gap-x-3.5 gap-y-2 px-4 py-3.5 transition-colors duration-150 hover:bg-surface has-[a:focus-visible]:bg-surface sm:px-5",
+          "grid-cols-[auto_minmax(0,1fr)_auto] [grid-template-areas:'orb_main_act'_'orb_pill_act']",
+          "sm:grid-cols-[auto_minmax(0,1fr)_auto_minmax(88px,auto)] sm:[grid-template-areas:'orb_main_pill_act']",
         )}
       >
+        <Orb seed={session.id} size={36} className="[grid-area:orb]" />
         <div className="min-w-0 [grid-area:main]">
           <Link
             href={`${ROUTES.interviews}/${session.id}`}
-            className="block truncate text-sm text-foreground after:absolute after:inset-0 focus-visible:outline-none"
+            title={title}
+            className="block truncate rounded-sm text-[14px] font-medium text-ink outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ink focus-visible:after:ring-inset focus-visible:after:rounded-[inherit]"
           >
             {title}
           </Link>
-          <p className="m-0 mt-0.5 truncate font-mono text-[11.5px] text-faint">{meta}</p>
+          <p className="m-0 mt-0.5 truncate text-[12.5px] text-ink-3">{meta}</p>
         </div>
-        <div className="justify-self-start [grid-area:pill] sm:justify-self-end">
+        <div className="flex items-center gap-2.5 justify-self-start [grid-area:pill] sm:justify-self-end">
+          {score ? <span className="text-[12.5px] tabular-nums text-ink-2">{score}</span> : null}
           <StatusPill status={session.status} />
         </div>
         <div className="flex justify-end [grid-area:act]">
@@ -103,17 +108,29 @@ function SessionGroup({
 }) {
   const n = sessions.length;
   return (
-    <HudCard title={title} meta={<Count n={n} label={`${n} ${n === 1 ? "session" : "sessions"}`} />}>
-      {sessions.length === 0 ? (
-        <HudEmpty title={empty.title} hint={empty.hint} />
+    <section aria-label={title}>
+      <SectionHeader
+        title={
+          <>
+            {title}{" "}
+            <span className="ml-1 text-ink-3">
+              <Count n={n} label={`${n} ${n === 1 ? "session" : "sessions"}`} />
+            </span>
+          </>
+        }
+      />
+      {n === 0 ? (
+        <div className="rounded-tile bg-surface">
+          <EmptyState title={empty.title} hint={empty.hint} className="py-10" />
+        </div>
       ) : (
-        <ul className="m-0 list-none p-0">
+        <ul className="m-0 list-none overflow-hidden rounded-tile bg-background p-0 shadow-ring">
           {sessions.map((session) => (
             <SessionRow key={session.id} session={session} />
           ))}
         </ul>
       )}
-    </HudCard>
+    </section>
   );
 }
 
@@ -124,15 +141,15 @@ export function SessionsList() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading your interviews">
-        <Skeleton className="h-[220px] w-full rounded-[14px]" />
-        <Skeleton className="h-[120px] w-full rounded-[14px]" />
+        <Skeleton className="h-[220px] w-full rounded-tile" />
+        <Skeleton className="h-[120px] w-full rounded-tile" />
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="rounded-[14px] border border-line-2 px-4 py-6 sm:px-5">
+      <div className="rounded-tile bg-surface px-5 py-6">
         <p role="alert" className="m-0 text-sm text-destructive">
           Couldn&apos;t load your interviews. Refresh the page to try again.
         </p>
@@ -143,7 +160,7 @@ export function SessionsList() {
   const { upcoming, past } = partitionSessions(data.sessions);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
       <SessionGroup
         title="Upcoming"
         sessions={upcoming}

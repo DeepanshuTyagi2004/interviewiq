@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MonoPill } from "@/components/patterns";
+import { Chip } from "@/components/ds";
 import { ROUTES } from "@/lib/constants/shared";
 import { ResumeUpload } from "@/features/onboarding/components/ResumeUpload";
 import { joinDetail, sourceDate } from "./format";
@@ -56,7 +56,7 @@ export function ResumeRow({
       connected={hasProfile}
       // Live only while the parsed resume is really being saved to the profile.
       state={sourceDotState({ connected: hasProfile, syncing: saving, error: false })}
-      pill={hasProfile ? <MonoPill tone="soft">Parsed</MonoPill> : null}
+      pill={hasProfile ? <Chip>Parsed</Chip> : null}
       actions={
         <Button
           type="button"

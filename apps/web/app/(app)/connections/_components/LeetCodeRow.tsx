@@ -4,17 +4,17 @@ import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FormField, MonoPill, type MonoPillTone } from "@/components/patterns";
+import { FormField } from "@/components/patterns";
 import { ApiFetchError } from "@/lib/api-client/client";
 import {
   useProfile,
   useConnectLeetCode,
   useDisconnectLeetCode,
-  type SyncStatus,
 } from "@/features/profile";
 import { PROFILE_POLLING, PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 import { joinDetail, sourceDate } from "./format";
 import { SourceRow, type SourceRowVariant } from "./SourceRow";
+import { ErrorChip, SyncChip } from "./SyncChip";
 import { sourceDotState } from "./sourceDotState";
 import type { ProviderMeta } from "./providers";
 
@@ -43,13 +43,6 @@ function messageForCode(code: string | undefined): string {
       return "Couldn’t connect LeetCode. Please try again.";
   }
 }
-
-const SYNC_PILL: Record<SyncStatus, { label: string; tone: MonoPillTone }> = {
-  [PROFILE_SYNC_STATUS.syncing]: { label: "Syncing", tone: "soft" },
-  [PROFILE_SYNC_STATUS.synced]: { label: "Synced", tone: "soft" },
-  [PROFILE_SYNC_STATUS.failed]: { label: "Sync failed", tone: "alert" },
-  [PROFILE_SYNC_STATUS.degraded]: { label: "Limited data", tone: "ghost" },
-};
 
 /**
  * LeetCode by username: "Connect" opens an inline username form; the connect call validates the
@@ -132,14 +125,9 @@ export function LeetCodeRow({
       : undefined;
 
   const pill = errored ? (
-    <MonoPill tone="alert">Error</MonoPill>
+    <ErrorChip />
   ) : connected && status ? (
-    <MonoPill tone={SYNC_PILL[status].tone}>
-      {status === PROFILE_SYNC_STATUS.syncing ? (
-        <span aria-hidden data-motion className="mr-1.5 h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand" />
-      ) : null}
-      {SYNC_PILL[status].label}
-    </MonoPill>
+    <SyncChip status={status} />
   ) : null;
 
   if (connected) {

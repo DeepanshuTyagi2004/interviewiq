@@ -10,13 +10,13 @@ import { RetryPrepButton } from "../../_components/RetryPrepButton";
 import { RoomLink } from "@/features/interview-live/RoomLink";
 
 /**
- * The single next step for a session, as the page's primary (brand) button: join or rejoin the
+ * The single next step for a session, as the page's primary (ink) button: join or rejoin the
  * room, retry a failed prep, or open the debrief. Nothing while prep is still pending. A ready round
  * can't be joined until the live interviewer is available (`liveAvailable`), so the button is off.
  */
 export function SessionAction({ session, className }: { session: InterviewSession; className?: string }) {
   const base = `${ROUTES.interviews}/${session.id}`;
-  const cls = cn("h-10 px-4 text-[13.5px]", className);
+  const cls = cn(className);
 
   switch (session.status) {
     case "PREP_READY":

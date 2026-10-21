@@ -22,11 +22,11 @@ describe("ProfileLeaderboard", () => {
     // Percentile, not confidence (75): v5 has no confidence weighting, so the board doesn't show it.
     expect(screen.getByText("100.0%")).toBeInTheDocument();
     expect(screen.queryByText("75%")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("combobox", { name: "Leaderboard engineering level" }));
-    expect(screen.getAllByRole("option")).toHaveLength(8);
-    expect(screen.getByRole("option", { name: "Intern" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Distinguished" })).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "Staff" }));
+    expect(screen.getByRole("radiogroup", { name: "Leaderboard engineering level" })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    expect(screen.getByRole("radio", { name: "Intern" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Distinguished" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Staff" }));
     expect(await screen.findByText("staff peer")).toBeInTheDocument();
     expect(screen.queryByText("sde2 peer")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/profile-leaderboard?level=staff&limit=25");

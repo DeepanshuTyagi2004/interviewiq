@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { PAGE_SCAFFOLD } from "@/components/layout/page";
+import { Card, PageHeader, Stat } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMySessions } from "@/features/interview";
@@ -16,20 +16,21 @@ import { TargetsTab } from "./TargetsTab";
 const TABS = ["tracks", "schedule", "targets"] as const;
 type Tab = (typeof TABS)[number];
 
-const tabTrigger =
-  "-mb-px rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 pb-3 pt-0 text-sm font-normal text-faint shadow-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-offset-0 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+const FOCUS =
+  "outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-function Stat({ label, value, href }: { label: string; value: number | string; href?: string }) {
-  const body = (
-    <>
-      <p className="iq-eyebrow m-0">{label}</p>
-      <p className="m-0 mt-1 text-[26px] leading-none tracking-[-0.03em] tabular-nums">{value}</p>
-    </>
+function StatTile({ label, value, href }: { label: string; value: number | string; href?: string }) {
+  const tile = (
+    <Card tone="surface" interactive={Boolean(href)} className="h-full p-5">
+      <Stat label={label} value={value} />
+    </Card>
   );
   return href ? (
-    <Link href={href} className="block rounded-[14px] border border-line-2 px-4 py-3 transition-colors hover:border-faint-2">{body}</Link>
+    <Link href={href} className={`block rounded-card ${FOCUS}`}>
+      {tile}
+    </Link>
   ) : (
-    <div className="rounded-[14px] border border-line-2 px-4 py-3">{body}</div>
+    tile
   );
 }
 
@@ -53,31 +54,34 @@ export function LoopsHub() {
   const upcoming = partitionSessions(sessions.data?.sessions ?? []).upcoming.length;
 
   return (
-    <div className={PAGE_SCAFFOLD}>
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div className="min-w-0">
-          <p className="iq-eyebrow m-0">My tracks</p>
-          <h1 className="m-0 mt-1.5 text-[26px] font-normal leading-[1.1] tracking-[-0.04em] sm:text-[30px]">Interview tracks</h1>
-          <p className="m-0 mt-1.5 max-w-[640px] text-[14px] leading-[1.5] text-muted-foreground">
-            Every role you&apos;ve started a track for, with progress and what to book next. Run several at once, each in its
-            own slots, and keep every interview in one schedule.
-          </p>
-        </div>
-        <Button asChild variant="strong" className="h-10 px-4 text-[13.5px]"><Link href={ROUTES.jobs}>Browse companies</Link></Button>
+    <div className="flex min-w-0 flex-col">
+      <PageHeader
+        eyebrow="My tracks"
+        title="Interview tracks"
+        description="Every role you've started a track for, with progress and what to book next. Run several at once, each in its own slots, and keep every interview in one schedule."
+        actions={
+          <Button asChild>
+            <Link href={ROUTES.jobs}>Browse companies</Link>
+          </Button>
+        }
+      />
+
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Active tracks" value={loops.isLoading ? "–" : live} />
+        <StatTile label="Upcoming interviews" value={sessions.isLoading ? "–" : upcoming} />
+        <StatTile label="Custom processes" value={processes.isLoading ? "–" : (processes.data?.length ?? 0)} href={ROUTES.processes} />
+        <StatTile label="Watching" value={targets.isLoading ? "–" : (targets.data?.length ?? 0)} />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Stat label="Active tracks" value={loops.isLoading ? "–" : live} />
-        <Stat label="Upcoming interviews" value={sessions.isLoading ? "–" : upcoming} />
-        <Stat label="Custom processes" value={processes.isLoading ? "–" : (processes.data?.length ?? 0)} href={ROUTES.processes} />
-        <Stat label="Watching" value={targets.isLoading ? "–" : (targets.data?.length ?? 0)} />
-      </div>
-
-      <Tabs value={tab} onValueChange={(v) => router.replace(v === "tracks" ? pathname : `${pathname}?tab=${v}`, { scroll: false })} className="mt-6">
-        <TabsList aria-label="My tracks" className="flex h-auto w-full justify-start gap-6 rounded-none border-b border-line-2 bg-transparent p-0 text-faint">
-          <TabsTrigger value="tracks" className={tabTrigger}>Tracks</TabsTrigger>
-          <TabsTrigger value="schedule" className={tabTrigger}>Schedule</TabsTrigger>
-          <TabsTrigger value="targets" className={tabTrigger}>Targets</TabsTrigger>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => router.replace(v === "tracks" ? pathname : `${pathname}?tab=${v}`, { scroll: false })}
+        className="mt-10"
+      >
+        <TabsList variant="pill" aria-label="My tracks" className="w-full sm:w-auto">
+          <TabsTrigger value="tracks" className="flex-1 sm:flex-none">Tracks</TabsTrigger>
+          <TabsTrigger value="schedule" className="flex-1 sm:flex-none">Schedule</TabsTrigger>
+          <TabsTrigger value="targets" className="flex-1 sm:flex-none">Targets</TabsTrigger>
         </TabsList>
         <TabsContent value="tracks" className="mt-5"><LoopsTab /></TabsContent>
         <TabsContent value="schedule" className="mt-5"><ScheduleTab /></TabsContent>

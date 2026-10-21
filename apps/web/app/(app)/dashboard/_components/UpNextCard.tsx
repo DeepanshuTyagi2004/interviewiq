@@ -1,93 +1,130 @@
-import { ArrowRight } from "lucide-react";
-import { HudCard, StatusDot } from "@/components/hud";
+import Link from "next/link";
+import { Card, Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
+import { Button } from "@/components/ui/button";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
 import { isJoinable, roundLength } from "@/features/interview/presentation";
-import { statusDotState } from "@/app/(app)/interviews/_components/StatusPill";
-import { formatSlot, sessionHref, shortDate } from "./sessions";
 import { levelLabel } from "@/lib/constants/engineering-levels";
+import { cn } from "@/lib/utils/cn";
 import { RoomLink } from "@/features/interview-live/RoomLink";
+import { formatSlot, sessionHref, whenLabel } from "./sessions";
 
 const ROUND_LABEL = new Map(ROUND_OPTIONS.map((r) => [r.value, r.label]));
 
 function statusLabel(session: InterviewSession): string {
   switch (session.status) {
     case "PREP_READY":
-      return session.liveAvailable ? "READY TO JOIN" : "READY";
+      return session.liveAvailable ? "Ready to join" : "Ready";
     case "LIVE_IN_PROGRESS":
-      return "LIVE NOW";
+      return "Live now";
     case "PREP_QUEUED":
-      return "PREPARING";
+      return "Preparing";
     case "PREP_FAILED":
-      return "PREP FAILED";
+      return "Prep failed";
     default:
-      return `BOOKED · ${shortDate(session.scheduledAt)}`;
+      return "Booked";
   }
 }
 
-/** One cell of the readout strip on the dark card (white opacities: the card is dark in both themes). */
-function ReadoutCell({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0 flex-[1_1_96px] bg-inv px-[calc(12*var(--u))] py-[calc(8*var(--u))]">
-      <dt className="font-mono text-[length:calc(10.5*var(--u))] uppercase tracking-[0.14em] text-white/50">{label}</dt>
-      <dd className="m-0 mt-0.5 text-[length:calc(14*var(--u))] leading-snug text-white/90">{children}</dd>
-    </div>
-  );
-}
-
 /**
- * The next round, on the design's dark "up next" card: company + level, round, slot and one
- * action. Without a booked round it points at the company library instead. The status dot uses
- * the interviews list's mapping: it pulses only while prep or the round is actually running.
- * Sizes follow `--u` (the dashboard fits the viewport).
+ * The next round on a stone card with an orb glow: round and status chips, the title, the slot and
+ * length, the interviewer, and the actions. Without a booked round it is an empty state that
+ * points at scheduling one.
  */
-export function UpNextCard({ session, className }: { session: InterviewSession | undefined; className?: string }) {
-  const joinable = session ? isJoinable(session) : false;
-  const round = session ? (ROUND_LABEL.get(session.roundType) ?? session.roundType) : null;
-  const company = session ? (session.companyName ?? session.company) : null;
+export function UpNextCard({
+  session,
+  className,
+  now = new Date(),
+}: {
+  session: InterviewSession | undefined;
+  className?: string;
+  now?: Date;
+}) {
+  if (!session) {
+    return (
+      <div className={cn("flex flex-col", className)}>
+        <SectionHeader title="Up next" />
+        <Card tone="stone" aria-label="Up next" className="min-h-[260px] flex-1 justify-center">
+          <EmptyState
+            title="No round booked yet"
+            hint="Pick a company and role to see its real interview process, then book round one."
+          >
+            <Button asChild>
+              <Link href={ROUTES.interviews}>Schedule a round</Link>
+            </Button>
+          </EmptyState>
+        </Card>
+      </div>
+    );
+  }
+
+  const joinable = isJoinable(session);
+  const round = ROUND_LABEL.get(session.roundType) ?? session.roundType;
+  const company = session.companyName ?? session.company;
+  const length = roundLength(session);
+  const title = `${company} · ${levelLabel(session.level)} mock process`;
+  const interviewer = session.briefing?.interviewerName;
+  const reschedule = session.loopId ? `${ROUTES.loops}/${session.loopId}` : null;
+  const briefing = `${ROUTES.interviews}/${session.id}`;
 
   return (
-    <HudCard
-      tone="inverse"
-      notch
-      glow="br"
-      aria-label="Up next"
-      title={session ? `Up next · ${company} ${levelLabel(session.level)}` : "Up next"}
-      meta={
-        session ? (
-          <StatusDot state={statusDotState(session.status)} label={statusLabel(session)} className="text-white" />
-        ) : undefined
-      }
-      className={className}
-      bodyClassName="flex flex-col gap-[calc(16*var(--u))] px-[calc(18*var(--u))] py-[calc(24*var(--u))] sm:px-[calc(26*var(--u))]"
-    >
-      <h3 className="m-0 text-[length:calc(34*var(--u))] font-normal leading-[1.1] tracking-[-0.035em]">
-        {round ?? "No round booked yet"}
-      </h3>
-      <p className="m-0 line-clamp-2 max-w-[520px] text-[length:calc(16*var(--u))] leading-[1.55] text-white/80">
-        {session
-          ? `${company} · ${session.role}. Your interviewer prepares from your own resume and projects, and follows the company's real process.`
-          : "Pick a company and role to see its real interview process, then book round one."}
-      </p>
-
-      <div className="mt-auto flex flex-wrap items-center gap-[calc(12*var(--u))]">
-        {session ? (
-          <dl className="m-0 flex min-w-0 flex-[1_1_100%] flex-wrap gap-px overflow-hidden rounded-md border border-white/10 bg-white/10">
-            <ReadoutCell label="Slot">{formatSlot(session.scheduledAt)}</ReadoutCell>
-            <ReadoutCell label="Level">{levelLabel(session.level)}</ReadoutCell>
-            {roundLength(session) ? <ReadoutCell label="Length">{roundLength(session)}</ReadoutCell> : null}
-            {session.specialization ? <ReadoutCell label="Track">{session.specialization}</ReadoutCell> : null}
-          </dl>
-        ) : null}
-        <RoomLink
-          href={session ? sessionHref(session) : ROUTES.jobs}
-          className="inline-flex h-[calc(46*var(--u))] items-center gap-[calc(8*var(--u))] rounded-full bg-brand px-[calc(22*var(--u))] text-[length:calc(16*var(--u))] text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+    <div className={cn("flex flex-col", className)}>
+      <SectionHeader title="Up next" actions={<Chip>{whenLabel(session.scheduledAt, now)}</Chip>} />
+      <Card tone="stone" aria-label="Up next" className="relative min-h-[260px] flex-1 overflow-hidden">
+        <Orb
+          seed={session.id}
+          size={320}
+          className="pointer-events-none absolute -right-20 -top-24 opacity-90"
+        />
+        <div className="relative flex min-w-0 flex-wrap gap-1.5">
+          <Chip tone="ink" className="max-w-full truncate" >{round}</Chip>
+          <Chip>{statusLabel(session)}</Chip>
+        </div>
+        <h3
+          title={title}
+          className="relative m-0 mt-4 line-clamp-2 max-w-[70%] font-display text-[28px] font-normal leading-[1.15] tracking-[-0.03em] max-sm:max-w-full max-sm:text-[24px]"
         >
-          {session ? (joinable ? "Enter room" : "View schedule") : "Browse companies"}
-          <ArrowRight aria-hidden className="size-[calc(16*var(--u))]" />
-        </RoomLink>
-      </div>
-    </HudCard>
+          {title}
+        </h3>
+        <div className="relative mt-3 flex flex-wrap gap-x-[18px] gap-y-1 text-[13.5px] text-ink-2">
+          <span>{formatSlot(session.scheduledAt)}</span>
+          {length ? <span>{length}</span> : null}
+          {session.specialization ? <span className="truncate">{session.specialization}</span> : null}
+        </div>
+        <div className="relative mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-3 pt-[22px]">
+          <Orb seed={`${session.id}-interviewer`} size={40} />
+          <div className="min-w-0">
+            <div className="truncate text-[14px] font-medium">{interviewer ?? "Your interviewer"}</div>
+            <small className="block text-[12.5px] text-ink-3">
+              {interviewer ? "Your interviewer" : "Introduced in the briefing"}
+            </small>
+          </div>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {joinable ? (
+              <>
+                <Button asChild variant="outline">
+                  <Link href={briefing}>Open briefing</Link>
+                </Button>
+                <Button asChild>
+                  <RoomLink href={sessionHref(session)}>Enter room</RoomLink>
+                </Button>
+              </>
+            ) : (
+              <>
+                {reschedule ? (
+                  <Button asChild variant="outline">
+                    <Link href={reschedule}>Reschedule</Link>
+                  </Button>
+                ) : null}
+                <Button asChild>
+                  <Link href={briefing}>Open briefing</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }

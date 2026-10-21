@@ -1,4 +1,5 @@
 import type { JdFitLevelGap } from "@/features/jobs";
+import { Chip } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { levelLabel } from "./library";
 
@@ -10,22 +11,17 @@ export interface MatchFit {
   cap: number | null;
 }
 
-/** "72% match", a neutral pill (orange stays the single accent). A capped stretch role reads "≤40% match", dimmed. */
+/** "72% match" as a Chip (ink-2 on surface-2). A capped stretch role reads "≤40% match" in the outline tone. */
 export function MatchPill({ fit, className }: { fit: MatchFit; className?: string }) {
   if (fit.score === null) return null;
   const stretch = fit.levelGap === "stretch";
   const capped = stretch && fit.cap !== null && fit.score >= fit.cap;
   return (
-    <span
-      title={MATCH_TITLE}
-      className={cn(
-        "inline-flex h-6 flex-none items-center whitespace-nowrap rounded-full border border-line-3 px-2.5 font-mono text-[11.5px] leading-none tabular-nums",
-        stretch ? "text-faint" : "text-foreground",
-        className,
-      )}
-    >
-      {capped ? "≤" : ""}
-      {fit.score}% match
+    <span title={MATCH_TITLE} className={cn("flex-none", className)}>
+      <Chip tone={stretch ? "outline" : "default"} className="tabular-nums">
+        {capped ? "≤" : ""}
+        {fit.score}% match
+      </Chip>
     </span>
   );
 }

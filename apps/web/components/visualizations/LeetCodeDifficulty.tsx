@@ -6,9 +6,9 @@ import { ShareBar } from "./ShareBar";
  * rather than traffic-light colours that would imply good/bad. Counts only.
  */
 const RAMP = {
-  easy: "hsl(var(--faint-2))",
-  medium: "hsl(var(--muted-foreground))",
-  hard: "hsl(var(--foreground))",
+  easy: "hsl(var(--color-lc-easy))",
+  medium: "hsl(var(--color-lc-medium))",
+  hard: "hsl(var(--color-lc-hard))",
 };
 
 export function LeetCodeDifficulty({ solved }: { solved?: LeetCodeFragment["solved"] }) {

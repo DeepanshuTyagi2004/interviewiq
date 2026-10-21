@@ -2,15 +2,17 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, CornerDownLeft } from "lucide-react";
+import { Briefcase, CornerDownLeft, Search } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { DialogOverlay, DialogPortal } from "@/components/ui/dialog";
-import { Kbd, padCount } from "@/components/hud";
+import { Kbd } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { useJds } from "@/features/jobs";
 import type { AppNavItem } from "./nav";
 
 const MAX_ROLES = 6;
+
+const padCount = (n: number) => String(Math.max(0, Math.trunc(n))).padStart(2, "0");
 
 type Group = "Screens" | "Roles";
 const GROUPS: Group[] = ["Screens", "Roles"];
@@ -36,20 +38,16 @@ export interface CommandMenuProps {
 
 /**
  * ⌘K palette: jump to any screen or straight to a role's roadmap. Arrow keys move, Enter opens,
- * Esc closes. The JD list is only fetched once the palette is opened. Styled as a HUD console:
- * notched frame, a `QUERY ›` prompt, counted result groups and a key-hint readout.
+ * Esc closes. The JD list is only fetched once the palette is opened. A card with the float
+ * shadow, a pill input, counted result groups and a key-hint line.
  */
 export function CommandMenu({ open, onOpenChange, items }: CommandMenuProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
-        {/* The shadow is a drop-shadow on the wrapper so it follows the notched outline (a
-            box-shadow would be clipped away with the corner). */}
-        <DialogPrimitive.Content className="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-[580px] -translate-x-1/2 drop-shadow-[0_30px_40px_rgba(0,0,0,.28)] duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.98] data-[state=open]:slide-in-from-left-1/2 data-[state=closed]:slide-out-to-left-1/2">
-          <div className="hud-card hud-notch relative isolate overflow-hidden rounded-[16px] border border-line-2 bg-card">
-            <span aria-hidden className="hud-ticks" data-notch="" />
-            <span aria-hidden className="hud-notch-line" />
+        <DialogPrimitive.Content className="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-[580px] -translate-x-1/2 duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.98] data-[state=open]:slide-in-from-left-1/2 data-[state=closed]:slide-out-to-left-1/2">
+          <div className="relative isolate overflow-hidden rounded-card bg-popover text-popover-foreground shadow-float">
             <DialogPrimitive.Title className="sr-only">Search InterviewIQ</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
               Search screens and roles, then press Enter to open.
@@ -125,32 +123,32 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-3 border-b border-line px-4">
-        <span aria-hidden className="flex-none font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">
-          Query <span className="text-brand">›</span>
-        </span>
-        <input
-          autoFocus
-          role="combobox"
-          aria-expanded
-          aria-controls={listId}
-          aria-activedescendant={entries[current]?.id}
-          aria-label="Search companies, roles and screens"
-          placeholder="Search companies, roles, screens"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActive(0);
-          }}
-          onKeyDown={onKeyDown}
-          className="h-14 min-w-0 flex-1 bg-transparent text-[15px] caret-brand outline-none placeholder:text-faint"
-        />
-        <Kbd size="sm">Esc</Kbd>
+      <div className="p-3 pb-1">
+        <div className="flex items-center gap-2.5 rounded-full border border-line bg-background pl-4 pr-3 shadow-ring focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-popover">
+          <Search aria-hidden strokeWidth={1.8} className="h-4 w-4 flex-none text-ink-3" />
+          <input
+            autoFocus
+            role="combobox"
+            aria-expanded
+            aria-controls={listId}
+            aria-activedescendant={entries[current]?.id}
+            aria-label="Search companies, roles and screens"
+            placeholder="Search companies, roles, screens"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActive(0);
+            }}
+            onKeyDown={onKeyDown}
+            className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink caret-ink outline-none placeholder:text-ink-3"
+          />
+          <Kbd>Esc</Kbd>
+        </div>
       </div>
 
-      <div id={listId} role="listbox" aria-label="Results" className="max-h-[min(360px,calc(55vh/var(--hud-zoom,1)))] overflow-y-auto px-2 pb-2">
+      <div id={listId} role="listbox" aria-label="Results" className="max-h-[min(360px,55vh)] overflow-y-auto px-2 pb-2">
         {entries.length === 0 ? (
-          <p className="m-0 px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="m-0 px-3 py-6 text-center text-sm text-ink-3">
             {jds.isLoading ? "Loading roles…" : "Nothing matches that yet."}
           </p>
         ) : (
@@ -159,12 +157,9 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
             if (inGroup.length === 0) return null;
             return (
               <div key={group} role="group" aria-label={group}>
-                <div
-                  aria-hidden
-                  className="flex items-center gap-2 px-3 pb-1.5 pt-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint"
-                >
+                <div aria-hidden className="flex items-center gap-2 px-3 pb-1.5 pt-3 text-[12px] text-ink-3">
                   <span>{group}</span>
-                  <span className="h-px flex-1 bg-line-2" />
+                  <span className="h-px flex-1 bg-line" />
                   <span className="tabular-nums">{padCount(inGroup.length)}</span>
                 </div>
                 {inGroup.map((entry) => {
@@ -179,16 +174,16 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
                       onMouseMove={() => setActive(i)}
                       onClick={() => open(entry)}
                       className={cn(
-                        "relative flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm",
-                        isActive
-                          ? "bg-panel text-foreground before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:rounded-full before:bg-brand"
-                          : "text-muted-foreground",
+                        "flex cursor-pointer items-center gap-3 rounded-[12px] px-3 py-2.5 text-sm transition-colors duration-150",
+                        isActive ? "bg-surface-2 text-ink" : "text-ink-2",
                       )}
                     >
                       <entry.icon aria-hidden strokeWidth={1.6} className="h-4 w-4 flex-none" />
-                      <span className="min-w-0 flex-1 truncate text-foreground">{entry.label}</span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-faint">{entry.hint}</span>
-                      {isActive ? <CornerDownLeft aria-hidden className="h-3.5 w-3.5 text-faint" /> : null}
+                      <span className="min-w-0 flex-1 truncate text-ink" title={entry.label}>
+                        {entry.label}
+                      </span>
+                      <span className="text-[12px] text-ink-3">{entry.hint}</span>
+                      {isActive ? <CornerDownLeft aria-hidden className="h-3.5 w-3.5 text-ink-3" /> : null}
                     </div>
                   );
                 })}
@@ -198,7 +193,7 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">
+      <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-[12px] text-ink-3">
         <span aria-hidden>↑↓ Navigate · ↵ Open · Esc Close</span>
         <span className="tabular-nums" aria-live="polite">
           {entries.length} {entries.length === 1 ? "result" : "results"}

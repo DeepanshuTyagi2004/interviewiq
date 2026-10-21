@@ -4,7 +4,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useExportAccount, usePreferences, useUpdatePreferences, type Preferences } from "@/features/account";
 import { Button } from "@/components/ui/button";
-import { HudCard } from "@/components/hud";
+import { Card } from "@/components/ds";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
 import { PrefRow } from "./PrefRow";
@@ -25,11 +25,11 @@ export function PrivacySettings() {
     update.mutate({ privacy: patch }, { onError: (err) => toast.error(err instanceof Error && err.message ? err.message : "Could not save that setting.") });
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
-      <HudCard bodyClassName="p-4 sm:p-5" title="Leaderboard">
+    <div className="flex flex-col gap-6">
+      <Card title="Leaderboard">
         {p ? (
           <div className="flex flex-col gap-3">
-            <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+            <p className="m-0 text-[13px] leading-[1.5] text-ink-3">
               The profile leaderboard is opt-in from your{" "}
               <Link href={ROUTES.profile} className="underline underline-offset-4 hover:text-foreground">
                 profile
@@ -48,14 +48,14 @@ export function PrivacySettings() {
                     disabled={update.isPending}
                     onClick={() => save({ leaderboardVisibility: v.value })}
                     className={cn(
-                      "flex items-start gap-3 rounded-[12px] border px-4 py-3 text-left transition-colors",
-                      selected ? "border-foreground bg-card" : "border-line-3 bg-panel hover:border-faint-2",
+                      "flex items-start gap-3 rounded-tile border px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      selected ? "border-ink bg-background" : "border-line bg-surface hover:bg-surface-2",
                     )}
                   >
-                    <span aria-hidden className={cn("mt-1 h-3 w-3 flex-none rounded-full border", selected ? "border-foreground bg-foreground" : "border-faint-2")} />
+                    <span aria-hidden className={cn("mt-1 h-3 w-3 flex-none rounded-full border", selected ? "border-ink bg-ink" : "border-ink-3")} />
                     <span className="min-w-0">
                       <span className="block text-[14px]">{v.label}</span>
-                      <span className="block text-[12.5px] text-muted-foreground">{v.hint}</span>
+                      <span className="block text-[12.5px] text-ink-3">{v.hint}</span>
                     </span>
                   </button>
                 );
@@ -63,11 +63,11 @@ export function PrivacySettings() {
             </div>
           </div>
         ) : (
-          <p className="m-0 text-[13px] text-muted-foreground">{prefs.isError ? "Your preferences are unavailable right now." : "Loading…"}</p>
+          <p className="m-0 text-[13px] text-ink-3">{prefs.isError ? "Your preferences are unavailable right now." : "Loading…"}</p>
         )}
-      </HudCard>
+      </Card>
 
-      <HudCard bodyClassName="p-4 sm:p-5" title="Sharing">
+      <Card title="Sharing">
         {p ? (
           <div>
             <PrefRow label="Share readiness with my college" hint="Your placement cell sees which rounds you have cleared. Never your answers." checked={p.shareWithCollege} disabled={update.isPending} onChange={(shareWithCollege) => save({ shareWithCollege })} />
@@ -75,13 +75,13 @@ export function PrivacySettings() {
             <PrefRow label="Use my interviews to improve InterviewIQ" hint="Anonymised; helps calibrate questions and feedback." checked={p.improveWithMyData} disabled={update.isPending} onChange={(improveWithMyData) => save({ improveWithMyData })} />
           </div>
         ) : null}
-      </HudCard>
+      </Card>
 
-      <HudCard bodyClassName="p-4 sm:p-5" title="Your data" className="lg:col-span-2">
+      <Card title="Your data">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="m-0 text-[14px] leading-[1.5]">Download everything InterviewIQ holds about you as one JSON file.</p>
-            <p className="m-0 mt-1 text-[12.5px] text-muted-foreground">
+            <p className="m-0 mt-1 text-[12.5px] text-ink-3">
               Profile, connected sources, tracks, interviews and settings. To remove it all instead, delete your account from the{" "}
               <Link href={ROUTES.settings.account} className="underline underline-offset-4 hover:text-foreground">
                 Account
@@ -98,7 +98,7 @@ export function PrivacySettings() {
             {exportAll.isPending ? "Preparing…" : "Export my data"}
           </Button>
         </div>
-      </HudCard>
+      </Card>
     </div>
   );
 }

@@ -9,15 +9,15 @@ describe("SourceRow status dot", () => {
     expect(screen.queryByText("Not connected")).toBeNull();
   });
 
-  it("renders a HUD-only dot before the name, with screen-reader text for the state", () => {
+  it("renders a dot before the name, with screen-reader text for the state", () => {
     render(<SourceRow code="LC" name="LeetCode" state="live" />);
     const label = screen.getByText("Syncing");
     expect(label).toHaveClass("sr-only");
 
     const dot = label.parentElement!;
-    // Hidden outside the signed-in HUD scope, so onboarding renders exactly as before.
-    expect(dot).toHaveClass("hidden", "hud:inline-flex");
-    expect(dot).not.toHaveClass("inline-flex");
+    // Always visible: no dependency on the retired `hud:` variant.
+    expect(dot).toHaveClass("inline-flex");
+    expect(dot).not.toHaveClass("hidden");
     expect(dot.nextElementSibling).toHaveTextContent("LeetCode");
   });
 

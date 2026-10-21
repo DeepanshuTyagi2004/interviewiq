@@ -2,16 +2,17 @@
 
 import { useLayoutEffect } from "react";
 
-/** Class on <html> that switches on the HUD look (tokens, zoom, decorations). */
+/**
+ * Class on <html> that the `hud:` Tailwind variant still keys on (two old call sites). The HUD
+ * look itself is gone, so the scope no longer changes tokens, zoom or decorations.
+ */
 export const HUD_CLASS = "iq-hud";
 
 let scopes = 0;
 
 /**
- * Puts the HUD class on <html> while the calling layout is mounted. On <html> rather than a
- * wrapper so Radix portals (menus, dialogs, ⌘K) inherit it. Ref-counted so overlapping mounts
- * during a route change never drop it early. A layout effect, so the first painted frame already
- * has the HUD scale (these only run client-side, behind RequireAuth).
+ * Keeps the class on <html> while the calling layout is mounted (ref-counted). Nothing else
+ * depends on it now; it stays only until the `hud:` variant users are migrated.
  */
 export function useHudScope(): void {
   useLayoutEffect(() => {
@@ -33,15 +34,7 @@ export function HudScope(): null {
   return null;
 }
 
-/**
- * Turns the 90% zoom off while mounted. The live room's editors (Monaco, Excalidraw) map pointer
- * coordinates themselves and misplace clicks under CSS zoom.
- */
+/** No-op: there is no zoom to turn off any more. */
 export function HudZoomOff(): null {
-  useLayoutEffect(() => {
-    const el = document.documentElement;
-    el.setAttribute("data-hud-zoom", "off");
-    return () => el.removeAttribute("data-hud-zoom");
-  }, []);
   return null;
 }

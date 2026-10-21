@@ -1,10 +1,10 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { ComingSoon } from "@/components/ds/ComingSoon";
 
 export default function AdminStudentsPage() {
   // TODO: students list
   return (
     <main className="flex-1">
-      <StubScreen title="Admin · Students" />
+      <ComingSoon title="Admin · Students" />
     </main>
   );
 }

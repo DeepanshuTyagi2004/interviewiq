@@ -19,6 +19,16 @@ module.exports = {
   	},
   	extend: {
   		colors: {
+  			surface: {
+  				DEFAULT: 'hsl(var(--surface))',
+  				'2': 'hsl(var(--surface-2))'
+  			},
+  			stone: 'hsl(var(--stone))',
+  			ink: {
+  				DEFAULT: 'hsl(var(--ink))',
+  				'2': 'hsl(var(--ink-2))',
+  				'3': 'hsl(var(--ink-3))'
+  			},
   			frame: 'hsl(var(--frame))',
   			panel: 'hsl(var(--panel))',
   			faint: {
@@ -90,10 +100,12 @@ module.exports = {
   			}
   		},
   		boxShadow: {
-  			hairline: '0 1px 2px rgba(0,0,0,.05)',
-  			float: '0 20px 50px -20px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.05)',
-  			lift: '0 20px 40px -20px rgba(0,0,0,.2)',
-  			hero: '0 30px 60px -20px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.06)'
+  			ring: 'var(--shadow-ring)',
+  			float: 'var(--shadow-float)',
+  			// Legacy names (Task 21 removes): nothing but ring and float casts a shadow now.
+  			hairline: 'var(--shadow-ring)',
+  			lift: 'var(--shadow-ring)',
+  			hero: 'var(--shadow-float)'
   		},
   		transitionTimingFunction: {
   			iq: 'cubic-bezier(.2,.7,.2,1)'
@@ -102,10 +114,14 @@ module.exports = {
   			DEFAULT: 'calc(var(--radius) - 4px)',
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+  			tile: '16px',
+  			card: '20px',
+  			hero: '28px'
   		},
   		fontFamily: {
-  			sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			display: ['var(--font-display)', 'var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   			mono: ['var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace']
   		}
   	}

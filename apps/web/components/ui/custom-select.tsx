@@ -71,17 +71,17 @@ export function CustomSelect({ value, onValueChange, options, label, disabled, r
             setOpen(true);
           }
         }}
-        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-line-4 bg-card px-3 text-left text-[13px] text-foreground outline-none hover:border-faint-2 focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50", className)}>
-        <span className="min-w-0 truncate">{chosen?.label ?? value}</span><ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-faint" />
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-full bg-background px-4 text-left text-[13px] text-foreground shadow-ring outline-none transition-colors duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50", className)}>
+        <span className="min-w-0 truncate">{chosen?.label ?? value}</span><ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink-3" />
       </button>
     </Popover.Trigger>
-    <Popover.Portal><Popover.Content align="start" sideOffset={5} className="z-[80] min-w-[var(--radix-popover-trigger-width)] rounded-xl border border-line-3 bg-card p-1 text-foreground shadow-xl"
+    <Popover.Portal><Popover.Content align="start" sideOffset={5} className="z-[80] min-w-[var(--radix-popover-trigger-width)] rounded-tile bg-popover p-1.5 text-foreground shadow-float"
       onOpenAutoFocus={(event) => { event.preventDefault(); list.current?.focus(); }}>
       <div ref={list} id={listId} role="listbox" aria-label={label} tabIndex={0} aria-activedescendant={`${uid}-${active}`}
         onKeyDown={key} className="max-h-[min(320px,var(--radix-popover-content-available-height))] overflow-y-auto outline-none">
         {options.map((option, index) => <div key={option.value} id={`${uid}-${index}`} data-option-index={index} role="option" aria-selected={option.value === value} aria-disabled={option.disabled || undefined}
           onPointerMove={() => { if (!option.disabled) setActive(index); }} onClick={() => choose(index)}
-          className={cn("flex cursor-default items-center justify-between gap-3 rounded-lg px-3 py-2 text-[13px]", active === index && "bg-accent", option.disabled && "opacity-40")}>
+          className={cn("flex cursor-default items-center justify-between gap-3 rounded-full px-3 py-2 text-[13px]", active === index && "bg-surface-2", option.disabled && "opacity-40")}>
           {option.label}{option.value === value ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
         </div>)}
       </div>

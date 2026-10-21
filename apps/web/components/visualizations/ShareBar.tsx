@@ -1,4 +1,6 @@
-import type { Share } from "./shares";
+import { OTHER_PATTERN, type Share } from "./shares";
+
+const fill = (s: Share) => ({ backgroundColor: s.color, ...(s.other ? { backgroundImage: OTHER_PATTERN } : {}) });
 
 export interface ShareBarProps {
   shares: Share[];
@@ -25,14 +27,14 @@ export function ShareBar({ shares, label, formatValue }: ShareBarProps) {
             key={s.name}
             title={`${s.name} · ${formatValue(s, total)}`}
             className="h-full min-w-[3px] first:rounded-l-[6px] last:rounded-r-[6px]"
-            style={{ flexGrow: s.value, flexBasis: 0, backgroundColor: s.color }}
+            style={{ flexGrow: s.value, flexBasis: 0, ...fill(s) }}
           />
         ))}
       </div>
       <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-2 p-0 text-[13px]">
         {shares.map((s) => (
           <li key={s.name} className="flex min-w-0 items-center gap-2">
-            <span aria-hidden className="h-2 w-2 flex-none rounded-[2px]" style={{ backgroundColor: s.color }} />
+            <span aria-hidden className="h-2 w-2 flex-none rounded-[2px]" style={fill(s)} />
             <span className="min-w-0 truncate">{s.name}</span>
             <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatValue(s, total)}</span>
           </li>

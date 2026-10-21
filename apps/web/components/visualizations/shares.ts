@@ -1,18 +1,21 @@
 /**
- * Categorical slots for part-to-whole bars, in a fixed order (never cycled). The order re-sequences
- * the theme's `--chart-*` tokens so neighbouring segments stay distinguishable, including under
- * colour-vision deficiency (checked with the dataviz palette validator: blue, orange, teal,
- * violet, pink). Anything past the last slot folds into a neutral "Other".
+ * Series slots for part-to-whole bars, in a fixed order (never cycled): the theme's grey `--chart-*`
+ * ramp from ink to line, largest share darkest. Series are told apart by shade, the 2px gaps between
+ * segments and the legend, never by hue. Anything past the last slot folds into a striped "Other".
  */
 export const SHARE_SLOTS = [
   "hsl(var(--chart-1))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-3))",
   "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
   "hsl(var(--chart-5))",
 ] as const;
 
 export const OTHER_COLOR = "hsl(var(--faint-2))";
+
+/** The folded "Other" bucket is hatched on top of its grey so it never reads as another series. */
+export const OTHER_PATTERN =
+  "repeating-linear-gradient(135deg, transparent 0 2px, hsl(var(--background) / 0.55) 2px 4px)";
 
 export interface Share {
   name: string;

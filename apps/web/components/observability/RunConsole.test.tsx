@@ -35,14 +35,14 @@ describe("RunConsole status", () => {
     render(<RunConsole snapshot={snapshot("running")} />);
     const dot = headerDot(/Running · extract_text/);
     expect(dot).toHaveAttribute("data-motion");
-    expect(dot.className).toContain("bg-brand");
+    expect(dot.className).toContain("bg-ink");
   });
 
   it("shows a steady dot once the run has completed", () => {
     render(<RunConsole snapshot={snapshot("completed")} />);
     const dot = headerDot(/^Completed$/);
     expect(dot).not.toHaveAttribute("data-motion");
-    expect(dot.className).toContain("bg-brand");
+    expect(dot.className).toContain("bg-ink");
   });
 
   it("shows an error dot for a failed run", () => {
@@ -57,21 +57,19 @@ describe("RunConsole status", () => {
     expect(screen.getByText("run_AbC123").className).toContain("normal-case");
   });
 
-  it("frames an empty step list with the HUD empty block, same copy", () => {
+  it("frames an empty step list with the empty block, same copy", () => {
     render(<RunConsole snapshot={snapshot("running")} />);
     expect(screen.getByText("No steps reported yet.")).toBeInTheDocument();
-    expect(screen.getByText("No data")).toBeInTheDocument();
   });
 });
 
 describe("LogTerminal", () => {
   const line = (seq: number) => ({ seq, ts: "2026-10-02T12:30:00Z", level: "INFO", message: `line ${seq}` });
 
-  it("is a named region on the inverse HUD card, with a zero-padded line count", () => {
+  it("is a named region on the ink card, with a zero-padded line count", () => {
     const { container } = render(<LogTerminal title="Live logs" logs={[line(1), line(2), line(3)]} />);
     const card = screen.getByRole("region", { name: "Live logs" });
-    expect(card.className).toContain("hud-card");
-    expect(card.className).toContain("bg-inv");
+    expect(card.className).toContain("bg-ink");
     expect(within(card).getByRole("heading", { name: "Live logs" })).toBeInTheDocument();
     expect(within(card).getByText("03 lines")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Live logs output" })).toHaveTextContent("line 3");

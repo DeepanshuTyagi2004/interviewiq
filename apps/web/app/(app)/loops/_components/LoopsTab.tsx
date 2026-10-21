@@ -17,7 +17,7 @@ export function LoopsTab() {
   const [booking, setBooking] = useState<{ loopId: string; nodeId: string } | null>(null);
   const [showClosed, setShowClosed] = useState(false);
 
-  if (loops.isLoading) return <Skeleton className="h-[260px] rounded-[14px]" />;
+  if (loops.isLoading) return <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading tracks">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[112px] rounded-card" />)}</div>;
   if (loops.isError) return <EmptyState title="Couldn't load your tracks" action={<Button variant="outline" size="sm" onClick={() => void loops.refetch()}>Try again</Button>} />;
 
   const all = loops.data ?? [];
@@ -37,20 +37,20 @@ export function LoopsTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-[13px] leading-[1.5] text-muted-foreground">
+      <p className="m-0 text-[13px] leading-[1.5] text-ink-3">
         You can run several tracks at once. Rounds are booked into different slots: two interviews can never share the same slot.
       </p>
-      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]">
+      <div className="flex flex-col gap-3">
         {live.map((l) => <LoopCard key={l.id} loop={l} onBook={(loop, nodeId) => setBooking({ loopId: loop.id, nodeId })} />)}
       </div>
-      {live.length === 0 ? <p className="m-0 text-sm text-muted-foreground">No active tracks. Start one from a company page.</p> : null}
+      {live.length === 0 ? <p className="m-0 text-sm text-ink-3">No active tracks. Start one from a company page.</p> : null}
       {closed.length > 0 ? (
         <>
-          <Button variant="ghost" size="sm" className="self-start" onClick={() => setShowClosed((v) => !v)}>
+          <Button variant="outline" size="sm" className="self-start" onClick={() => setShowClosed((v) => !v)}>
             {showClosed ? "Hide" : "Show"} finished and abandoned tracks ({closed.length})
           </Button>
           {showClosed ? (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]">
+            <div className="flex flex-col gap-3">
               {closed.map((l) => <LoopCard key={l.id} loop={l} />)}
             </div>
           ) : null}

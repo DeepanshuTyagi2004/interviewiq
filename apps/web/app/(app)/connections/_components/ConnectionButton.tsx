@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { MonoPill } from "@/components/patterns";
+import { Chip } from "@/components/ds";
 import { apiFetch } from "@/lib/api-client/client";
 import type { SourceKind } from "@/features/profile";
 import { PROFILE_ENDPOINTS } from "@/lib/constants/profile";
@@ -57,9 +57,7 @@ export function ConnectionButton({
 
   if (!path) {
     return (
-      <MonoPill tone="ghost" className="border border-line-3">
-        Coming soon
-      </MonoPill>
+      <Chip tone="outline">Coming soon</Chip>
     );
   }
 

@@ -13,12 +13,14 @@ import { DiagnosticsTab } from "./_components/DiagnosticsTab";
 import { LiveProfileTab } from "./_components/LiveProfileTab";
 import { ProblemBankTab } from "./_components/ProblemBankTab";
 import { PrepTab } from "./_components/prep/PrepTab";
+import { EvaluationsTab } from "./_components/evaluations/EvaluationsTab";
 
 const TABS: ReadonlyArray<{ value: IntelligenceTab; label: string; Panel: () => ReactNode }> = [
   { value: "companies", label: "Companies", Panel: CompaniesTab },
   { value: "runs", label: "Runs", Panel: RunsTab },
   { value: "problems", label: "Problem bank", Panel: ProblemBankTab },
   { value: "prep", label: "Interview prep", Panel: PrepTab },
+  { value: "evaluations", label: "Evaluations", Panel: EvaluationsTab },
   { value: "diagnostics", label: "Diagnostics", Panel: DiagnosticsTab },
   { value: "access", label: "Access", Panel: AccessControlPanel },
   { value: "live-profile", label: "Live profile calculation", Panel: LiveProfileTab },

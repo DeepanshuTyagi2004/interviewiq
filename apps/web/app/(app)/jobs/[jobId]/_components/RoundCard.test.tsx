@@ -6,6 +6,7 @@ import { RoundCard } from "./RoundCard";
 import { ReadinessMeter, roadmapMeta } from "./RoadmapHeader";
 
 vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
+vi.mock("./RoleActions", () => ({ RoleActions: () => null }));
 
 function renderCard(round: Parameters<typeof RoundCard>[0]["round"], index = 0) {
   return render(

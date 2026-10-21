@@ -6,10 +6,10 @@ export interface SectionLabelProps {
   className?: string;
 }
 
-/** Uppercase Geist Mono 10.5px faint label that heads a Section (the design's eyebrow). */
+/** Quiet label that heads a Section. */
 export function SectionLabel({ children, className }: SectionLabelProps) {
   return (
-    <p className={cn("iq-eyebrow", className)}>
+    <p className={cn("m-0 text-[13px] font-medium text-ink-3", className)}>
       {children}
     </p>
   );
@@ -22,12 +22,11 @@ export interface SectionProps {
 }
 
 /**
- * Content block with hairline top separation and an optional uppercase mono
- * label. Use to group related panels under a quiet heading.
+ * Content block with hairline top separation and an optional quiet label. Use to group related panels under a quiet heading.
  */
 export function Section({ title, children, className }: SectionProps) {
   return (
-    <section className={cn("space-y-4 border-t border-border pt-6", className)}>
+    <section className={cn("space-y-4 border-t border-line pt-6", className)}>
       {title ? <SectionLabel>{title}</SectionLabel> : null}
       {children}
     </section>

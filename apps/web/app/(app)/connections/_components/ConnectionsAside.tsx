@@ -1,7 +1,6 @@
 "use client";
 
-import { Readout, SegmentMeter, padCount } from "@/components/hud";
-import { Panel } from "@/components/patterns";
+import { Card, SegmentBar, Stat } from "@/components/ds";
 import { useProfile } from "@/features/profile";
 import { PROVIDERS } from "./providers";
 import { useResumeImport } from "./useResumeImport";
@@ -21,7 +20,7 @@ const NOTES = [
   },
 ];
 
-/** Side panel on Connections: how many live sources are connected, and how sources are used. */
+/** Side card on Connections: how many live sources are connected, and how sources are used. */
 export function ConnectionsAside() {
   const { data } = useProfile();
   const { hasProfile } = useResumeImport();
@@ -33,25 +32,25 @@ export function ConnectionsAside() {
   ).length;
 
   return (
-    <Panel eyebrow="How sources are used" className="lg:sticky lg:top-6">
-      <div className="iq-float px-5 py-4">
-        {/* The readout and meter restate the sentence below, which is what screen readers get. */}
+    <Card title="How sources are used" tone="surface" className="lg:sticky lg:top-[60px]" bodyClassName="flex flex-col gap-6">
+      <div>
+        {/* The stat and bar restate the sentence below, which is what screen readers get. */}
         <div aria-hidden>
-          <Readout label="Sources linked" value={data ? `${padCount(connected)}/${padCount(live.length)}` : "—"} />
+          <Stat label="Sources linked" size="sm" value={data ? connected : "—"} unit={data ? `of ${live.length}` : undefined} />
         </div>
-        <SegmentMeter segments={live.length} filled={data ? connected : 0} tone="brand" size="md" className="mt-3" />
+        <SegmentBar segments={live.length} filled={data ? connected : 0} size="md" className="mt-3" />
         <p className="sr-only">
           {data ? connected : "—"} of {live.length} available sources connected
         </p>
       </div>
-      <ul className="m-0 flex list-none flex-col gap-4 p-0 px-1">
+      <ul className="m-0 flex list-none flex-col gap-4 border-t border-line p-0 pt-5">
         {NOTES.map((note) => (
           <li key={note.title} className="flex flex-col gap-1">
-            <p className="m-0 text-sm">{note.title}</p>
-            <p className="m-0 text-[13px] leading-[1.55] text-muted-foreground">{note.body}</p>
+            <p className="m-0 text-sm font-medium">{note.title}</p>
+            <p className="m-0 text-[13px] leading-[1.55] text-ink-2">{note.body}</p>
           </li>
         ))}
       </ul>
-    </Panel>
+    </Card>
   );
 }

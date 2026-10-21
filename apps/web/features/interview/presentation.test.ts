@@ -105,8 +105,11 @@ describe("sessionSteps", () => {
     expect(states("ABORTED_TECHNICAL")).toEqual(["done", "done", "failed", "current"]);
   });
 
-  it("never claims a score on the debrief step", () => {
-    const debrief = sessionSteps("COMPLETED").find((s) => s.key === "debrief");
-    expect(debrief?.note).toMatch(/scoring isn't live yet/i);
+  it("words the debrief step from how grading went, without claiming a score", () => {
+    const note = (e?: "evaluating" | "ready" | "failed" | "legacy" | null) => sessionSteps("COMPLETED", e).find((s) => s.key === "debrief");
+    expect(note("evaluating")?.note).toMatch(/being graded/i);
+    expect(note("ready")).toMatchObject({ state: "done", note: "Your report is ready" });
+    expect(note("failed")?.state).toBe("failed");
+    expect(note("legacy")?.note).toMatch(/not scored/i);
   });
 });

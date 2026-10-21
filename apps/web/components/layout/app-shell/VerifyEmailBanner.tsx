@@ -20,16 +20,16 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   });
 
   return (
-    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-panel px-4 py-2.5 text-[13px] sm:px-6">
-      <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-brand" />
-      <span className="min-w-0 flex-1 text-muted-foreground">
-        Confirm your email — we sent a link to <span className="text-foreground">{email}</span>.
+    <div role="status" className="flex flex-none flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-stone px-4 py-2.5 text-[13px] sm:px-7">
+      <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-ink" />
+      <span className="min-w-0 flex-1 text-ink-2">
+        Confirm your email — we sent a link to <span className="text-ink">{email}</span>.
       </span>
       <button
         type="button"
         onClick={() => resend.mutate()}
         disabled={resend.isPending}
-        className="text-foreground underline underline-offset-[3px] disabled:opacity-50"
+        className="rounded-sm text-ink underline underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:opacity-50"
       >
         {resend.isPending ? "Sending…" : "Resend link"}
       </button>

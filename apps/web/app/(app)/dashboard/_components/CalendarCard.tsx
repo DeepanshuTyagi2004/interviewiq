@@ -1,11 +1,11 @@
 "use client";
-import { levelLabel } from "@/lib/constants/engineering-levels";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { HudCard, StatusDot, padCount } from "@/components/hud";
+import { Card, SectionHeader, StatusDot } from "@/components/ds";
 import { Button } from "@/components/ui/button";
+import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
@@ -66,7 +66,7 @@ export interface CalendarCardProps {
 /**
  * The month at a glance: every booked round on the day it happens, with the selected day's rounds
  * (or a nudge to book one) in the strip below. Arrow keys move between days, PageUp/PageDown
- * between months. Rows share whatever height the card gets, so it fits a viewport-fit screen.
+ * between months.
  */
 export function CalendarCard({ sessions, now = new Date(), className }: CalendarCardProps) {
   const today = dayKey(now);
@@ -114,65 +114,53 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
   });
 
   return (
-    <HudCard
-      title="Calendar"
-      meta={
-        <span className="uppercase">
-          {monthCount} {monthCount === 1 ? "round" : "rounds"} this month
-        </span>
-      }
-      tone="sunken"
-      glow="t"
-      active
-      className={cn("min-h-0", className)}
-      bodyClassName="flex min-h-0 flex-col"
-    >
-      <div className="flex min-h-0 flex-1 flex-col px-[calc(18*var(--u))] pb-[calc(22*var(--u))] pt-[calc(24*var(--u))] sm:px-[calc(26*var(--u))]">
+    <div className={cn("flex flex-col", className)}>
+      <SectionHeader
+        title="Calendar"
+        actions={
+          <span className="text-[13px] text-ink-3">
+            {monthCount} {monthCount === 1 ? "round" : "rounds"} this month
+          </span>
+        }
+      />
+      <Card aria-label="Calendar" className="flex-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3
             aria-live="polite"
-            className="m-0 text-[length:calc(34*var(--u))] font-normal leading-[1.1] tracking-[-0.035em]"
+            className="m-0 font-display text-[22px] font-normal leading-tight tracking-[-0.03em]"
           >
             {monthName}
           </h3>
-          <div className="flex items-center gap-[calc(8*var(--u))]">
-            <Button
-              type="button"
-              variant="strong"
-              onClick={() => select(now)}
-              className="h-[calc(44*var(--u))] px-[calc(20*var(--u))] text-[length:calc(16*var(--u))]"
-            >
+          <div className="flex items-center gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={() => select(now)}>
               Today
             </Button>
             <Button
               type="button"
-              variant="strong"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
               aria-label="Previous month"
               onClick={() => setView((v) => addMonths(v, -1))}
-              className="size-[calc(44*var(--u))] p-0 [&_svg]:size-[calc(18*var(--u))]"
             >
               <ChevronLeft aria-hidden />
             </Button>
             <Button
               type="button"
-              variant="strong"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
               aria-label="Next month"
               onClick={() => setView((v) => addMonths(v, 1))}
-              className="size-[calc(44*var(--u))] p-0 [&_svg]:size-[calc(18*var(--u))]"
             >
               <ChevronRight aria-hidden />
             </Button>
           </div>
         </div>
 
-        <div
-          aria-hidden
-          className="mt-[calc(22*var(--u))] grid grid-cols-7 gap-[calc(8*var(--u))] font-mono text-[length:calc(12*var(--u))] uppercase tracking-[0.18em] text-faint"
-        >
+        <div aria-hidden className="mt-4 grid grid-cols-7 gap-1 text-center text-[12px] text-ink-3">
           {WEEKDAYS.map((d) => (
-            <span key={d} className="px-[calc(14*var(--u))]">
-              {d}
-            </span>
+            <span key={d}>{d}</span>
           ))}
         </div>
 
@@ -181,7 +169,7 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
           role="group"
           aria-label={monthName}
           onKeyDown={onGridKeyDown}
-          className="mt-[calc(14*var(--u))] grid flex-1 grid-cols-7 grid-rows-6 gap-[calc(8*var(--u))] lg:min-h-0"
+          className="mt-1.5 grid grid-cols-7 gap-1"
         >
           {grid.map(({ date, key, inMonth }) => {
             if (!inMonth) {
@@ -189,16 +177,15 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                 <span
                   key={key}
                   aria-hidden
-                  className="px-[calc(14*var(--u))] py-[calc(11*var(--u))] font-mono text-[length:calc(15.5*var(--u))] tabular-nums text-faint-2"
+                  className="grid h-10 place-items-center text-[13px] tabular-nums text-ink-3 opacity-40"
                 >
-                  {padCount(date.getDate())}
+                  {date.getDate()}
                 </span>
               );
             }
             const isToday = key === today;
             const isSelected = key === selectedKey;
             const list = byDay.get(key) ?? [];
-            const first = list[0];
             return (
               <button
                 key={key}
@@ -209,101 +196,66 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                 aria-label={dayLabel(date, isToday, list.length)}
                 onClick={() => select(date)}
                 className={cn(
-                  "flex min-h-[calc(56*var(--u))] min-w-0 flex-col items-start overflow-hidden rounded-[calc(8*var(--u))] border px-[calc(14*var(--u))] py-[calc(11*var(--u))] text-left font-mono text-[length:calc(15.5*var(--u))] tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-h-0",
-                  isSelected
-                    ? cn("bg-foreground/[0.05]", isToday ? "border-brand" : "border-foreground/40")
-                    : cn(
-                        "bg-foreground/[0.02] hover:bg-foreground/[0.04]",
-                        isToday ? "border-brand/40" : "border-foreground/[0.07] hover:border-line-4",
-                      ),
+                  "relative grid h-10 min-w-0 place-items-center rounded-xl text-[13px] tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                  isSelected ? "bg-ink font-medium text-background" : "hover:bg-surface-2",
+                  isToday && !isSelected && "font-medium shadow-[inset_0_0_0_1.5px_hsl(var(--ink))]",
                 )}
               >
-                <span aria-hidden className={cn("leading-none", isToday && "text-brand")}>
-                  {padCount(date.getDate())}
-                </span>
-                {isToday ? (
+                <span aria-hidden>{date.getDate()}</span>
+                {list.length > 0 ? (
                   <span
                     aria-hidden
-                    className="mt-[calc(8*var(--u))] text-[length:calc(11.5*var(--u))] uppercase leading-none tracking-[0.16em] text-brand"
-                  >
-                    Today
-                  </span>
-                ) : null}
-                {first ? (
-                  <span
-                    aria-hidden
-                    className="mt-auto flex w-full min-w-0 items-center gap-[calc(5*var(--u))] pt-[calc(4*var(--u))] text-[length:calc(11*var(--u))] leading-none text-muted-foreground"
-                  >
-                    <span
-                      className={cn(
-                        "size-[calc(6*var(--u))] shrink-0 rounded-full",
-                        isJoinable(first) ? "bg-brand" : isFinished(first) ? "bg-faint-2" : "bg-foreground/70",
-                      )}
-                    />
-                    <span className="truncate">{roundLabel(first)}</span>
-                    {list.length > 1 ? <span className="shrink-0 text-faint">+{list.length - 1}</span> : null}
-                  </span>
+                    className={cn(
+                      "absolute bottom-1 h-1 w-1 rounded-full bg-current",
+                      !isSelected && list.every(isFinished) && "opacity-40",
+                    )}
+                  />
                 ) : null}
               </button>
             );
           })}
         </div>
-      </div>
 
-      <div
-        aria-live="polite"
-        className="flex flex-wrap items-center gap-x-[calc(20*var(--u))] gap-y-3 border-t border-line bg-frame/60 px-[calc(18*var(--u))] py-[calc(22*var(--u))] sm:px-[calc(26*var(--u))]"
-      >
-        <div className="min-w-0 flex-1 basis-[240px]">
-          <p className="iq-eyebrow m-0 text-brand">
-            {dateEyebrow(selected)}
-            {selectedKey === today ? " · Today" : ""}
-          </p>
-          {daySessions.length === 0 ? (
-            <>
-              <p className="m-0 mt-[calc(6*var(--u))] text-[length:calc(18*var(--u))] leading-snug">
-                Nothing scheduled
-              </p>
-              <p className="m-0 mt-[calc(4*var(--u))] text-[length:calc(15*var(--u))] leading-[1.5] text-muted-foreground">
-                Booked rounds appear on the day they happen.
-              </p>
-            </>
-          ) : (
-            <ul className="m-0 mt-[calc(6*var(--u))] flex list-none flex-col gap-[calc(6*var(--u))] p-0">
-              {daySessions.slice(0, 2).map((s) => (
-                <li key={s.id} className="min-w-0">
-                  <Link
-                    href={`${ROUTES.interviews}/${s.id}`}
-                    className="flex min-w-0 items-center gap-[calc(10*var(--u))] text-[length:calc(16*var(--u))] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <span className="shrink-0 font-mono text-[length:calc(13*var(--u))] tabular-nums text-faint">
-                      {timeOf(s.scheduledAt)}
-                    </span>
-                    <span className="truncate">
-                      {roundLabel(s)} · {s.companyName ?? s.company} {levelLabel(s.level)}
-                    </span>
-                    <StatusDot state={statusDotState(s.status)} label={sessionPill(s).label} className="shrink-0" />
-                  </Link>
-                </li>
-              ))}
-              {daySessions.length > 2 ? (
-                <li className="font-mono text-[length:calc(12*var(--u))] uppercase tracking-[0.14em] text-faint">
-                  +{daySessions.length - 2} more
-                </li>
-              ) : null}
-            </ul>
-          )}
+        <div aria-live="polite" className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-4">
+          <div className="min-w-0 flex-1 basis-[200px]">
+            <p className="m-0 text-[12.5px] text-ink-3">
+              {dateEyebrow(selected)}
+              {selectedKey === today ? " · Today" : ""}
+            </p>
+            {daySessions.length === 0 ? (
+              <>
+                <p className="m-0 mt-1 text-[15px] font-medium">Nothing scheduled</p>
+                <p className="m-0 mt-0.5 text-[13px] leading-[1.5] text-ink-3">Booked rounds appear on the day they happen.</p>
+              </>
+            ) : (
+              <ul className="m-0 mt-1.5 flex list-none flex-col gap-1.5 p-0">
+                {daySessions.slice(0, 2).map((s) => (
+                  <li key={s.id} className="min-w-0">
+                    <Link
+                      href={`${ROUTES.interviews}/${s.id}`}
+                      className="flex min-w-0 items-center gap-2.5 rounded-md text-[14px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ink"
+                    >
+                      <span className="shrink-0 text-[12.5px] tabular-nums text-ink-3">{timeOf(s.scheduledAt)}</span>
+                      <span className="truncate">
+                        {roundLabel(s)} · {s.companyName ?? s.company} {levelLabel(s.level)}
+                      </span>
+                      <StatusDot state={statusDotState(s.status)} label={sessionPill(s).label} className="shrink-0" />
+                    </Link>
+                  </li>
+                ))}
+                {daySessions.length > 2 ? (
+                  <li className="text-[12.5px] text-ink-3">+{daySessions.length - 2} more</li>
+                ) : null}
+              </ul>
+            )}
+          </div>
+          <Button asChild size="sm" variant={joinable ? "default" : "outline"}>
+            <RoomLink href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
+              {joinable ? "Enter room" : "Book a round"}
+            </RoomLink>
+          </Button>
         </div>
-        <Button
-          asChild
-          variant={joinable ? "default" : "strong"}
-          className="h-[calc(46*var(--u))] px-[calc(22*var(--u))] text-[length:calc(16*var(--u))]"
-        >
-          <RoomLink href={joinable ? sessionHref(joinable) : ROUTES.interviews}>
-            {joinable ? "Enter room" : "Book a round"}
-          </RoomLink>
-        </Button>
-      </div>
-    </HudCard>
+      </Card>
+    </div>
   );
 }

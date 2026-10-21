@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 import { usePreferences, useUpdatePreferences, type NotificationTopic } from "@/features/account";
 import { Switch } from "@/components/ui/switch";
-import { HudCard } from "@/components/hud";
+import { Card, Chip } from "@/components/ds";
 import { PrefRow } from "./PrefRow";
 
 const TOPICS: { key: NotificationTopic; label: string; hint: string }[] = [
@@ -25,33 +25,36 @@ export function NotificationSettings() {
 
   if (!n) {
     return (
-      <HudCard bodyClassName="p-4 sm:p-5" title="Notifications">
-        <p className="m-0 text-[13px] text-muted-foreground">{prefs.isError ? "Your preferences are unavailable right now." : "Loading…"}</p>
-      </HudCard>
+      <Card title="Notifications">
+        <p className="m-0 text-[13px] text-ink-3">{prefs.isError ? "Your preferences are unavailable right now." : "Loading…"}</p>
+      </Card>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      <HudCard
-        bodyClassName="px-4 pb-1 pt-3 sm:px-5"
+    <div className="flex flex-col gap-6">
+      <Card title="Email">
+        <PrefRow label="Pause all email" hint="Keep your choices, send nothing for now." checked={n.emailPaused} disabled={update.isPending} onChange={(emailPaused) => save({ notifications: { emailPaused } })} />
+        <p className="m-0 mt-4 border-t border-line pt-4 text-[12.5px] leading-[1.5] text-ink-3">
+          Email delivery is being set up. Your choices are saved now and take effect the moment it goes live; in-app notices appear in the bell at the top of every page.
+        </p>
+      </Card>
+
+      <Card
         title="What we tell you about"
-        meta={
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-faint">
-            {n.emailPaused ? "Email paused" : "Email on"}
-          </span>
-        }
+        meta="Choose a channel for each topic."
+        action={<Chip dot={n.emailPaused ? "hollow" : "filled"}>{n.emailPaused ? "Email paused" : "Email on"}</Chip>}
       >
-        <div className="mb-2 grid grid-cols-[minmax(0,1fr)_64px_64px] items-end gap-3 border-b border-line pb-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-faint">
+        <div className="grid grid-cols-[minmax(0,1fr)_56px_56px] items-end gap-3 border-b border-line pb-3 text-[12.5px] font-medium text-ink-3 sm:grid-cols-[minmax(0,1fr)_72px_72px]">
           <span>Topic</span>
           <span className="text-center">Email</span>
           <span className="text-center">In app</span>
         </div>
         {TOPICS.map((t) => (
-          <div key={t.key} className="grid grid-cols-[minmax(0,1fr)_64px_64px] items-center gap-3 border-b border-line py-3 last:border-b-0">
+          <div key={t.key} className="grid grid-cols-[minmax(0,1fr)_56px_56px] items-center gap-3 border-b border-line py-3.5 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_72px_72px]">
             <div className="min-w-0">
               <p className="m-0 text-[14px]">{t.label}</p>
-              <p className="m-0 mt-0.5 text-[12.5px] leading-[1.45] text-muted-foreground">{t.hint}</p>
+              <p className="m-0 mt-0.5 text-[12.5px] leading-[1.45] text-ink-3">{t.hint}</p>
             </div>
             <div className="flex justify-center">
               <Switch aria-label={`${t.label} by email`} checked={n.email[t.key]} disabled={update.isPending || n.emailPaused} onCheckedChange={(v) => save({ notifications: { email: { [t.key]: v } } })} />
@@ -61,16 +64,7 @@ export function NotificationSettings() {
             </div>
           </div>
         ))}
-      </HudCard>
-
-      <div className="flex flex-col gap-3 lg:sticky lg:top-6">
-        <HudCard bodyClassName="p-4 sm:p-5" title="Email">
-          <PrefRow label="Pause all email" hint="Keep your choices, send nothing for now." checked={n.emailPaused} disabled={update.isPending} onChange={(emailPaused) => save({ notifications: { emailPaused } })} />
-          <p className="m-0 mt-3 text-[12.5px] leading-[1.5] text-muted-foreground">
-            Email delivery is being set up. Your choices are saved now and take effect the moment it goes live; in-app notices appear in the bell at the top of every page.
-          </p>
-        </HudCard>
-      </div>
+      </Card>
     </div>
   );
 }

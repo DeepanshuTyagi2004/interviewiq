@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/patterns";
-import { HudCard } from "@/components/hud";
+import { Card, Chip } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirmLoop, useLoops, useTargets, useToggleTarget } from "@/features/loops";
@@ -20,7 +20,7 @@ export function TargetsTab() {
   const toggle = useToggleTarget();
   const confirm = useConfirmLoop();
 
-  if (targets.isLoading) return <Skeleton className="h-[200px] rounded-[14px]" />;
+  if (targets.isLoading) return <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))]" aria-busy="true" aria-label="Loading targets">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[168px] rounded-card" />)}</div>;
   if (targets.isError) return <EmptyState title="Couldn't load your targets" action={<Button variant="outline" size="sm" onClick={() => void targets.refetch()}>Try again</Button>} />;
   const list = targets.data ?? [];
   if (list.length === 0) {
@@ -35,13 +35,14 @@ export function TargetsTab() {
   const liveByJd = new Map((loops.data ?? []).filter((l) => l.status === "active" || l.status === "paused").map((l) => [l.jdId, l.id]));
 
   return (
-    <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]">
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))]">
       {list.map((t) => {
         const liveLoop = liveByJd.get(t.jd.jdId);
         return (
-          <HudCard as="article" key={t.jd.jdId} title="Target" bodyClassName="flex flex-col gap-4 p-4 sm:p-5">
+          <Card as="article" key={t.jd.jdId} interactive bodyClassName="flex flex-col gap-4" aria-label={`${t.jd.companyName} ${t.jd.title}`}>
+            <div><Chip tone="outline">Target</Chip></div>
             <JdTitle jd={t.jd} href={`${ROUTES.jobs}/${t.jd.jdId}`} />
-            {t.jd.techStack.length > 0 ? <p className="m-0 text-xs text-muted-foreground">{t.jd.techStack.slice(0, 6).join(" · ")}</p> : null}
+            {t.jd.techStack.length > 0 ? <p className="m-0 truncate text-[12.5px] text-ink-3" title={t.jd.techStack.slice(0, 6).join(" · ")}>{t.jd.techStack.slice(0, 6).join(" · ")}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               {liveLoop ? (
                 <Button asChild size="sm"><Link href={loopHref(liveLoop)}>Open track</Link></Button>
@@ -57,12 +58,12 @@ export function TargetsTab() {
                   Start track
                 </Button>
               )}
-              <Button asChild size="sm" variant="strong"><Link href={`${ROUTES.jobs}/${t.jd.jdId}`}>View role</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href={`${ROUTES.jobs}/${t.jd.jdId}`}>View role</Link></Button>
               <Button size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate({ jdId: t.jd.jdId, targeted: true })}>
-                <Trash2 aria-hidden />Remove
+                <Trash2 aria-hidden strokeWidth={1.8} />Remove
               </Button>
             </div>
-          </HudCard>
+          </Card>
         );
       })}
     </div>

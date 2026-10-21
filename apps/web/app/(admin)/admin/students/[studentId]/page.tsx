@@ -1,4 +1,4 @@
-import { StubScreen } from "@/components/layout/StubScreen";
+import { ComingSoon } from "@/components/ds/ComingSoon";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -9,7 +9,7 @@ export default async function AdminStudentDetailPage({
   // TODO: student detail
   return (
     <main className="flex-1">
-      <StubScreen title={`Student ${studentId}`} />
+      <ComingSoon title={`Student ${studentId}`} />
     </main>
   );
 }

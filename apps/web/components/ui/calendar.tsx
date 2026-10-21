@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
-/** Vercel/Geist-styled single-month date picker (react-day-picker v9). */
+/** Monochrome single-month date picker (react-day-picker v9). */
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
     <DayPicker
@@ -31,21 +31,21 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         ),
         month_grid: "w-full border-collapse space-y-1",
         weekdays: "flex",
-        weekday: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+        weekday: "w-8 rounded-md text-[0.8rem] font-normal text-ink-3",
         week: "flex w-full mt-2",
         day: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-          "[&:has([aria-selected])]:bg-accent [&:has([aria-selected])]:rounded-md",
+          "[&:has([aria-selected])]:rounded-full [&:has([aria-selected])]:bg-surface-2",
         ),
         day_button: cn(
           buttonVariants({ variant: "ghost" }),
           "size-8 p-0 font-normal aria-selected:opacity-100",
         ),
         selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-md",
-        today: "bg-accent text-accent-foreground rounded-md",
-        outside: "text-muted-foreground opacity-50",
-        disabled: "text-muted-foreground opacity-50",
+          "rounded-full bg-ink text-background hover:bg-ink hover:text-background focus:bg-ink focus:text-background",
+        today: "rounded-full bg-surface-2 text-foreground",
+        outside: "text-ink-3 opacity-50",
+        disabled: "text-ink-3 opacity-50",
         hidden: "invisible",
         ...classNames,
       }}

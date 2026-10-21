@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
+import { Inter, Inter_Tight } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
@@ -7,6 +7,9 @@ import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const interTight = Inter_Tight({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "InterviewIQ",
@@ -20,7 +23,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${interTight.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
         <ThemeProvider>

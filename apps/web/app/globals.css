@@ -3,243 +3,160 @@
 @tailwind utilities;
 
 /*
- * InterviewIQ design tokens — ported 1:1 from the Claude Design landing page (v5).
- * Warm-neutral paper palette: a gray "frame" behind white cards, soft "panel" fills,
- * near-black "ink" for primary actions. shadcn tokens map onto it so every primitive
- * inherits the look; the extra tokens (frame, panel, faint, line-*) cover the rest.
+ * InterviewIQ design tokens: monochrome language (spec 2026-10-18-monochrome-redesign §3).
+ * Paper-white page, warm-grey surfaces, near-black ink; no hue in chrome except a muted red
+ * `destructive`. New names: page, surface, surface-2, stone, line, ink, ink-2, ink-3.
+ * shadcn tokens are re-pointed onto them. The legacy names (frame, panel, faint*, line-2..4,
+ * brand*, blob-*) stay until the pages that use them migrate (Task 21).
  */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10.2%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10.2%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10.2%;
-    --primary: 0 0% 10.2%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 48 16.1% 93.9%;
-    --secondary-foreground: 0 0% 10.2%;
-    --muted: 48 16.1% 93.9%;
-    --muted-foreground: 60 2.2% 35.3%;
-    --accent: 60 12% 95.1%;
-    --accent-foreground: 0 0% 10.2%;
-    --destructive: 0 72% 51%;
+    --page: 0 0% 100%;
+    --surface: 60 5.9% 96.7%;
+    --surface-2: 40 9.7% 93.9%;
+    --stone: 30 23.1% 94.9%;
+    --line: 60 2.4% 92%;
+    --ink: 0 0% 4.3%;
+    --ink-2: 0 0% 30.6%;
+    /* #6f6c67: the spec's #8a8781 is 3.6:1 on white, so it is darkened to pass AA at body size. */
+    --ink-3: 37.5 3.7% 42%;
+
+    --background: var(--page);
+    --foreground: var(--ink);
+    --card: var(--page);
+    --card-foreground: var(--ink);
+    --popover: var(--page);
+    --popover-foreground: var(--ink);
+    --primary: var(--ink);
+    --primary-foreground: var(--page);
+    --secondary: var(--stone);
+    --secondary-foreground: var(--ink);
+    --muted: var(--surface);
+    --muted-foreground: var(--ink-3);
+    --accent: var(--surface-2);
+    --accent-foreground: var(--ink);
+    --destructive: 0 60% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 50 10.7% 89%;
-    --input: 50 7.9% 85.1%;
-    /* Focus rings: mid-grey (≥3:1 on card), not full ink — visible for keyboard users, never a stark outline. */
-    --ring: 60 1.7% 54.5%;
-    /* Base corner radius: lg = 10px, md = 8px, sm = 6px, plain `rounded` = 6px. */
+    --border: var(--line);
+    --input: var(--line);
+    /* Focus ring: 2px ink with an offset (spec §6). */
+    --ring: var(--ink);
+    /* Pills are the default control shape; `rounded-lg` etc. keep a modest base. */
     --radius: 0.625rem;
-    /* Size unit for fluid screens: 1px everywhere, scaled down inside `.iq-fit` so a screen fits
-       the viewport. Sizes that should follow it are written calc(N * var(--u)). */
+    /* Size unit for fluid screens: 1px everywhere, scaled inside `.iq-fit` / `.iq-page`. */
     --u: 1px;
 
-    /* Design-specific tokens. The light frame is lighter than the design export's #d6d5d0 so
-       the background sits close to the white cards. */
-    --frame: 48 14% 93.5%;
-    --panel: 48 16.1% 93.9%;
-    --faint: 60 1.7% 54.5%;
-    --faint-2: 50 3.8% 69%;
-    --line: 50 15.8% 92.5%;
-    --line-2: 50 10.7% 89%;
-    --line-3: 50 7.9% 85.1%;
-    --line-4: 51.4 6.8% 79.8%;
+    /* Elevation: a hairline ring plus a soft warm drop; one stronger float for popovers/dialogs. */
+    --shadow-ring: inset 0 0 0 0.5px rgb(0 0 0 / 0.075), 0 6px 16px rgb(78 50 23 / 0.04);
+    --shadow-float: inset 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 18px 48px -12px rgb(78 50 23 / 0.2);
+
+    /* Legacy names, re-pointed to the nearest new grey so unmigrated pages stay neutral. */
+    --frame: var(--surface);
+    --panel: var(--surface);
+    --faint: var(--ink-3);
+    --faint-2: 42.9 3.8% 63.7%;
+    --line-2: 60 2% 88%;
+    --line-3: 60 2% 83%;
+    --line-4: 45 3% 74%;
     --ink-hover: 0 0% 0%;
-    --inv: 0 0% 10.2%;
+    --inv: var(--ink);
     --blob-1: 0 0% 100%;
     --blob-2: 50 3% 60.4%;
     --blob-4: 48 2.3% 42.5%;
-    /* Brand accent (the design's --accent): primary CTAs, the logo's third bar, active states.
-       Named "brand" because shadcn's --accent is the neutral hover surface. */
-    --brand: 16.3 100% 56.1%;
-    --brand-hover: 16.3 88.2% 50.2%;
-    --brand-foreground: 60 2.6% 7.6%;
+    /* Transitional (Task 21 removes): brand = ink so no orange shows. */
+    --brand: var(--ink);
+    --brand-hover: var(--ink);
+    --brand-foreground: var(--page);
 
-    /* The prep-animation cat (interviews/[sessionId]/_components/prep-animation): an illustration
-       palette, so the scenes follow light and dark without raw colours in the components. */
-    --cat-stage: 40 35% 93%;
-    --cat-shadow: 39 29% 86%;
-    --cat-fur: 15 63% 60%;
-    --cat-fur-mid: 17 53% 51%;
-    --cat-fur-dark: 15 51% 47%;
-    --cat-fur-deep: 13 57% 35%;
-    --cat-belly: 26 68% 90%;
-    --cat-pink: 8 74% 77%;
-    --cat-ink: 22 11% 15%;
-    --cat-shine: 0 0% 100%;
-    --cat-line: 22 11% 15%;
-    --cat-paper: 43 100% 99%;
-    --cat-paper-edge: 37 30% 86%;
-    --cat-paper-back: 38 30% 88%;
-    --cat-rule: 37 25% 82%;
-    --cat-rule-strong: 37 21% 76%;
-    --cat-gold: 44 80% 57%;
-    --cat-highlight: 45 89% 71%;
-    --cat-cream: 45 100% 93%;
-    --cat-sky: 195 38% 82%;
-    --cat-wood: 30 38% 62%;
-    --cat-metal: 30 5% 62%;
-    --cat-bubble: 22 11% 15%;
-    --cat-bubble-ink: 0 0% 100%;
 
-    /* Data-viz categorical palette — restrained accent hues so multi-series charts stay
-       distinguishable. Chrome stays monochrome. */
-    --chart-1: 211 100% 45%;
-    --chart-2: 262 70% 55%;
-    --chart-3: 172 66% 38%;
-    --chart-4: 28 90% 50%;
-    --chart-5: 340 75% 55%;
-    /* The sidebar sits on the frame; pages render in the inset card beside it. */
-    --sidebar-background: 48 14% 93.5%;
-    --sidebar-foreground: 60 2.2% 35.3%;
-    --sidebar-primary: 0 0% 10.2%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 48 12% 89.5%;
-    --sidebar-accent-foreground: 0 0% 10.2%;
-    --sidebar-border: 51.4 6.8% 79.8%;
-    --sidebar-ring: 0 0% 10.2%;
-    --color-lc-easy: 142 71% 45%;
-    --color-lc-medium: 38 92% 50%;
-    --color-lc-hard: 12 86% 52%;
-    /* GitHub-style green intensity ramp for the contribution heatmap (bin 0 = bg-muted). */
-    --heat-1: 129 56% 76%;
-    --heat-2: 136 53% 51%;
-    --heat-3: 140 54% 41%;
-    --heat-4: 141 54% 28%;
+    /* Data-viz: a grey ramp, darkest first. Chrome and charts are both monochrome. */
+    --chart-1: 0 0% 4.3%;
+    --chart-2: 0 0% 30.6%;
+    --chart-3: 40 3% 48%;
+    --chart-4: 45 3% 65%;
+    --chart-5: 60 2.5% 80%;
+    --sidebar-background: var(--surface);
+    --sidebar-foreground: var(--ink-2);
+    --sidebar-primary: var(--ink);
+    --sidebar-primary-foreground: var(--page);
+    --sidebar-accent: var(--surface-2);
+    --sidebar-accent-foreground: var(--ink);
+    --sidebar-border: var(--line);
+    --sidebar-ring: var(--ink);
+    --color-lc-easy: var(--chart-4);
+    --color-lc-medium: var(--chart-3);
+    --color-lc-hard: var(--chart-1);
+    /* Contribution heatmap: line to ink in five steps. */
+    --heat-0: 60 2.4% 92%;
+    --heat-1: 50 2.5% 78%;
+    --heat-2: 45 2.5% 58%;
+    --heat-3: 40 2.5% 34%;
+    --heat-4: 0 0% 4.3%;
   }
 
   .dark {
-    --background: 60 2.3% 8.4%;
-    --foreground: 48 14.3% 93.1%;
-    --card: 60 2.3% 8.4%;
-    --card-foreground: 48 14.3% 93.1%;
-    --popover: 60 3.3% 11.8%;
-    --popover-foreground: 48 14.3% 93.1%;
-    --primary: 48 14.3% 93.1%;
-    --primary-foreground: 60 2.6% 7.6%;
-    --secondary: 60 3.3% 11.8%;
-    --secondary-foreground: 48 14.3% 93.1%;
-    --muted: 60 3.3% 11.8%;
-    --muted-foreground: 50 3.3% 64.7%;
-    --accent: 60 3% 12.9%;
-    --accent-foreground: 48 14.3% 93.1%;
-    --destructive: 0 68% 58%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 60 2.3% 17.3%;
-    --input: 60 2.9% 20.6%;
-    --ring: 50 2.5% 47.8%;
+    --page: 60 3.7% 5.3%;
+    --surface: 60 2.3% 8.4%;
+    --surface-2: 30 3.6% 11%;
+    --stone: 40 5.9% 10%;
+    --line: 60 2.9% 13.7%;
+    --ink: 60 4.3% 95.5%;
+    --ink-2: 40 3.8% 69.4%;
+    /* Lightened from the spec's #7a7873 (4.4:1) to #85837e (5.1:1 on page). */
+    --ink-3: 42.9 2.8% 50.8%;
 
-    --frame: 60 4% 4.9%;
-    --panel: 60 3.3% 11.8%;
-    --faint: 50 2.5% 47.8%;
-    --faint-2: 50 3.7% 32.2%;
-    --line: 60 2.7% 14.5%;
-    --line-2: 60 2.3% 17.3%;
-    --line-3: 60 2.9% 20.6%;
-    --line-4: 48 3.8% 25.7%;
+    --destructive: 0 62% 62%;
+    --destructive-foreground: 60 3.7% 5.3%;
+
+    --shadow-ring: inset 0 0 0 0.5px rgb(255 255 255 / 0.07), 0 6px 16px rgb(0 0 0 / 0.4);
+    --shadow-float: inset 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 18px 48px -12px rgb(0 0 0 / 0.7);
+
+    --faint-2: 42.9 3% 36%;
+    --line-2: 60 2.5% 17%;
+    --line-3: 60 2.5% 21%;
+    --line-4: 45 3% 28%;
     --ink-hover: 0 0% 100%;
-    --inv: 60 5.3% 3.7%;
+    --inv: 60 3% 3%;
     --blob-1: 60 2.8% 28.2%;
     --blob-2: 60 3.8% 10.2%;
     --blob-4: 50 2.5% 46.7%;
-    --brand: 16.3 100% 56.1%;
-    --brand-hover: 17.1 100% 63.5%;
-    --brand-foreground: 60 2.6% 7.6%;
+    --brand-foreground: var(--page);
 
     /* Prep-animation cat: same fur; a dark stage, softer paper, light outlines on the stage. */
-    --cat-stage: 30 6% 12%;
-    --cat-shadow: 30 5% 17%;
-    --cat-fur: 15 63% 60%;
-    --cat-fur-mid: 17 53% 51%;
-    --cat-fur-dark: 15 51% 47%;
-    --cat-fur-deep: 13 57% 35%;
-    --cat-belly: 26 55% 86%;
-    --cat-pink: 8 70% 74%;
-    --cat-ink: 22 11% 15%;
-    --cat-shine: 0 0% 100%;
-    --cat-line: 40 20% 86%;
-    --cat-paper: 40 30% 90%;
-    --cat-paper-edge: 36 14% 64%;
-    --cat-paper-back: 34 8% 26%;
-    --cat-rule: 37 16% 74%;
-    --cat-rule-strong: 37 13% 64%;
-    --cat-gold: 44 76% 56%;
-    --cat-highlight: 45 85% 66%;
-    --cat-cream: 45 70% 88%;
-    --cat-sky: 195 30% 70%;
-    --cat-wood: 30 30% 46%;
-    --cat-metal: 30 4% 56%;
-    --cat-bubble: 40 20% 88%;
-    --cat-bubble-ink: 22 11% 15%;
 
-    /* Dark-mode data-viz palette: lighter/desaturated for contrast on near-black. */
-    --chart-1: 211 95% 62%;
-    --chart-2: 262 75% 70%;
-    --chart-3: 172 60% 52%;
-    --chart-4: 28 92% 60%;
-    --chart-5: 340 80% 67%;
-    --sidebar-background: 60 4% 4.9%;
-    --sidebar-foreground: 50 3.3% 64.7%;
-    --sidebar-primary: 48 14.3% 93.1%;
-    --sidebar-primary-foreground: 60 2.6% 7.6%;
-    --sidebar-accent: 60 3.7% 10.6%;
-    --sidebar-accent-foreground: 48 14.3% 93.1%;
-    --sidebar-border: 60 2.7% 14.5%;
-    --sidebar-ring: 48 14.3% 93.1%;
-    --color-lc-easy: 142 65% 55%;
-    --color-lc-medium: 38 88% 58%;
-    --color-lc-hard: 12 82% 60%;
-    /* GitHub dark heatmap ramp. */
-    --heat-1: 150 50% 22%;
-    --heat-2: 147 70% 28%;
-    --heat-3: 133 60% 42%;
-    --heat-4: 131 64% 52%;
+    --chart-1: 60 4.3% 95.5%;
+    --chart-2: 40 3.8% 69.4%;
+    --chart-3: 42.9 3% 50%;
+    --chart-4: 45 3% 34%;
+    --chart-5: 60 2.9% 22%;
+    --color-lc-easy: var(--chart-4);
+    --color-lc-medium: var(--chart-3);
+    --color-lc-hard: var(--chart-1);
+    --heat-0: 60 2.9% 13.7%;
+    --heat-1: 45 3% 22%;
+    --heat-2: 42.9 3% 38%;
+    --heat-3: 40 3.8% 62%;
+    --heat-4: 60 4.3% 95.5%;
   }
 
   /* ---- HUD scope: the signed-in app + admin (class set on <html> by useHudScope) ----
-     Mission-control layer on top of the paper palette: corner ticks, cursor spotlight, dot grid,
-     a notched hero corner, and 90% density. Nothing here applies outside .iq-hud. */
+     The 90% zoom is gone: --hud-zoom stays 1 so the components that still compute with it
+     (calc(100dvh / var(--hud-zoom, 1)) and friends) keep working until they are migrated. */
   html.iq-hud {
+    --hud-zoom: 1;
     --hud-tick: var(--line-4);
     --hud-grid: var(--line-2);
     --hud-glow: 0 0% 0% / 0.035;
-    /* Card fills: `raise` sits a step above the page, `sunk` a step below (the calendar). Both
-       are the plain card in light, where cards are already white on the dotted page. */
     --hud-raise: var(--card);
     --hud-sunk: var(--card);
-    /* The ember: a faint, warm, desaturated brand glow pooled in one corner of each card. */
-    --ember: 18 85% 55%;
-    --ember-a: 0.03;
-  }
-  /* 90% density. Only where CSS zoom exists: without it --hud-zoom stays unset (= 1), so the
-     viewport-height compensations (calc(…vh / var(--hud-zoom, 1))) stay neutral. */
-  @supports (zoom: 1) {
-    html.iq-hud {
-      --hud-zoom: 0.9;
-      zoom: var(--hud-zoom);
-    }
+    /* The ember glow is switched off (it was warm orange): neutral and invisible. */
+    --ember: 0 0% 50%;
+    --ember-a: 0;
   }
   html.iq-hud.dark {
     --hud-glow: 0 0% 100% / 0.05;
-    --hud-raise: 60 1.5% 10.4%;
-    --hud-sunk: 0 0% 6.9%;
-    --ember: 16 62% 52%;
-    --ember-a: 0.07;
-  }
-  /* Floating UI positions popovers/menus/tooltips in unzoomed px, so under the page zoom they land
-     10% off their trigger. Undo the zoom on the positioned wrapper and re-apply it to the content:
-     correct placement, same 90% look. */
-  html.iq-hud [data-radix-popper-content-wrapper] {
-    zoom: calc(1 / var(--hud-zoom));
-  }
-  html.iq-hud [data-radix-popper-content-wrapper] > * {
-    zoom: var(--hud-zoom);
-  }
-  /* The live room's editors (Monaco, Excalidraw) misplace clicks under CSS zoom. */
-  html.iq-hud[data-hud-zoom="off"] {
-    --hud-zoom: 1;
+    --hud-raise: var(--surface);
+    --hud-sunk: var(--page);
   }
 }
 
@@ -456,8 +373,8 @@
   }
   /* The inverse card is dark in both themes: give it the dark-mode ember. */
   .iq-hud .hud-ember[data-inverse] {
-    --ember: 16 62% 52%;
-    --ember-a: 0.08;
+    --ember: 0 0% 50%;
+    --ember-a: 0;
   }
   /* A sunken card is darker, so its glow stays quieter. */
   .iq-hud .hud-ember[data-sunk] {
@@ -614,9 +531,305 @@
   from { opacity: 0; filter: blur(8px); transform: translateY(14px); }
   to { opacity: 1; filter: blur(0); transform: none; }
 }
+@keyframes iq-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes iq-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes iq-progress {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
+}
+/* Orb motion (state prop of ds/Orb). Reduced motion disables these via [data-motion]. */
+@keyframes iq-orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes iq-orb-speak {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.iq-orb-breathing { animation: iq-orb-breathe 4s ease-in-out infinite; }
+.iq-orb-listening { animation: iq-orb-breathe 6s ease-in-out infinite; }
+.iq-orb-thinking { animation: iq-spin 7s linear infinite; }
+.iq-orb-speaking { animation: iq-orb-speak 0.9s ease-in-out infinite; }
+
+/* ---- Bars mascot (components/mascot/BarsMascot.tsx, spec 5.6) ---------------------------
+   Every motion is a keyframe whose size is scaled by a registered number (--mq-*), so a form or
+   mood change eases the amplitude instead of swapping animations (no snaps). The form sets the
+   amplitudes, the mood overrides them. Layers use different properties on the same element
+   (transform, rotate, scale, translate) so they never fight. */
+@property --mq-lift { syntax: "<number>"; inherits: true; initial-value: 1; }
+@property --mq-sq { syntax: "<number>"; inherits: true; initial-value: 1; }
+@property --mq-wob { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-goo { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-hop { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-walk { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-wave { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-arms { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-jump { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-oops { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-lean { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mq-speak { syntax: "<number>"; inherits: true; initial-value: 0; }
+
+.mq {
+  display: block;
+  overflow: visible;
+  --mq-ease: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --mq-px: 22px; --mq-tx: 76px; --mq-sx: 22px; --mq-sy: 38px;
+  transition:
+    --mq-lift 0.7s ease, --mq-sq 0.7s ease, --mq-wob 0.7s ease, --mq-goo 0.7s ease,
+    --mq-hop 0.7s ease, --mq-walk 0.9s ease, --mq-wave 0.7s ease, --mq-arms 0.5s ease, --mq-jump 0.5s ease,
+    --mq-oops 0.5s ease, --mq-lean 0.6s ease, --mq-speak 0.4s ease;
+}
+.mq * { transform-box: fill-box; }
+.mq .mq-walk, .mq .mq-hop, .mq .mq-all, .mq .mq-lean { transform-box: view-box; transform-origin: 60px 102px; }
+.mq .mq-tilt { transform-box: view-box; transform-origin: var(--mq-px) 102px; }
+.mq-ink { fill: hsl(var(--ink)); }
+.mq-eye, .mq-happy { fill: hsl(var(--background)); }
+.mq-happy path, .mq-xeyes { fill: none; stroke: hsl(var(--background)); stroke-width: 2.6; stroke-linecap: round; }
+.mq-bandage rect { fill: hsl(var(--surface-2)); stroke: hsl(var(--ink)); stroke-width: 1.2; }
+.mq-stars path { fill: hsl(var(--ink-3)); }
+.mq-shadow { fill: hsl(var(--ink)); opacity: 0.08; filter: blur(3px); }
+
+/* Geometry (x, y, width, height, rx and friends) morphs in --mq-dur, each bar a beat behind the last. */
+.mq-g {
+  transition-property: x, y, width, height, rx, ry, cx, cy, r, opacity, translate;
+  transition-duration: var(--mq-dur, 900ms);
+  transition-timing-function: var(--mq-ease);
+}
+.mq-bar-2 .mq-g { transition-delay: 0.04s; }
+.mq-bar-3 .mq-g { transition-delay: 0.08s; }
+
+/* Forms: how much of each motion runs. Moods below override them. */
+.mq[data-form="trio"] { --mq-lift: 1; --mq-sq: 1; --mq-px: 22px; --mq-tx: 76px; --mq-sx: 22px; --mq-sy: 38px; }
+.mq[data-form="hopper"] { --mq-lift: 0; --mq-sq: 0; --mq-hop: 1; --mq-walk: 1; --mq-px: 34px; --mq-tx: 61px; --mq-sx: 26px; --mq-sy: 50px; }
+.mq[data-form="jelly"] { --mq-lift: 0.3; --mq-sq: 2.6; --mq-wob: 1; --mq-goo: 1; --mq-px: 22px; --mq-tx: 76px; --mq-sx: 22px; --mq-sy: 38px; }
+.mq[data-form="bloom"] { --mq-lift: 0.35; --mq-sq: 0.4; --mq-wave: 1; --mq-px: 27px; --mq-tx: 72px; --mq-sx: 21px; --mq-sy: 43px; }
+.mq[data-mood="listening"] { --mq-lean: 1; --mq-lift: 0.2; --mq-sq: 0.4; --mq-hop: 0; --mq-walk: 0; --mq-wave: 0; --mq-wob: 0.3; }
+.mq[data-mood="thinking"] { --mq-lift: 1.3; --mq-sq: 0; --mq-hop: 0; --mq-walk: 0; --mq-wave: 0; --mq-wob: 0; --mq-goo: 0; }
+.mq[data-mood="laughing"] { --mq-jump: 1; --mq-arms: 1; --mq-lift: 0; --mq-sq: 0; --mq-hop: 0; --mq-walk: 0; --mq-wave: 0; --mq-wob: 0; }
+.mq[data-mood="oops"] { --mq-oops: 1; --mq-lift: 0; --mq-sq: 0; --mq-hop: 0; --mq-walk: 0; --mq-wave: 0; --mq-wob: 0; }
+.mq[data-mood="speaking"] { --mq-speak: 1; --mq-lift: 0; --mq-sq: 0; --mq-hop: 0; --mq-walk: 0; --mq-wave: 0; --mq-wob: 0.4; }
+
+@keyframes mq-bar {
+  0%, 100% { transform: translateY(0) scaleY(1) skewX(0deg); }
+  35% { transform: translateY(0) scaleY(calc(1 - 0.14 * var(--mq-sq))) skewX(calc(-4deg * var(--mq-wob))); }
+  60% { transform: translateY(calc(-10px * var(--mq-lift))) scaleY(calc(1 + 0.06 * var(--mq-sq))) skewX(calc(4deg * var(--mq-wob))); }
+  80% { transform: translateY(0) scaleY(calc(1 - 0.04 * var(--mq-sq))) skewX(calc(-2deg * var(--mq-wob))); }
+}
+@keyframes mq-fast {
+  0%, 100% { scale: 1 1; }
+  25% { scale: 1 calc(1 - 0.38 * var(--mq-speak)); }
+  50% { scale: 1 calc(1 + 0.12 * var(--mq-speak)); }
+  75% { scale: 1 calc(1 - 0.2 * var(--mq-speak)); }
+}
+@keyframes mq-hop {
+  0%, 100% { transform: translateY(0) scale(calc(1 + 0.06 * var(--mq-hop)), calc(1 - 0.1 * var(--mq-hop))); }
+  40% { transform: translateY(calc(-22px * var(--mq-hop))) scale(calc(1 - 0.05 * var(--mq-hop)), calc(1 + 0.06 * var(--mq-hop))); }
+  70% { transform: translateY(calc(-4px * var(--mq-hop))) scale(1, 1); }
+}
+@keyframes mq-walk {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(calc(34px * var(--mq-walk))); }
+  75% { transform: translateX(calc(-34px * var(--mq-walk))); }
+}
+@keyframes mq-legs {
+  0%, 100% { rotate: calc(14deg * var(--mq-hop)); }
+  50% { rotate: calc(-14deg * var(--mq-hop)); }
+}
+@keyframes mq-jump {
+  0%, 100% { transform: translateY(0) scale(calc(1 + 0.08 * var(--mq-jump)), calc(1 - 0.12 * var(--mq-jump))); }
+  45% { transform: translateY(calc(-26px * var(--mq-jump))) scale(calc(1 - 0.06 * var(--mq-jump)), calc(1 + 0.08 * var(--mq-jump))); }
+  70% { transform: translateY(calc(-6px * var(--mq-jump))) scale(1, 1); }
+}
+@keyframes mq-armup-l {
+  0%, 100% { transform: rotate(calc(-18deg * var(--mq-arms))); }
+  50% { transform: rotate(calc(-30deg * var(--mq-arms))); }
+}
+@keyframes mq-armup-r {
+  0%, 100% { transform: rotate(calc(18deg * var(--mq-arms))); }
+  50% { transform: rotate(calc(30deg * var(--mq-arms))); }
+}
+@keyframes mq-wave-l {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: calc(-14deg * var(--mq-wave)); }
+  35% { rotate: calc(-4deg * var(--mq-wave)); }
+  50% { rotate: calc(-16deg * var(--mq-wave)); }
+  65% { rotate: 0deg; }
+}
+@keyframes mq-wave-r {
+  0%, 40%, 100% { rotate: 0deg; }
+  60% { rotate: calc(10deg * var(--mq-wave)); }
+}
+@keyframes mq-lean {
+  0%, 100% { rotate: calc(-7deg * var(--mq-lean)); }
+  50% { rotate: calc(-4deg * var(--mq-lean)); }
+}
+@keyframes mq-tumble {
+  0%, 15% { transform: translate(0, 0) rotate(0deg); }
+  30% { transform: translate(0, 0) rotate(calc(-14deg * var(--mq-oops))); }
+  45%, 70% { transform: translate(calc(var(--mq-tx) * var(--mq-oops)), 0) rotate(calc(-90deg * var(--mq-oops))); }
+  85% { transform: translate(0, 0) rotate(calc(6deg * var(--mq-oops))); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes mq-sing {
+  0%, 100% { transform: scale(1, 0.4); }
+  50% { transform: scale(1, 1.1); }
+}
+@keyframes mq-mouth-fast {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1 calc(1 + 0.5 * var(--mq-speak)); }
+}
+@keyframes mq-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(0.08); }
+}
+@keyframes mq-look-r {
+  0%, 30%, 70%, 100% { transform: translateX(0); }
+  38%, 62% { transform: translateX(3px); }
+}
+@keyframes mq-look-l {
+  0%, 30%, 70%, 100% { transform: translateX(0); }
+  38%, 62% { transform: translateX(-3px); }
+}
+@keyframes mq-look-mid {
+  0%, 22%, 52%, 100% { transform: translateX(0); }
+  28%, 46% { transform: translateX(-3px); }
+  62%, 80% { transform: translateX(3px); }
+  86% { transform: translateX(0); }
+}
+@keyframes mq-drip {
+  0% { transform: translateY(2px) scale(0.3); opacity: 0; }
+  20% { transform: translateY(-3px) scale(1); opacity: var(--mq-goo); }
+  60% { transform: translateY(-20px) scale(0.85); opacity: var(--mq-goo); }
+  100% { transform: translateY(-34px) scale(0.2); opacity: 0; }
+}
+@keyframes mq-eyes-oops {
+  0%, 25%, 88%, 100% { opacity: 1; }
+  30%, 82% { opacity: 0; }
+}
+@keyframes mq-xeyes {
+  0%, 25%, 88%, 100% { opacity: 0; }
+  30%, 82% { opacity: 1; }
+}
+@keyframes mq-band {
+  0%, 70% { opacity: 0; transform: scale(0.3); }
+  80%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes mq-stars {
+  0%, 40% { opacity: 0; transform: rotate(0deg); }
+  50%, 70% { opacity: 1; transform: rotate(180deg); }
+  80%, 100% { opacity: 0; transform: rotate(360deg); }
+}
+
+.mq-bar {
+  transform-origin: 50% 100%;
+  animation: mq-bar 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) infinite, mq-fast 0.55s ease-in-out infinite;
+}
+.mq-bar-2 { animation-delay: 0.18s, 0.05s; animation-duration: 1.8s, 0.5s; }
+.mq-bar-3 { animation-delay: 0.36s, 0.12s; animation-duration: 1.8s, 0.6s; }
+.mq-arm-1 { transform-origin: 100% 100%; animation: mq-armup-l 0.9s ease-in-out infinite, mq-wave-l 2.6s ease-in-out infinite; }
+.mq-arm-3 { transform-origin: 0 100%; animation: mq-armup-r 0.9s ease-in-out infinite, mq-wave-r 2.6s ease-in-out infinite; }
+.mq .mq-walk { animation: mq-walk 4.5s ease-in-out infinite; }
+.mq .mq-hop { animation: mq-hop 0.7s cubic-bezier(0.3, 0.6, 0.3, 1) infinite; }
+.mq .mq-all { animation: mq-jump 0.9s cubic-bezier(0.3, 0.6, 0.3, 1) infinite; }
+.mq .mq-lean { animation: mq-lean 2.4s ease-in-out infinite; }
+.mq-leg { transform-origin: 50% 0; scale: 1 0; transition: scale 0.5s var(--mq-ease); }
+.mq[data-form="hopper"] .mq-leg { scale: 1 1; }
+.mq[data-mood="thinking"] .mq-leg { scale: 1 0; }
+.mq-leg-l { animation: mq-legs 0.7s ease-in-out infinite; }
+.mq-leg-r { animation: mq-legs 0.7s ease-in-out infinite reverse; }
+.mq-blink { transform-origin: center; animation: mq-blink 4.2s infinite; }
+.mq-d1 { animation-delay: 0.7s; }
+.mq-d2 { animation-delay: 1.6s; }
+.mq-d3 { animation-delay: 2.5s; }
+.mq-look-1 { animation: mq-look-r 5s ease-in-out infinite 0.4s; }
+.mq-look-2 { animation: mq-look-mid 6s ease-in-out infinite; }
+.mq-look-3 { animation: mq-look-l 5s ease-in-out infinite 2.2s; }
+.mq-eyes { transition-property: opacity, translate; }
+.mq[data-mood="listening"] .mq-eyes { translate: 0 -3px; }
+.mq-drop { opacity: 0; animation: mq-drip 2.4s ease-out infinite; }
+.mq-bar-2 .mq-drop { animation-delay: 1.2s; }
+.mq-bar-3 .mq-drop { animation-delay: 0.6s; }
+.mq-mouth { opacity: 0; transform-origin: center; animation: mq-sing 1.3s ease-in-out infinite, mq-mouth-fast 0.4s ease-in-out infinite; }
+.mq[data-form="bloom"] .mq-mouth, .mq[data-mood="speaking"] .mq-mouth { opacity: 1; }
+.mq[data-mood="thinking"] .mq-mouth, .mq[data-mood="laughing"] .mq-mouth, .mq[data-mood="oops"] .mq-mouth { opacity: 0; }
+.mq-look, .mq-happy, .mq-xeyes { transition: opacity 0.25s ease; }
+.mq-happy, .mq-xeyes { opacity: 0; }
+.mq[data-mood="laughing"] .mq-look, .mq[data-mood="oops"] .mq-look { opacity: 0; }
+.mq[data-mood="laughing"] .mq-happy { opacity: 1; }
+.mq[data-mood="oops"] .mq-xeyes { opacity: 1; animation: mq-xeyes 4s linear infinite; }
+.mq[data-mood="oops"] .mq-look { animation: mq-eyes-oops 4s linear infinite; }
+.mq-bandage { opacity: 0; transform-origin: center; }
+.mq[data-mood="oops"] .mq-bandage { opacity: 1; animation: mq-band 4s ease-out infinite; }
+.mq-stars { opacity: 0; translate: var(--mq-sx) var(--mq-sy); transform-origin: center; }
+.mq[data-mood="oops"] .mq-stars { animation: mq-stars 4s linear infinite; }
+/* The whole oops sequence starts together, so the tumble, eyes, stars and bandage stay in step. */
+.mq[data-mood="oops"] .mq-tilt { animation: mq-tumble 4s cubic-bezier(0.4, 0.1, 0.3, 1) infinite; }
+.mq-bandage rect { transform-box: view-box; transform-origin: 0 0; }
+
+/* Reduced motion: no loop, no motion. The pose (Trio idle, or the mood's own face) just stands. */
+@media (prefers-reduced-motion: reduce) {
+  .mq, .mq *, .mq *::before, .mq *::after { animation: none !important; transition: none !important; }
+}
+
+/* In the components layer so Tailwind utilities (absolute, fixed, sticky) still win. */
+@layer components {
+  /* Content fades up 8px on mount. */
+  .iq-fade-up {
+    animation: iq-fade-up 500ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  /* Skeleton: a soft light sweep over surface-2. */
+  .iq-shimmer {
+    background-color: hsl(var(--surface-2));
+    background-image: linear-gradient(90deg, transparent 0%, hsl(var(--page) / 0.7) 50%, transparent 100%);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: iq-shimmer 1.6s linear infinite;
+  }
+  /* Pulsing opacity for live indicators (keyframes iq-breathe). */
+  .iq-breathe {
+    animation: iq-breathe 2.4s ease-in-out infinite;
+  }
+  /* Paper grain: an SVG-noise overlay at 18% opacity. The host gets its own stacking context. */
+  .iq-grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .iq-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.18;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .iq-grain::after {
+    filter: invert(1);
+  }
+  /* Light noise in both themes, for a surface that is dark in both (the announcement strip). */
+  .iq-grain.iq-grain-light::after {
+    filter: invert(1);
+  }
+  /* The announcement strip: a grainy black gradient with white text in light and dark. */
+  /* The sticky top bar: the page colour at 88% with the content blurred under it. */
+  .iq-topbar {
+    background: color-mix(in srgb, hsl(var(--background)) 88%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .iq-strip {
+    position: relative;
+    color: #fff;
+    background: radial-gradient(120% 220% at 15% 0%, #5a5955 0%, #1a1a19 45%, #000 100%);
+  }
 }
 
 /* Screen-change entrance (auth, onboarding steps). */
@@ -634,6 +847,9 @@
 @media (prefers-reduced-motion: reduce) {
   .iq-intro,
   .iq-rise,
+  .iq-fade-up,
+  .iq-shimmer,
+  .iq-breathe,
   [data-motion] {
     animation: none !important;
   }

@@ -4,7 +4,7 @@ import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FormField, MonoPill, type MonoPillTone } from "@/components/patterns";
+import { FormField } from "@/components/patterns";
 import { ApiFetchError } from "@/lib/api-client/client";
 import {
   useProfile,
@@ -13,11 +13,11 @@ import {
   type CodingPlatformFragment,
   type CodingPlatformKind,
   type SourceKind,
-  type SyncStatus,
 } from "@/features/profile";
 import { PROFILE_POLLING, PROFILE_SYNC_STATUS } from "@/lib/constants/profile";
 import { joinDetail, sourceDate } from "./format";
 import { SourceRow, type SourceRowVariant } from "./SourceRow";
+import { ErrorChip, SyncChip } from "./SyncChip";
 import { sourceDotState } from "./sourceDotState";
 import type { ProviderMeta } from "./providers";
 
@@ -52,13 +52,6 @@ function messageForCode(code: string | undefined, label: string): string {
       return `Couldn’t connect ${label}. Please try again.`;
   }
 }
-
-const SYNC_PILL: Record<SyncStatus, { label: string; tone: MonoPillTone }> = {
-  [PROFILE_SYNC_STATUS.syncing]: { label: "Syncing", tone: "soft" },
-  [PROFILE_SYNC_STATUS.synced]: { label: "Synced", tone: "soft" },
-  [PROFILE_SYNC_STATUS.failed]: { label: "Sync failed", tone: "alert" },
-  [PROFILE_SYNC_STATUS.degraded]: { label: "Limited data", tone: "ghost" },
-};
 
 /** One fact for the connected row's detail line: the platform's own rating, else problems solved. */
 function fragmentDetail(fragment: CodingPlatformFragment | undefined): string | null {
@@ -131,12 +124,7 @@ export function PlatformRow({
   });
   const stateLabel = connected && (status === PROFILE_SYNC_STATUS.syncing || status === PROFILE_SYNC_STATUS.failed) ? null : undefined;
   const pill = connected && status ? (
-    <MonoPill tone={SYNC_PILL[status].tone}>
-      {status === PROFILE_SYNC_STATUS.syncing ? (
-        <span aria-hidden data-motion className="mr-1.5 h-1.5 w-1.5 animate-[iq-breathe_1.4s_ease-in-out_infinite] rounded-full bg-brand" />
-      ) : null}
-      {SYNC_PILL[status].label}
-    </MonoPill>
+    <SyncChip status={status} />
   ) : null;
 
   if (connected) {

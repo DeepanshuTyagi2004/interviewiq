@@ -1,7 +1,9 @@
 import * as React from "react";
+import { EmptyState as DsEmptyState } from "@/components/ds/EmptyState";
 import { cn } from "@/lib/utils/cn";
 
 export interface EmptyStateProps {
+  /** Replaces the orb when given. */
   icon?: React.ReactNode;
   title: string;
   hint?: string;
@@ -9,36 +11,14 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-/**
- * Not-connected / no-data state: centered icon, title, muted hint, optional
- * action slot. Hairline-dashed card.
- */
-export function EmptyState({
-  icon,
-  title,
-  hint,
-  action,
-  className,
-}: EmptyStateProps) {
+/** Not-connected / no-data state. Forwards to `ds/EmptyState`, on a surface tile. */
+export function EmptyState({ icon, title, hint, action, className }: EmptyStateProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-[14px] border border-dashed border-line-4 bg-card px-6 py-12 text-center",
-        className,
-      )}
-    >
-      {icon ? (
-        <div className="text-faint [&_svg]:h-6 [&_svg]:w-6">
-          {icon}
-        </div>
-      ) : null}
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {hint ? (
-          <p className="max-w-sm text-sm text-muted-foreground">{hint}</p>
-        ) : null}
-      </div>
-      {action ? <div className="pt-1">{action}</div> : null}
+    <div className={cn("rounded-tile bg-surface", className)}>
+      {icon ? <div className="flex justify-center pt-10 text-ink-3 [&_svg]:h-6 [&_svg]:w-6">{icon}</div> : null}
+      <DsEmptyState title={title} hint={hint} orb={!icon} className={icon ? "pt-3" : undefined}>
+        {action}
+      </DsEmptyState>
     </div>
   );
 }

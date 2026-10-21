@@ -20,24 +20,28 @@ beforeEach(() => {
   mocks.remove.mockResolvedValue(undefined);
 });
 describe("ProcessList", () => {
-  it("requires unknown saved levels to be repaired before start or duplicate", () => {
+  it("requires unknown saved levels to be repaired before start or duplicate", async () => {
+    const user = userEvent.setup();
     mocks.process = { ...mocks.process!, level: null, legacyLevel: "Any level" };
     render(<ProcessList query="" onCreate={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Start track" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Duplicate" })).toBeDisabled();
-    expect(screen.getByText("Choose a level · Standalone practice")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Process actions" }));
+    expect(screen.getByRole("menuitem", { name: "Duplicate" })).toHaveAttribute("data-disabled");
+    expect(screen.getByText("Level not recognized")).toBeInTheDocument();
+    expect(screen.getByText("Level not set")).toBeInTheDocument();
   });
   it("shows the canonical level and starts a standalone process without a JD", async () => {
     const user = userEvent.setup();
     render(<ProcessList query="staff" onCreate={vi.fn()} />);
-    expect(screen.getByText("Staff · Standalone practice")).toBeInTheDocument();
+    expect(screen.getByText("Staff")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start track" }));
     expect(mocks.start.mock.calls[0][0]).toEqual({ processId: "p-1" });
   });
   it("requires themed confirmation before deleting and calls delete once", async () => {
     const user = userEvent.setup();
     render(<ProcessList query="" onCreate={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Process actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(mocks.remove).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "Delete “Custom cloud practice”?" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete process" }));

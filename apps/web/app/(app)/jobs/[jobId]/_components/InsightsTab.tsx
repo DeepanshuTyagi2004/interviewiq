@@ -1,12 +1,13 @@
 import * as React from "react";
-import { Count, HudCard, HudEmpty, padCount } from "@/components/hud";
+import { Card, Chip, Count, EmptyState } from "@/components/ds";
+import { padCount } from "@/components/hud";
 import type { JdDetail } from "@/features/jobs";
 import { plural } from "@/app/(app)/jobs/_components/library";
 import { cn } from "@/lib/utils/cn";
 import { groupSources } from "./insights";
 import { isAdminVerifiedProcess, topicRows } from "./rounds";
 
-/** One insight: a HUD card whose mono header is the eyebrow (named by it), with an optional count. */
+/** One insight: a card named by its title, with an optional count. */
 function InsightCard({
   eyebrow,
   meta,
@@ -19,14 +20,14 @@ function InsightCard({
   className?: string;
 }) {
   return (
-    <HudCard title={eyebrow} titleAs="h3" meta={meta} className={className} bodyClassName="flex flex-col gap-3 p-4 sm:p-5">
+    <Card title={eyebrow} titleAs="h3" meta={meta} className={className} bodyClassName="flex flex-col gap-3">
       {children}
-    </HudCard>
+    </Card>
   );
 }
 
 const linkClass =
-  "rounded-sm underline-offset-[3px] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "rounded-sm underline-offset-[3px] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /**
  * What the brief says about this JD: dominant topics (cross-referenced to rounds, no invented
@@ -48,12 +49,12 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
 
   if (topics.length === 0 && !style && flags.length === 0 && !difficulty && !patterns && sources.length === 0 && !hasAbout) {
     return (
-      <HudCard as="div">
-        <HudEmpty
+      <Card as="div" tone="surface">
+        <EmptyState
           title="No insights yet"
           hint="Topics, interviewer style and red flags appear once this role's interview process has been researched."
         />
-      </HudCard>
+      </Card>
     );
   }
 
@@ -61,19 +62,19 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
   const middleColumn = style || flags.length > 0 || patterns;
 
   return (
-    <div className="flex flex-col gap-3">
-      {jd.practiceTemplate ? <p className="m-0 rounded-xl border border-line-3 p-4 text-sm text-muted-foreground">Practice template · simulated topics and guidance, not company interview research.</p> : null}
-      <div className="grid items-start gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+    <div className="flex flex-col gap-4">
+      {jd.practiceTemplate ? <p className="m-0 rounded-2xl bg-surface p-4 text-sm text-ink-2 shadow-ring">Practice template · simulated topics and guidance, not company interview research.</p> : null}
+      <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
         {leftColumn ? (
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-4">
             {topics.length > 0 ? (
               <InsightCard eyebrow={jd.practiceTemplate ? "Practice topics" : isAdminVerifiedProcess(p) ? "Interview topics" : "Most-asked topics"}>
                 <ul className="m-0 list-none p-0">
                   {topics.map((t) => (
-                    <li key={t.topic} className="flex items-baseline justify-between gap-3 border-b border-line py-2 text-[13.5px] last:border-b-0">
+                    <li key={t.topic} className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 text-[14px] last:border-b-0">
                       <span className="min-w-0">{t.topic}</span>
                       {t.rounds.length > 0 ? (
-                        <span className="flex-none font-mono text-[11.5px] tabular-nums text-faint">
+                        <span className="flex-none font-mono text-[11.5px] tabular-nums text-ink-3">
                            <span className="sr-only">{jd.practiceTemplate ? "Practised" : "Asked"} in round {t.rounds.join(", ")}</span>
                           <span aria-hidden>{t.rounds.map((n) => `R${padCount(n)}`).join(" · ")}</span>
                         </span>
@@ -82,23 +83,23 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
                   ))}
                 </ul>
                 {topics.some((t) => t.rounds.length > 0) ? (
-                  <p className="m-0 text-xs text-faint">R01, R02… are the rounds that list the topic.</p>
+                  <p className="m-0 text-xs text-ink-3">R01, R02… are the rounds that list the topic.</p>
                 ) : null}
               </InsightCard>
             ) : null}
             {difficulty ? (
               <InsightCard eyebrow="Difficulty">
-                <p className="m-0 text-sm leading-[1.5]">{difficulty}</p>
+                <p className="m-0 text-[14px] leading-[1.6] text-ink-2">{difficulty}</p>
               </InsightCard>
             ) : null}
           </div>
         ) : null}
 
         {middleColumn ? (
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-4">
             {style ? (
               <InsightCard eyebrow={jd.practiceTemplate ? "Interviewer guidance" : "Interviewer style"}>
-                <p className="m-0 text-[15px] leading-[1.5]">{style}</p>
+                <p className="m-0 text-[14px] leading-[1.6] text-ink-2">{style}</p>
               </InsightCard>
             ) : null}
             {flags.length > 0 ? (
@@ -106,7 +107,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
                 <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
                   {flags.map((f) => (
                     <li key={f} className="flex gap-2.5 text-[13.5px] leading-[1.45]">
-                      <span aria-hidden className="text-faint">
+                      <span aria-hidden className="text-ink-3">
                         !
                       </span>
                       {f}
@@ -117,7 +118,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
             ) : null}
             {patterns ? (
               <InsightCard eyebrow="Company patterns">
-                <p className="m-0 text-sm leading-[1.5]">{patterns}</p>
+                <p className="m-0 text-[14px] leading-[1.6] text-ink-2">{patterns}</p>
               </InsightCard>
             ) : null}
           </div>
@@ -127,14 +128,14 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
           <InsightCard eyebrow="Sources" meta={<Count n={sourceCount} label={plural(sourceCount, "source")} />}>
             <ul className="m-0 list-none p-0">
               {sources.map((s) => (
-                <li key={s.host} className="flex justify-between gap-3 border-b border-line py-1.5 text-[13.5px]">
+                <li key={s.host} className="flex justify-between gap-3 border-b border-line py-2 text-[14px]">
                   <span className="min-w-0 truncate">{s.site}</span>
-                  <span className="font-mono tabular-nums text-muted-foreground">{s.urls.length}</span>
+                  <span className="tabular-nums text-ink-3">{s.urls.length}</span>
                 </li>
               ))}
             </ul>
             <details className="group text-[13px]">
-              <summary className="cursor-pointer list-none rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-sm text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
                 <span className="group-open:hidden">Show all {sourceCount} links</span>
                 <span className="hidden group-open:inline">Hide links</span>
               </summary>
@@ -142,7 +143,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
                 {sources.flatMap((s) =>
                   s.urls.map((url) => (
                     <li key={url} className="min-w-0">
-                      <a href={url} target="_blank" rel="noreferrer" className={cn(linkClass, "block truncate font-mono text-xs text-muted-foreground")}>
+                      <a href={url} target="_blank" rel="noreferrer" className={cn(linkClass, "block truncate font-mono text-xs text-ink-2")}>
                         {url}
                       </a>
                     </li>
@@ -157,13 +158,13 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
       {hasAbout ? (
         <InsightCard eyebrow="About the role">
           {description ? (
-            <p className="m-0 max-w-[760px] whitespace-pre-wrap text-sm leading-[1.6] text-muted-foreground">{description}</p>
+            <p className="m-0 max-w-[760px] whitespace-pre-wrap text-[14px] leading-[1.7] text-ink-2">{description}</p>
           ) : null}
           {jd.techStack.length > 0 ? (
-            <ul aria-label="Tech stack" className="m-0 flex list-none flex-wrap gap-[5px] p-0">
+            <ul aria-label="Tech stack" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
               {jd.techStack.map((t) => (
-                <li key={t} className="rounded-full bg-panel px-2.5 py-[3px] text-[11.5px] text-muted-foreground">
-                  {t}
+                <li key={t}>
+                  <Chip>{t}</Chip>
                 </li>
               ))}
             </ul>

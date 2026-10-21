@@ -8,7 +8,7 @@ const SIZES = {
 
 export interface CompanyTileProps {
   name: string;
-  /** Live companies get the solid ink tile, the rest the soft panel one (as in the design). */
+  /** Live companies get the solid ink tile, the rest the soft surface one (as in the design). */
   live: boolean;
   size?: keyof typeof SIZES;
   className?: string;
@@ -20,9 +20,9 @@ export function CompanyTile({ name, live, size = "md", className }: CompanyTileP
     <span
       aria-hidden
       className={cn(
-        "flex flex-none items-center justify-center font-semibold",
+        "flex flex-none items-center justify-center font-display font-medium",
         SIZES[size],
-        live ? "bg-primary text-primary-foreground" : "bg-panel text-foreground",
+        live ? "bg-ink text-background" : "bg-surface-2 text-ink-2",
         className,
       )}
     >

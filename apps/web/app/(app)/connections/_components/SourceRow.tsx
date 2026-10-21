@@ -1,5 +1,5 @@
 import * as React from "react";
-import { StatusDot } from "@/components/hud";
+import { StatusDot } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { SOURCE_DOT_LABEL, type SourceDotState } from "./sourceDotState";
 
@@ -27,8 +27,8 @@ export interface SourceRowProps {
   bodyHidden?: boolean;
   connected?: boolean;
   /**
-   * The source's status dot (see `sourceDotState`). Shown only inside the signed-in HUD scope;
-   * onboarding renders this row too and stays as it was.
+   * The source's status dot (see `sourceDotState`), shown before the name on the Connections page,
+   * the profile's sources card and onboarding alike.
    */
   state?: SourceDotState;
   /**
@@ -44,7 +44,7 @@ export interface SourceRowProps {
   className?: string;
 }
 
-/** Ink tile with the source's mono mark, as in the design's source lists. */
+/** Logo square with the source's mono mark, as in the integration lists. */
 export function SourceTile({
   code,
   unavailable,
@@ -59,8 +59,8 @@ export function SourceTile({
       aria-hidden
       className={cn(
         "flex flex-none items-center justify-center font-mono",
-        size === "md" ? "h-10 w-10 rounded-lg text-xs" : "h-[34px] w-[34px] rounded-[10px] text-[11px]",
-        unavailable ? "border border-line-3 bg-panel text-faint" : "bg-primary text-primary-foreground",
+        size === "md" ? "h-11 w-11 rounded-[12px] text-xs" : "h-[34px] w-[34px] rounded-[10px] text-[11px]",
+        unavailable ? "text-ink-3 shadow-[inset_0_0_0_1px_hsl(var(--line))]" : "bg-surface-2 text-ink",
       )}
     >
       {code}
@@ -94,7 +94,10 @@ export function SourceRow({
       className={cn(
         "min-w-0 list-none transition-colors duration-200",
         stack
-          ? cn("rounded-lg border px-4 py-2.5", connected ? "border-line-4 bg-panel" : "border-line-2 bg-card")
+          ? cn(
+              "rounded-[16px] border border-line px-4 py-3 shadow-ring",
+              connected ? "bg-surface" : "bg-background",
+            )
           : "border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5",
         className,
       )}
@@ -106,14 +109,14 @@ export function SourceRow({
             {state ? (
               <StatusDot
                 state={state}
-                srLabel={stateLabel === undefined ? SOURCE_DOT_LABEL[state] : (stateLabel ?? undefined)}
-                className="hidden hud:inline-flex"
+                label={stateLabel === undefined ? SOURCE_DOT_LABEL[state] : (stateLabel ?? undefined)}
+                srOnly
               />
             ) : null}
             <p className={cn("m-0 tracking-[-0.01em]", stack ? "text-[15px]" : "text-sm")}>{name}</p>
             {pill}
           </div>
-          {detail ? <p className="m-0 mt-0.5 truncate text-[12.5px] text-faint">{detail}</p> : null}
+          {detail ? <p className="m-0 mt-0.5 truncate text-[12.5px] text-ink-3">{detail}</p> : null}
         </div>
         {actions ? <div className="ml-auto flex flex-none flex-wrap items-center gap-2">{actions}</div> : null}
       </div>

@@ -32,7 +32,7 @@ describe("SegmentMeter", () => {
 
 describe("StatusDot", () => {
   it("pulses only when live", () => {
-    expect(dotClass("live")).toContain("motion-safe:animate-");
+    expect(dotClass("live")).toContain("iq-breathe");
     for (const s of ["active", "idle", "warn", "error"] as const) {
       expect(dotClass(s)).not.toContain("animate-");
     }
@@ -60,16 +60,35 @@ describe("HudCard", () => {
     expect(screen.getByText("SRC 02")).toBeInTheDocument();
   });
 
-  it("notches and wraps its header", () => {
-    const { container } = render(
-      <HudCard title="T" notch>
+  it("ignores the dropped HUD props and maps tone", () => {
+    const { container, rerender } = render(
+      <HudCard title="T" notch glow="tl" active spotlight>
         x
       </HudCard>,
     );
-    const root = container.firstElementChild as HTMLElement;
-    expect(root).toHaveClass("hud-notch");
-    expect(container.querySelector(".hud-ticks")).toHaveAttribute("data-notch");
-    expect(container.querySelector("[data-hud-header]")).toHaveClass("flex-wrap");
+    expect(container.querySelector(".hud-ticks, .hud-notch, .hud-spot, .hud-ember")).toBeNull();
+    rerender(
+      <HudCard title="T" tone="inverse">
+        x
+      </HudCard>,
+    );
+    expect(container.firstElementChild).toHaveClass("bg-ink");
+    rerender(
+      <HudCard title="T" tone="sunken">
+        x
+      </HudCard>,
+    );
+    expect(container.firstElementChild).toHaveClass("bg-surface");
+  });
+
+  it("renders flush when the caller brings a body class", () => {
+    const { container } = render(
+      <HudCard title="T" bodyClassName="p-4">
+        <span>inner</span>
+      </HudCard>,
+    );
+    expect(container.firstElementChild).not.toHaveClass("p-[22px]");
+    expect(screen.getByText("inner").parentElement).toHaveClass("p-4");
   });
 
   it("can render without a header, named by aria-label or aria-labelledby", () => {
@@ -86,9 +105,9 @@ describe("HudCard", () => {
 });
 
 describe("HudEmpty / Readout / Kbd", () => {
-  it("HudEmpty shows the tag and copy", () => {
-    render(<HudEmpty title="No interviews yet" hint="Book one." />);
-    expect(screen.getByText("No data")).toBeInTheDocument();
+  it("HudEmpty shows the copy and ignores the tag", () => {
+    render(<HudEmpty title="No interviews yet" hint="Book one." tag="No data" />);
+    expect(screen.queryByText("No data")).toBeNull();
     expect(screen.getByText("No interviews yet")).toBeInTheDocument();
     expect(screen.getByText("Book one.")).toBeInTheDocument();
   });
@@ -118,9 +137,9 @@ describe("padCount / Count", () => {
     expect(padCount(n)).toBe(out);
   });
 
-  it("shows the padded count but reads plain words", () => {
+  it("shows a plain count and reads plain words", () => {
     render(<Count n={2} label="2 sessions" />);
-    expect(screen.getByText("02")).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("2")).toHaveAttribute("aria-hidden");
     expect(screen.getByText("2 sessions")).toHaveClass("sr-only");
   });
 });

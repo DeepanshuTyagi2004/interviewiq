@@ -12,7 +12,7 @@ vi.mock("./SlotPicker", () => ({ SlotPicker: () => null }));
 describe("standalone round booking", () => {
   it("books by loop and node without manufacturing a job description", async () => {
     const node = newRoundNode("dsa", { x: 0, y: 0 });
-    const loop: Loop = { id: "l-1", name: "SQL practice", level: "staff", jdId: null, jd: null, processId: "p-1", kind: "standalone", status: "active", countsTowardReadiness: false, confirmedAt: "2030-01-01", graph: { nodes: [node], edges: [] }, progress: { total: 1, completed: 0, nextNodeIds: [node.id] }, nodeStates: { [node.id]: "available" }, sessions: [] };
+    const loop: Loop = { id: "l-1", name: "SQL practice", level: "staff", jdId: null, jd: null, processId: "p-1", kind: "standalone", status: "active", countsTowardReadiness: false, readiness: null, confirmedAt: "2030-01-01", graph: { nodes: [node], edges: [] }, progress: { total: 1, completed: 0, nextNodeIds: [node.id] }, nodeStates: { [node.id]: "available" }, nodeResults: {}, sessions: [] };
     const user = userEvent.setup();
     render(<BookRoundDialog loop={loop} nodeId={node.id} onOpenChange={vi.fn()} />);
     expect(screen.getByRole("dialog")).toHaveAccessibleDescription(/SQL practice · Staff/);
@@ -23,7 +23,7 @@ describe("standalone round booking", () => {
 
   it("describes the round as 30-45 min before it is booked, even if the saved node still holds 60", () => {
     const node = { ...newRoundNode("dsa", { x: 0, y: 0 }), durationMinutes: 60 };
-    const loop: Loop = { id: "l-2", name: "Old loop", level: "sde2", jdId: null, jd: null, processId: null, kind: "standalone", status: "active", countsTowardReadiness: false, confirmedAt: "2030-01-01", graph: { nodes: [node], edges: [] }, progress: { total: 1, completed: 0, nextNodeIds: [node.id] }, nodeStates: { [node.id]: "available" }, sessions: [] };
+    const loop: Loop = { id: "l-2", name: "Old loop", level: "sde2", jdId: null, jd: null, processId: null, kind: "standalone", status: "active", countsTowardReadiness: false, readiness: null, confirmedAt: "2030-01-01", graph: { nodes: [node], edges: [] }, progress: { total: 1, completed: 0, nextNodeIds: [node.id] }, nodeStates: { [node.id]: "available" }, nodeResults: {}, sessions: [] };
     render(<BookRoundDialog loop={loop} nodeId={node.id} onOpenChange={vi.fn()} />);
     expect(screen.getByRole("dialog")).toHaveAccessibleDescription(/ · 30-45 min$/);
   });

@@ -28,6 +28,12 @@ const base: InterviewSession = {
   briefing: null,
   liveAvailable: true,
   roundMinutes: 45,
+  passMark: null,
+  score: null,
+  outcome: null,
+  verdict: null,
+  retakeAfter: null,
+  evaluationStatus: null,
   endReason: null,
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",
@@ -117,6 +123,19 @@ describe("SessionDetail blueprint prep", () => {
     });
     expect(screen.getByText("30 minutes")).toBeInTheDocument();
     expect(screen.queryByText("45 minutes")).toBeNull();
+  });
+
+  it("shows the pass mark in the briefing, and hides it when the session has none", () => {
+    const base = {
+      status: "PREP_READY" as const,
+      prep: { step: null, steps: [], refreshing: false, preparedAt: "2026-10-01T09:00:00Z", errorCode: null },
+      briefing: { interviewerName: "Asha Rao", interviewerStyle: "calm", format: "coding", durationMins: 45 },
+    };
+    const { unmount } = renderSession({ ...base, passMark: 7 });
+    expect(screen.getByText("Pass mark 7.0 / 10")).toBeInTheDocument();
+    unmount();
+    renderSession({ ...base, passMark: null });
+    expect(screen.queryByText(/Pass mark/)).toBeNull();
   });
 
   it("while refreshing: keeps the briefing with an updating note", () => {

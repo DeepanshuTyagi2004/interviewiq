@@ -29,7 +29,7 @@ export interface DataTablePatternProps<T> {
 }
 
 /**
- * Hairline-bordered table wrapper. Numeric/ID columns should pass
+ * Table wrapper; the rounded ring shell comes from `Table`. Numeric/ID columns should pass
  * `className="font-mono tabular-nums"`. Presentation only.
  */
 export function DataTablePattern<T>({
@@ -42,7 +42,7 @@ export function DataTablePattern<T>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card",
+        "min-w-0",
         className,
       )}
     >
@@ -61,7 +61,7 @@ export function DataTablePattern<T>({
             <TableRow>
               <TableCell
                 colSpan={columns.length}
-                className="py-10 text-center text-sm text-muted-foreground"
+                className="py-10 text-center text-sm text-ink-3"
               >
                 {empty ?? "No data."}
               </TableCell>

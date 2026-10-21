@@ -10,7 +10,7 @@ function renderMenu(overrides: Partial<AccountMenuProps> = {}) {
     status: "Active · Meesho SDE I",
     isAdmin: false,
     onOpenSearch: vi.fn(),
-    onToggleMenu: vi.fn(),
+    onToggleSidebar: vi.fn(),
     onSignOut: vi.fn(),
     ...overrides,
   };
@@ -23,7 +23,7 @@ describe("AccountMenu", () => {
     const user = userEvent.setup();
     renderMenu();
     const trigger = screen.getByRole("button", { name: /account menu/i });
-    expect(trigger).toHaveTextContent("AS");
+    expect(trigger).toBeInTheDocument();
 
     await user.click(trigger);
     const menu = screen.getByRole("menu");
@@ -68,5 +68,12 @@ describe("AccountMenu", () => {
     await user.click(await screen.findByRole("menuitem", { name: /^search/i }));
     await waitFor(() => expect(props.onOpenSearch).toHaveBeenCalledOnce());
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("opens from a custom trigger too (the sidebar's account row)", async () => {
+    const user = userEvent.setup();
+    renderMenu({ trigger: <button type="button">Aarav row</button>, triggerLabel: "Account menu" });
+    await user.click(screen.getByRole("button", { name: /account menu/i }));
+    expect(screen.getByRole("menu")).toHaveTextContent("aarav@x.dev");
   });
 });

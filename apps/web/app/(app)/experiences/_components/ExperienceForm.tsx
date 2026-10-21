@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { HudCard } from "@/components/hud";
+import { Card } from "@/components/ds";
 import { ApiFetchError } from "@/lib/api-client/client";
 import { cn } from "@/lib/utils/cn";
 import { useSubmitExperience } from "@/features/experiences";
@@ -47,11 +47,11 @@ export function ExperienceForm() {
   const justSubmitted = submit.isSuccess && !company && !content;
 
   return (
-    <HudCard title="Your experience">
+    <Card title="Your experience" flush>
       <form onSubmit={onSubmit} className="flex flex-col">
         <div className="flex flex-col gap-6 px-4 py-5 sm:px-5">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="company" className="text-[13px] font-normal text-muted-foreground">
+            <Label htmlFor="company" className="text-[13px] font-normal text-ink-2">
               Company
             </Label>
             <Input
@@ -60,12 +60,12 @@ export function ExperienceForm() {
               onChange={(e) => setCompany(e.target.value)}
               placeholder="e.g. Google"
               autoComplete="off"
-              className="h-10"
+              
             />
           </div>
 
           <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-            <legend className="mb-2 p-0 text-[13px] text-muted-foreground">Level</legend>
+            <legend className="mb-2 p-0 text-[13px] text-ink-2">Level</legend>
             <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap">
               {LEVELS.map((l) => {
                 const selected = level === l.value;
@@ -73,10 +73,10 @@ export function ExperienceForm() {
                   <label
                     key={l.value}
                     className={cn(
-                      "inline-flex h-9 cursor-pointer items-center justify-center rounded-full border px-2 text-[13px] sm:px-3.5 transition-colors duration-200 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-1 has-[:focus-visible]:ring-offset-background",
+                      "inline-flex h-9 cursor-pointer items-center justify-center rounded-full px-2 text-[13px] transition-colors duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ink has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background sm:px-3.5",
                       selected
-                        ? "border-foreground bg-primary text-primary-foreground"
-                        : "border-line-3 bg-card text-foreground hover:border-faint-2",
+                        ? "bg-ink text-background"
+                        : "bg-background text-foreground shadow-ring hover:bg-surface",
                     )}
                   >
                     <input
@@ -95,7 +95,7 @@ export function ExperienceForm() {
           </fieldset>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="content" className="text-[13px] font-normal text-muted-foreground">
+            <Label htmlFor="content" className="text-[13px] font-normal text-ink-2">
               What happened?
             </Label>
             <Textarea
@@ -108,30 +108,30 @@ export function ExperienceForm() {
               className="min-h-[132px] leading-[1.55]"
             />
             <div id="content-hint" className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs">
-              <span className="text-faint">
+              <span className="text-ink-3">
                 Minimum {MIN_CONTENT} characters. The more detail per round, the more useful the signal.
               </span>
-              <span className={cn("font-mono tabular-nums", length >= MIN_CONTENT ? "text-muted-foreground" : "text-faint")}>
+              <span className={cn("font-mono tabular-nums", length >= MIN_CONTENT ? "text-ink-2" : "text-ink-3")}>
                 {length.toLocaleString()} {length === 1 ? "character" : "characters"}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel/60 px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3.5 sm:px-5">
           {justSubmitted ? (
             <p role="status" className="m-0 flex items-center gap-2 text-[13px]">
               <CheckCircle2 aria-hidden className="h-4 w-4" />
               Submitted. Thanks for sharing.
             </p>
           ) : (
-            <p className="m-0 text-[13px] text-muted-foreground">Descriptive only: no names or confidential material.</p>
+            <p className="m-0 text-[13px] text-ink-2">Descriptive only: no names or confidential material.</p>
           )}
           <Button type="submit" disabled={disabled} className="ml-auto h-10 px-4">
             {submit.isPending ? "Submitting…" : "Submit experience"}
           </Button>
         </div>
       </form>
-    </HudCard>
+    </Card>
   );
 }

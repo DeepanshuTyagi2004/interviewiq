@@ -1,11 +1,9 @@
-import Link from "next/link";
-import { SegmentMeter } from "@/components/hud";
+import { CompanyArt, SegmentBar } from "@/components/ds";
 import type { JdDetail } from "@/features/jobs";
-import { ROUTES } from "@/lib/constants/shared";
-import { CompanyTile } from "@/app/(app)/jobs/_components/CompanyTile";
-import { isLiveJd, levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
+import { levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
 import { levelGapText, MatchPill, type MatchFit } from "@/app/(app)/jobs/_components/MatchPill";
 import { confidenceWord } from "./insights";
+import { RoleActions } from "./RoleActions";
 import { isAdminVerifiedProcess } from "./rounds";
 
 const READINESS_STEPS = 4;
@@ -16,12 +14,12 @@ const READINESS_STEPS = 4;
  */
 export function ReadinessMeter() {
   return (
-    <div role="group" aria-label="Readiness" className="flex w-full flex-col gap-2 sm:w-[240px]">
+    <div role="group" aria-label="Readiness" className="flex w-full flex-col gap-2 sm:w-[260px]">
       <p className="m-0 flex justify-between gap-3 text-[13px]">
-        <span className="text-faint">Readiness</span>
+        <span className="text-ink-3">Mock-interview readiness</span>
         <span>Not started</span>
       </p>
-      <SegmentMeter segments={READINESS_STEPS} filled={0} size="md" />
+      <SegmentBar segments={READINESS_STEPS} filled={0} size="md" />
     </div>
   );
 }
@@ -48,50 +46,40 @@ export interface RoadmapHeaderProps {
   fit?: MatchFit | null;
 }
 
-/** Breadcrumb, company tile, "Company · JD title", the meta line and the readiness meter. */
+/**
+ * The hero: company art, "Company · JD title", the meta line, the match chip, the readiness state and the
+ * actions. The top bar already shows the breadcrumb.
+ */
 export function RoadmapHeader({ jd, headquarters, fit = null }: RoadmapHeaderProps) {
   const gap = fit ? levelGapText(fit.levelGap, jd.level) : null;
-  const crumb = "rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const title = `${jd.companyName} · ${jd.title}`;
+  const hasRounds = (jd.interviewProcess?.rounds ?? []).length > 0;
   return (
-    <>
-      <nav aria-label="Breadcrumb">
-        <ol className="m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-1 p-0 text-[13px] text-faint">
-          <li className="flex items-center gap-2">
-            <Link href={ROUTES.jobs} className={crumb}>
-              Companies
-            </Link>
-            <span aria-hidden>›</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <Link href={`${ROUTES.jobs}/c/${encodeURIComponent(jd.company)}`} className={crumb}>
-              {jd.companyName}
-            </Link>
-            <span aria-hidden>›</span>
-          </li>
-          <li aria-current="page" className="min-w-0 text-foreground">
-            {jd.title}
-          </li>
-        </ol>
-      </nav>
-
-      <div className="mt-[18px] flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
-        <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <CompanyTile name={jd.companyName} live={isLiveJd(jd)} size="lg" />
-          <div className="min-w-0">
-            <h1 className="m-0 text-balance text-[28px] font-normal leading-[1.1] tracking-[-0.045em] sm:text-[34px]">
-              {jd.companyName} · {jd.title}
-            </h1>
-            <p className="m-0 mt-1 text-[13.5px] leading-[1.5] text-muted-foreground">{roadmapMeta(jd, headquarters)}</p>
-            {fit && fit.score !== null ? (
-              <p className="m-0 mt-2 flex flex-wrap items-center gap-2 text-xs text-faint">
-                <MatchPill fit={fit} />
-                {gap}
-              </p>
-            ) : null}
-          </div>
+    <header>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+        <CompanyArt slug={jd.company} name={jd.companyName} className="h-[104px] w-full flex-none text-[22px] sm:w-[176px]" />
+        <div className="min-w-0">
+          <h1 title={title} className="m-0 line-clamp-3 break-words font-display text-[32px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[40px]">
+            {title}
+          </h1>
+          <p className="m-0 mt-2 text-[14px] leading-[1.5] text-ink-2">{roadmapMeta(jd, headquarters)}</p>
+          {fit && fit.score !== null ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
+              <MatchPill fit={fit} />
+              {gap}
+            </div>
+          ) : null}
         </div>
-        {jd.practiceTemplate ? <p className="m-0 text-xs text-faint">Practice only · not counted towards readiness</p> : <ReadinessMeter />}
       </div>
-    </>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+        {jd.practiceTemplate ? <p className="m-0 text-[13px] text-ink-3">Practice only · not counted towards readiness</p> : <ReadinessMeter />}
+        {hasRounds ? <RoleActions jd={jd} /> : null}
+      </div>
+      {hasRounds && !jd.practiceTemplate ? (
+        <p className="m-0 mt-3 max-w-2xl text-[12.5px] leading-[1.5] text-ink-3">
+          Only the unedited suggested process counts towards your mock-interview readiness for this role. A customised process is standalone practice: fully analysed, but not counted.
+        </p>
+      ) : null}
+    </header>
   );
 }
