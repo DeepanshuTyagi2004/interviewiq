@@ -1,9 +1,10 @@
 import type { Router } from "express";
 import type { Container } from "../container.js";
-import { InvalidArgumentError } from "../lib/errors.js";
+import { ApiError, InvalidArgumentError } from "../lib/errors.js";
 import { isObject } from "../lib/json.js";
 import { routerErrors, userId, uuidParam, router } from "../http/support.js";
 import { parseCreateSessionRequest } from "../services/interviewSessions.js";
+import { reportExtras, sessionMeta, toRoundReport } from "../services/reportMapper.js";
 
 /**
  * Candidate-facing interview booking + blueprint prep status, plus go-live/resume (live
@@ -62,6 +63,28 @@ export function interviewsRouter(c: Container): Router {
   /** The candidate ends the live round: the fallback when the interviewer doesn't answer End (idempotent). */
   r.post("/sessions/:sessionId/live/end", async (req, res) => {
     res.json(await c.liveSessions.endFromCandidate(userId(req), uuidParam(req, "sessionId")));
+  });
+
+  /** The graded debrief: `{status}` while evaluating/failed/legacy, else the camelCase report with `status: "ready"`. */
+  r.get("/sessions/:sessionId/report", async (req, res) => {
+    const candidateId = userId(req), sessionId = uuidParam(req, "sessionId");
+    const view = await c.roundEvaluation.report(candidateId, sessionId);
+    const session = (await c.repos.sessions.findByIdAndCandidateId(sessionId, candidateId))!;
+    if (view.status !== "ready") {
+      res.json({ status: view.status, meta: sessionMeta(session) });
+      return;
+    }
+    // Only a loop that is gone (deleted) is tolerated; any other failure propagates.
+    const loop = session.loopId
+      ? await c.loops.getLoop(candidateId, session.loopId).catch((err) => { if (err instanceof ApiError && err.status === 404) return null; throw err; })
+      : null;
+    res.json(toRoundReport(view.report, session, reportExtras(session.outcome ?? null, session.nodeId, loop),
+      { pending: view.recheckPending, target: view.recheckTarget }));
+  });
+
+  /** Dispute one question or area of the report (one per target, 3 per report, within 14 days): starts a re-check. */
+  r.post("/sessions/:sessionId/report/disputes", async (req, res) => {
+    res.status(202).json(await c.roundEvaluation.dispute(userId(req), uuidParam(req, "sessionId"), isObject(req.body) ? (req.body as any) : ({} as any)));
   });
 
   r.use(

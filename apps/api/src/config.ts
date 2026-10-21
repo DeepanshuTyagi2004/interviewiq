@@ -100,6 +100,11 @@ const envSchema = z.object({
   BLUEPRINT_REFRESH_CUTOFF_MINUTES: int(30),
   BLUEPRINT_RUN_TIMEOUT_MINUTES: int(17), // a little above the AI service's BLUEPRINT_RUN_TIMEOUT_SECONDS (900)
   BLUEPRINT_RETRY_LIMIT_PER_HOUR: int(3),
+  // --- Round evaluation (docs/superpowers/specs/2026-10-18-post-interview-report-design.md §11.1) ---
+  EVALUATION_RECONCILE_INTERVAL_MS: int(60_000),
+  EVALUATION_RUN_TIMEOUT_MINUTES: int(20),
+  /** Automatic re-runs after a transient failure, per rolling hour. */
+  EVALUATION_AUTO_RETRIES: int(2),
   /** Off until the live interviewer is rebuilt on the blueprint: ready sessions can't be joined. */
   LIVE_INTERVIEWER_AVAILABLE: bool(false),
   /** Comma-separated user ids that may go live while LIVE_INTERVIEWER_AVAILABLE is off (the POC test account). */
@@ -165,6 +170,11 @@ function toConfig(e: z.infer<typeof envSchema>) {
       retryLimitPerHour: e.BLUEPRINT_RETRY_LIMIT_PER_HOUR,
       liveInterviewerAvailable: e.LIVE_INTERVIEWER_AVAILABLE,
       liveInterviewerAllowlist: e.LIVE_INTERVIEWER_ALLOWLIST.split(",").map((s) => s.trim()).filter(Boolean),
+    },
+    evaluation: {
+      reconcileIntervalMs: e.EVALUATION_RECONCILE_INTERVAL_MS,
+      runTimeoutMinutes: e.EVALUATION_RUN_TIMEOUT_MINUTES,
+      autoRetries: e.EVALUATION_AUTO_RETRIES,
     },
     livekit: { url: e.LIVEKIT_URL, apiKey: e.LIVEKIT_API_KEY, apiSecret: e.LIVEKIT_API_SECRET },
   };

@@ -15,7 +15,7 @@ import { OAuthStateService } from "./integrations/github/oauthState.js";
 import { LeetCodeCollector } from "./integrations/leetcode/collector.js";
 import { LeetCodeCollectionJob, LeetCodeService } from "./integrations/leetcode/service.js";
 import { LiveKitRoomAdmin, LiveKitTokenService } from "./integrations/livekit.js";
-import { BlueprintReconcileJob, GitHubRefreshJob, LeetCodeRefreshJob, PlatformRefreshJob, LiveSessionSweepJob } from "./jobs/jobs.js";
+import { BlueprintReconcileJob, EvaluationReconcileJob, GitHubRefreshJob, LeetCodeRefreshJob, PlatformRefreshJob, LiveSessionSweepJob } from "./jobs/jobs.js";
 import { AtCoderCollector } from "./integrations/platforms/atcoder.js";
 import { CodeChefCollector } from "./integrations/platforms/codechef.js";
 import { CodeforcesCollector } from "./integrations/platforms/codeforces.js";
@@ -27,6 +27,7 @@ import type { FetchLike } from "./lib/http.js";
 import type { Logger } from "./lib/logger.js";
 import {
   BlueprintSeenRepository,
+  RoundReportRepository,
   CandidateProfileRepository,
   ProfileFragmentRepository,
   UserPreferencesRepository,
@@ -47,6 +48,7 @@ import {
 import { CandidateProfileService } from "./services/candidateProfileService.js";
 import { CatalogueSeeder } from "./services/catalogueSeeder.js";
 import { BlueprintPrepService } from "./services/blueprintPrep.js";
+import { RoundEvaluationService } from "./services/roundEvaluation.js";
 import { InterviewSessionService } from "./services/interviewSessions.js";
 import { LoopService } from "./services/loops.js";
 import { LiveAvailability } from "./services/liveAvailability.js";
@@ -98,6 +100,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     candidateProfiles: new CandidateProfileRepository(mongo),
     fragments: new ProfileFragmentRepository(mongo),
     blueprintSeen: new BlueprintSeenRepository(mongo),
+    roundReports: new RoundReportRepository(mongo),
     preferences: new UserPreferencesRepository(mongo),
     profileScoring: new ProfileScoringRepository(mongo),
     linkedinImports: new LinkedInImportRepository(mongo),
@@ -119,6 +122,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     candidateProfiles: repos.candidateProfiles,
     fragments: repos.fragments,
     seen: repos.blueprintSeen,
+    roundReports: repos.roundReports,
     preferences: repos.preferences,
     profileScoring: repos.profileScoring,
     linkedinImports: repos.linkedinImports,
@@ -201,8 +205,14 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     repos.processes, repos.loops, repos.targets, repos.sessions, repos.jds, repos.companies, enrichment,
     (company, role, level, specialization) => aiService.fetchBrief(company, role, level, specialization),
   );
+  const roundEvaluation = new RoundEvaluationService({
+    sessions: repos.sessions, loops: repos.loops, companies: repos.companies, reports: repos.roundReports, seen: repos.blueprintSeen,
+    prep: blueprintPrep, aiService, log,
+    options: { runTimeoutMinutes: config.evaluation.runTimeoutMinutes, autoRetries: config.evaluation.autoRetries },
+  });
   const liveSessions = new LiveSessionService(repos.sessions, liveKit, blueprintPrep, liveAvailability,
-    new LiveKitRoomAdmin(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret, fetchImpl), repos.companies, log);
+    new LiveKitRoomAdmin(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret, fetchImpl), repos.companies, log,
+    roundEvaluation, background);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
   const jobs = {
@@ -211,6 +221,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     blueprintReconcile: new BlueprintReconcileJob(repos.sessions, blueprintPrep, {
       refreshEveryTicks: config.blueprint.refreshEveryTicks, refreshCutoffMinutes: config.blueprint.refreshCutoffMinutes,
     }, log),
+    evaluationReconcile: new EvaluationReconcileJob(repos.sessions, roundEvaluation, { autoRetries: config.evaluation.autoRetries }, log),
     githubRefresh: new GitHubRefreshJob(repos.githubConnections, profiles, log),
     leetcodeRefresh: new LeetCodeRefreshJob(repos.leetcodeConnections, leetcodeJob, log),
     platformRefresh: new PlatformRefreshJob(repos.platformConnections, platforms, log),
@@ -239,6 +250,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     linkedin,
     profileScoring,
     blueprintPrep,
+    roundEvaluation,
     enrichment,
     jdFit,
     sessions,

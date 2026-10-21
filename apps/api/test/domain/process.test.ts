@@ -54,9 +54,11 @@ describe("parseProcessGraph", () => {
   });
 });
 
-describe("loop node states (order-only gating)", () => {
+describe("loop node states", () => {
   const diamond = parseProcessGraph(g([round("a"), round("b"), round("c"), round("d")], [["a", "b"], ["a", "c"], ["b", "d"], ["c", "d"]])) as ProcessGraph;
-  const done = (nodeId: string) => ({ nodeId, status: "COMPLETED" });
+  const done = (nodeId: string) => ({ nodeId, status: "COMPLETED", evalStatus: "done", outcome: "passed" as const });
+  const legacy = (nodeId: string) => ({ nodeId, status: "COMPLETED", evalStatus: "legacy" });
+  const now = new Date("2026-10-10T00:00:00Z");
 
   it("opens only roots at the start", () => {
     const s = nodeStates(diamond, []);
@@ -72,6 +74,35 @@ describe("loop node states (order-only gating)", () => {
     expect(nodeStates(diamond, [{ nodeId: "a", status: "SCHEDULED" }]).get("a")).toBe("booked");
     expect(nodeStates(diamond, [{ nodeId: "a", status: "CANCELLED" }]).get("a")).toBe("available");
     expect(nodeStates(diamond, [{ nodeId: "a", status: "ABORTED_TECHNICAL" }]).get("a")).toBe("available");
+  });
+
+  it("treats a legacy completed node as done for its successors and progress", () => {
+    expect(nodeStates(diamond, [legacy("a")]).get("a")).toBe("completed");
+    expect(nodeStates(diamond, [legacy("a")]).get("b")).toBe("available");
+    expect(nodeStates(diamond, [{ nodeId: "a", status: "COMPLETED" }]).get("a")).toBe("completed");
+    expect(progressOf(diamond, [legacy("a")]).completed).toBe(1);
+  });
+
+  it("keeps a passed node passed after a later below_pass attempt", () => {
+    const later = { nodeId: "a", status: "COMPLETED", evalStatus: "done", outcome: "below_pass" as const, retakeAfter: new Date("2026-10-20T00:00:00Z") };
+    expect(nodeStates(diamond, [done("a"), later], now).get("a")).toBe("passed");
+  });
+
+  it("shows evaluating and keeps the successor locked", () => {
+    const s = nodeStates(diamond, [{ nodeId: "a", status: "COMPLETED", evalStatus: "running" }], now);
+    expect(s.get("a")).toBe("evaluating");
+    expect(s.get("b")).toBe("locked");
+  });
+
+  it("puts a below_pass node in cooldown until retakeAfter, then available", () => {
+    const base = { nodeId: "a", status: "COMPLETED", evalStatus: "done", outcome: "below_pass" as const };
+    expect(nodeStates(diamond, [{ ...base, retakeAfter: new Date("2026-10-12T00:00:00Z") }], now).get("a")).toBe("cooldown");
+    expect(nodeStates(diamond, [{ ...base, retakeAfter: new Date("2026-10-09T00:00:00Z") }], now).get("a")).toBe("available");
+  });
+
+  it("frees a node whose evaluation failed or was unscorable", () => {
+    expect(nodeStates(diamond, [{ nodeId: "a", status: "COMPLETED", evalStatus: "failed" }], now).get("a")).toBe("available");
+    expect(nodeStates(diamond, [{ nodeId: "a", status: "COMPLETED", evalStatus: "done", outcome: "unscorable" }], now).get("a")).toBe("available");
   });
 
   it("counts only interview rounds in progress, ignoring info steps", () => {

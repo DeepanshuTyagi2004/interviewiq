@@ -33,6 +33,7 @@ const SESSION_KEYS = [
   "companyName",
   "createdAt",
   "endReason",
+  "evaluationStatus",
   "id",
   "jobDescriptionId",
   "legacyLevel",
@@ -40,14 +41,20 @@ const SESSION_KEYS = [
   "liveAvailable",
   "loopId",
   "nodeId",
+  "outcome",
+  "passMark",
   "prep",
+  "retakeAfter",
   "role",
+  "roundMinutes",
   "roundType",
   "scheduledAt",
+  "score",
   "specialization",
   "status",
   "timezone",
   "updatedAt",
+  "verdict",
 ];
 
 const createBody = (overrides: Record<string, unknown> = {}) => ({
@@ -187,7 +194,7 @@ describe("GET /interviews/sessions", () => {
 });
 
 describe("GET /interviews/sessions/:sessionId", () => {
-  it("getSession_returnsSession (no scoring on the session view)", async () => {
+  it("getSession_returnsSession (grading fields are null until the round is graded)", async () => {
     const user = await createUser(env);
     const s = await seedSession(env, user.id, jd, { status: "PREP_QUEUED" });
     const res = await env.http.get(`${SESSIONS}/${s.id}`).set("Authorization", await bearer(env, user));
@@ -195,8 +202,9 @@ describe("GET /interviews/sessions/:sessionId", () => {
     expect(res.body.id).toBe(s.id);
     expect(res.body.status).toBe("PREP_QUEUED");
     expect(res.body.briefing).toBeNull();
-    // hard rule: descriptive only
-    expect(res.body.score).toBeUndefined();
+    // grading fields exist (post-interview report) but are empty before the round is graded
+    expect(res.body.score).toBeNull();
+    expect(res.body.evaluationStatus).toBeNull();
     expect(res.body.rating).toBeUndefined();
   });
 

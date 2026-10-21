@@ -48,6 +48,8 @@ tags:
     description: Service-to-service blueprint runs (api ↔ ai-service).
   - name: admin-blueprints
     description: Interview blueprint diagnostics (ADMIN only; snake_case passthrough of the ai-service).
+  - name: admin-evaluations
+    description: Round-evaluation diagnostics (ADMIN only; snake_case passthrough of the ai-service).
   - name: admin-companies
     description: Curated company catalogue the research job works through (ADMIN only).
   - name: admin-research
@@ -919,6 +921,58 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/interviews/sessions/{sessionId}/report:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: getRoundReport
+      tags: [interview-sessions]
+      summary: The graded debrief of a completed round (only the owning candidate).
+      description: Poll while `status` is `evaluating`. `failed` retries automatically; `legacy` rounds have no report.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The report, or just its status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoundReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/interviews/sessions/{sessionId}/report/disputes:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      operationId: disputeRoundReport
+      tags: [interview-sessions]
+      summary: Dispute one question or area of the report; a re-check never lowers the score.
+      description: One per target, at most 3 per report, within 14 days of the first report.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReportDisputeRequest"
+      responses:
+        "202":
+          description: The re-check started; poll the report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportDisputeStarted"
+        "400": { description: "`invalid_dispute`" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409": { description: "`report_not_ready`, `dispute_window_closed`, `dispute_exists` or `dispute_limit`" }
+
   /api/v1/interviews/sessions/{sessionId}/prep/retry:
     parameters:
       - $ref: "#/components/parameters/SessionId"
@@ -1586,6 +1640,61 @@ paths:
           description: "`session_not_live`."
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
+  /api/v1/intelligence/evaluations/runs:
+    get:
+      operationId: listEvaluationRuns
+      tags: [admin-evaluations]
+      summary: Evaluation runs, newest first.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: company, in: query, schema: { type: string } }
+        - { name: round_type, in: query, schema: { $ref: "#/components/schemas/RoundType" } }
+        - { name: trigger, in: query, schema: { type: string } }
+        - { name: outcome, in: query, schema: { type: string } }
+        - { name: candidate_id, in: query, schema: { type: string } }
+        - { name: session_id, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: cursor, in: query, description: The previous page's next_cursor., schema: { type: string } }
+      responses:
+        "200":
+          description: A page of runs.
+          content: { application/json: { schema: { $ref: "#/components/schemas/EvaluationRunList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+  /api/v1/intelligence/evaluations/runs/{runId}:
+    get:
+      operationId: getEvaluationRun
+      tags: [admin-evaluations]
+      summary: One run with raw grader outputs, disagreements, tiebreaks and timings.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The run.
+          content: { application/json: { schema: { $ref: "#/components/schemas/EvaluationRunDetail" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { description: "`run_not_found`" }
+  /api/v1/intelligence/evaluations/sessions/{sessionId}/rerun:
+    post:
+      operationId: rerunSessionEvaluation
+      tags: [admin-evaluations]
+      summary: Re-grade a completed session from scratch (a fresh `admin` run).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The new run.
+          content: { application/json: { schema: { $ref: "#/components/schemas/EvaluationRerunStarted" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Admin role required. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "`session_not_completed`" }
   /api/v1/intelligence/blueprints/candidates:
     get:
       operationId: listBlueprintBenchCandidates
@@ -2731,6 +2840,12 @@ components:
         - liveAvailable
         - endReason
         - roundMinutes
+        - passMark
+        - score
+        - outcome
+        - verdict
+        - retakeAfter
+        - evaluationStatus
         - createdAt
         - updatedAt
       properties:
@@ -2792,12 +2907,410 @@ components:
           type: integer
           enum: [30, 35, 40, 45]
           description: This round's length in minutes, drawn at booking and kept through reschedules; 45 for sessions booked before the draw.
+        passMark: { type: number, nullable: true, description: "The round's pass mark (1-10), snapshotted at booking; null for sessions booked before grading." }
+        score: { type: number, nullable: true, description: "Overall round score (1.0-10.0, one decimal); null until graded or when the round could not be scored." }
+        outcome: { allOf: [{ $ref: "#/components/schemas/RoundOutcome" }], nullable: true }
+        verdict: { type: string, nullable: true }
+        retakeAfter: { type: string, format: date-time, nullable: true, description: Earliest retake after a below-pass round (the cooldown); null otherwise. }
+        evaluationStatus:
+          type: string
+          enum: [evaluating, ready, failed, legacy]
+          nullable: true
+          description: Grading state of a completed round; null before the round completes. `legacy` rounds finished before grading existed.
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+
+    RoundReport:
+      type: object
+      description: >
+        The graded debrief of a completed round. `status` is `evaluating` / `failed` / `legacy` with no other fields, or
+        `ready` with the report. A `ready` report whose `outcome` is `unscorable` carries only `outcome`,
+        `unscorableReason`, `meta`, `transcript` and `disputes`; every scored section is empty or null. The transcript is
+        spoken text only, never interviewer orders, tool calls or briefs.
+      required: [status]
+      properties:
+        status: { type: string, enum: [evaluating, failed, legacy, ready] }
+        version: { type: integer, description: Report version; a dispute re-check stores a new one. }
+        meta:
+          type: object
+          properties:
+            company: { type: string, nullable: true }
+            role: { type: string, nullable: true }
+            level: { type: string, nullable: true }
+            round: { type: string, nullable: true }
+            roundMinutes: { type: integer, nullable: true }
+            minutesPlayed: { type: number, nullable: true }
+            codeStandard: { type: string, nullable: true, enum: [runnable, near_runnable, pseudo_ok] }
+            weightsVersion: { type: string, nullable: true }
+            evalVersion: { type: string, nullable: true }
+        outcome: { allOf: [{ $ref: "#/components/schemas/RoundOutcome" }], nullable: true }
+        unscorableReason: { type: string, nullable: true }
+        score: { type: number, nullable: true }
+        passMark: { type: number, nullable: true }
+        verdict: { type: string, nullable: true }
+        cap: { type: string, nullable: true, description: Reason the score was capped; null when it was not. }
+        baseScore: { type: number, nullable: true, description: "The weighted area score before adjustments (1-10, one decimal); null when not scored." }
+        bonusTotal: { type: number, nullable: true, description: "Sum of the positive adjustments after the +0.5 cap; null when not scored." }
+        penaltyTotal: { type: number, nullable: true, description: "Sum of the negative adjustments (zero or below; no limit); null when not scored." }
+        practicalScore: { type: number, nullable: true }
+        theoryScore: { type: number, nullable: true }
+        retakeAfter: { type: string, format: date-time, nullable: true }
+        nextRound:
+          type: object
+          nullable: true
+          description: The round this pass unlocked.
+          required: [nodeId, name]
+          properties:
+            nodeId: { type: string }
+            name: { type: string }
+            type: { type: string, nullable: true }
+        readiness: { allOf: [{ $ref: "#/components/schemas/ReadinessLevel" }], nullable: true, description: Readiness for the JD after this round; null when the loop does not count. }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [key, label, weight, score, reason, evidence]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              weight: { type: number, description: Percent of the round this area is worth. }
+              score: { type: number }
+              reason: { type: string }
+              evidence: { type: array, items: { type: string } }
+              previousScore: { type: number, nullable: true, description: The same area on the previous attempt of this round. }
+        adjustments:
+          type: array
+          items:
+            type: object
+            required: [kind, label, delta, note]
+            properties:
+              kind: { type: string }
+              label: { type: string }
+              delta: { type: number }
+              turnId: { type: integer, nullable: true }
+              at: { type: string, nullable: true }
+              note: { type: string }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, part, kind, asked, answerQuotes, verdict, score, strongAnswer, gap, topics]
+            properties:
+              id: { type: string }
+              part: { type: string }
+              kind: { type: string }
+              title: { type: string, nullable: true }
+              asked: { type: string }
+              answerQuotes:
+                type: array
+                items:
+                  type: object
+                  required: [turnId, text]
+                  properties: { turnId: { type: integer }, text: { type: string } }
+              verdict: { type: string, enum: [correct, mostly, partly, wrong, not_answered, not_reached] }
+              score: { type: number, nullable: true }
+              strongAnswer: { type: string }
+              gap: { type: string }
+              topics:
+                type: array
+                items:
+                  type: object
+                  required: [subject, topic]
+                  properties: { subject: { type: string }, topic: { type: string } }
+              resumeConsistency: { type: string, nullable: true, enum: [consistent, unsupported, contradicts, n/a] }
+              resumeNote: { type: string, nullable: true }
+              origin: { type: string, enum: [asked, candidate_led] }
+              intent: { type: string }
+              code:
+                type: object
+                properties:
+                  language: { type: string }
+                  text: { type: string }
+                  trace:
+                    type: array
+                    items:
+                      type: object
+                      properties: { example: { type: string }, predicted: { type: string }, expected: { type: string }, matches: { type: boolean } }
+                  logicWorks: { type: string, enum: [yes, syntax_only, partly, "no"] }
+                  syntaxSlips: { type: array, items: { type: string } }
+              board:
+                type: object
+                properties:
+                  summary: { type: string }
+                  notes: { type: array, items: { type: string } }
+                  scene: { type: object, nullable: true, additionalProperties: true, description: The final whiteboard scene (Excalidraw JSON). }
+        delivery:
+          type: object
+          properties:
+            observations:
+              type: array
+              items:
+                type: object
+                properties: { text: { type: string }, examples: { type: array, items: { type: integer }, description: Transcript turn ids. } }
+            stats:
+              type: object
+              properties:
+                medianAnswerLatencyS: { type: number, nullable: true }
+                slowStarts: { type: integer, nullable: true, description: How many answers took 6 s or more to start. }
+                fillers: { type: object, additionalProperties: { type: integer } }
+                longSilences: { type: integer, nullable: true, description: How many silences over 90 s while coding. }
+                selfCorrections: { type: integer, nullable: true }
+        conduct:
+          type: array
+          items: { $ref: "#/components/schemas/RoundReportEvent" }
+        integrity:
+          type: array
+          items: { $ref: "#/components/schemas/RoundReportEvent" }
+        focus:
+          type: array
+          items:
+            type: object
+            required: [title, why, moments]
+            properties:
+              title: { type: string }
+              why: { type: string }
+              exampleQuote: { type: string, description: The candidate's own words from this round, shown apart from the advice. }
+              exampleNote: { type: string, description: A coach's note on the quote. }
+              moments: { type: array, items: { type: integer }, description: Transcript turn ids. }
+        topicGaps:
+          type: array
+          items:
+            type: object
+            required: [subject, topics]
+            properties:
+              subject: { type: string }
+              topics:
+                type: array
+                items:
+                  type: object
+                  required: [topic, why, practice]
+                  properties:
+                    topic: { type: string }
+                    why: { type: string }
+                    practice:
+                      type: array
+                      items:
+                        type: object
+                        required: [slug, title]
+                        properties: { slug: { type: string }, title: { type: string }, difficulty: { type: string, nullable: true }, retry: { type: boolean } }
+        strengths: { type: array, items: { type: string } }
+        summary: { type: string }
+        endQuestions:
+          type: object
+          properties:
+            quality: { type: string, enum: [none, basic, thoughtful] }
+            bonus: { type: number }
+            note: { type: string }
+        transcript:
+          type: array
+          items:
+            type: object
+            required: [turnId, speaker, text, markers, cutOff]
+            properties:
+              turnId: { type: integer }
+              speaker: { type: string }
+              text: { type: string }
+              at: { type: string, nullable: true }
+              cutOff: { type: boolean }
+              markers:
+                type: array
+                items:
+                  type: object
+                  properties: { kind: { type: string }, note: { type: string } }
+        disputes:
+          type: array
+          items:
+            type: object
+            properties:
+              target:
+                type: object
+                properties: { type: { type: string, enum: [question, area] }, id: { type: string } }
+              reason: { type: string }
+              decision: { type: string, enum: [upheld, revised] }
+              oldScore: { type: number, nullable: true }
+              newScore: { type: number, nullable: true }
+              explanation: { type: string }
+              reportVersion: { type: integer, nullable: true }
+              createdAt: { type: string, nullable: true }
+        recheckPending:
+          type: boolean
+          description: A dispute re-check of this report is running; its decision appears in `disputes` when it completes.
+        recheckTarget:
+          type: object
+          nullable: true
+          description: The question or area being re-checked, while `recheckPending`; null otherwise or when not known.
+          required: [type, id]
+          properties:
+            type: { type: string, enum: [question, area] }
+            id: { type: string }
+    RoundReportEvent:
+      type: object
+      required: [kind, effect]
+      properties:
+        kind: { type: string }
+        at: { type: string, nullable: true }
+        turnId: { type: integer, nullable: true }
+        effect: { description: A score change, or the text "automatic fail". }
+    CreateReportDisputeRequest:
+      type: object
+      required: [target, reason]
+      properties:
+        target:
+          type: object
+          required: [type, id]
+          properties:
+            type: { type: string, enum: [question, area] }
+            id: { type: string, description: A question id or an area key from the report. }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    ReportDisputeStarted:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [rechecking] }
+    EvaluationRunError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        transient: { type: boolean }
+    EvaluationRunSummary:
+      type: object
+      description: One evaluation run row (snake-case passthrough; the list leaves out request, raw and arithmetic).
+      required: [run_id, trigger, status, created_at]
+      properties:
+        run_id: { type: string }
+        session_id: { type: string, nullable: true }
+        candidate_id: { type: string, nullable: true }
+        trigger: { type: string }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        company: { type: string, nullable: true }
+        role: { type: string, nullable: true }
+        level: { type: string, nullable: true }
+        round_type: { type: string, nullable: true }
+        outcome: { type: string, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+        eval_version: { type: string, nullable: true }
+        error: { allOf: [{ $ref: "#/components/schemas/EvaluationRunError" }], nullable: true }
+        created_at: { type: string }
+        ended_at: { type: string, nullable: true }
+    EvaluationRunList:
+      type: object
+      required: [runs, next_cursor]
+      properties:
+        runs: { type: array, items: { $ref: "#/components/schemas/EvaluationRunSummary" } }
+        next_cursor: { type: string, nullable: true }
+    EvaluationPartGrade:
+      type: object
+      description: One grader's structured output for one part. Free-form beyond the fields the admin view reads.
+      required: [part_id]
+      additionalProperties: true
+      properties:
+        part_id: { type: string }
+        must_have_met: { type: boolean }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [key, score]
+            additionalProperties: true
+            properties:
+              key: { type: string }
+              score: { type: number }
+              reason: { type: string }
+              evidence: { type: array, items: { type: string } }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, score]
+            additionalProperties: true
+            properties:
+              id: { type: string }
+              asked: { type: string }
+              verdict: { type: string }
+              score: { type: number }
+              gap: { type: string }
+              resume_consistency: { type: string }
+        code:
+          type: object
+          nullable: true
+          additionalProperties: true
+          properties:
+            logic_works: { type: string }
+            actual_complexity: { type: string }
+            syntax_slips: { type: array, items: { type: string } }
+        moments:
+          type: array
+          items: { type: object, additionalProperties: true }
+    EvaluationDisagreement:
+      type: object
+      description: A score gap or categorical disagreement between graders A and B; c is the tiebreak, merged the final value.
+      required: [part_id, field]
+      properties:
+        part_id: { type: string }
+        field: { type: string }
+        a: { nullable: true }
+        b: { nullable: true }
+        c: { nullable: true }
+        merged: { nullable: true }
+    EvaluationRaw:
+      type: object
+      required: [disagreements, graders]
+      properties:
+        disagreements: { type: array, items: { $ref: "#/components/schemas/EvaluationDisagreement" } }
+        graders:
+          type: object
+          description: Part id to grader outputs (A, B, and C when it tiebroke).
+          additionalProperties:
+            type: object
+            properties:
+              A: { $ref: "#/components/schemas/EvaluationPartGrade" }
+              B: { $ref: "#/components/schemas/EvaluationPartGrade" }
+              C: { $ref: "#/components/schemas/EvaluationPartGrade" }
+    EvaluationArithmetic:
+      type: object
+      description: The final score arithmetic of a run.
+      properties:
+        pass_mark: { type: number }
+        main_family: { type: string, nullable: true }
+        auto_fail: { type: boolean }
+        auto_fail_reason: { type: string, nullable: true }
+        parts: { type: array, items: { type: object, additionalProperties: true } }
+        adjustments: { type: array, items: { type: object, additionalProperties: true } }
+        base: { type: number }
+        bonus_total: { type: number }
+        penalty_total: { type: number }
+        cap: { nullable: true }
+        score: { type: number, nullable: true }
+        verdict: { type: string, nullable: true }
+    EvaluationRunDetail:
+      description: One run with raw grader outputs, disagreements, tiebreaks and arithmetic (snake-case passthrough).
+      allOf:
+        - $ref: "#/components/schemas/EvaluationRunSummary"
+        - type: object
+          properties:
+            request: { type: object, nullable: true, additionalProperties: true }
+            result:
+              type: object
+              nullable: true
+              properties:
+                version: { type: integer }
+                outcome: { type: string }
+                score: { type: number, nullable: true }
+                verdict: { type: string, nullable: true }
+                pass_mark: { type: number }
+            raw: { allOf: [{ $ref: "#/components/schemas/EvaluationRaw" }], nullable: true }
+            arithmetic: { allOf: [{ $ref: "#/components/schemas/EvaluationArithmetic" }], nullable: true }
+    EvaluationRerunStarted:
+      type: object
+      required: [runId]
+      properties:
+        runId: { type: string }
 
     RescheduleInterviewSessionRequest:
       type: object
@@ -2901,11 +3414,19 @@ components:
         graph: { $ref: "#/components/schemas/ProcessGraph" }
     LoopNodeState:
       type: string
-      enum: [locked, available, booked, completed]
+      description: "locked: earlier rounds unpassed. available: can be booked. booked: an attempt is scheduled or live. evaluating: the last attempt is being graded. passed: cleared. cooldown: below pass, retake after `retakeAfter`. completed: a legacy round finished before grading (counts as passed)."
+      enum: [locked, available, booked, evaluating, passed, cooldown, completed]
+    ReadinessLevel:
+      type: string
+      description: Mock-interview readiness for a JD, from the rounds of the unedited loop passed. Never a badge or an endorsement.
+      enum: [getting_started, progressing, nearly_ready, interview_ready]
+    RoundOutcome:
+      type: string
+      enum: [passed, below_pass, auto_fail, unscorable]
     Loop:
       type: object
       description: A confirmed process with optional JD. Graph, name and level are snapshots taken at confirm time. Custom and simulated template loops never count toward readiness.
-      required: [id, name, level, jdId, jd, processId, kind, status, countsTowardReadiness, confirmedAt, graph, nodeStates, progress, sessions]
+      required: [id, name, level, jdId, jd, processId, kind, status, countsTowardReadiness, readiness, confirmedAt, graph, nodeStates, nodeResults, progress, sessions]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2917,9 +3438,22 @@ components:
         kind: { type: string, enum: [official, standalone] }
         status: { type: string, enum: [active, paused, abandoned, completed] }
         countsTowardReadiness: { type: boolean, description: "Only unedited, suggested processes count." }
+        readiness: { allOf: [{ $ref: "#/components/schemas/ReadinessLevel" }], nullable: true, description: Null when the loop does not count toward readiness. }
         confirmedAt: { type: string, format: date-time }
         graph: { $ref: "#/components/schemas/ProcessGraph" }
         nodeStates: { type: object, additionalProperties: { $ref: "#/components/schemas/LoopNodeState" } }
+        nodeResults:
+          type: object
+          description: The latest finished attempt per round node.
+          additionalProperties:
+            type: object
+            required: [sessionId, score, passMark, outcome, retakeAfter]
+            properties:
+              sessionId: { type: string, format: uuid }
+              score: { type: number, nullable: true }
+              passMark: { type: number, nullable: true }
+              outcome: { allOf: [{ $ref: "#/components/schemas/RoundOutcome" }], nullable: true }
+              retakeAfter: { type: string, format: date-time, nullable: true }
         progress:
           type: object
           required: [total, completed, nextNodeIds]
@@ -2931,12 +3465,17 @@ components:
           type: array
           items:
             type: object
-            required: [id, nodeId, status, scheduledAt]
+            required: [id, nodeId, status, scheduledAt, score, passMark, outcome, retakeAfter, evaluationStatus]
             properties:
               id: { type: string, format: uuid }
               nodeId: { type: string, nullable: true }
               status: { $ref: "#/components/schemas/SessionStatus" }
               scheduledAt: { type: string, format: date-time }
+              score: { type: number, nullable: true }
+              passMark: { type: number, nullable: true }
+              outcome: { allOf: [{ $ref: "#/components/schemas/RoundOutcome" }], nullable: true }
+              retakeAfter: { type: string, format: date-time, nullable: true }
+              evaluationStatus: { type: string, enum: [evaluating, ready, failed, legacy], nullable: true }
     LoopList:
       type: object
       required: [loops]

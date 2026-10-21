@@ -614,6 +614,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/sessions/{sessionId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The graded debrief of a completed round (only the owning candidate).
+         * @description Poll while `status` is `evaluating`. `failed` retries automatically; `legacy` rounds have no report.
+         */
+        get: operations["getRoundReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/sessions/{sessionId}/report/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispute one question or area of the report; a re-check never lowers the score.
+         * @description One per target, at most 3 per report, within 14 days of the first report.
+         */
+        post: operations["disputeRoundReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interviews/sessions/{sessionId}/prep/retry": {
         parameters: {
             query?: never;
@@ -1386,6 +1430,57 @@ export interface paths {
         put?: never;
         /** The interviewer worker ends the live round (idempotent). */
         post: operations["endLiveSessionInternal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/evaluations/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluation runs, newest first. */
+        get: operations["listEvaluationRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/evaluations/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One run with raw grader outputs, disagreements, tiebreaks and timings. */
+        get: operations["getEvaluationRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intelligence/evaluations/sessions/{sessionId}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-grade a completed session from scratch (a fresh `admin` run). */
+        post: operations["rerunSessionEvaluation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2360,10 +2455,362 @@ export interface components {
              * @enum {integer}
              */
             roundMinutes: 30 | 35 | 40 | 45;
+            /** @description The round's pass mark (1-10), snapshotted at booking; null for sessions booked before grading. */
+            passMark: number | null;
+            /** @description Overall round score (1.0-10.0, one decimal); null until graded or when the round could not be scored. */
+            score: number | null;
+            outcome: components["schemas"]["RoundOutcome"] | null;
+            verdict: string | null;
+            /**
+             * Format: date-time
+             * @description Earliest retake after a below-pass round (the cooldown); null otherwise.
+             */
+            retakeAfter: string | null;
+            /**
+             * @description Grading state of a completed round; null before the round completes. `legacy` rounds finished before grading existed.
+             * @enum {string|null}
+             */
+            evaluationStatus: "evaluating" | "ready" | "failed" | "legacy" | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /** @description The graded debrief of a completed round. `status` is `evaluating` / `failed` / `legacy` with no other fields, or `ready` with the report. A `ready` report whose `outcome` is `unscorable` carries only `outcome`, `unscorableReason`, `meta`, `transcript` and `disputes`; every scored section is empty or null. The transcript is spoken text only, never interviewer orders, tool calls or briefs.
+         *      */
+        RoundReport: {
+            /** @enum {string} */
+            status: "evaluating" | "failed" | "legacy" | "ready";
+            /** @description Report version; a dispute re-check stores a new one. */
+            version?: number;
+            meta?: {
+                company?: string | null;
+                role?: string | null;
+                level?: string | null;
+                round?: string | null;
+                roundMinutes?: number | null;
+                minutesPlayed?: number | null;
+                /** @enum {string|null} */
+                codeStandard?: "runnable" | "near_runnable" | "pseudo_ok" | null;
+                weightsVersion?: string | null;
+                evalVersion?: string | null;
+            };
+            outcome?: components["schemas"]["RoundOutcome"] | null;
+            unscorableReason?: string | null;
+            score?: number | null;
+            passMark?: number | null;
+            verdict?: string | null;
+            /** @description Reason the score was capped; null when it was not. */
+            cap?: string | null;
+            /** @description The weighted area score before adjustments (1-10, one decimal); null when not scored. */
+            baseScore?: number | null;
+            /** @description Sum of the positive adjustments after the +0.5 cap; null when not scored. */
+            bonusTotal?: number | null;
+            /** @description Sum of the negative adjustments (zero or below; no limit); null when not scored. */
+            penaltyTotal?: number | null;
+            practicalScore?: number | null;
+            theoryScore?: number | null;
+            /** Format: date-time */
+            retakeAfter?: string | null;
+            /** @description The round this pass unlocked. */
+            nextRound?: {
+                nodeId: string;
+                name: string;
+                type?: string | null;
+            } | null;
+            /** @description Readiness for the JD after this round; null when the loop does not count. */
+            readiness?: components["schemas"]["ReadinessLevel"] | null;
+            areas?: {
+                key: string;
+                label: string;
+                /** @description Percent of the round this area is worth. */
+                weight: number;
+                score: number;
+                reason: string;
+                evidence: string[];
+                /** @description The same area on the previous attempt of this round. */
+                previousScore?: number | null;
+            }[];
+            adjustments?: {
+                kind: string;
+                label: string;
+                delta: number;
+                turnId?: number | null;
+                at?: string | null;
+                note: string;
+            }[];
+            questions?: {
+                id: string;
+                part: string;
+                kind: string;
+                title?: string | null;
+                asked: string;
+                answerQuotes: {
+                    turnId: number;
+                    text: string;
+                }[];
+                /** @enum {string} */
+                verdict: "correct" | "mostly" | "partly" | "wrong" | "not_answered" | "not_reached";
+                score: number | null;
+                strongAnswer: string;
+                gap: string;
+                topics: {
+                    subject: string;
+                    topic: string;
+                }[];
+                /** @enum {string|null} */
+                resumeConsistency?: "consistent" | "unsupported" | "contradicts" | "n/a" | null;
+                resumeNote?: string | null;
+                /** @enum {string} */
+                origin?: "asked" | "candidate_led";
+                intent?: string;
+                code?: {
+                    language?: string;
+                    text?: string;
+                    trace?: {
+                        example?: string;
+                        predicted?: string;
+                        expected?: string;
+                        matches?: boolean;
+                    }[];
+                    /** @enum {string} */
+                    logicWorks?: "yes" | "syntax_only" | "partly" | "no";
+                    syntaxSlips?: string[];
+                };
+                board?: {
+                    summary?: string;
+                    notes?: string[];
+                    /** @description The final whiteboard scene (Excalidraw JSON). */
+                    scene?: {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            }[];
+            delivery?: {
+                observations?: {
+                    text?: string;
+                    /** @description Transcript turn ids. */
+                    examples?: number[];
+                }[];
+                stats?: {
+                    medianAnswerLatencyS?: number | null;
+                    /** @description How many answers took 6 s or more to start. */
+                    slowStarts?: number | null;
+                    fillers?: {
+                        [key: string]: number;
+                    };
+                    /** @description How many silences over 90 s while coding. */
+                    longSilences?: number | null;
+                    selfCorrections?: number | null;
+                };
+            };
+            conduct?: components["schemas"]["RoundReportEvent"][];
+            integrity?: components["schemas"]["RoundReportEvent"][];
+            focus?: {
+                title: string;
+                why: string;
+                /** @description The candidate's own words from this round, shown apart from the advice. */
+                exampleQuote?: string;
+                /** @description A coach's note on the quote. */
+                exampleNote?: string;
+                /** @description Transcript turn ids. */
+                moments: number[];
+            }[];
+            topicGaps?: {
+                subject: string;
+                topics: {
+                    topic: string;
+                    why: string;
+                    practice: {
+                        slug: string;
+                        title: string;
+                        difficulty?: string | null;
+                        retry?: boolean;
+                    }[];
+                }[];
+            }[];
+            strengths?: string[];
+            summary?: string;
+            endQuestions?: {
+                /** @enum {string} */
+                quality?: "none" | "basic" | "thoughtful";
+                bonus?: number;
+                note?: string;
+            };
+            transcript?: {
+                turnId: number;
+                speaker: string;
+                text: string;
+                at?: string | null;
+                cutOff: boolean;
+                markers: {
+                    kind?: string;
+                    note?: string;
+                }[];
+            }[];
+            disputes?: {
+                target?: {
+                    /** @enum {string} */
+                    type?: "question" | "area";
+                    id?: string;
+                };
+                reason?: string;
+                /** @enum {string} */
+                decision?: "upheld" | "revised";
+                oldScore?: number | null;
+                newScore?: number | null;
+                explanation?: string;
+                reportVersion?: number | null;
+                createdAt?: string | null;
+            }[];
+            /** @description A dispute re-check of this report is running; its decision appears in `disputes` when it completes. */
+            recheckPending?: boolean;
+            /** @description The question or area being re-checked, while `recheckPending`; null otherwise or when not known. */
+            recheckTarget?: {
+                /** @enum {string} */
+                type: "question" | "area";
+                id: string;
+            } | null;
+        };
+        RoundReportEvent: {
+            kind: string;
+            at?: string | null;
+            turnId?: number | null;
+            /** @description A score change */
+            effect: unknown;
+        };
+        CreateReportDisputeRequest: {
+            target: {
+                /** @enum {string} */
+                type: "question" | "area";
+                /** @description A question id or an area key from the report. */
+                id: string;
+            };
+            reason: string;
+        };
+        ReportDisputeStarted: {
+            /** @enum {string} */
+            status: "rechecking";
+        };
+        EvaluationRunError: {
+            code: string;
+            message: string;
+            transient?: boolean;
+        };
+        /** @description One evaluation run row (snake-case passthrough; the list leaves out request, raw and arithmetic). */
+        EvaluationRunSummary: {
+            run_id: string;
+            session_id?: string | null;
+            candidate_id?: string | null;
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "completed" | "failed" | "cancelled";
+            company?: string | null;
+            role?: string | null;
+            level?: string | null;
+            round_type?: string | null;
+            outcome?: string | null;
+            duration_ms?: number | null;
+            eval_version?: string | null;
+            error?: components["schemas"]["EvaluationRunError"] | null;
+            created_at: string;
+            ended_at?: string | null;
+        };
+        EvaluationRunList: {
+            runs: components["schemas"]["EvaluationRunSummary"][];
+            next_cursor: string | null;
+        };
+        /** @description One grader's structured output for one part. Free-form beyond the fields the admin view reads. */
+        EvaluationPartGrade: {
+            part_id: string;
+            must_have_met?: boolean;
+            areas?: ({
+                key: string;
+                score: number;
+                reason?: string;
+                evidence?: string[];
+            } & {
+                [key: string]: unknown;
+            })[];
+            questions?: ({
+                id: string;
+                asked?: string;
+                verdict?: string;
+                score: number;
+                gap?: string;
+                resume_consistency?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            code?: ({
+                logic_works?: string;
+                actual_complexity?: string;
+                syntax_slips?: string[];
+            } & {
+                [key: string]: unknown;
+            }) | null;
+            moments?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A score gap or categorical disagreement between graders A and B; c is the tiebreak, merged the final value. */
+        EvaluationDisagreement: {
+            part_id: string;
+            field: string;
+            a?: unknown;
+            b?: unknown;
+            c?: unknown;
+            merged?: unknown;
+        };
+        EvaluationRaw: {
+            disagreements: components["schemas"]["EvaluationDisagreement"][];
+            /** @description Part id to grader outputs (A, B, and C when it tiebroke). */
+            graders: {
+                [key: string]: {
+                    A?: components["schemas"]["EvaluationPartGrade"];
+                    B?: components["schemas"]["EvaluationPartGrade"];
+                    C?: components["schemas"]["EvaluationPartGrade"];
+                };
+            };
+        };
+        /** @description The final score arithmetic of a run. */
+        EvaluationArithmetic: {
+            pass_mark?: number;
+            main_family?: string | null;
+            auto_fail?: boolean;
+            auto_fail_reason?: string | null;
+            parts?: {
+                [key: string]: unknown;
+            }[];
+            adjustments?: {
+                [key: string]: unknown;
+            }[];
+            base?: number;
+            bonus_total?: number;
+            penalty_total?: number;
+            cap?: unknown;
+            score?: number | null;
+            verdict?: string | null;
+        };
+        /** @description One run with raw grader outputs, disagreements, tiebreaks and arithmetic (snake-case passthrough). */
+        EvaluationRunDetail: components["schemas"]["EvaluationRunSummary"] & {
+            request?: {
+                [key: string]: unknown;
+            } | null;
+            result?: {
+                version?: number;
+                outcome?: string;
+                score?: number | null;
+                verdict?: string | null;
+                pass_mark?: number;
+            } | null;
+            raw?: components["schemas"]["EvaluationRaw"] | null;
+            arithmetic?: components["schemas"]["EvaluationArithmetic"] | null;
+        };
+        EvaluationRerunStarted: {
+            runId: string;
         };
         RescheduleInterviewSessionRequest: {
             /** Format: date-time */
@@ -2449,8 +2896,18 @@ export interface components {
         OfficialProcess: {
             graph: components["schemas"]["ProcessGraph"];
         };
+        /**
+         * @description locked: earlier rounds unpassed. available: can be booked. booked: an attempt is scheduled or live. evaluating: the last attempt is being graded. passed: cleared. cooldown: below pass, retake after `retakeAfter`. completed: a legacy round finished before grading (counts as passed).
+         * @enum {string}
+         */
+        LoopNodeState: "locked" | "available" | "booked" | "evaluating" | "passed" | "cooldown" | "completed";
+        /**
+         * @description Mock-interview readiness for a JD, from the rounds of the unedited loop passed. Never a badge or an endorsement.
+         * @enum {string}
+         */
+        ReadinessLevel: "getting_started" | "progressing" | "nearly_ready" | "interview_ready";
         /** @enum {string} */
-        LoopNodeState: "locked" | "available" | "booked" | "completed";
+        RoundOutcome: "passed" | "below_pass" | "auto_fail" | "unscorable";
         /** @description A confirmed process with optional JD. Graph, name and level are snapshots taken at confirm time. Custom and simulated template loops never count toward readiness. */
         Loop: {
             /** Format: uuid */
@@ -2469,11 +2926,25 @@ export interface components {
             status: "active" | "paused" | "abandoned" | "completed";
             /** @description Only unedited, suggested processes count. */
             countsTowardReadiness: boolean;
+            /** @description Null when the loop does not count toward readiness. */
+            readiness: components["schemas"]["ReadinessLevel"] | null;
             /** Format: date-time */
             confirmedAt: string;
             graph: components["schemas"]["ProcessGraph"];
             nodeStates: {
                 [key: string]: components["schemas"]["LoopNodeState"];
+            };
+            /** @description The latest finished attempt per round node. */
+            nodeResults: {
+                [key: string]: {
+                    /** Format: uuid */
+                    sessionId: string;
+                    score: number | null;
+                    passMark: number | null;
+                    outcome: components["schemas"]["RoundOutcome"] | null;
+                    /** Format: date-time */
+                    retakeAfter: string | null;
+                };
             };
             progress: {
                 total: number;
@@ -2487,6 +2958,13 @@ export interface components {
                 status: components["schemas"]["SessionStatus"];
                 /** Format: date-time */
                 scheduledAt: string;
+                score: number | null;
+                passMark: number | null;
+                outcome: components["schemas"]["RoundOutcome"] | null;
+                /** Format: date-time */
+                retakeAfter: string | null;
+                /** @enum {string|null} */
+                evaluationStatus: "evaluating" | "ready" | "failed" | "legacy" | null;
             }[];
         };
         LoopList: {
@@ -5048,6 +5526,72 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getRoundReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report, or just its status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundReport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    disputeRoundReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReportDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description The re-check started; poll the report. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDisputeStarted"];
+                };
+            };
+            /** @description `invalid_dispute` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `report_not_ready`, `dispute_window_closed`, `dispute_exists` or `dispute_limit` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     retryInterviewSessionPrep: {
         parameters: {
             query?: never;
@@ -6552,6 +7096,122 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiError"];
                 };
+            };
+        };
+    };
+    listEvaluationRuns: {
+        parameters: {
+            query?: {
+                status?: string;
+                company?: string;
+                round_type?: components["schemas"]["RoundType"];
+                trigger?: string;
+                outcome?: string;
+                candidate_id?: string;
+                session_id?: string;
+                from?: string;
+                to?: string;
+                limit?: number;
+                /** @description The previous page's next_cursor. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of runs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getEvaluationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `run_not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rerunSessionEvaluation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRerunStarted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `session_not_completed` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

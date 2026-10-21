@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../db/pg/client.js";
 import {
   authTokens,
@@ -524,6 +524,10 @@ export class PlatformConnectionRepository {
   }
 }
 
+/** Automatic evaluation re-runs after a transient failure: this many per rolling window (spec §11.3). */
+export const EVAL_RETRY_CAP = 2;
+export const EVAL_RETRY_WINDOW_MS = 60 * 60 * 1000;
+
 export class InterviewSessionRepository {
   constructor(private readonly db: Database) {}
 
@@ -590,6 +594,69 @@ export class InterviewSessionRepository {
 
   findById(id: string): Promise<InterviewSessionRow | null> {
     return this.db.select().from(interviewSessions).where(eq(interviewSessions.id, id)).then(one);
+  }
+
+  /** The candidate's most recent session for a loop node (by slot), whatever its state. */
+  findLatestForNode(candidateId: string, loopId: string, nodeId: string): Promise<InterviewSessionRow | null> {
+    return this.db
+      .select()
+      .from(interviewSessions)
+      .where(and(eq(interviewSessions.candidateId, candidateId), eq(interviewSessions.loopId, loopId), eq(interviewSessions.nodeId, nodeId)))
+      .orderBy(desc(interviewSessions.scheduledAt))
+      .limit(1)
+      .then(one);
+  }
+
+  /**
+   * The evaluation job's work: COMPLETED sessions awaiting or in an evaluation run (including a dispute re-check of a ready report), plus failed ones with
+   * automatic retries left (under `retryCap` attempts inside the rolling `retryWindowMs`; an old window
+   * resets the count, so a stale failure is eligible again).
+   */
+  findEvaluationWork(now: Date = new Date(), retryCap = EVAL_RETRY_CAP, retryWindowMs = EVAL_RETRY_WINDOW_MS): Promise<InterviewSessionRow[]> {
+    const windowStart = new Date(now.getTime() - retryWindowMs);
+    return this.db
+      .select()
+      .from(interviewSessions)
+      .where(and(
+        eq(interviewSessions.status, "COMPLETED"),
+        or(
+          inArray(interviewSessions.evalStatus, ["pending", "running"]),
+          and(eq(interviewSessions.evalStatus, "ready"), isNotNull(interviewSessions.evalRunId)), // a dispute re-check in flight
+          and(
+            eq(interviewSessions.evalStatus, "failed"),
+            or(
+              lt(interviewSessions.evalAttempts, retryCap),
+              isNull(interviewSessions.evalRetryWindowStart),
+              lt(interviewSessions.evalRetryWindowStart, windowStart),
+            ),
+          ),
+        ),
+      ))
+      .orderBy(asc(interviewSessions.scheduledAt));
+  }
+
+  /**
+   * The evaluation-run claim: attach the run only to a completed round still waiting for one (pending, or failed and
+   * being retried) with no other run attached meanwhile. A round that turned out to be a technical end (unscorable) or
+   * that already has a report is never revived.
+   */
+  attachEvalRun(id: string, runId: string): Promise<InterviewSessionRow | null> {
+    return this.db
+      .update(interviewSessions)
+      .set({ evalRunId: runId, evalRunStartedAt: new Date(), evalStatus: "running" })
+      .where(and(
+        eq(interviewSessions.id, id),
+        isNull(interviewSessions.evalRunId),
+        eq(interviewSessions.status, "COMPLETED"),
+        inArray(interviewSessions.evalStatus, ["pending", "failed"]),
+      ))
+      .returning()
+      .then(one);
+  }
+
+  /** Write the evaluation fields (status, score, outcome, retakeAfter, run bookkeeping...). */
+  applyEvaluation(id: string, patch: Partial<Insert<typeof interviewSessions>>): Promise<InterviewSessionRow | null> {
+    return this.db.update(interviewSessions).set(patch).where(eq(interviewSessions.id, id)).returning().then(one);
   }
 
   /** Live sessions that went live before `before`: the stuck-session sweep's candidates. */

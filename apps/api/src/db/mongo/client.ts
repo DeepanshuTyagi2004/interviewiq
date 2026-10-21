@@ -14,6 +14,7 @@ import type { ValidationControlsDoc } from "../../repositories/validationControl
  *                       inputs (GitHub / LeetCode)
  *   blueprint_seen      one per (candidate, problem) — problems a candidate was given in a live
  *                       interview, excluded from their later blueprints (no repeats on retakes)
+ *   round_reports       one per (session, version) — the graded post-interview report, append-only
  *   user_preferences    one per user (_id = userId) — only the settings the user changed; reads
  *                       overlay them on DEFAULT_PREFERENCES (domain/preferences.ts)
  *
@@ -71,6 +72,18 @@ export interface BlueprintSeenDoc {
   at: Date;
 }
 
+/** One graded report per (session, version); versions are append-only so a re-evaluation never overwrites the first. */
+export interface RoundReportDoc {
+  _id: string;
+  sessionId: string;
+  candidateId: string;
+  version: number;
+  report: unknown;
+  createdAt: Date;
+  /** The target of the dispute re-check started on this version, while it runs (the next version supersedes it). */
+  recheck?: { type: "question" | "area"; id: string } | null;
+}
+
 export interface UserPreferencesDoc {
   _id: string;
   /** Partial sections: only the leaves the user changed. Validated on every read. */
@@ -86,6 +99,7 @@ export interface MongoCollections {
   profileFragments: Collection<ProfileFragmentDoc>;
   blueprintSeen: Collection<BlueprintSeenDoc>;
   userPreferences: Collection<UserPreferencesDoc>;
+  roundReports: Collection<RoundReportDoc>;
   profileScoringSettings: Collection<ProfileScoringSettingsDoc>;
   profileScoreSnapshots: Collection<ProfileScoreDoc>;
   profileScoringJobs: Collection<ProfileScoringJobDoc>;
@@ -103,6 +117,7 @@ export function collections(db: Db): MongoCollections {
     profileFragments: db.collection<ProfileFragmentDoc>("profile_fragments"),
     blueprintSeen: db.collection<BlueprintSeenDoc>("blueprint_seen"),
     userPreferences: db.collection<UserPreferencesDoc>("user_preferences"),
+    roundReports: db.collection<RoundReportDoc>("round_reports"),
     profileScoringSettings: db.collection<ProfileScoringSettingsDoc>("profile_scoring_settings"),
     profileScoreSnapshots: db.collection<ProfileScoreDoc>("profile_score_snapshots"),
     profileScoringJobs: db.collection<ProfileScoringJobDoc>("profile_scoring_jobs"),
@@ -119,6 +134,8 @@ export function collections(db: Db): MongoCollections {
 export async function ensureMongoIndexes(c: MongoCollections): Promise<void> {
   await c.profileFragments.createIndex({ userId: 1, source: 1 }, { unique: true, name: "uq_fragment_user_source" });
   await c.blueprintSeen.createIndex({ candidateId: 1, slug: 1 }, { unique: true, name: "uq_seen_candidate_slug" });
+  await c.roundReports.createIndex({ sessionId: 1, version: 1 }, { unique: true, name: "uq_round_report_session_version" });
+  await c.roundReports.createIndex({ candidateId: 1 }, { name: "idx_round_report_candidate" });
   await c.profileScoreSnapshots.createIndex({ userId: 1, "snapshot.calculatedAt": -1 });
   await c.profileScoreSnapshots.createIndex({ "snapshot.week": 1, "snapshot.calculatedAt": -1 });
   await c.profileScoringJobs.createIndex({ startedAt: -1 });

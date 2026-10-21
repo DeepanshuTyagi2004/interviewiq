@@ -1,4 +1,5 @@
-import type { InterviewProcessRow, JobDescriptionRow, LoopRow } from "../db/pg/schema.js";
+import type { InterviewSessionRow, InterviewProcessRow, JobDescriptionRow, LoopRow } from "../db/pg/schema.js";
+import { readinessLevel } from "../domain/evaluation.js";
 import { MOCK_ROUND_MINUTES } from "../domain/liveRound.js";
 import { linearGraph, nodeStates, parseProcessGraph, progressOf, type ProcessGraph } from "../domain/process.js";
 import { ApiError } from "../lib/errors.js";
@@ -11,6 +12,7 @@ import type {
   ProcessRepository,
   TargetRepository,
 } from "../repositories/pg.js";
+import { evaluationStatusView } from "./interviewSessions.js";
 import type { CompanyEnrichmentService } from "./companyEnrichment.js";
 import { engineeringLevelView, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "../domain/engineeringLevels.js";
 
@@ -50,6 +52,8 @@ function briefRounds(brief: unknown): unknown[] {
   }
   return [];
 }
+
+type LoopSessionRow = InterviewSessionRow;
 
 export class LoopService {
   constructor(
@@ -206,22 +210,36 @@ export class LoopService {
     return this.loopView(row, [], jd ? (await this.jdBriefs([jd.id])).get(jd.id) : undefined);
   }
 
-  private loopView(l: LoopRow, sessions: { id: string; loopId: string | null; nodeId: string | null; status: string; scheduledAt: Date }[], jd: JdBrief | undefined) {
+  private loopView(l: LoopRow, sessions: LoopSessionRow[], jd: JdBrief | undefined) {
     const mine = sessions.filter((s) => s.loopId === l.id);
     const states = nodeStates(l.graph, mine);
+    const progress = progressOf(l.graph, mine);
+    const counts = l.kind === "official" && !jd?.practiceTemplate && l.jdId !== null;
+    // The latest finished attempt per round: what the loop dashboard shows beside the node state.
+    const nodeResults: Record<string, { sessionId: string; score: number | null; passMark: number | null; outcome: string | null; retakeAfter: Date | null }> = {};
+    for (const s of [...mine].filter((x) => x.nodeId && x.status === "COMPLETED").sort((a, b) => (a.liveEndedAt?.getTime() ?? 0) - (b.liveEndedAt?.getTime() ?? 0))) {
+      nodeResults[s.nodeId!] = { sessionId: s.id, score: s.score ?? null, passMark: s.passMark ?? null, outcome: s.outcome ?? null, retakeAfter: s.retakeAfter ?? null };
+    }
     return {
       id: l.id, name: l.name, ...engineeringLevelView(l.level), jd: jd ?? null, jdId: l.jdId, processId: l.processId, kind: l.kind, status: l.status,
       /** Only unedited, suggested processes count toward readiness. */
-      countsTowardReadiness: l.kind === "official" && !jd?.practiceTemplate && l.jdId !== null,
+      countsTowardReadiness: counts,
+      /** Readiness level from the rounds passed; null for a loop that does not count. */
+      readiness: counts ? readinessLevel(progress.completed, progress.total) : null,
       confirmedAt: l.confirmedAt, graph: l.graph,
       nodeStates: Object.fromEntries(states),
-      progress: progressOf(l.graph, mine),
-      sessions: mine.map((s) => ({ id: s.id, nodeId: s.nodeId, status: s.status, scheduledAt: s.scheduledAt })),
+      progress,
+      nodeResults,
+      sessions: mine.map((s) => ({
+        id: s.id, nodeId: s.nodeId, status: s.status, scheduledAt: s.scheduledAt,
+        score: s.score ?? null, passMark: s.passMark ?? null, outcome: s.outcome ?? null, retakeAfter: s.retakeAfter ?? null,
+        evaluationStatus: evaluationStatusView(s),
+      })),
     };
   }
 
   /** A finished loop (every round completed) flips to `completed` the next time it is read. */
-  private async withAutoComplete(rows: LoopRow[], sessions: { loopId: string | null; nodeId: string | null; status: string }[]): Promise<LoopRow[]> {
+  private async withAutoComplete(rows: LoopRow[], sessions: LoopSessionRow[]): Promise<LoopRow[]> {
     const out: LoopRow[] = [];
     for (const l of rows) {
       const p = progressOf(l.graph, sessions.filter((s) => s.loopId === l.id));

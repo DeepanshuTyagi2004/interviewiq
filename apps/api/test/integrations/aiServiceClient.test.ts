@@ -27,6 +27,34 @@ describe("AiServiceClient request shape (FakeFetch)", () => {
     client = new AiServiceClient(BASE, KEY, fake.fetch, silentLogger());
   });
 
+  it("evaluation calls carry the internal key, JSON bodies and encoded paths", async () => {
+    fake.on("POST", `${BASE}/evaluations/runs`, { run_id: "evr_1", status: "running", existing: false });
+    fake.on("GET", `${BASE}/evaluations/runs/evr_1`, { run_id: "evr_1", status: "running" });
+    fake.on("GET", `${BASE}/evaluations/sessions/s%201?version=2`, { version: 2, report: {} });
+    fake.on("POST", `${BASE}/evaluations/runs/evr_1/cancel`, { cancelled: true });
+    fake.on("POST", `${BASE}/admin/evaluations/runs/evr_1/rerun`, { run_id: "evr_2" });
+    fake.on("GET", `${BASE}/admin/evaluations/runs?limit=5`, { runs: [] });
+
+    const req = { session_id: "s1", candidate_id: "c1", trigger: "completion" } as never;
+    expect(await client.startEvaluationRun(req)).toEqual({ run_id: "evr_1", status: "running", existing: false });
+    expect((await client.getEvaluationRun("evr_1")).status).toBe("running");
+    expect((await client.getSessionEvaluation("s 1", 2)).version).toBe(2);
+    await client.cancelEvaluationRun("evr_1");
+    await client.rerunEvaluation("evr_1");
+    await client.listEvaluationRuns(new URLSearchParams({ limit: "5" }));
+
+    const start = fake.calls[0]!;
+    expect(start.headers["x-internal-api-key"]).toBe(KEY);
+    expect(start.headers["content-type"]).toContain("application/json");
+    expect(start.json).toMatchObject({ session_id: "s1", trigger: "completion" });
+    expect(fake.calls.every((c) => c.headers["x-internal-api-key"] === KEY)).toBe(true);
+  });
+
+  it("startEvaluationRun rejects a response without a run_id", async () => {
+    fake.on("POST", `${BASE}/evaluations/runs`, { status: "running" });
+    await expect(client.startEvaluationRun({} as never)).rejects.toBeInstanceOf(UpstreamMalformedError);
+  });
+
   it("parseResume POSTs the raw PDF bytes as application/pdf with the internal key", async () => {
     fake.on("POST", `${BASE}/resumes/parse`, () => text('{"full_name":"ok"}'));
 

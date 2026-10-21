@@ -13,7 +13,8 @@ import type {
 import { nodeStates, roundNodes, type RoundNode } from "../domain/process.js";
 import { practiceSnapshot } from "../domain/practice.js";
 import { drawRoundMinutes, sessionRoundMinutes } from "../domain/liveRound.js";
-import type { BlueprintPrepService, PrepStep } from "./blueprintPrep.js";
+import { codeStandardFor, passMark, type CodeStandard } from "../domain/evaluation.js";
+import { resolveRoundDifficulty, type BlueprintPrepService, type PrepStep } from "./blueprintPrep.js";
 import type { CompanyEnrichmentService } from "./companyEnrichment.js";
 import { engineeringLevelView, normalizeLegacyLevel, type EngineeringLevel } from "../domain/engineeringLevels.js";
 
@@ -78,8 +79,29 @@ export interface InterviewSessionResponse {
   nodeId: string | null;
   /** This round's length in minutes (30, 35, 40 or 45), drawn at booking; 45 for sessions booked before the draw. */
   roundMinutes: number;
+  /** Grading snapshot and result (spec §11.3); null until the round is graded. */
+  passMark: number | null;
+  score: number | null;
+  outcome: string | null;
+  verdict: string | null;
+  retakeAfter: Date | null;
+  /** evaluating | ready | failed | legacy; null until the round is completed. */
+  evaluationStatus: EvaluationStatusView | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type EvaluationStatusView = "evaluating" | "ready" | "failed" | "legacy";
+
+/** The candidate-facing evaluation state of a completed session. */
+export function evaluationStatusView(s: Pick<InterviewSessionRow, "status" | "evalStatus">): EvaluationStatusView | null {
+  if (s.status !== "COMPLETED") return null;
+  switch (s.evalStatus) {
+    case "pending": case "running": return "evaluating";
+    case "ready": case "unscorable": return "ready";
+    case "failed": return "failed";
+    default: return "legacy";
+  }
 }
 
 export function toSessionResponse(
@@ -116,6 +138,12 @@ export function toSessionResponse(
     loopId: s.loopId,
     nodeId: s.nodeId,
     roundMinutes: sessionRoundMinutes(s),
+    passMark: s.passMark ?? null,
+    score: s.score ?? null,
+    outcome: s.outcome ?? null,
+    verdict: s.verdict ?? null,
+    retakeAfter: s.retakeAfter ?? null,
+    evaluationStatus: evaluationStatusView(s),
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };
@@ -200,10 +228,16 @@ export class InterviewSessionService {
       if (loop.status !== "active") throw InterviewSessionError.conflict("loop_not_active", "this loop is not active");
       const node = roundNodes(loop.graph).find((n) => n.id === req.nodeId);
       if (!node) throw InterviewSessionError.badRequest("session_node_not_found", "that round is not part of this loop");
-      const state = nodeStates(loop.graph, await this.sessions.findAllByLoopIds([loop.id])).get(node.id);
+      const loopSessions = await this.sessions.findAllByLoopIds([loop.id]);
+      const state = nodeStates(loop.graph, loopSessions).get(node.id);
       if (state === "locked") throw InterviewSessionError.conflict("round_locked", "complete the earlier rounds first");
       if (state === "booked") throw InterviewSessionError.conflict("round_already_booked", "this round is already booked");
-      if (state === "completed") throw InterviewSessionError.conflict("round_already_completed", "this round is already completed");
+      if (state === "evaluating") throw InterviewSessionError.conflict("round_evaluating", "your last attempt at this round is still being evaluated");
+      if (state === "cooldown") {
+        const until = loopSessions.filter((s) => s.nodeId === node.id && s.retakeAfter).map((s) => s.retakeAfter!.getTime()).sort((a, b) => a - b).at(-1);
+        throw InterviewSessionError.conflict("round_cooldown", `you can retake this round after ${new Date(until!).toISOString().slice(0, 10)}`);
+      }
+      if (state === "completed" || state === "passed") throw InterviewSessionError.conflict("round_already_completed", "this round is already completed");
       loopRound = { jdId: loop.jdId, type: node.type, loop, node };
     }
     const jobDescriptionId = loopRound ? loopRound.jdId : req.jobDescriptionId;
@@ -247,6 +281,17 @@ export class InterviewSessionService {
       level: practice && loopRound ? loopRound.loop.level : jd!.level,
       specialization: jd?.specialization ?? null,
     };
+    // The grading snapshot (spec §8.5): stored once here and never recomputed, so later admin edits to the
+    // company never change a booked round's pass mark or code standard.
+    const companyRow = jd ? await this.companies.findBySlug(jd.company) : null; // custom practice (no JD): tier and business model stay null
+    const companyTier = companyRow?.tier ?? null;
+    const override = companyRow?.codeStandard;
+    const codeOverride: CodeStandard | null = override === "runnable" || override === "near_runnable" || override === "pseudo_ok" ? override : null;
+    const roundMinutes = drawRoundMinutes(); // drawn once here; a reschedule or re-prep keeps it, a retake (new session) draws again
+    const practicePrep = practice && loopRound ? practiceSnapshot(loopRound.loop, loopRound.node, identity) : undefined;
+    const roundDifficulty = resolveRoundDifficulty(
+      { roundType, nodeId: req.nodeId ?? null, practicePrep: practicePrep ?? null, roundMinutes }, manual ?? null, loopRound?.loop ?? null,
+    );
     const session = await this.sessions.insertIfSlotFree({
       candidateId,
       jobDescriptionId: jd?.id ?? null,
@@ -257,8 +302,12 @@ export class InterviewSessionService {
       status: "SCHEDULED",
       loopId: req.loopId,
       nodeId: req.nodeId,
-      roundMinutes: drawRoundMinutes(), // drawn once here; a reschedule or re-prep keeps it, a retake (new session) draws again
-      ...(practice && loopRound ? { practicePrep: practiceSnapshot(loopRound.loop, loopRound.node, identity) } : {}),
+      roundMinutes,
+      passMark: passMark({ level: identity.level, tier: companyTier, difficulty: roundDifficulty }),
+      codeStandard: codeStandardFor(companyTier, companyRow?.businessModel ?? null, codeOverride),
+      companyTier,
+      roundDifficulty,
+      ...(practicePrep ? { practicePrep } : {}),
     }, SLOT_MINUTES);
     if (!session) throw slotTaken();
     return this.toResponse(await this.prep.onBooked(session));

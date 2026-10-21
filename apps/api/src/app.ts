@@ -14,7 +14,7 @@ import { authRouter } from "./routes/auth.js";
 import { companiesRouter, experiencesRouter, jdsRouter } from "./routes/catalogue.js";
 import { jdFitRouter } from "./routes/jdFit.js";
 import { githubConnectionRouter, leetcodeConnectionRouter, platformConnectionsRouter } from "./routes/connections.js";
-import { blueprintAdminRouter, intelligenceRouter, resumeBenchRouter } from "./routes/intelligence.js";
+import { blueprintAdminRouter, evaluationAdminRouter, intelligenceRouter, resumeBenchRouter } from "./routes/intelligence.js";
 import { internalRouter } from "./routes/internal.js";
 import { interviewsRouter } from "./routes/interviews.js";
 import { loopsRouter, processesRouter, targetsRouter } from "./routes/loops.js";
@@ -101,6 +101,7 @@ export function createApp(c: Container): express.Express {
   v1.use("/processes", processesRouter(c));
   v1.use("/targets", targetsRouter(c));
   v1.use("/intelligence/blueprints", blueprintAdminRouter(c));
+  v1.use("/intelligence/evaluations", evaluationAdminRouter(c));
   v1.use("/intelligence/resume", resumeBenchRouter(c));
   v1.use("/intelligence", intelligenceRouter(c));
   v1.use("/admin/companies", adminCompaniesRouter(c));

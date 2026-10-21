@@ -4,6 +4,7 @@ import type {
   CandidateProfileDoc,
   MongoCollections,
   ProfileFragmentDoc,
+  RoundReportDoc,
   UserPreferencesDoc,
 } from "../db/mongo/client.js";
 import type { ProfileSource } from "../domain/enums.js";
@@ -123,6 +124,39 @@ export class BlueprintSeenRepository {
 
   async deleteByCandidate(candidateId: string): Promise<void> {
     await this.c.blueprintSeen.deleteMany({ candidateId });
+  }
+}
+
+/** Graded round reports (Mongo `round_reports`), one document per (session, version). */
+export class RoundReportRepository {
+  constructor(private readonly c: MongoCollections) {}
+
+  /** Idempotent per (sessionId, version): a repeat save of the same version is ignored, never overwritten. */
+  async save(sessionId: string, candidateId: string, version: number, report: unknown): Promise<void> {
+    await this.c.roundReports.updateOne(
+      { sessionId, version },
+      { $setOnInsert: { _id: randomUUID(), sessionId, candidateId, version, report, createdAt: new Date() } },
+      { upsert: true },
+    );
+  }
+
+  async latest(sessionId: string): Promise<{ version: number; report: any; createdAt: Date; recheck: RoundReportDoc["recheck"] } | null> {
+    const d = await this.c.roundReports.find({ sessionId }).sort({ version: -1 }).limit(1).next();
+    return d ? { version: d.version, report: d.report, createdAt: d.createdAt, recheck: d.recheck ?? null } : null;
+  }
+
+  /** Remember which question or area a dispute re-check of this version is about (shown while it runs). */
+  async markRecheck(sessionId: string, version: number, target: NonNullable<RoundReportDoc["recheck"]>): Promise<void> {
+    await this.c.roundReports.updateOne({ sessionId, version }, { $set: { recheck: target } });
+  }
+
+  async first(sessionId: string): Promise<{ version: number; report: any; createdAt: Date } | null> {
+    const d = await this.c.roundReports.find({ sessionId }).sort({ version: 1 }).limit(1).next();
+    return d ? { version: d.version, report: d.report, createdAt: d.createdAt } : null;
+  }
+
+  async deleteByCandidate(candidateId: string): Promise<void> {
+    await this.c.roundReports.deleteMany({ candidateId });
   }
 }
 

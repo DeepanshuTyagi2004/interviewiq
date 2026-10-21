@@ -164,6 +164,37 @@ export function blueprintAdminRouter(c: Container): Router {
   return r;
 }
 
+/**
+ * Round-evaluation diagnostics (post-interview report spec §11), mounted at /api/v1/intelligence/evaluations. Snake-case
+ * passthrough of the AI service's admin routes, plus the session re-run (a fresh `admin` run attached to the session).
+ */
+export function evaluationAdminRouter(c: Container): Router {
+  const r = router();
+
+  r.get("/runs", async (req, res) => {
+    const q = new URLSearchParams();
+    for (const key of ["status", "company", "round_type", "trigger", "outcome", "candidate_id", "session_id", "from", "to", "limit", "cursor"]) {
+      const v = queryString(req, key);
+      if (v) q.set(key, v);
+    }
+    res.json(await c.aiService.listEvaluationRuns(q));
+  });
+
+  r.get("/runs/:runId", async (req, res) => {
+    res.json(await c.aiService.getEvaluationRunAdmin(stringParam(req, "runId")));
+  });
+
+  /** Re-grade a completed session from scratch: `{runId}`. */
+  r.post("/sessions/:sessionId/rerun", async (req, res) => {
+    const sessionId = stringParam(req, "sessionId");
+    if (!UUID_RE.test(sessionId)) throw new InvalidArgumentError("sessionId must be a UUID");
+    res.json(await c.roundEvaluation.rerun(sessionId.toLowerCase()));
+  });
+
+  r.use(runProxyErrors(c, "evaluation_bad_request", "no such evaluation run", "AI service evaluation call failed"));
+  return r;
+}
+
 /** Resume-parse observability bench (admin copy of the onboarding parse, fully instrumented). */
 export function resumeBenchRouter(c: Container): Router {
   const r = router();

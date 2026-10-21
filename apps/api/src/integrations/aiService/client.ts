@@ -11,7 +11,7 @@ import {
   UpstreamTransportError,
 } from "../../lib/http.js";
 import { asString, isObject, path } from "../../lib/json.js";
-import type { BlueprintRunRequest, ProfileScoringAssessmentRequest, ProfileScoringAssessmentResponse } from "./types.js";
+import type { BlueprintRunRequest, EvaluationRunRequest, EvaluationRunStatus, ProfileScoringAssessmentRequest, ProfileScoringAssessmentResponse } from "./types.js";
 import { companyContextRequestSchema, parseCompanyContextResponse, parseProfileScoringAssessmentRequest, parseProfileScoringAssessmentResponse, type CompanyContextResponse } from "./profileAssessment.js";
 
 /**
@@ -261,6 +261,44 @@ export class AiServiceClient {
 
   blueprintAnswerKeys(roundType: string, slug: string): Promise<unknown> {
     return this.getJson(`/admin/blueprints/answer-keys/${seg(roundType)}/${slug.split("/").map(seg).join("/")}`);
+  }
+
+  // --- round evaluation (docs/superpowers/specs/2026-10-18-post-interview-report-design.md §11.1) ---
+
+  /** Start a session's evaluation run → `{run_id, status, existing}` (the live run when one is already running). */
+  async startEvaluationRun(request: EvaluationRunRequest): Promise<{ run_id: string; status: string; existing: boolean }> {
+    const snap = this.nonEmptyJson(await this.send(this.jsonPost("/evaluations/runs", request)), "/evaluations/runs");
+    const runId = asString(path(snap, "run_id"), "");
+    if (runId.trim() === "") throw new UpstreamMalformedError("ai-service /evaluations/runs returned no run_id");
+    return { run_id: runId, status: asString(path(snap, "status"), "running"), existing: path(snap, "existing") === true };
+  }
+
+  /** Compact run status. 404 -> UpstreamHttpError. */
+  async getEvaluationRun(runId: string): Promise<EvaluationRunStatus> {
+    return this.nonEmptyJson(await this.send({ method: "GET", url: this.url(`/evaluations/runs/${seg(runId)}`) }), "/evaluations/runs") as EvaluationRunStatus;
+  }
+
+  cancelEvaluationRun(runId: string): Promise<unknown> {
+    return this.postJson(`/evaluations/runs/${seg(runId)}/cancel`);
+  }
+
+  /** A session's evaluation (the current one, or `version`): `{version, outcome, report, ...}`. */
+  getSessionEvaluation(sessionId: string, version?: number): Promise<any> {
+    return this.getJson(`/evaluations/sessions/${seg(sessionId)}${version ? `?version=${version}` : ""}`);
+  }
+
+  // Admin diagnostics: snake_case passthrough for the Intelligence "Evaluations" tab.
+
+  listEvaluationRuns(query: URLSearchParams): Promise<unknown> {
+    return this.getJson(`/admin/evaluations/runs?${query.toString()}`);
+  }
+
+  getEvaluationRunAdmin(runId: string): Promise<unknown> {
+    return this.getJson(`/admin/evaluations/runs/${seg(runId)}`);
+  }
+
+  rerunEvaluation(runId: string): Promise<unknown> {
+    return this.postJson(`/admin/evaluations/runs/${seg(runId)}/rerun`);
   }
 
   // --- company research (Phase 1) -------------------------------------------------------------

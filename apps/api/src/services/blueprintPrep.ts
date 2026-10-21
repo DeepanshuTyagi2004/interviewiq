@@ -73,7 +73,7 @@ const sha = (text: string) => createHash("sha256").update(text).digest("hex");
  * would leave blueprints prepared before it running as they were). Bump it then. Must equal PREP_VERSION in the AI service's
  * app/blueprint/pipeline.py.
  */
-export const PREP_VERSION = "shapes-1";
+export const PREP_VERSION = "packs-1";
 
 /** The fingerprint parts (spec §5.1); the AI service computes the same split for its cache. */
 export function fingerprint(req: Omit<BlueprintRunRequest, "input_hash" | "input_parts">): { hash: string; parts: Record<string, string> } {
@@ -90,8 +90,16 @@ export function fingerprint(req: Omit<BlueprintRunRequest, "input_hash" | "input
 const diff = (d: unknown): BlueprintRound["difficulty"] => (d === "easy" || d === "medium" || d === "hard" ? d : null);
 const strings = (v: unknown): string[] => items(v).filter((x): x is string => typeof x === "string" && x.trim() !== "");
 
+/** What round resolution reads from a session; booking passes these before the row exists. */
+export type RoundIdentity = Pick<InterviewSessionRow, "roundType" | "nodeId" | "practicePrep" | "roundMinutes">;
+
+/** The booked round's difficulty by the same resolution prep uses (practice snapshot, loop node, brief), null when unknown. */
+export function resolveRoundDifficulty(session: RoundIdentity, brief: unknown, loop: LoopRow | null): "easy" | "medium" | "hard" | null {
+  return resolveRound(session, brief, loop)?.difficulty ?? null;
+}
+
 /** The booked round: the practice snapshot, else the loop node (+ the brief round it came from), else the brief. */
-export function resolveRound(session: InterviewSessionRow, brief: unknown, loop: LoopRow | null): BlueprintRound | null {
+export function resolveRound(session: RoundIdentity, brief: unknown, loop: LoopRow | null): BlueprintRound | null {
   const briefRounds = items(path(isObject(path(brief, "final_experience")) ? path(brief, "final_experience") : path(brief, "consolidated_process"), "rounds"));
   const fromBrief = (r: unknown, source: BlueprintRound["source"]): BlueprintRound => ({
     type: session.roundType,
@@ -199,6 +207,15 @@ export class BlueprintPrepService {
       firstName: user?.name?.trim().split(/\s+/)[0] || null,
       profile: { headline: p.headline, skills: p.skills, projects: p.projects.map((x) => x.name) },
     };
+  }
+
+  /** The minimal candidate profile blueprint prep sends, for other runs (round evaluation) that need the same view. */
+  async candidateProfile(candidateId: string): Promise<BlueprintCandidateProfile> {
+    const [profile, fragmentRows] = await Promise.all([
+      this.d.candidateProfiles.getProfile(candidateId),
+      this.d.fragments.findByUserId(candidateId),
+    ]);
+    return profileProjection(profile, new Map(fragmentRows.filter((f) => isObject(f.data)).map((f) => [f.source as string, f.data])));
   }
 
   // ---------------------------------------------------------------- inputs

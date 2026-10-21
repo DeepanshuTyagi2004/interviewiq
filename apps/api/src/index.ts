@@ -42,6 +42,7 @@ async function main() {
     tasks.push(
       fixedDelay("live-sweep", async () => { await c.jobs.liveSweep.tick(); }, { initialDelayMs: 60_000, delayMs: 5 * 60_000 }, log),
       fixedDelay("blueprint-reconcile", () => c.jobs.blueprintReconcile.tick(), { initialDelayMs: 15_000, delayMs: config.blueprint.reconcileIntervalMs }, log),
+      fixedDelay("evaluation-reconcile", () => c.jobs.evaluationReconcile.tick(), { initialDelayMs: 20_000, delayMs: config.evaluation.reconcileIntervalMs }, log),
       fixedRate("github-refresh", () => c.jobs.githubRefresh.refreshAll(), { initialDelayMs: 60_000, periodMs: WEEK_MS }, log),
       fixedRate("leetcode-refresh", () => c.jobs.leetcodeRefresh.refreshAll(), { initialDelayMs: 120_000, periodMs: WEEK_MS }, log),
       fixedRate("platform-refresh", () => c.jobs.platformRefresh.refreshAll(), { initialDelayMs: 180_000, periodMs: WEEK_MS }, log),

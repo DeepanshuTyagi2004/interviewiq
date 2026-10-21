@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "../lib/errors.js";
 import { ROUND_TYPES } from "./enums.js";
+import type { EvalOutcome } from "./evaluation.js";
 import { MOCK_ROUND_MINUTES } from "./liveRound.js";
 
 /**
@@ -11,10 +12,6 @@ import { MOCK_ROUND_MINUTES } from "./liveRound.js";
 
 export const MAX_ROUND_NODES = 12;
 export const MAX_INFO_NODES = 12;
-
-/** Off until the product decides the numbers (see CLAUDE.md "Scoring formulas & thresholds"). */
-export const PASS_THRESHOLD: number | null = null;
-export const RETAKE_COOLDOWN_DAYS: number | null = null;
 
 const text = (max: number) => z.string().trim().max(max);
 const position = z.object({ x: z.number().finite().min(-100000).max(100000), y: z.number().finite().min(-100000).max(100000) }).strict();
@@ -128,33 +125,60 @@ export function predecessors(g: ProcessGraph, nodeId: string): string[] {
   return g.edges.filter((e) => e.target === nodeId).map((e) => e.source);
 }
 
-export type NodeState = "locked" | "available" | "booked" | "completed";
+/** `completed` is a legacy round finished before grading existed: not scored, counts as passed. */
+export type NodeState = "locked" | "available" | "booked" | "evaluating" | "passed" | "cooldown" | "completed";
 
 /** What a session contributes to a node. Cancelled and aborted sessions free the node again. */
-export interface NodeSession { nodeId: string | null; status: string }
-const ACTIVE = new Set(["SCHEDULED", "PREP_QUEUED", "PREP_READY", "PREP_FAILED", "LIVE_IN_PROGRESS"]);
+export interface NodeSession {
+  nodeId: string | null; status: string;
+  /** pending | running | done | failed | legacy; absent/null on a COMPLETED session counts as legacy. */
+  evalStatus?: string | null;
+  outcome?: EvalOutcome | null;
+  retakeAfter?: Date | null;
+  liveEndedAt?: Date | null;
+}
+const ACTIVE = new Set(["SCHEDULED", "PREP_QUEUED", "PREP_FAILED", "PREP_READY", "LIVE_IN_PROGRESS"]);
 
 /**
- * Per-round state for a loop. Order-only gating: a round is available once every round feeding
- * into it has a COMPLETED session in this loop. Pass thresholds/cooldowns are intentionally absent
- * (PASS_THRESHOLD / RETAKE_COOLDOWN_DAYS are null until the product decides them).
+ * Per-round state for a loop (spec section 10). A round is available once every round feeding into it
+ * is passed (or legacy completed). Passed is sticky; a later attempt never re-locks anything.
+ * Precedence: passed/completed > booked > evaluating > cooldown > available/locked.
  */
-export function nodeStates(g: ProcessGraph, sessions: NodeSession[]): Map<string, NodeState> {
-  const done = new Set(sessions.filter((s) => s.status === "COMPLETED" && s.nodeId).map((s) => s.nodeId!));
-  const booked = new Set(sessions.filter((s) => ACTIVE.has(s.status) && s.nodeId).map((s) => s.nodeId!));
+export function nodeStates(g: ProcessGraph, sessions: NodeSession[], now: Date = new Date()): Map<string, NodeState> {
+  const byNode = new Map<string, NodeSession[]>();
+  for (const s of sessions) if (s.nodeId) byNode.set(s.nodeId, [...(byNode.get(s.nodeId) ?? []), s]);
+  const isLegacy = (s: NodeSession) => s.status === "COMPLETED" && (s.evalStatus == null || s.evalStatus === "legacy");
+
+  const own = new Map<string, NodeState>();
+  for (const n of roundNodes(g)) {
+    const mine = byNode.get(n.id) ?? [];
+    if (mine.some((s) => s.outcome === "passed" && s.status === "COMPLETED")) own.set(n.id, "passed");
+    else if (mine.some(isLegacy)) own.set(n.id, "completed");
+  }
   const out = new Map<string, NodeState>();
   for (const n of roundNodes(g)) {
-    if (done.has(n.id)) out.set(n.id, "completed");
-    else if (booked.has(n.id)) out.set(n.id, "booked");
-    else out.set(n.id, predecessors(g, n.id).every((p) => done.has(p)) ? "available" : "locked");
+    const fixed = own.get(n.id);
+    if (fixed) { out.set(n.id, fixed); continue; }
+    const mine = byNode.get(n.id) ?? [];
+    if (mine.some((s) => ACTIVE.has(s.status))) { out.set(n.id, "booked"); continue; }
+    const finished = mine.filter((s) => s.status === "COMPLETED")
+      .map((s, i) => ({ s, i }))
+      .sort((x, y) => (x.s.liveEndedAt && y.s.liveEndedAt ? x.s.liveEndedAt.getTime() - y.s.liveEndedAt.getTime() : 0) || x.i - y.i);
+    const latest = finished.at(-1)?.s;
+    if (latest && (latest.evalStatus === "pending" || latest.evalStatus === "running")) { out.set(n.id, "evaluating"); continue; }
+    if (latest && (latest.outcome === "below_pass" || latest.outcome === "auto_fail") && latest.retakeAfter && latest.retakeAfter.getTime() > now.getTime()) {
+      out.set(n.id, "cooldown"); continue;
+    }
+    out.set(n.id, predecessors(g, n.id).every((p) => own.has(p)) ? "available" : "locked");
   }
   return out;
 }
 
-export function progressOf(g: ProcessGraph, sessions: NodeSession[]) {
-  const states = nodeStates(g, sessions);
+/** `completed` counts rounds passed plus legacy completed ones. */
+export function progressOf(g: ProcessGraph, sessions: NodeSession[], now: Date = new Date()) {
+  const states = nodeStates(g, sessions, now);
   const total = states.size;
-  const completed = [...states.values()].filter((s) => s === "completed").length;
+  const completed = [...states.values()].filter((s) => s === "passed" || s === "completed").length;
   return { total, completed, nextNodeIds: [...states].filter(([, s]) => s === "available").map(([id]) => id) };
 }
 

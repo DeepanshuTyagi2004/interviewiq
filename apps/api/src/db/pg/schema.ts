@@ -8,6 +8,7 @@ import {
   numeric,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -133,6 +134,8 @@ export const companies = pgTable("companies", {
   aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
   sector: varchar("sector", { length: 64 }),
   businessModel: varchar("business_model", { length: 16 }),
+  /** Admin override of the code standard graded in mock rounds (runnable | near_runnable | pseudo_ok); null derives it from tier + business model. */
+  codeStandard: varchar("code_standard", { length: 16 }),
   headcountBand: varchar("headcount_band", { length: 32 }),
   revenueBand: varchar("revenue_band", { length: 32 }),
   fundingStage: varchar("funding_stage", { length: 32 }),
@@ -334,9 +337,28 @@ export const interviewSessions = pgTable(
     practicePrep: jsonb("practice_prep").$type<import("../../domain/practice.js").PracticePrepSnapshot>(),
     /** This round's length (30/35/40/45), drawn at booking and kept through reschedules; null (read as 45) for sessions booked before the draw. */
     roundMinutes: integer("round_minutes"),
+    /** Booking snapshot (spec §8.5): the stored values always win over a later recomputation. */
+    passMark: numeric("pass_mark", { precision: 3, scale: 1, mode: "number" }),
+    codeStandard: varchar("code_standard", { length: 16 }),
+    companyTier: smallint("company_tier"),
+    roundDifficulty: varchar("round_difficulty", { length: 8 }),
+    /** pending | running | ready | failed | unscorable | legacy; null before the round ends. */
+    evalStatus: varchar("eval_status", { length: 16 }),
+    evalRunId: varchar("eval_run_id", { length: 64 }),
+    evalRunStartedAt: instant("eval_run_started_at"),
+    evalAttempts: integer("eval_attempts").notNull().default(0),
+    evalRetryWindowStart: instant("eval_retry_window_start"),
+    evalErrorCode: varchar("eval_error_code", { length: 64 }),
+    score: numeric("score", { precision: 3, scale: 1, mode: "number" }),
+    outcome: varchar("eval_outcome", { length: 16 }).$type<import("../../domain/evaluation.js").EvalOutcome>(),
+    verdict: varchar("verdict", { length: 24 }),
+    retakeAfter: instant("retake_after"),
+    evalVersion: varchar("eval_version", { length: 16 }),
+    evaluatedAt: instant("evaluated_at"),
   },
   (t) => [
     index("idx_session_candidate").on(t.candidateId),
+    index("idx_session_eval_status").on(t.evalStatus),
     // Drives the blueprint reconcile job: sessions by status and slot.
     index("idx_session_status_scheduled").on(t.status, t.scheduledAt),
     index("idx_session_loop").on(t.loopId),

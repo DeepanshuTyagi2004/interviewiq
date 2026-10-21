@@ -65,3 +65,35 @@ export interface BlueprintCandidateProfile {
   education: { institution: string | null; degree: string | null; field: string | null; year: string | null }[];
   coding: { total_solved: number | null; easy: number | null; medium: number | null; hard: number | null; top_topics: string[] } | null;
 }
+
+/** The body POSTed to the ai-service `/evaluations/runs` (app/evaluation/models.py). Snake case. */
+export interface EvaluationRunRequest {
+  session_id: string;
+  candidate_id: string;
+  trigger: "completion" | "reconcile" | "retry" | "admin" | "dispute";
+  meta: {
+    company: string;
+    role: string;
+    level: string;
+    round_type: string;
+    round_minutes: number;
+    pass_mark: number;
+    code_standard: "runnable" | "near_runnable" | "pseudo_ok";
+    company_tier: number | null;
+    difficulty: string | null;
+    official: boolean;
+  };
+  candidate_profile: BlueprintCandidateProfile;
+  previous_areas: Record<string, number> | null;
+  exclusions: string[];
+  dispute: { target_type: "question" | "area"; target_id: string; reason: string; report_version: number } | null;
+  /** The session's end reason (LiveEndReason); the AI service uses it when the live run's own record has none. */
+  ended_reason?: string | null;
+}
+
+export interface EvaluationRunStatus {
+  run_id: string;
+  status: "running" | "completed" | "failed" | "cancelled";
+  error?: { code: string; message?: string; transient?: boolean } | null;
+  result?: { version: number; outcome: string; score: number | null; verdict: string | null; pass_mark: number } | null;
+}

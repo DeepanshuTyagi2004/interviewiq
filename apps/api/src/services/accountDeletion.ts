@@ -7,6 +7,7 @@ import type {
   CandidateProfileRepository,
   ProfileFragmentRepository,
   BlueprintSeenRepository,
+  RoundReportRepository,
   UserPreferencesRepository,
 } from "../repositories/mongo.js";
 import type { GitHubConnectionRepository, InterviewSessionRepository, UserRepository } from "../repositories/pg.js";
@@ -28,6 +29,7 @@ export interface AccountDeletionDeps {
   candidateProfiles: CandidateProfileRepository;
   fragments: ProfileFragmentRepository;
   seen: BlueprintSeenRepository;
+  roundReports: RoundReportRepository;
   preferences: UserPreferencesRepository;
   profileScoring: ProfileScoringRepository;
   linkedinImports?: LinkedInImportRepository;
@@ -98,6 +100,7 @@ export class AccountDeletionService {
         this.d.candidateProfiles.deleteByUserId(userId),
         this.d.fragments.deleteByUserId(userId),
         this.d.seen.deleteByCandidate(userId),
+        this.d.roundReports.deleteByCandidate(userId),
         this.d.preferences.deleteByUserId(userId),
         this.d.profileScoring.deleteByUserId(userId),
         this.d.linkedinImports?.deleteByUserId(userId),

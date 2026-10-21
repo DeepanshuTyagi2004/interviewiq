@@ -4,12 +4,14 @@ import type { SessionStatus } from "../domain/enums.js";
 import { sessionRoundMinutes } from "../domain/liveRound.js";
 import type { AgentRooms, LiveKitTokenService } from "../integrations/livekit.js";
 import { errorMessage } from "../lib/errors.js";
+import type { BackgroundTasks } from "../lib/background.js";
 import type { Logger } from "../lib/logger.js";
 import type { CompanyRepository } from "../repositories/pg.js";
 import type { InterviewSessionRepository } from "../repositories/pg.js";
 import type { BlueprintPrepService } from "./blueprintPrep.js";
 import { InterviewSessionError } from "./interviewSessions.js";
 import { LiveAvailability } from "./liveAvailability.js";
+import type { RoundEvaluationService } from "./roundEvaluation.js";
 
 const END_REASONS = ["completed", "ended_by_interviewer", "candidate_ended", "technical"] as const;
 export type LiveEndReason = (typeof END_REASONS)[number];
@@ -66,6 +68,8 @@ export class LiveSessionService {
     private readonly rooms: AgentRooms | null = null,
     private readonly companies: CompanyRepository | null = null,
     private readonly log: Logger | null = null,
+    private readonly evaluation: RoundEvaluationService | null = null,
+    private readonly background: BackgroundTasks | null = null,
   ) {}
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
@@ -150,6 +154,8 @@ export class LiveSessionService {
       // summary are the record (a misconduct ending must not be laundered into "the candidate ended it").
       const to: SessionStatus = reason === "technical" ? "ABORTED_TECHNICAL" : "COMPLETED";
       const fixed = await this.sessions.completeLiveEnd(s.id, { status: to, endedReason: reason, liveSummary: summary });
+      // The round turned out to be a technical end after the evaluation was queued: it is not scored.
+      if (fixed && to === "ABORTED_TECHNICAL") await this.sessions.applyEvaluation(s.id, { evalStatus: "unscorable", outcome: "unscorable" });
       if (fixed) return { status: fixed.status, ended_reason: fixed.endedReason, already_ended: true };
     }
     const r = await this.end(s, reason, summary);
@@ -174,11 +180,17 @@ export class LiveSessionService {
       endedReason: reason,
       liveSummary: summary,
       durationS: s.liveStartedAt ? Math.round((now.getTime() - s.liveStartedAt.getTime()) / 1000) : null,
+      // A completed round queues its evaluation in the same transition; a technical end is never scored (no run, free retake).
+      ...(to === "COMPLETED" ? { evalStatus: "pending" } : { evalStatus: "unscorable", outcome: "unscorable" as const }),
     });
     if (!updated) {
       // Lost a race with another ender: report what won.
       const latest = (await this.sessions.findById(s.id))!;
       return { status: latest.status, endedReason: latest.endedReason, alreadyEnded: true };
+    }
+    if (to === "COMPLETED" && this.evaluation) {
+      const evaluation = this.evaluation;
+      this.background?.run(`evaluation-start-${updated.id}`, () => evaluation.start(updated, "completion"));
     }
     return { status: to, endedReason: reason, alreadyEnded: false };
   }

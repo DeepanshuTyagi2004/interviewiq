@@ -5,6 +5,7 @@ import type { Logger } from "../lib/logger.js";
 import type { PlatformConnectionService } from "../integrations/platforms/service.js";
 import type { GitHubConnectionRepository, InterviewSessionRepository, LeetCodeConnectionRepository, PlatformConnectionRepository } from "../repositories/pg.js";
 import type { BlueprintPrepService } from "../services/blueprintPrep.js";
+import { FINAL_EVAL_CODES, type RoundEvaluationService } from "../services/roundEvaluation.js";
 import type { ProfileService } from "../services/profileService.js";
 
 /**
@@ -53,6 +54,37 @@ export class BlueprintReconcileJob {
       }
     }
     if (refreshed) this.log.info(`Blueprint refresh: ${refreshed} of ${ready.length} ready session(s) re-preparing`);
+  }
+}
+
+/**
+ * Round evaluation reconcile (spec §11.1), every minute: start pending evaluations that have no run (the round-end hook
+ * may have failed, or a transient failure queued a retry), collect finished runs (and dispute re-checks), time out stuck
+ * ones, and retry every failure (but a stale dispute) once its rolling hour has passed, indefinitely: a result is always available.
+ * Starts are claimed per session (`attachEvalRun`), so replicas are safe.
+ */
+export class EvaluationReconcileJob {
+  constructor(
+    private readonly sessions: InterviewSessionRepository,
+    private readonly evaluation: RoundEvaluationService,
+    private readonly opts: { autoRetries: number },
+    private readonly log: Logger,
+  ) {}
+
+  async tick(): Promise<void> {
+    for (const session of await this.sessions.findEvaluationWork(new Date(), this.opts.autoRetries)) {
+      try {
+        if (session.evalRunId) {
+          await this.evaluation.collect(session);
+        } else if (session.evalStatus === "pending") {
+          await this.evaluation.start(session, session.evalErrorCode ? "retry" : "reconcile");
+        } else if (session.evalStatus === "failed" && !(session.evalErrorCode && FINAL_EVAL_CODES.has(session.evalErrorCode))) {
+          await this.evaluation.start(session, "retry");
+        }
+      } catch (err) {
+        this.log.warn(`Evaluation reconcile failed for session ${session.id}: ${errorMessage(err)}`);
+      }
+    }
   }
 }
 
