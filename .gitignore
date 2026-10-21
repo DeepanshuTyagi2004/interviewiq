@@ -32,3 +32,6 @@ apps/ai-service/.research-fixtures/
 .fit-audit/
 .blueprint-audit/
 .blueprint-judge/
+
+# pnpm repo: a stray npm lockfile must never be committed
+package-lock.json
