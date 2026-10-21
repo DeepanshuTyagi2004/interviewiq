@@ -137,7 +137,7 @@ def provenance(trace_models: list[str], ctx: Context, seed: str, keyed: dict[str
 
 
 def evaluation(ctx: Context) -> dict:
-    return {"global_signals": global_signals(ctx.family),
+    return {"global_signals": global_signals(ctx.round_type),
             "note": "Factors to collect during the interview. The score formula is a product decision, not part of the blueprint."}
 
 

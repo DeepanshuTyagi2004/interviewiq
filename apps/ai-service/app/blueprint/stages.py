@@ -16,6 +16,8 @@ from app.blueprint.trace import RunTrace, StageError
 from app.blueprint.vocabulary import (ACTIONS, DEFAULT_BRANCHES, PINNED_ACTIONS, UNSCORED_PHASES, family, is_culture_slot,
                                       required_conditions, slot_round_type)
 from app.config import Settings
+from app.rounds.compose import band_for, pack_for
+from app.rounds.pack import Band, RoundPack
 
 # ---------------------------------------------------------------- arc (deterministic timeboxes)
 
@@ -118,7 +120,10 @@ def name_options(seed: str, k: int = 4, exclude: set[str] | frozenset[str] = fro
 
 async def persona_stage(ctx: Context, arc: list[ArcPhase], llm, trace: RunTrace, settings: Settings,
                         seed: str = "", time_plan: str = "", exclude_names: set[str] | frozenset[str] = frozenset(),
-                        shape: Shape | None = None, traits: dict[str, str] | None = None) -> PersonaStageOut:
+                        shape: Shape | None = None, traits: dict[str, str] | None = None, pack: RoundPack | None = None,
+                        band: Band | None = None, seniority: str = "") -> PersonaStageOut:
+    pack = pack or pack_for(ctx.round_type)
+    band = band or band_for(ctx.level)
     phases = [a.phase for a in arc]
     view = {**_round_view(ctx), **({"time_plan": time_plan} if time_plan else {}),
             "phase_minutes": {a.phase: a.timebox_mins for a in arc}}
@@ -126,8 +131,10 @@ async def persona_stage(ctx: Context, arc: list[ArcPhase], llm, trace: RunTrace,
                            # One seeded name, not a shortlist: offered four, the model picked men's names ~80% of
                            # the time; the pool is balanced, so the seeded pick is too.
                            P.persona_prompt(view, phases, name_options(seed or ctx.company, k=1, exclude=exclude_names),
-                                           shape.about if shape else "", traits),
+                                           shape.about if shape else "", traits, pack.archetype, (pack.overlays.get(band) or "").strip(), seniority),
                            PersonaStageOut, settings)
+    if seniority:
+        out.persona.seniority = seniority      # the title is drawn in code from the pack; the model's own is ignored
     guidance = {g.phase: g.guidance for g in out.phase_guidance}
     for a in arc:
         a.guidance = guidance.get(a.phase, "")
@@ -364,6 +371,11 @@ def playbook_view(ctx: Context, plan: SlotPlan, problem: dict, answer_key: dict,
     }
 
 
+def pack_rules_for(round_type: str, slot_id: str) -> tuple[str, ...]:
+    """The pack's playbook rules for a slot: a culture slot (a technical round's behavioural part) gets the behavioural pack's."""
+    return pack_for(slot_round_type(round_type, slot_id)).playbook_rules
+
+
 async def playbook_stage(ctx: Context, plans: list[SlotPlan], keyed: dict[str, dict], persona: PersonaStageOut,
                          personalization: PersonalizationOut, per_slot: int | dict[str, int], llm, trace: RunTrace,
                          settings: Settings) -> dict[str, PlaybookOut]:
@@ -400,7 +412,7 @@ async def playbook_stage(ctx: Context, plans: list[SlotPlan], keyed: dict[str, d
         async with sem:
             try:
                 out = await structured(llm, trace, "playbooks", f"playbook:{plan.slot_id}", P.PLAYBOOK_SYSTEM,
-                                       P.playbook_prompt(view, conditions, list(ACTIONS)), PlaybookOut, settings,
+                                       P.playbook_prompt(view, conditions, list(ACTIONS), pack_rules_for(ctx.round_type, plan.slot_id)), PlaybookOut, settings,
                                        check=check_for(item["problem"], conditions), fail_code="playbook_failed")
             except StageError as exc:
                 # A playbook that is complete except for a few conditions gets the default rules for them.

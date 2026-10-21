@@ -10,6 +10,8 @@ from app.blueprint.context import build_context
 from app.blueprint.models import PersonalizationOut, PersonaStageOut, PlaybookOut
 from app.blueprint.selection import SlotPlan
 from app.blueprint.vocabulary import CONDITION_MEANINGS, PINNED_ACTIONS, required_conditions
+from app.rounds.compose import pack_for
+from app.rounds.system_design import PACK as SYSTEM_DESIGN
 from tests.blueprint.fixtures import FakeLLM, MemoryTrace, behavioural_doc, dsa_doc, playbook_reply, request
 
 W = S.DEFAULT_WEIGHTS
@@ -300,7 +302,9 @@ def test_placeholders_in_spoken_lines_are_scrubbed_without_a_repair_round():
     assert len(llm.calls) == 1                                  # no repair call for a placeholder
     assert not ST._placeholders(out["core-1"])
     prompt = P.playbook_prompt({"round": {"company": "Amazon"}}, conditions, ["clarify"])
-    assert "candidate's OWN past example" in prompt and "no placeholders" in prompt
+    assert "candidate's OWN past example" not in prompt                        # a pack line now, not a shared rule
+    with_pack = P.playbook_prompt({"round": {"company": "Amazon"}}, conditions, ["clarify"], pack_rules=pack_for("behavioural").playbook_rules)
+    assert "candidate's OWN past example" in with_pack and "no placeholders" in with_pack
 
 
 def test_every_dsa_round_asks_two_problems_whatever_its_length_or_difficulty():
@@ -453,3 +457,37 @@ def test_a_playbook_that_omits_expectations_and_signals_is_repaired_then_filled_
     out = asyncio.run(ST.playbook_stage(ctx, [plan], keyed, PERSONA, pers, 15, llm, MemoryTrace(), _Settings()))["core-1"]
     assert len(llm.calls) == 2 and "missing sections: expectations, evaluation_signals" in llm.calls[1][1]
     assert out.expectations.must_show == ["use a map", "one pass"] and out.evaluation_signals
+
+
+def test_the_playbook_prompt_takes_its_family_lines_from_the_pack():
+    conditions = list(required_conditions("dsa"))
+    view = {"round": {"company": "Amazon"}}
+    design = P.playbook_prompt(view, conditions, ["give_hint"], pack_rules=SYSTEM_DESIGN.playbook_rules)
+    assert "Hints name a dimension they skipped" in design and "language-neutral" not in design
+    dsa = P.playbook_prompt(view, conditions, ["give_hint"], pack_rules=pack_for("dsa").playbook_rules)
+    assert "Hints and lines stay language-neutral" in dsa and "Probes dig three to five levels" not in dsa
+
+
+def test_a_dsa_playbook_prompt_still_holds_every_line_it_held_before_packs():
+    from pathlib import Path
+    from app.blueprint.vocabulary import ACTIONS
+    frozen = (Path(__file__).parents[1] / "rounds" / "fixtures" / "playbook_prompt_frozen.txt").read_text()
+    now = P.playbook_prompt({"round": {"company": "Amazon"}}, list(required_conditions("dsa")), list(ACTIONS),
+                            pack_rules=pack_for("dsa").playbook_rules)
+    lines = {ln.strip(" -") for ln in now.splitlines()}
+    # The two behavioural lines left the shared Rules for the behavioural pack; every other frozen line must survive.
+    behavioural_only = ("A behavioural question asks for", "For a behavioural question, probes dig")
+    missing = [ln for ln in frozen.splitlines() if ln.strip(" -") not in lines and not any(b in ln for b in behavioural_only)]
+    assert not missing, missing
+
+
+def test_a_culture_slot_gets_the_behavioural_packs_playbook_rules():
+    assert ST.pack_rules_for("dsa", "culture-1") == pack_for("behavioural").playbook_rules
+    assert ST.pack_rules_for("dsa", "core-1") == pack_for("dsa").playbook_rules
+    assert ST.pack_rules_for("system-design", "core-1") == SYSTEM_DESIGN.playbook_rules
+
+
+def test_the_online_assessment_pack_keeps_the_shared_coding_line():
+    line = ("In a coding or design question every branch, probe and signal is about the problem itself; culture and behavioural "
+            "questions belong to behavioural questions only.")
+    assert line in pack_for("online-assessment").playbook_rules and line in pack_for("dsa").playbook_rules

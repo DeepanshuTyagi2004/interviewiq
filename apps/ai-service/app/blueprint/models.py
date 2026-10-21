@@ -450,6 +450,24 @@ class Realism(_M):
     change: ChangeStance
 
 
+class RulesBlock(_M):
+    """The interviewer's rules for the round, composed from its pack and level band at prep (app/rounds/compose.compose_rules)."""
+    version: str
+    pack: str
+    band: str
+    talker: str
+    director: str
+    item_rules: dict[str, dict[str, str]] = Field(default_factory=dict)
+    flags: dict[str, Any] = Field(default_factory=dict)
+    words: dict[str, Any] = Field(default_factory=dict)
+    part_nouns: list[str] = Field(default_factory=list)
+    link_examples: str = ""
+    link_intent: str = ""
+    live_policies: dict[str, str] = Field(default_factory=dict)
+    focus: str | None = None
+    banned_spoken: list[str] = Field(default_factory=list)
+
+
 class Blueprint(_M):
     blueprint_id: str
     session_id: str | None
@@ -470,6 +488,7 @@ class Blueprint(_M):
     briefing: Briefing
     provenance: dict[str, Any]
     shape_id: str = "classic"
+    rules: RulesBlock | None = None         # None: a blueprint prepared before round packs (rules_of composes them from the round)
     realism: Realism | None = None          # None: an old blueprint, or a plan that failed validation (the interviewer behaves as before)
     # The draw behind the plan, kept even when the plan was dropped, so a re-prep keeps the shape-affecting choices (the classic opening's order) and the persona's traits.
     realism_seed: int | None = None

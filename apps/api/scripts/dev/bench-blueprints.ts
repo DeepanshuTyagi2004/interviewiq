@@ -63,10 +63,15 @@ interface Outcome {
   persona: string | null;
   shape: string | null;
   difficultyTarget: string | null;
+  /** The round pack the blueprint's `rules` were composed from. */
+  pack: string | null;
   slots: string[];
   issues: string[];
   notes: string[];
 }
+
+// The pack each round type runs on (a round type with its own pack, else its family's; anything else is dsa).
+const PACK_OF_ROUND: Record<string, string> = { dsa: "dsa", "online-assessment": "online-assessment", "system-design": "system-design", lld: "lld", behavioural: "behavioural", "hiring-manager": "hiring-manager" };
 
 // A DSA round asks one coding problem when it is 35 minutes or less or targets hard problems (3 slots), else two (4).
 const SLOT_COUNTS: Record<string, number[]> = { dsa: [3, 4], "system-design": [2], lld: [2], behavioural: [7], "hiring-manager": [5] };
@@ -219,6 +224,10 @@ function check(c: Case, run: Record<string, unknown>, requestSent: BlueprintRunR
   // An old blueprint without a shape id is the classic shape; a run with no blueprint has no shape and is not tallied as one.
   outcome.shape = isObject(bp) ? (textOrNull(path(bp, "shape_id")) ?? "classic") : null;
   outcome.difficultyTarget = textOrNull(path(bp, "round", "difficulty_target"));
+  // The pack follows the round type, else its family, else dsa (mirrors the AI service's `pack_for`).
+  outcome.pack = textOrNull(path(bp, "rules", "pack"));
+  const wantPack = PACK_OF_ROUND[rt] ?? "dsa";
+  if (outcome.pack !== wantPack) outcome.issues.push(`rules.pack is ${outcome.pack ?? "missing"}, expected ${wantPack} for ${rt}`);
   // Personalization should touch the candidate's own material (soft: a note, not an issue).
   const profile = requestSent.candidate_profile;
   const own = [...profile.projects.map((p) => p.name), ...profile.skills.slice(0, 10), ...profile.experience.map((e) => e.company ?? "")].map(lower).filter((s) => s.length > 3);
@@ -262,7 +271,7 @@ async function main(): Promise<void> {
     const t0 = Date.now();
 
     const runCase = async (k: Case): Promise<void> => {
-      const o: Outcome = { id: k.id, label: k.label, runId: null, status: "?", code: null, durationMs: null, minutes: null, llmCalls: 0, cacheHits: 0, cacheMisses: 0, persona: null, shape: null, difficultyTarget: null, slots: [], issues: [], notes: [] };
+      const o: Outcome = { id: k.id, label: k.label, runId: null, status: "?", code: null, durationMs: null, minutes: null, llmCalls: 0, cacheHits: 0, cacheMisses: 0, persona: null, shape: null, difficultyTarget: null, pack: null, slots: [], issues: [], notes: [] };
       outcomes.push(o);
       try {
         const candidateId = await userIdOf(k.who);
@@ -348,8 +357,8 @@ async function main(): Promise<void> {
       `- Interviewer names used: ${[...personas.entries()].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ×${k}`).join(", ")}`,
       `- Shapes used: ${[...shapes.entries()].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ×${k}`).join(", ")}`,
       `- Round length: ${pinned === null ? "drawn per case" : `pinned at ${pinned} min`}`, ``,
-      `| Case | Status | Time | Round | Interviewer | Difficulty | Problems | Issues / notes |`, `|---|---|---|---|---|---|---|---|`,
-      ...outcomes.map((o) => `| ${o.id} ${o.label} | ${o.status}${o.code ? `:${o.code}` : ""} | ${o.durationMs ? `${Math.round(o.durationMs / 1000)}s` : ""} | ${o.minutes ? `${o.minutes} min` : ""} | ${o.persona ?? ""} | ${o.difficultyTarget ?? ""} | ${o.slots.join(", ")} | ${[...o.issues.map((i) => `**${i}**`), ...o.notes].join("<br>")} |`),
+      `| Case | Status | Time | Round | Pack | Interviewer | Difficulty | Problems | Issues / notes |`, `|---|---|---|---|---|---|---|---|---|`,
+      ...outcomes.map((o) => `| ${o.id} ${o.label} | ${o.status}${o.code ? `:${o.code}` : ""} | ${o.durationMs ? `${Math.round(o.durationMs / 1000)}s` : ""} | ${o.minutes ? `${o.minutes} min` : ""} | ${o.pack ?? ""} | ${o.persona ?? ""} | ${o.difficultyTarget ?? ""} | ${o.slots.join(", ")} | ${[...o.issues.map((i) => `**${i}**`), ...o.notes].join("<br>")} |`),
     ];
     mkdirSync(outDir, { recursive: true });
     writeFileSync(resolve(outDir, "blueprint-audit.md"), lines.join("\n"));

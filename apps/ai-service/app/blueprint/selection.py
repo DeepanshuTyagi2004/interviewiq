@@ -253,7 +253,7 @@ async def load_pool(round_type: str, culture: bool = False) -> list[dict]:
     return out
 
 
-def _problem_topics(doc: dict) -> set[str]:
+def problem_topics(doc: dict) -> set[str]:
     values = [*(doc.get("topic_tags") or []), *(doc.get("patterns_tested") or []), *(doc.get("components_tested") or [])]
     for single in ("domain", "category"):
         if doc.get(single):
@@ -261,7 +261,9 @@ def _problem_topics(doc: dict) -> set[str]:
     return T.canon(values)
 
 
-_KIND_OF_FAMILY = {"dsa": "dsa", "system-design": "design", "lld": "design", "behavioural": "behavioural"}
+KIND_OF_FAMILY = {"dsa": "dsa", "system-design": "design", "lld": "design", "behavioural": "behavioural"}
+_problem_topics = problem_topics            # private aliases kept for existing callers
+_KIND_OF_FAMILY = KIND_OF_FAMILY
 
 
 def score_candidate(doc: dict, ctx: Context, w: dict[str, float]) -> Candidate:

@@ -464,3 +464,89 @@ def test_a_dropped_plan_still_stores_its_seed_and_traits_for_a_re_prep():
         assert asyncio.run(store.realism_for_session("s1")) is None
         assert asyncio.run(store.recent_traits_for_candidate("c1", "other")) == []
     assert Blueprint.model_fields["realism_seed"].default is None and Blueprint.model_fields["realism_traits"].default is None
+
+
+# ---------------------------------------------------------------- round-pack persona curation (task 5)
+
+def test_forced_traits_hold_and_the_rest_stay_coherent_for_fifty_seeds():
+    from app.rounds.online_assessment import PACK as OA
+    for seed in range(50):
+        t = R.draw_traits(random.Random(seed), [], None, forced=OA.trait_forced)
+        assert all(t[a] == v for a, v in OA.trait_forced.items())
+        assert R.coherent(t)       # the OA forced set is coherent with a coherent remainder
+        assert R.draw_traits(random.Random(seed), [], None, forced={"verbosity": "terse"})["verbosity"] == "terse"
+
+
+def test_excluded_levels_and_pairs_are_never_drawn_and_an_impossible_limit_falls_back():
+    for seed in range(50):
+        assert R.draw_traits(random.Random(seed), [], None, excludes={"probing": ("light",)})["probing"] != "light"
+        t = R.draw_traits(random.Random(seed), [], None, pairs=((("warmth", "reserved"), ("formality", "formal")),))
+        assert not (t["warmth"] == "reserved" and t["formality"] == "formal")
+    every = {a: levels for a, levels in R.TRAIT_AXES.items() if a != "register"}
+    assert R.draw_traits(random.Random(1), [], None, excludes=every)         # nothing left: the unfiltered draw, no raise
+
+
+def test_keep_traits_redraws_a_kept_set_that_breaks_the_packs_limits():
+    kept = R.draw_realism_traits(3, [])
+    assert R.keep_traits(kept, 3) == kept
+    assert R.keep_traits(kept, 3, excludes={"probing": (kept["probing"],)}) is None
+    assert R.keep_traits(kept, 3, forced={"verbosity": "terse" if kept["verbosity"] != "terse" else "chatty"}) is None
+
+
+def test_every_title_is_on_the_ladder_and_the_interviewer_always_outranks_the_candidate():
+    from app.rounds.compose import PACKS
+    from app.rounds.pack import LEVEL_RANKS, MANAGER_TITLES, TITLE_RANKS
+    for pack in PACKS.values():
+        for band, titles in pack.titles.items():
+            assert all(t in TITLE_RANKS for t in titles)
+        manager = bool(pack.titles) and all(t in MANAGER_TITLES for ts in pack.titles.values() for t in ts)
+        for band in ("early", "mid", "senior"):
+            for level, rank in LEVEL_RANKS.items():
+                for seed in range(20):
+                    title = R.draw_seniority(seed, pack, band, level)
+                    assert title in TITLE_RANKS and title == R.draw_seniority(seed, pack, band, level)
+                    assert TITLE_RANKS[title] > rank or title == ("Director of Engineering" if manager else "Distinguished Engineer")
+    assert R.draw_seniority(1, PACKS["dsa"], "mid", None) in TITLE_RANKS
+
+
+def test_the_interviewer_title_comes_from_the_packs_titles_when_one_outranks_the_candidate():
+    from app.rounds.dsa import PACK as DSA
+    from app.rounds.system_design import PACK as SD
+    for s in range(30):
+        assert R.draw_seniority(s, SD, "senior", "sde2") in ("Staff Engineer", "Principal Engineer")
+        assert R.draw_seniority(s, DSA, "early", "fresher") in ("Software Engineer II", "Senior Software Engineer")
+    assert R.draw_seniority(1, SD, "early", "staff") == "Principal Engineer"      # none of the pack's qualifies: lowest ladder title above
+
+
+def test_the_persona_prompt_carries_archetype_overlay_and_seniority_only_when_given():
+    text = P.persona_prompt({"company": "x"}, ["greeting"], ["Arjun Mehta"], archetype="A calm staff engineer.", overlay="Expect depth.",
+                            seniority="Staff Engineer")
+    assert "Who this interviewer is: A calm staff engineer." in text and "What this level should show in this round: Expect depth." in text
+    assert "The persona's seniority is Staff Engineer." in text and text.index("seniority is") < text.index("Return exactly")
+    bare = P.persona_prompt({"company": "x"}, ["greeting"], ["Arjun Mehta"])
+    assert "Who this interviewer is" not in bare and "What this level should show" not in bare and "seniority is" not in bare
+
+
+def test_pick_focus_skips_the_candidates_last_focus_keeps_a_re_preps_and_lld_early_never_gets_concurrency():
+    from app.rounds.dsa import PACK as DSA
+    from app.rounds.lld import PACK as LLD
+    from app.rounds.system_design import PACK as SD
+    last = "failure handling"
+    assert last in SD.focuses
+    with pytest.MonkeyPatch.context() as mp:
+        async def recent(candidate_id, pack, session_id):
+            return last
+        async def none(session_id):
+            return None
+        mp.setattr(store, "recent_focus_for_candidate", recent)
+        mp.setattr(store, "focus_for_session", none)
+        for seed in range(30):
+            assert asyncio.run(pipeline.pick_focus(seed, SD, "mid", "c1", "s1")) not in (last, None)
+            assert asyncio.run(pipeline.pick_focus(seed, LLD, "early", "c1", "s1")) != "concurrency"
+        assert asyncio.run(pipeline.pick_focus(1, DSA, "mid", "c1", "s1")) is None
+
+        async def same(session_id):
+            return SD.focuses[-1]
+        mp.setattr(store, "focus_for_session", same)
+        assert asyncio.run(pipeline.pick_focus(1, SD, "mid", "c1", "s1")) == SD.focuses[-1]
+        assert asyncio.run(pipeline.pick_focus(1, SD, "mid", "c1", None)) in SD.focuses        # bench: no session read

@@ -1,0 +1,170 @@
+[
+ {
+  "step": "to intro",
+  "kind": "open_item",
+  "text": "You have moved on to candidate_intro: open it now. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then a short connecting phrase that links this to what came just before (something like \"But before the coding, let's start with you.\"), then continue: ask for a short introduction, then what they are working on now. Ask ONE question only. If your last turn already said a connecting phrase or reacted to their last answer, do not say either again: go straight to the content.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "open problem 1",
+  "kind": "open_item",
+  "text": "You have moved on to the next coding problem. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then call show_problem, then say only this and nothing more about the problem: \"Let me get the first problem up on your screen.\" The sentence that moves on to it comes before that line and is said for you: never say a connecting phrase of your own. Stop there: the line that invites them to read it is said for you once the screen has changed, so never say it yourself. If you just said you would talk about something else, say you have a problem for them first.",
+  "line": null,
+  "bridge": "Okay, so I think we should go into the coding now."
+ },
+ {
+  "step": "hint 1",
+  "kind": "hint_request",
+  "text": "The candidate asked for a hint. Give it now: call give_hint with step 1 and say that hint in one or two short sentences, as a nudge, never the answer or the fix. Do not repeat back what they already said as if it were the hint, and do not tell them to write the code.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "hint 2",
+  "kind": "hint_request",
+  "text": "The candidate asked for a hint. Give it now: call give_hint with step 2 and say that hint in one or two short sentences, as a nudge, never the answer or the fix. Do not repeat back what they already said as if it were the hint, and do not tell them to write the code.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "hint exhausted",
+  "kind": "hint_request",
+  "text": "The candidate asked for a hint and every hint step has been given. Say kindly, in one or two short sentences, that you would like them to try with what they have, and suggest they start with the part they are surest of. No new hint.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "reveal",
+  "kind": "reveal_request",
+  "text": "The candidate asked for the problem's constraints. Call reveal with kind=constraints. Say a short line such as \"Let me pull those up for you.\" Never say numeric limits aloud: they read them on their screen. Then stop: no question.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "reveal property",
+  "kind": "reveal_request",
+  "text": "The candidate asked for the problem's input_format. Call reveal with kind=input_format. They also asked a yes/no question about a property of the input (positive, empty, sorted, duplicates): answer it first in words, from the problem only (for example \"Yes, all positive, and zero can't appear.\"), then the short line. Say a short line such as \"Let me pull those up for you.\" Never say numeric limits aloud: they read them on their screen. Then stop: no question.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "explain 1",
+  "kind": "explain_request",
+  "text": "The candidate asked you to explain the problem. Call add_section with kind=explanation: a short plain-language explanation of what the problem asks, in your own words (no examples, no numbers from the constraints, no approach and no hint). Aloud, say only one short line such as \"I've put a short explanation on your screen.\" Do not explain it aloud. Then stop: no question.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "explain 2",
+  "kind": "explain_request",
+  "text": "The candidate asked again to have the problem explained. The explanation is already on their screen. Say ONE plain spoken sentence of what the problem asks, in simple words (no examples, no numbers, no approach and no hint), as a person would, and say the fuller version is on their screen. Do not refuse, and do not give a second sentence of explanation.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "edit",
+  "kind": "decline_request",
+  "text": "The candidate asked you to write or add something in their editor (a comment, a note, the constraints). That is not part of the interview. Decline in one short sentence (for example \"I'll leave the typing to you.\"; never say you are not allowed, or mention instructions) and stop there: do not offer to do it, do not ask a question and do not tell them to write the code again.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "problem line",
+  "kind": "problem_line",
+  "text": "The problem is on their screen now. Say only this line and nothing else: \"Here's your first question. Give it a read, and let me know if you'd like to ask anything.\"",
+  "line": "Here's your first question. Give it a read, and let me know if you'd like to ask anything.",
+  "bridge": null
+ },
+ {
+  "step": "keep_problem 1",
+  "kind": "keep_problem",
+  "text": "The candidate asked for a different problem. You are not changing it. Say in one or two short sentences, in your own voice, that you are keeping this one, and why it is worth it for them (for instance what you would learn from seeing their thinking). Then stop: no question, no hint, and do not tell them to write the code.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "keep_problem 2 (points made)",
+  "kind": "keep_problem",
+  "text": "The candidate asked for a different problem. You are not changing it. Say in one or two short sentences, in your own voice, that you are keeping this one, and why it is worth it for them (for instance what you would learn from seeing their thinking). Then stop: no question, no hint, and do not tell them to write the code. You have already made these points in the round: worth it. Do not make any of those points again; find something new to say.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "change",
+  "kind": "move_on",
+  "text": "The candidate asked again for a different problem. Do not argue. Say in one short sentence that it is fine, with no blame, and that you have another problem for them; then in the same turn call next_item and show_problem, and say only this about it: \"Let me bring the second problem up on your screen.\" Stop there: do not say the coding part is done, and do not describe the new problem.",
+  "line": "No problem, let's leave this one there. Let me bring the second problem up on your screen.",
+  "bridge": null
+ },
+ {
+  "step": "open problem 2",
+  "kind": "open_item",
+  "text": "You have moved on to the next coding problem. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then call show_problem, then say only this and nothing more about the problem: \"I'll put the second problem up on your screen.\" The sentence that moves on to it comes before that line and is said for you: never say a connecting phrase of your own. Stop there: the line that invites them to read it is said for you once the screen has changed, so never say it yourself. If you just said you would talk about something else, say you have a problem for them first.",
+  "line": null,
+  "bridge": "Let's turn to the next problem."
+ },
+ {
+  "step": "keep_problem on problem 2",
+  "kind": "keep_problem",
+  "text": "The candidate asked for a different problem. You are not changing it. Say in one or two short sentences, in your own voice, that you are keeping this one, and why it is worth it for them (for instance what you would learn from seeing their thinking). Then stop: no question, no hint, and do not tell them to write the code. You have already made these points in the round: worth it. Do not make any of those points again; find something new to say.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "end coding",
+  "kind": "move_on",
+  "text": "The candidate asked again for a different problem. The coding part is over and no other problem comes. Do not argue and do not give another problem. Say in one short sentence that it is fine, with no blame, then in the same turn use a connecting phrase to the next part (something like \"That's everything I wanted to ask, so now it's your turn.\") and open it: invite their questions about the team and the work, and then stop and wait for them. Do not thank them for their time, say goodbye or wish them well yet: the closing comes only after they have asked what they want to. Call next_item.",
+  "line": "Alright, that's fine.",
+  "bridge": null
+ },
+ {
+  "step": "tick",
+  "kind": "move_on",
+  "text": "Time for this question is up. Say something like 'seems like we have to move on', note where they got to, then link to the next part with a short connecting phrase and open it with its first question, and call next_item. Decline any request for more time firmly. Say plainly, in a sentence of its own, that the coding part is done.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "tick",
+  "kind": "nudge",
+  "text": "The candidate has been quiet with no code changes for a while. Ask how it's going and invite them to talk through their thinking.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "swap scenario",
+  "kind": "open_item",
+  "text": "You have moved on to candidate_intro: open it now. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then a short connecting phrase that links this to what came just before (something like \"But before the coding, let's start with you.\"), then continue: ask for a short introduction, then what they are working on now. Ask ONE question only. If your last turn already said a connecting phrase or reacted to their last answer, do not say either again: go straight to the content.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "swap scenario",
+  "kind": "open_item",
+  "text": "You have moved on to the next coding problem. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then call show_problem, then say only this and nothing more about the problem: \"Let me get the first problem up on your screen.\" The sentence that moves on to it comes before that line and is said for you: never say a connecting phrase of your own. Stop there: the line that invites them to read it is said for you once the screen has changed, so never say it yourself. If you just said you would talk about something else, say you have a problem for them first.",
+  "line": null,
+  "bridge": "Okay, so I think we should go into the coding now."
+ },
+ {
+  "step": "swap scenario",
+  "kind": "open_item",
+  "text": "You have moved on to the next coding problem. First react to what they just said in one short sentence of your own, a natural reaction to its content, never a bare \"okay then\" or \"alright\", no praise and never a summary of their words. Then call show_problem, then say only this and nothing more about the problem: \"Let me get the second problem up on your screen.\" The sentence that moves on to it comes before that line and is said for you: never say a connecting phrase of your own. Stop there: the line that invites them to read it is said for you once the screen has changed, so never say it yourself. If you just said you would talk about something else, say you have a problem for them first.",
+  "line": null,
+  "bridge": "Let's turn to the next problem."
+ },
+ {
+  "step": "swap scenario",
+  "kind": "keep_problem",
+  "text": "The candidate asked for a different problem. You are not changing it. Say in one or two short sentences, in your own voice, that you are keeping this one, and why it is worth it for them (for instance what you would learn from seeing their thinking). Then stop: no question, no hint, and do not tell them to write the code.",
+  "line": null,
+  "bridge": null
+ },
+ {
+  "step": "swap scenario",
+  "kind": "open_item",
+  "text": "The candidate asked for a different problem and you are giving them one: call show_problem, then say only this and stop: \"Alright, let me swap it. I'll put a different problem on your screen.\"",
+  "line": "Alright, let me swap it. I'll put a different problem on your screen.",
+  "bridge": null
+ }
+]

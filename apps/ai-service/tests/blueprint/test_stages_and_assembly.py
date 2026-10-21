@@ -434,3 +434,21 @@ def test_the_first_problem_floor_is_below_45_minutes_only_and_45_keeps_the_pre_c
         from app.blueprint.selection import SlotPlan
         plans = [SlotPlan("core-1", "core", 1, "first"), SlotPlan("core-2", "core", 2, "second")]
         assert ST.bonus_slots(plans, {p.slot_id: per_slot for p in plans}, core, deep) == set()          # the second problem is not a bonus
+
+
+def test_global_signals_by_round_type_keep_todays_lists():
+    from app.blueprint.policies import global_signals
+    common = ["communication", "receptiveness", "composure"]
+    dsa = [s["signal"] for s in global_signals("dsa")]
+    assert dsa == ["problem_understanding", "approach", "coding", "testing", "complexity", *common]
+    assert [s["signal"] for s in global_signals("online-assessment")] == dsa
+    behavioural = [s["signal"] for s in global_signals("behavioural")]
+    assert behavioural == ["structure", "ownership", "impact", "self_awareness", *common]
+    assert global_signals("hiring-manager") == global_signals("behavioural")
+
+
+def test_global_signals_for_design_rounds_keep_todays_lists():
+    from app.blueprint.policies import global_signals
+    common = ["communication", "receptiveness", "composure"]
+    assert [s["signal"] for s in global_signals("system-design")] == ["requirements", "design", "trade_offs", "scale_and_failure", *common]
+    assert [s["signal"] for s in global_signals("lld")] == ["modelling", "design_quality", "extensibility", "code", *common]

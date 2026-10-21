@@ -28,8 +28,8 @@ def test_fingerprint_ignores_trigger_and_options_but_not_inputs():
 
 def test_fingerprint_carries_the_prep_version_hashed_the_way_the_api_does():
     import hashlib
-    assert pipeline.PREP_VERSION == "shapes-1"
-    assert pipeline.fingerprint(request())[1]["prep"] == hashlib.sha256(b'"shapes-1"').hexdigest()[:16]
+    assert pipeline.PREP_VERSION == "packs-1"
+    assert pipeline.fingerprint(request())[1]["prep"] == hashlib.sha256(b'"packs-1"').hexdigest()[:16]
 
 
 def test_identical_inputs_reuse_the_current_blueprint(monkeypatch):
@@ -134,3 +134,75 @@ def test_startup_recovery_only_fails_runs_older_than_the_timeout(monkeypatch):
     monkeypatch.setattr(store, "get_db", lambda: {store.RUNS: _Coll()})
     assert asyncio.run(store.recover_interrupted_runs(30, 600)) == 1
     assert seen["q"]["status"] == "running" and "$lt" in seen["q"]["created_at"]
+
+
+def _assembled(round_type: str, level: str = "sde1"):
+    """What the pipeline's last stages put on a Blueprint: the pack's policies and the composed rules block."""
+    from app.blueprint.models import RulesBlock
+    from app.blueprint.policies import policies as policy_template
+    from app.rounds.compose import compose_rules
+    pol = policy_template(round_type)
+    rules = RulesBlock(**compose_rules(round_type, level, focus=None))
+    return pol, rules
+
+
+def test_a_system_design_blueprint_carries_its_rules_block_and_pol2_without_change_language():
+    pol, rules = _assembled("system-design")
+    doc = {"rules": rules.model_dump(mode="json"), "policies": pol.model_dump(mode="json")}
+    assert doc["rules"]["pack"] == "system-design" and doc["rules"]["version"] == "rules1" and doc["rules"]["focus"] is None
+    assert doc["policies"]["version"] == "pol2"
+    assert "change_language" not in [r["kind"] for r in doc["policies"]["requests"]]
+
+
+def test_a_dsa_blueprint_keeps_todays_fourteen_request_policies():
+    from app.blueprint.policies import _REQUESTS
+    pol, rules = _assembled("dsa")
+    assert [(r.kind, r.decision, r.how) for r in pol.requests] == list(_REQUESTS) and rules.pack == "dsa"
+    assert pol.time_management.endswith("then move on. Never cut the candidate questions or wrap-up phases.")
+    assert "final approach and complexity" in pol.time_management
+
+
+def test_policies_without_a_round_type_is_todays_content_as_pol2():
+    from app.blueprint.policies import _GENERAL, _REQUESTS, policies
+    pol = policies()
+    assert pol.version == "pol2" and [(r.kind, r.decision, r.how) for r in pol.requests] == list(_REQUESTS)
+    assert pol.time_management == _GENERAL["time_management"]
+
+
+def test_pack_overrides_replace_drop_and_append_request_policies_and_general_text():
+    from app.blueprint.policies import policies
+    hm = {r.kind: r for r in policies("hiring-manager").requests}
+    assert "change_language" not in hm and hm["ask_about_compensation"].decision == "decline" and len(hm) == 14
+    assert hm["ask_hint"].decision == "comply" and "kind of example" in hm["ask_hint"].how
+    assert "final approach" not in policies("online-assessment").time_management
+    for rt in ("system-design", "lld"):
+        assert "main trade-off" in policies(rt).time_management
+    for rt in ("behavioural", "hiring-manager"):
+        assert "finish the answer" in policies(rt).time_management
+
+
+def test_the_saved_persona_seniority_is_the_drawn_title_whatever_the_model_returns():
+    from app.blueprint import realism as R
+    from app.blueprint import stages as ST
+    from app.blueprint.context import build_context
+    from app.rounds.compose import band_for, pack_for
+    from tests.blueprint.fixtures import FakeLLM, MemoryTrace
+
+    class _S:
+        blueprint_concurrency = 2
+        blueprint_parallel = 2
+        blueprint_quota_retries = 0
+        blueprint_transient_retries = 0
+    reply = {"persona": {"name": "Asha Rao", "seniority": "Intern Wizard", "style": "calm, asks why", "disposition": "patient and kind",
+                         "opening": "Hi, I'm Asha. How's your day?", "closing": "Thanks for your time today!"},
+             "phase_guidance": [{"phase": "greeting", "guidance": "warm hello and name"}]}
+    for round_type in ("system-design", "dsa"):
+        ctx = build_context(request(round_type, round={"type": round_type, "duration_mins": 45}))
+        pack, band = pack_for(round_type), band_for(ctx.level)
+        wanted = R.draw_seniority(7, pack, band, ctx.level)
+        llm = FakeLLM({"persona": dict(reply)})
+        out = asyncio.run(ST.persona_stage(ctx, [], llm, MemoryTrace(), _S(), seed="x", pack=pack, band=band, seniority=wanted))
+        assert out.persona.seniority == wanted != "Intern Wizard"
+        assert f"The persona's seniority is {wanted}." in llm.calls[0][1]
+        assert ("Who this interviewer is" in llm.calls[0][1]) == bool(pack.archetype)
+    assert pack_for("dsa").focuses == () and pack_for("system-design").focuses

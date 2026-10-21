@@ -1,0 +1,47 @@
+Context:
+{
+ "round": {
+  "company": "Amazon"
+ }
+}
+
+Return exactly:
+{
+  "ask": {"opening": "<how the persona poses this question, natural and spoken>", "clarifications": [{"question": "<a question the candidate may ask>", "answer": "<what the interviewer answers>"}, ...]},
+  "hint_ladder": [{"step": 1, "hint": "<gentle>"}, {"step": 2, "hint": "<more explicit>"}, {"step": 3, "hint": "<almost the approach>"}],
+  "branches": [{"condition": "<one of the conditions>", "action": "<one of the actions>", "say": "<what the persona says>", "notes": "<when/how>"}, ...],
+  "probes": ["<deeper question once the main answer is in>", "..."],
+  "follow_ups": ["<harder variant or constraint change>", "..."],
+  "expectations": {"must_show": ["..."], "strong_signals": ["..."], "weak_signals": ["..."]},
+  "evaluation_signals": [{"signal": "<e.g. clarifies before coding>", "observe": "<what to watch for>"}, ...]
+}
+Conditions (write AT LEAST ONE branch for EVERY one; the live interviewer detects these moments):
+- stuck: the candidate can't see how to start or how to continue
+- long_silence: the candidate has said nothing for a while
+- asks_clarification: the candidate asks about requirements, inputs, constraints or scope
+- asks_hint: the candidate asks for a hint
+- asks_for_answer: the candidate asks to be told the answer or the solution (action: decline_politely)
+- off_topic: the candidate talks about something unrelated to this question (action: redirect)
+- seen_before: the candidate says they already know this exact question (solved it before, or already answered it earlier in this interview); move to a different question (action: switch_to_reserve)
+- over_time: this question's time is up (action: wrap_up_slot)
+- nervous: the candidate sounds anxious, apologises a lot or freezes
+- wrong_approach: the candidate commits to an approach that can't work
+- partially_correct: the approach works but misses cases or requirements
+- correct_suboptimal: a correct solution that is slower or heavier than needed
+- correct_optimal: a correct, optimal solution
+- bug_in_code: the code has a bug
+Actions (use only these): give_hint, clarify, probe_deeper, ask_follow_up, reframe, redirect, encourage, acknowledge_move_on, ask_complexity, ask_dry_run, switch_to_reserve, decline_politely, wrap_up_slot
+Rules:
+- This is a mock interview for Amazon. Never name another company or another company's principles or values. If the question or its notes were written for another company, adapt them to Amazon or keep them company-neutral.
+- Use only facts in `candidate`. Never assume an employer, project, domain or role the candidate doesn't have; with little candidate data, ask open questions ("a project you worked on").
+- Calibrate to the level: interns and freshers talk about college projects, internships, hackathons and teams, never about leading teams, products or budgets. Expectations match the level too.
+- In a coding or design question every branch, probe and signal is about the problem itself; culture and behavioural questions belong to behavioural questions only.
+- A behavioural question asks for the candidate's OWN past example: never describe a hypothetical scenario for them to answer, and clarifications only say what kind of example fits (a college project counts); they never supply facts about the candidate's past.
+- Every line must work spoken as written: no placeholders such as X, Y, [project], <name> or '...'; refer back with words like "what you said earlier" instead.
+- Vary how questions open: "Hey," suits a casual coding round at most once; use a natural transition from the previous question instead ("Thanks. Moving on, ..."). A conversation with a hiring manager stays professional and warm.
+- Never address the candidate by a name (you are not given one): say "thanks for sharing", not "thanks, Imran".
+- Keep probes to the 3-5 that dig deepest and follow_ups to 2-4.
+- Hints and lines stay language-neutral: the candidate codes in a language of their choice, so never assume Python (or any language's operators) unless they named it.
+- clarifications[].answer is what the interviewer says to the candidate ("You can assume ..."), never in the candidate's voice (never "I'd like to know...for someone with my background"; the candidate asks, you answer).
+- For a behavioural question, probes dig three to five levels into the candidate's own example: the decision they made and its alternatives, the numbers, what went wrong, what they would change. Depth beats more questions.
+- `say` is what the persona says aloud, in the first person, with no name prefix. For asks_clarification, `say` starts the answer and `notes` says to answer from the clarifications; for asks_for_answer, decline and offer the next hint; for off_topic, acknowledge briefly and redirect; for seen_before, thank them and move to a different question.

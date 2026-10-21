@@ -3,8 +3,11 @@ every interview — PRODUCT IP drafted for human review. No LLM: consistency mat
 from __future__ import annotations
 
 from app.blueprint.models import Policies, RequestPolicy
+from app.blueprint.vocabulary import family
+from app.rounds.base import COMMON_SIGNALS
+from app.rounds.compose import PACKS, pack_for
 
-POLICY_VERSION = "pol1"
+POLICY_VERSION = "pol2"
 
 _REQUESTS: tuple[tuple[str, str, str], ...] = (
     ("repeat_question", "comply", "Repeat or rephrase the question calmly; never add new hints while repeating."),
@@ -33,36 +36,21 @@ _GENERAL = {
                  "consistent with the answer key, and never reveal the answer key."),
 }
 
-_GLOBAL_SIGNALS = {
-    "dsa": (("problem_understanding", "Restates the problem, asks clarifying questions, checks constraints and edge cases first."),
-            ("approach", "Moves from a brute force to a better approach and can justify why it is better."),
-            ("coding", "Writes correct, readable code; names things well; handles edge cases."),
-            ("testing", "Dry-runs the code on an example and on an edge case without being asked."),
-            ("complexity", "States time and space complexity correctly.")),
-    "system-design": (("requirements", "Clarifies functional and non-functional requirements and scale before designing."),
-                      ("design", "Proposes coherent components and data flow; justifies storage choices."),
-                      ("trade_offs", "Names alternatives and picks one for stated reasons."),
-                      ("scale_and_failure", "Finds bottlenecks and failure modes and addresses them.")),
-    "lld": (("modelling", "Identifies the right entities and responsibilities."),
-            ("design_quality", "Uses sensible abstractions and patterns without over-engineering."),
-            ("extensibility", "Handles a new requirement with small, local changes."),
-            ("code", "Writes working, readable code when asked.")),
-    "behavioural": (("structure", "Answers with a clear situation, task, action and result."),
-                    ("ownership", "Speaks about their own actions ('I'), not only the team's."),
-                    ("impact", "Gives concrete, ideally measurable results."),
-                    ("self_awareness", "Reflects honestly on mistakes and what they learned.")),
-}
-
-_COMMON_SIGNALS = (("communication", "Thinks aloud, explains clearly, listens to the interviewer."),
-                   ("receptiveness", "Uses hints well and adapts when nudged."),
-                   ("composure", "Stays steady when stuck; recovers after mistakes."))
-
-
-def policies() -> Policies:
+def policies(round_type: str | None = None) -> Policies:
+    """The request policies: today's 14 kinds, then the round's pack applies its overrides (None drops a kind, a new kind is appended)
+    and its general-policy texts. No round type gives the DSA text."""
+    pack = pack_for(round_type) if round_type else None
+    overrides = pack.policy_overrides if pack else {}
+    requests = [(k, *overrides[k]) if overrides.get(k) else (k, d, h) for k, d, h in _REQUESTS if k not in overrides or overrides[k]]
+    requests += [(k, *v) for k, v in overrides.items() if v is not None and k not in {r[0] for r in _REQUESTS}]
+    general = {**_GENERAL, **(pack.general_overrides if pack else {})}
     return Policies(version=POLICY_VERSION,
-                    requests=[RequestPolicy(kind=k, decision=d, how=h) for k, d, h in _REQUESTS],
-                    **_GENERAL)
+                    requests=[RequestPolicy(kind=k, decision=d, how=h) for k, d, h in requests],
+                    **general)
 
 
-def global_signals(family: str) -> list[dict]:
-    return [{"signal": s, "observe": o} for s, o in (*_GLOBAL_SIGNALS.get(family, ()), *_COMMON_SIGNALS)]
+def global_signals(round_type: str) -> list[dict]:
+    """The round's signals then the common ones: the pack registered for this round type or its family."""
+    pack = PACKS.get(round_type) or PACKS.get(family(round_type))
+    signals = pack.signals if pack else ()
+    return [{"signal": s, "observe": o} for s, o in (*signals, *COMMON_SIGNALS)]

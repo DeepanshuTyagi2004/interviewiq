@@ -240,6 +240,22 @@ async def recent_traits_for_candidate(candidate_id: str, exclude_session: str | 
     return out
 
 
+async def recent_focus_for_candidate(candidate_id: str, pack: str, session_id: str | None) -> str | None:
+    """The focus of this user's newest blueprint of the same round pack in another session (None when it had none), so the next round
+    draws a different one. The current session's own blueprints are skipped."""
+    q: dict = {"candidate_id": candidate_id, "rules.pack": pack, "rules.focus": {"$nin": [None, ""]}}
+    q["session_id"] = {"$nin": [session_id, None]} if session_id else {"$ne": None}
+    doc = await get_db()[BLUEPRINTS].find_one(q, {"rules.focus": 1}, sort=[("created_at", -1)])
+    return ((doc or {}).get("rules") or {}).get("focus") or None
+
+
+async def focus_for_session(session_id: str) -> str | None:
+    """The focus an earlier blueprint of this session drew (`rules.focus`), which a re-prep keeps."""
+    doc = await get_db()[BLUEPRINTS].find_one({"session_id": session_id, "rules.focus": {"$nin": [None, ""]}}, {"rules.focus": 1},
+                                              sort=[("created_at", -1)])
+    return ((doc or {}).get("rules") or {}).get("focus") or None
+
+
 async def recent_habits_for_candidate(candidate_id: str, exclude_session: str | None, limit: int = 2) -> list[dict]:
     """The speech habits of this user's latest rounds in other sessions, newest first, one per session, so the next interviewer shares few
     phrases with either (a round whose plan was dropped still counts: its persona said them). A blueprint from before the habits were kept

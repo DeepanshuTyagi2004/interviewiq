@@ -17,7 +17,7 @@ from app.blueprint import store
 from app.blueprint.answer_keys import build_answer_keys
 from app.blueprint.context import build_context, has_problem_floor
 from app.blueprint.llm import build_blueprint_llm
-from app.blueprint.models import Blueprint, BlueprintRunRequest
+from app.blueprint.models import Blueprint, BlueprintRunRequest, RulesBlock
 from app.blueprint.policies import policies as policy_template
 from app.blueprint.shapes import Shape, choose_shape, shape_by_id
 from app.blueprint.stages import (bonus_slots, culture_minutes, persona_stage, personalization_stage, plan_arc, playbook_stage,
@@ -25,6 +25,8 @@ from app.blueprint.stages import (bonus_slots, culture_minutes, persona_stage, p
 from app.blueprint.vocabulary import is_culture_slot
 from app.blueprint.trace import RunTrace, StageError
 from app.config import Settings
+from app.rounds.compose import band_for, compose_rules, pack_for
+from app.rounds.pack import Band, RoundPack
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +57,28 @@ async def pick_realism(session_id: str | None) -> tuple[int, dict[str, str] | No
     return secrets.randbits(63), None
 
 
-async def pick_traits(seed: int, shape_id: str, candidate_id: str, session_id: str | None, kept: dict[str, str] | None) -> dict[str, str]:
-    """The persona's traits: a re-prep keeps the session's (when still valid for the shape), a new session draws ones that fit the
-    shape and are not either of the candidate's last two rounds'."""
-    if (valid := R.keep_traits(kept, seed, shape_id)) is not None:
+async def pick_traits(seed: int, shape_id: str, candidate_id: str, session_id: str | None, kept: dict[str, str] | None,
+                      pack: RoundPack | None = None) -> dict[str, str]:
+    """The persona's traits: a re-prep keeps the session's (when still valid for the shape and the round pack's trait limits), a new
+    session draws ones that fit the shape, obey the limits and are not either of the candidate's last two rounds'."""
+    limits = ({"excludes": pack.trait_excludes, "pairs": pack.trait_pairs_excluded, "forced": pack.trait_forced} if pack else {})
+    if (valid := R.keep_traits(kept, seed, shape_id, **limits)) is not None:
         return valid
     recent = await store.recent_traits_for_candidate(candidate_id, session_id) if session_id else []
-    return R.draw_realism_traits(seed, recent, shape_id)
+    return R.draw_realism_traits(seed, recent, shape_id, **limits)
+
+
+async def pick_focus(seed: int, pack: RoundPack, band: Band, candidate_id: str, session_id: str | None) -> str | None:
+    """The round's focus from the pack: a re-prep keeps its session's earlier one (while the pack still offers it), a new session draws
+    one that is not the candidate's last for this pack. None when the pack has no focuses. Bench runs read no store."""
+    if not pack.focuses:
+        return None
+    if session_id:
+        earlier = await store.focus_for_session(session_id)
+        if earlier and earlier in R.focus_choices(pack, band):
+            return earlier
+    last = await store.recent_focus_for_candidate(candidate_id, pack.pack_id, session_id) if session_id else None
+    return R.draw_focus(seed, pack, band, last)
 
 
 async def pick_habits(seed: int, traits: dict[str, str], candidate_id: str, session_id: str | None) -> R.SpeechHabits:
@@ -116,7 +133,7 @@ _EXCLUDED_FROM_HASH = {"trigger", "options", "input_hash", "input_parts", "rerun
 
 # Part of the fingerprint so ready sessions are re-prepared when a prep change must reach them. Must equal PREP_VERSION in the API's
 # src/services/blueprintPrep.ts.
-PREP_VERSION = "shapes-1"
+PREP_VERSION = "packs-1"
 
 
 def fingerprint(req: BlueprintRunRequest) -> tuple[str, dict[str, str]]:
@@ -274,10 +291,13 @@ async def _pipeline(run_id: str, req: BlueprintRunRequest, settings: Settings, t
     timeboxes = {p.slot_id: culture_mins if is_culture_slot(p.slot_id) else per_slot for p in plans}
     bonus = bonus_slots(plans, timeboxes, core_mins, deep_dive)
     had = await store.persona_names_for_candidate(req.session.candidate_id, session_id) if session_id else set()
-    traits = await pick_traits(realism_seed, shape.shape_id, req.session.candidate_id, session_id, kept_traits)
+    pack, band = pack_for(ctx.round_type), band_for(ctx.level)
+    traits = await pick_traits(realism_seed, shape.shape_id, req.session.candidate_id, session_id, kept_traits, pack)
+    seniority = R.draw_seniority(realism_seed, pack, band, ctx.level)
+    focus = await pick_focus(realism_seed, pack, band, req.session.candidate_id, session_id)
     habits = await pick_habits(realism_seed, traits, req.session.candidate_id, session_id)
     persona = await persona_stage(ctx, arc, llm, trace, settings, seed=seed, exclude_names=had, shape=shape, traits=traits,
-                                  time_plan=time_plan(ctx, plans, per_slot, culture_mins, deep_dive, core_mins))
+                                  pack=pack, band=band, seniority=seniority, time_plan=time_plan(ctx, plans, per_slot, culture_mins, deep_dive, core_mins))
     await trace.done("persona", summary={"name": persona.persona.name, "style": persona.persona.style, "traits": traits},
                      detail={"persona": persona.model_dump(mode="json"), "arc": [a.model_dump() for a in arc],
                              "realism_seed": realism_seed, "traits": traits})
@@ -316,7 +336,7 @@ async def _pipeline(run_id: str, req: BlueprintRunRequest, settings: Settings, t
 
     # 7. policies
     await trace.start("policies")
-    pol = policy_template()
+    pol = policy_template(ctx.round_type)
     await trace.done("policies", summary={"version": pol.version, "requests": len(pol.requests)})
 
     # 8. assemble + validate
@@ -324,10 +344,11 @@ async def _pipeline(run_id: str, req: BlueprintRunRequest, settings: Settings, t
     slots = A.build_slots(plans, keyed, playbooks, timeboxes, bonus)
     models = [c.get("model") for st in trace.stages for c in st["llm_calls"]]
     version = await store.next_version(session_id) if session_id else 0
+    rules = RulesBlock(**compose_rules(ctx.round_type, ctx.level, focus=focus))
     bp = Blueprint(
         blueprint_id=f"bp_{uuid.uuid4().hex[:20]}", session_id=session_id, candidate_id=req.session.candidate_id,
         version=version, status="current" if session_id else "bench", input_hash=req.input_hash or "",
-        input_parts=req.input_parts, run_id=run_id, shape_id=shape.shape_id, created_at=store.iso(), round=round_view,
+        input_parts=req.input_parts, run_id=run_id, shape_id=shape.shape_id, rules=rules, created_at=store.iso(), round=round_view,
         persona=persona.persona, arc=arc, personalization=personalization, slots=slots, policies=pol,
         evaluation=A.evaluation(ctx), briefing=A.briefing(ctx, persona, slots),
         provenance=A.provenance(models, ctx, seed, keyed, pol, run_id), realism=realism,

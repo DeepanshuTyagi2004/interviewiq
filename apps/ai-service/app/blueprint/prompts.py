@@ -162,7 +162,7 @@ INTERVIEWER_NAMES = (
 
 
 def persona_prompt(ctx_view: dict, phases: list[str], names: list[str] | None = None, shape_about: str = "",
-                   traits: dict[str, str] | None = None) -> str:
+                   traits: dict[str, str] | None = None, archetype: str = "", overlay: str = "", seniority: str = "") -> str:
     name_rule = (f"The persona's name is {names[0]}; he is a man. " if names and len(names) == 1
                  else f"Choose the persona's name from: {', '.join(names)}. " if names else "")
     return (
@@ -174,6 +174,9 @@ def persona_prompt(ctx_view: dict, phases: list[str], names: list[str] | None = 
           "straight to the work, warm and unhurried for one that starts with a longer chat. ") if shape_about else "") +
         (f"Your traits: {', '.join(f'{axis} {level}' for axis, level in traits.items() if axis != 'register')}; write the persona consistent with them "
          "(style, disposition, opening and closing all sound like this person; never name a trait aloud). " if traits else "") +
+        (f"Who this interviewer is: {archetype} " if archetype else "") +
+        (f"What this level should show in this round: {overlay} " if overlay else "") +
+        (f"The persona's seniority is {seniority}. " if seniority else "") +
         "Return exactly:\n{\n"
         '  "persona": {"name": "<first name and surname, common in India>", "seniority": "<e.g. Senior Software Engineer>", '
         '"style": "<one short line, e.g. calm, asks a lot of why-questions>", "disposition": "<how they react to struggle and to strong answers>", '
@@ -240,7 +243,7 @@ PLAYBOOK_SYSTEM = PLATFORM + (
 )
 
 
-def playbook_prompt(view: dict, conditions: list[str], actions: list[str]) -> str:
+def playbook_prompt(view: dict, conditions: list[str], actions: list[str], pack_rules: tuple[str, ...] = ()) -> str:
     from app.blueprint.vocabulary import CONDITION_MEANINGS, PINNED_ACTIONS
 
     company = (view.get("round") or {}).get("company") or "the company"
@@ -267,11 +270,6 @@ def playbook_prompt(view: dict, conditions: list[str], actions: list[str]) -> st
         "with little candidate data, ask open questions (\"a project you worked on\").\n"
         "- Calibrate to the level: interns and freshers talk about college projects, internships, hackathons and "
         "teams, never about leading teams, products or budgets. Expectations match the level too.\n"
-        "- In a coding or design question every branch, probe and signal is about the problem itself; culture and "
-        "behavioural questions belong to behavioural questions only.\n"
-        "- A behavioural question asks for the candidate's OWN past example: never describe a hypothetical scenario "
-        "for them to answer, and clarifications only say what kind of example fits (a college project counts); they "
-        "never supply facts about the candidate's past.\n"
         "- Every line must work spoken as written: no placeholders such as X, Y, [project], <name> or '...'; refer back "
         "with words like \"what you said earlier\" instead.\n"
         "- Vary how questions open: \"Hey,\" suits a casual coding round at most once; use a natural transition from "
@@ -279,14 +277,11 @@ def playbook_prompt(view: dict, conditions: list[str], actions: list[str]) -> st
         "professional and warm.\n"
         "- Never address the candidate by a name (you are not given one): say \"thanks for sharing\", not \"thanks, Imran\".\n"
         "- Keep probes to the 3-5 that dig deepest and follow_ups to 2-4.\n"
-        "- Hints and lines stay language-neutral: the candidate codes in a language of their choice, so never assume "
-        "Python (or any language's operators) unless they named it.\n"
         "- clarifications[].answer is what the interviewer says to the candidate (\"You can assume ...\"), never in the "
         "candidate's voice (never \"I'd like to know...for someone with my background\"; the candidate asks, you answer).\n"
-        "- For a behavioural question, probes dig three to five levels into the candidate's own example: the decision they "
-        "made and its alternatives, the numbers, what went wrong, what they would change. Depth beats more questions.\n"
         "- `say` is what the persona says aloud, in the first person, with no name prefix. For asks_clarification, "
         "`say` starts the answer and `notes` says to answer from the clarifications; for asks_for_answer, decline "
         "and offer the next hint; for off_topic, acknowledge briefly and redirect; for seen_before, thank them and "
         "move to a different question."
+        + "".join(f"\n- {line}" for line in pack_rules)
     )

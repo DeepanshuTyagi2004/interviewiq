@@ -16,6 +16,7 @@ from typing import Any
 from app.blueprint import speech_vocab as V
 from app.blueprint.models import ChangeStance, Realism, RealismOutlinePart, SpeechHabits
 from app.blueprint.vocabulary import family as family_of
+from app.rounds.pack import LEVEL_RANKS, MANAGER_TITLES, TITLE_RANKS, Band, RoundPack
 from app.interviewer.plan import deep_dive_probes, round_question_areas
 
 # ---------------------------------------------------------------- traits
@@ -70,22 +71,42 @@ def _combos() -> tuple[tuple[str, ...], ...]:
     return tuple(c for c in product(*(TRAIT_AXES[a] for a in axes)) if coherent(dict(zip(axes, c))))
 
 
-def draw_traits(rng: random.Random, avoid: list[dict[str, str]], shape_id: str | None = None) -> dict[str, str]:
+def violates_limits(traits: dict[str, str], excludes: dict[str, tuple[str, ...]] = {}, pairs: tuple = (), forced: dict[str, str] = {}) -> bool:
+    """Whether the traits break a round pack's limits: an excluded level, an excluded pair or a forced axis at another level."""
+    return (any(traits.get(axis) in levels for axis, levels in excludes.items())
+            or any(traits.get(a) == va and traits.get(b) == vb for (a, va), (b, vb) in pairs)
+            or any(traits.get(axis) != level for axis, level in forced.items()))
+
+
+def draw_traits(rng: random.Random, avoid: list[dict[str, str]], shape_id: str | None = None,
+                excludes: dict[str, tuple[str, ...]] = {}, pairs: tuple = (), forced: dict[str, str] = {}) -> dict[str, str]:
     """A coherent trait combination that fits the round's shape, never one in `avoid` (the candidate's last rounds) unless every
     combination is, and then the register (Indian English for `INDIAN_ENGLISH_SHARE` of the draws; the register plays no part in
-    coherence, in the shape or in `avoid`)."""
+    coherence, in the shape or in `avoid`). A round pack's limits narrow the combinations first (`excludes` levels, `pairs` that
+    never go together; `forced` axes keep their level, the other axes redrawn from the coherent combinations that agree with them);
+    a limit that would leave nothing is ignored, so a draw never fails."""
     axes = list(COMBO_AXES)
     avoided = {tuple(a.get(k) for k in axes) for a in avoid}
-    fitting = [c for c in _combos() if fits_shape(dict(zip(axes, c)), shape_id)]
-    options = [c for c in fitting if c not in avoided] or fitting
+    options = [c for c in _combos() if fits_shape(dict(zip(axes, c)), shape_id)]
+    forced_axes = {k: v for k, v in forced.items() if k in axes}
+    forced_held = True
+    for limit in ({"excludes": excludes, "pairs": pairs}, {"forced": forced_axes}):
+        if any(limit.values()):
+            narrowed = [c for c in options if not violates_limits(dict(zip(axes, c)), **limit)]
+            forced_held = forced_held and (bool(narrowed) or "forced" not in limit)
+            options = narrowed or options
+    options = [c for c in options if c not in avoided] or options
     traits = dict(zip(axes, rng.choice(options)))
     traits["register"] = "indian_english" if rng.random() < INDIAN_ENGLISH_SHARE else "neutral"
+    # Forced axes are written only when the coherent combinations could hold them (else the incoherent mix is never produced).
+    traits.update({k: v for k, v in forced.items() if k == "register" or (k in TRAIT_AXES and forced_held)})
     return traits
 
 
-def keep_traits(kept: dict[str, str] | None, seed: int, shape_id: str | None = None) -> dict[str, str] | None:
-    """The traits a re-prep keeps, or None when they are not valid for the shape. Traits stored before the register existed get one from the
-    seed (the same every time), so a re-prep still keeps the persona's other traits."""
+def keep_traits(kept: dict[str, str] | None, seed: int, shape_id: str | None = None,
+                excludes: dict[str, tuple[str, ...]] = {}, pairs: tuple = (), forced: dict[str, str] = {}) -> dict[str, str] | None:
+    """The traits a re-prep keeps, or None when they are not valid for the shape or the round pack's limits. Traits stored before the
+    register existed get one from the seed (the same every time), so a re-prep still keeps the persona's other traits."""
     if not kept:
         return None
     base = {a: v for a, v in kept.items() if a != "register"}
@@ -94,6 +115,8 @@ def keep_traits(kept: dict[str, str] | None, seed: int, shape_id: str | None = N
         register = "indian_english" if rng_for(seed, "register").random() < INDIAN_ENGLISH_SHARE else "neutral"
     traits = {**base, "register": register}
     if set(traits) != set(TRAIT_AXES) or not all(v in TRAIT_AXES[a] for a, v in traits.items()) or not coherent(traits) or not fits_shape(traits, shape_id):
+        return None
+    if violates_limits(traits, excludes, pairs, forced):
         return None
     return traits
 
@@ -408,8 +431,37 @@ def rng_for(seed: int, part: str) -> random.Random:
     return random.Random(f"realism:{seed}:{part}")
 
 
-def draw_realism_traits(seed: int, avoid: list[dict[str, str]], shape_id: str | None = None) -> dict[str, str]:
-    return draw_traits(rng_for(seed, "traits"), avoid, shape_id)
+def draw_realism_traits(seed: int, avoid: list[dict[str, str]], shape_id: str | None = None,
+                        excludes: dict[str, tuple[str, ...]] = {}, pairs: tuple = (), forced: dict[str, str] = {}) -> dict[str, str]:
+    return draw_traits(rng_for(seed, "traits"), avoid, shape_id, excludes, pairs, forced)
+
+
+def draw_seniority(seed: int, pack: RoundPack, band: Band, level: str | None = None) -> str:
+    """The interviewer's title, drawn in code (the model's own is ignored) from the pack's titles for the band, always ranked above
+    the candidate's level. When none of those is, the lowest ladder title above the candidate on the pack's track (manager or
+    individual contributor); a candidate above the whole ladder gets the top of the track."""
+    rank = LEVEL_RANKS.get(level or "", 2)
+    titles = tuple((pack.titles or {}).get(band) or ())
+    above = [t for t in titles if TITLE_RANKS[t] > rank]
+    if above:
+        return rng_for(seed, "seniority").choice(above)
+    manager = bool(titles) and all(t in MANAGER_TITLES for t in titles)
+    track = sorted((t for t in TITLE_RANKS if (t in MANAGER_TITLES) == manager and t != "Hiring Manager, Engineering"), key=TITLE_RANKS.__getitem__)
+    return next((t for t in track if TITLE_RANKS[t] > rank), track[-1])
+
+
+def focus_choices(pack: RoundPack, band: Band) -> list[str]:
+    """The pack's focuses for this band: LLD drops concurrency at the early band."""
+    return [f for f in pack.focuses if not (pack.pack_id == "lld" and band == "early" and f == "concurrency")]
+
+
+def draw_focus(seed: int, pack: RoundPack, band: Band, last: str | None = None) -> str | None:
+    """The round's focus, drawn from the pack's focuses, never `last` (the candidate's previous one for this pack) unless it is the only
+    choice. LLD drops concurrency at the early band. None when the pack has no focuses."""
+    choices = focus_choices(pack, band)
+    if not choices:
+        return None
+    return rng_for(seed, "focus").choice([f for f in choices if f != last] or choices)
 
 
 def draw_realism_habits(seed: int, traits: dict[str, str], avoid: list[dict[str, Any]] | None = None) -> SpeechHabits:
