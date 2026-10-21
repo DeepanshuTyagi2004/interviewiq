@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>InterviewIQ — Home (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --side:#ffffff; --surface:#f7f7f6; --surface-2:#f1f0ee; --stone:#f5f2ef;
+    --line:#ebebea; --hair:rgba(0,0,0,.075);
+    --ink:#0b0b0b; --ink-2:#4e4e4e; --ink-3:#8a8781; --chip:#f3f3f2;
+    --btn:#0b0b0b; --btn-ink:#fff;
+    --shadow:rgba(0,0,0,.075) 0 0 0 .5px inset, rgba(78,50,23,.04) 0 6px 16px;
+  }
+  html.dark{
+    --bg:#0e0e0d; --side:#0e0e0d; --surface:#161615; --surface-2:#1d1c1b; --stone:#1b1a18;
+    --line:#242422; --hair:rgba(255,255,255,.08);
+    --ink:#f4f4f3; --ink-2:#b4b2ae; --ink-3:#7a7873; --chip:#1f1e1c;
+    --btn:#f4f4f3; --btn-ink:#0b0b0b;
+    --shadow:rgba(255,255,255,.07) 0 0 0 .5px inset, rgba(0,0,0,.4) 0 6px 16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;letter-spacing:.005em;-webkit-font-smoothing:antialiased}
+  .app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+  /* sidebar */
+  aside{background:var(--side);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+  .logo{display:flex;align-items:center;gap:9px;padding:4px 10px 18px;font-weight:600;font-size:17px;letter-spacing:-.02em}
+  .logo .mark{width:22px;height:22px;border-radius:7px;background:var(--ink);display:grid;place-items:center}
+  .logo .mark i{display:block;width:3px;height:10px;background:var(--bg);border-radius:2px;margin:0 1px;box-shadow:5px 0 0 var(--bg)}
+  .nav{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:10px;color:var(--ink-2);font-size:14px;cursor:pointer;transition:background .15s}
+  .nav:hover{background:var(--surface)}
+  .nav.on{background:var(--surface-2);color:var(--ink);font-weight:500}
+  .nav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;flex:none}
+  .grp{font-size:12.5px;color:var(--ink-3);padding:18px 10px 6px}
+  .spacer{flex:1}
+  .invite{border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 2px;box-shadow:var(--shadow)}
+  .invite .ic{width:30px;height:30px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;margin-bottom:10px}
+  .invite b{font-weight:500;font-size:13.5px;display:block}
+  .invite p{color:var(--ink-3);font-size:12.5px;line-height:1.45;margin-top:3px}
+  .acct{display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid var(--line);margin-top:6px}
+  .acct small{display:block;color:var(--ink-3);font-size:12px}
+  /* orbs */
+  .orb{border-radius:50%;flex:none;background:radial-gradient(circle at 30% 28%,#fff 0,#d9d9d6 18%,#8d8b86 48%,#2b2a28 78%,#0d0d0c 100%);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.2)}
+  .orb.b{background:radial-gradient(circle at 70% 25%,#f4f4f2 0,#b9b7b1 25%,#5b5955 55%,#141413 90%)}
+  .orb.c{background:radial-gradient(circle at 35% 70%,#fafaf9 0,#cfcdc8 22%,#76746f 52%,#1c1b1a 88%)}
+  /* main */
+  main{min-width:0}
+  .banner{height:40px;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:13.5px;
+    background:radial-gradient(120% 220% at 15% 0%,#5a5955 0%,#1a1a19 45%,#000 100%);position:relative;overflow:hidden}
+  .banner::after{content:"";position:absolute;inset:0;opacity:.18;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .banner u{text-underline-offset:3px;position:relative;z-index:1} .banner span{position:relative;z-index:1}
+  .top{height:60px;display:flex;align-items:center;gap:14px;padding:0 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);z-index:5}
+  .crumb{color:var(--ink-2);display:flex;align-items:center;gap:10px}
+  .crumb b{color:var(--ink);font-weight:500}
+  .search{margin:0 auto;width:min(380px,40%);height:38px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;gap:9px;padding:0 8px 0 14px;color:var(--ink-3);box-shadow:var(--shadow)}
+  .search .k{margin-left:auto;display:flex;gap:4px}
+  kbd{font:500 11px Inter;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--ink-3);background:var(--bg)}
+  .tb{height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:13.5px;color:var(--ink);background:var(--bg);cursor:pointer;box-shadow:var(--shadow)}
+  .tb.icon{width:36px;padding:0;justify-content:center}
+  .tb svg,.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 36px 80px}
+  .eyebrow{color:var(--ink-3);font-size:13px}
+  h1{font-family:"Inter Tight",Inter;font-weight:300;font-size:40px;letter-spacing:-.035em;line-height:1.1;margin-top:6px}
+  .hrow{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+  .btn{height:40px;padding:0 18px;border-radius:999px;background:var(--btn);color:var(--btn-ink);font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer}
+  .btn.ghost{background:var(--stone);color:var(--ink);box-shadow:var(--shadow)}
+  /* quick tiles */
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:30px 0 40px}
+  .tile{border-radius:16px;padding:14px;background:var(--surface);box-shadow:var(--shadow);cursor:pointer;transition:transform .2s cubic-bezier(.2,.7,.2,1),background .2s}
+  .tile:hover{transform:translateY(-2px);background:var(--surface-2)}
+  .tile .ti{height:74px;border-radius:12px;background:var(--bg);box-shadow:var(--shadow);display:grid;place-items:center;margin-bottom:12px;position:relative;overflow:hidden}
+  .tile .ti svg{width:24px;height:24px;stroke:var(--ink);fill:none;stroke-width:1.5;position:relative}
+  .tile .ti::before{content:"";position:absolute;width:90px;height:90px;border-radius:50%;filter:blur(18px);opacity:.55;background:radial-gradient(circle,var(--surface-2),transparent 70%);top:-30px;right:-30px}
+  .tile b{font-weight:500;font-size:13.5px}
+  .tile p{color:var(--ink-3);font-size:12.5px;margin-top:2px}
+  /* sections */
+  .sec{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}
+  .sec h2{font-weight:500;font-size:18px;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .sec h2 svg{width:16px;height:16px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+  .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:44px}
+  .card{border-radius:20px;background:var(--bg);box-shadow:var(--shadow);border:1px solid var(--line);padding:22px}
+  .next{background:var(--stone);border:0;position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column}
+  .next .glow{position:absolute;right:-80px;top:-90px;width:320px;height:320px;border-radius:50%;filter:blur(2px);opacity:.9}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--chip);color:var(--ink-2);font-size:12.5px;font-weight:500}
+  .chip.dark{background:var(--ink);color:var(--bg)}
+  .next h3{font-family:"Inter Tight";font-weight:400;font-size:28px;letter-spacing:-.03em;line-height:1.15;margin-top:16px;max-width:70%;position:relative}
+  .meta{display:flex;gap:18px;color:var(--ink-2);margin-top:12px;font-size:13.5px;position:relative}
+  .who{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:22px;position:relative}
+  .who small{display:block;color:var(--ink-3);font-size:12.5px}
+  .who .act{margin-left:auto;display:flex;gap:8px}
+  .track{display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+  .track:first-of-type{border-top:0;padding-top:4px}
+  .track .logo-sq{width:40px;height:40px;border-radius:11px;background:var(--surface);box-shadow:var(--shadow);display:grid;place-items:center;font-weight:600;font-size:15px}
+  .track .t{flex:1;min-width:0}
+  .track .t b{font-weight:500}
+  .track .t small{display:block;color:var(--ink-3);font-size:12.5px;margin-top:2px}
+  .seg{display:flex;gap:3px;margin-top:8px}
+  .seg i{height:4px;flex:1;border-radius:4px;background:var(--surface-2)}
+  .seg i.f{background:var(--ink)}
+  .lvl{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+  /* results */
+  .tbl{border-radius:20px;border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;margin-bottom:44px}
+  .row{display:grid;grid-template-columns:2.2fr 1.2fr 1fr .9fr 1fr 28px;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid var(--line)}
+  .row.h{border-top:0;color:var(--ink-3);font-size:12.5px;padding:12px 20px;background:var(--surface)}
+  .row .nm{display:flex;align-items:center;gap:12px}
+  .row .nm small{display:block;color:var(--ink-3);font-size:12.5px}
+  .score{font-family:"Inter Tight";font-size:20px;font-weight:400;letter-spacing:-.02em}
+  .score small{font-size:12px;color:var(--ink-3)}
+  .row svg{width:16px;height:16px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+  .ok::before,.no::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ink)}
+  .no{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+  .no::before{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ink-3)}
+  /* carousel */
+  .car{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .co{border-radius:20px;background:var(--surface);box-shadow:var(--shadow);padding:10px;display:grid;grid-template-columns:44% 1fr;gap:16px;min-height:200px;cursor:pointer;transition:transform .25s cubic-bezier(.2,.7,.2,1)}
+  .co:hover{transform:translateY(-3px)}
+  .co .art{border-radius:14px;position:relative;overflow:hidden;display:grid;place-items:center;font-family:"Inter Tight";font-weight:500;font-size:34px;letter-spacing:-.04em;color:#fff}
+  .co .art::after{content:"";position:absolute;inset:0;opacity:.22;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .co .tx{display:flex;flex-direction:column;padding:10px 6px 6px 0}
+  .co h4{font-family:"Inter Tight";font-weight:500;font-size:22px;letter-spacing:-.03em;line-height:1.12}
+  .co p{color:var(--ink-3);font-size:13px;margin-top:6px}
+  .co .go{margin-top:auto;align-self:flex-end;width:34px;height:34px;border-radius:50%;background:var(--ink);display:grid;place-items:center}
+  .co .go svg{width:15px;height:15px;stroke:var(--bg);fill:none;stroke-width:2}
+  .arrows{display:flex;gap:6px}
+  .toggle{position:fixed;right:18px;bottom:18px;z-index:9}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="logo"><div class="mark"><i></i></div>InterviewIQ</div>
+    <div class="nav on"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>Home</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Interviews</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg>Tracks</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/></svg>Companies</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>Practice</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Experiences</div>
+    <div class="grp">You</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Profile</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Connections</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Leaderboard</div>
+    <div class="spacer"></div>
+    <div class="invite"><div class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></div><b>Bring your college</b><p>Invite your placement cell to track batch readiness.</p></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>Help</div>
+    <div class="acct"><div class="orb" style="width:30px;height:30px"></div><div><div style="font-weight:500">Deepanshu</div><small>Free · SDE I</small></div></div>
+  </aside>
+
+  <main>
+    <div class="banner"><span>Mock rounds now run 30–45 minutes, just like the real thing.</span><u>See what changed</u></div>
+    <div class="top">
+      <div class="crumb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><b>Home</b></div>
+      <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search companies, roles, interviews…<span class="k"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+      <div class="tb">Feedback</div>
+      <div class="tb">Docs</div>
+      <div class="tb icon"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div>
+      <div class="orb" style="width:34px;height:34px"></div>
+    </div>
+
+    <div class="wrap">
+      <div class="hrow">
+        <div><div class="eyebrow">Saturday, 18 October</div><h1>Good evening, Deepanshu</h1></div>
+        <div style="display:flex;gap:8px"><button class="btn ghost">Explore companies</button><button class="btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Schedule a round</button></div>
+      </div>
+
+      <div class="tiles">
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg></div><b>Schedule round</b><p>Book your next mock</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><b>Find a role</b><p>1,240 open JDs</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg></div><b>Start a track</b><p>A company's full loop</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div><b>Connect sources</b><p>GitHub, LeetCode…</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg></div><b>Practice</b><p>From your gaps</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><b>Share experience</b><p>Help others prep</p></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="sec"><h2>Up next</h2><span class="chip">in 4 days</span></div>
+          <div class="card next">
+            <div class="glow orb b"></div>
+            <div style="display:flex;gap:6px;position:relative"><span class="chip dark">Round 2 of 4</span><span class="chip">Coding + Leadership Principles</span></div>
+            <h3>Amazon · SDE I mock process</h3>
+            <div class="meta"><span>Thu, 23 Oct · 7:30 PM</span><span>40 min</span><span>Voice + code</span></div>
+            <div class="who"><div class="orb c" style="width:40px;height:40px"></div><div><div style="font-weight:500">Priya</div><small>Your interviewer · Senior SDE</small></div>
+              <div class="act"><button class="btn ghost" style="background:var(--bg)">Reschedule</button><button class="btn">Open briefing</button></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec"><h2>Readiness <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></h2></div>
+          <div class="card">
+            <div class="track"><div class="logo-sq">a</div><div class="t"><b>Amazon SDE I</b><small>1 of 4 rounds passed</small><div class="seg"><i class="f"></i><i></i><i></i><i></i></div></div><span class="lvl">Progressing</span></div>
+            <div class="track"><div class="logo-sq">m</div><div class="t"><b>Meesho SDE I</b><small>2 of 3 rounds passed</small><div class="seg"><i class="f"></i><i class="f"></i><i></i></div></div><span class="lvl">Nearly ready</span></div>
+            <div class="track"><div class="logo-sq">f</div><div class="t"><b>Flipkart SDE I</b><small>Not started</small><div class="seg"><i></i><i></i><i></i><i></i></div></div><span class="lvl">Getting started</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec"><h2>Recent results <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></h2><span class="tb">View all</span></div>
+      <div class="tbl">
+        <div class="row h"><span>Round</span><span>Track</span><span>Date</span><span>Score</span><span>Outcome</span><span></span></div>
+        <div class="row"><div class="nm"><div class="orb" style="width:34px;height:34px"></div><div><div style="font-weight:500">Online coding</div><small>DSA · 2 problems</small></div></div><span>Amazon SDE I</span><span style="color:var(--ink-2)">12 Oct</span><span class="score">7.8<small> /10</small></span><span><span class="chip ok">Passed</span></span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="row"><div class="nm"><div class="orb b" style="width:34px;height:34px"></div><div><div style="font-weight:500">System design (LLD)</div><small>Parking lot</small></div></div><span>Meesho SDE I</span><span style="color:var(--ink-2)">9 Oct</span><span class="score">7.1<small> /10</small></span><span><span class="chip ok">Passed</span></span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="row"><div class="nm"><div class="orb c" style="width:34px;height:34px"></div><div><div style="font-weight:500">Hiring manager</div><small>Projects + behavioural</small></div></div><span>Standalone</span><span style="color:var(--ink-2)">2 Oct</span><span class="score">5.9<small> /10</small></span><span><span class="chip no">Retake 16 Oct</span></span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>
+
+      <div class="sec"><h2>Popular processes this week</h2><div class="arrows"><span class="tb icon"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></span><span class="tb icon"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span></div></div>
+      <div class="car">
+        <div class="co"><div class="art" style="background:radial-gradient(120% 120% at 20% 10%,#6d6b66,#1b1a19 60%,#000)">Google</div><div class="tx"><h4>Google L3 software engineer</h4><p>5 rounds · DSA heavy</p><div class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div></div></div>
+        <div class="co"><div class="art" style="background:radial-gradient(120% 120% at 80% 0%,#d8d6d1,#7c7a75 50%,#2a2928)">Razorpay</div><div class="tx"><h4>Razorpay SDE I backend</h4><p>4 rounds · LLD + HM</p><div class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div></div></div>
+        <div class="co"><div class="art" style="background:radial-gradient(130% 130% at 30% 90%,#9c9a95,#3a3936 55%,#0b0b0b)">Meesho</div><div class="tx"><h4>Meesho SDE I campus</h4><p>3 rounds · OA first</p><div class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<button class="btn toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+</body>
+</html>
