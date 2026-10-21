@@ -107,8 +107,6 @@ const envSchema = z.object({
   EVALUATION_AUTO_RETRIES: int(2),
   /** Off until the live interviewer is rebuilt on the blueprint: ready sessions can't be joined. */
   LIVE_INTERVIEWER_AVAILABLE: bool(false),
-  /** Comma-separated user ids that may go live while LIVE_INTERVIEWER_AVAILABLE is off (the POC test account). */
-  LIVE_INTERVIEWER_ALLOWLIST: withDefault(""),
 
   // --- LiveKit (live interview rooms) ---
   LIVEKIT_URL: withDefault("ws://localhost:7880"),
@@ -169,7 +167,6 @@ function toConfig(e: z.infer<typeof envSchema>) {
       runTimeoutMinutes: e.BLUEPRINT_RUN_TIMEOUT_MINUTES,
       retryLimitPerHour: e.BLUEPRINT_RETRY_LIMIT_PER_HOUR,
       liveInterviewerAvailable: e.LIVE_INTERVIEWER_AVAILABLE,
-      liveInterviewerAllowlist: e.LIVE_INTERVIEWER_ALLOWLIST.split(",").map((s) => s.trim()).filter(Boolean),
     },
     evaluation: {
       reconcileIntervalMs: e.EVALUATION_RECONCILE_INTERVAL_MS,

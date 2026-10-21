@@ -1,6 +1,7 @@
 import type { Database } from "../db/pg/client.js";
 import type { UserRow } from "../db/pg/schema.js";
 import type { Role } from "../domain/enums.js";
+import { ApiError } from "../lib/errors.js";
 import { RefreshTokenRepository, UserRepository } from "../repositories/pg.js";
 
 export interface UserResponse {
@@ -128,7 +129,13 @@ export class UserService {
     return this.users.findAll();
   }
 
-  updateRole(id: string, role: Role): Promise<UserRow | null> {
+  async updateRole(id: string, role: Role): Promise<UserRow | null> {
+    if (role !== "ADMIN") {
+      const current = await this.users.findById(id);
+      if (current?.role === "ADMIN" && (await this.users.countByRole("ADMIN")) <= 1) {
+        throw new ApiError(409, "last_admin", "Cannot remove the last admin");
+      }
+    }
     return this.users.updateRole(id, role);
   }
 

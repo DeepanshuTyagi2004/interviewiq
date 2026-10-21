@@ -1,4 +1,5 @@
 import { LiveAvailability } from "./liveAvailability.js";
+import type { InterviewAccess } from "./interviewAccess.js";
 import type { InterviewSessionRow, LoopRow } from "../db/pg/schema.js";
 import { DEFAULT_ROUND_TYPE, optionalRoundType, type RoundType, type SessionStatus } from "../domain/enums.js";
 import { ApiError } from "../lib/errors.js";
@@ -212,12 +213,14 @@ export class InterviewSessionService {
     private readonly roleConfigs: CompanyRoleConfigRepository,
     private readonly companies: CompanyRepository,
     private readonly prep: BlueprintPrepService,
+    private readonly access: InterviewAccess,
     private readonly enrichment?: CompanyEnrichmentService,
     private readonly loops?: LoopRepository,
     private readonly live: LiveAvailability = new LiveAvailability(false),
   ) {}
 
   async createSession(candidateId: string, req: CreateSessionRequest): Promise<InterviewSessionResponse> {
+    await this.access.assertCanInterview(candidateId);
     // A round of a confirmed loop: the loop fixes the JD, the node fixes the round, and the node
     // must be unlocked (every round feeding into it completed).
     let loopRound: { jdId: string | null; type: RoundType; loop: LoopRow; node: RoundNode } | null = null;
@@ -315,6 +318,7 @@ export class InterviewSessionService {
 
   /** Move a not-yet-started interview to another slot. */
   async reschedule(candidateId: string, sessionId: string, scheduledAt: Date, timezone: string): Promise<InterviewSessionResponse> {
+    await this.access.assertCanInterview(candidateId);
     const s = await this.requireOwned(candidateId, sessionId);
     if (!["SCHEDULED", "PREP_QUEUED", "PREP_READY", "PREP_FAILED"].includes(s.status)) {
       throw InterviewSessionError.conflict("session_not_reschedulable", "this interview can no longer be moved");
@@ -353,6 +357,7 @@ export class InterviewSessionService {
 
   /** Retry prep after PREP_FAILED (rate-limited per rolling hour; 429 `prep_retry_limited`). */
   async retryPrep(candidateId: string, sessionId: string): Promise<InterviewSessionResponse> {
+    await this.access.assertCanInterview(candidateId);
     return this.toResponse(await this.prep.retry(await this.requireOwned(candidateId, sessionId)));
   }
 

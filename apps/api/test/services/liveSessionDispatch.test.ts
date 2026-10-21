@@ -33,6 +33,9 @@ function build(rooms: Partial<AgentRooms> & { calls?: string[] } = {}) {
     fake,
     null,
     log,
+    null,
+    null,
+    { assertCanInterview: async () => {} } as never,
   );
   return { service, lines, calls };
 }

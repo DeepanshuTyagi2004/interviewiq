@@ -143,6 +143,10 @@ async function listenOnLoopback(app: Parameters<typeof createServer>[1]): Promis
 
 let userSeq = 0;
 
+/**
+ * A signed-in user. Unless `role: "USER"` is passed the user is a CANDIDATE (a plain USER cannot give
+ * interviews, so most tests that book or go live need one); `role: "ADMIN"` promotes to admin.
+ */
 export async function createUser(env: Pick<TestEnv, "c">, opts: { role?: Role; email?: string; name?: string; onboardingComplete?: boolean } = {}): Promise<UserRow> {
   userSeq++;
   const user = await env.c.repos.users.upsertByGoogleSub({
@@ -151,8 +155,11 @@ export async function createUser(env: Pick<TestEnv, "c">, opts: { role?: Role; e
     name: opts.name ?? `User ${userSeq}`,
     promoteToAdmin: opts.role === "ADMIN",
   });
+  const role = opts.role ?? "CANDIDATE";
+  let row = user;
+  if (role === "CANDIDATE") row = (await env.c.repos.users.updateRole(user.id, "CANDIDATE")) ?? user;
   if (opts.onboardingComplete) return (await env.c.repos.users.markOnboardingComplete(user.id))!;
-  return user;
+  return row;
 }
 
 /** `Authorization: Bearer ...` header value for a user. */

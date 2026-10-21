@@ -135,25 +135,25 @@ describe("GET /sessions/:id/live (gate / resume)", () => {
   });
 });
 
-describe("allowlist (LIVE_INTERVIEWER_ALLOWLIST)", () => {
-  it("lets an allowlisted user go live while the global flag is off, and refuses everyone else", async () => {
-    const allowed = await createUser(env);
-    const other = await createUser(env);
-    const gated = await createTestEnv({ LIVE_INTERVIEWER_AVAILABLE: "false", LIVE_INTERVIEWER_ALLOWLIST: allowed.id });
+describe("interview access and the global switch", () => {
+  it("refuses a USER with 403 interview_access_required, and everyone with 409 live_unavailable while the switch is off", async () => {
+    const plain = await createUser(env, { role: "USER" });
+    const s = await seedSession(env, plain.id, jd, { status: "PREP_READY" });
+    const blocked = await env.http.post(live(s.id)).set("Authorization", await bearer(env, plain));
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.code).toBe("interview_access_required");
+
+    const off = await createTestEnv({ LIVE_INTERVIEWER_AVAILABLE: "false" });
     try {
-      await seedCompany(gated, "google", "Google");
-      const gatedJd = await seedJd(gated);
-      const mine = await seedSession(gated, allowed.id, gatedJd, { status: "PREP_READY" });
-      const theirs = await seedSession(gated, other.id, gatedJd, { status: "PREP_READY" });
-      const ok = await gated.http.post(live(mine.id)).set("Authorization", await bearer(gated, allowed));
-      expect(ok.status).toBe(200);
-      const refused = await gated.http.post(live(theirs.id)).set("Authorization", await bearer(gated, other));
+      await seedCompany(off, "google", "Google");
+      const offJd = await seedJd(off);
+      const admin = await createUser(off, { role: "ADMIN" });
+      const mine = await seedSession(off, admin.id, offJd, { status: "PREP_READY" });
+      const refused = await off.http.post(live(mine.id)).set("Authorization", await bearer(off, admin));
       expect(refused.status).toBe(409);
       expect(refused.body.code).toBe("live_unavailable");
-      const list = await gated.http.get("/api/v1/interviews/sessions").set("Authorization", await bearer(gated, allowed));
-      expect(list.body.sessions.find((s: { id: string }) => s.id === mine.id).liveAvailable).toBe(true);
     } finally {
-      await gated.close();
+      await off.close();
     }
   });
 });

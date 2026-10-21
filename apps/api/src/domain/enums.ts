@@ -2,7 +2,7 @@ import { InvalidArgumentError } from "../lib/errors.js";
 import { ENGINEERING_LEVELS } from "./engineeringLevels.js";
 
 /** Coarse authorization role, carried in the access token's `role` claim. */
-export const ROLES = ["USER", "ADMIN"] as const;
+export const ROLES = ["USER", "CANDIDATE", "ADMIN"] as const;
 export type Role = (typeof ROLES)[number];
 
 /**

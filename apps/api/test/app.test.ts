@@ -58,7 +58,7 @@ describe("security rules (ported from SecurityConfig)", () => {
 
 describe("users", () => {
   it("GET /users/me returns the current user", async () => {
-    const user = await createUser(env, { name: "Asha" });
+    const user = await createUser(env, { name: "Asha", role: "USER" });
     const res = await env.http.get("/api/v1/users/me").set("Authorization", await bearer(env, user));
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -76,6 +76,7 @@ describe("users", () => {
   it("bootstrap admin emails are promoted on Google login, never demoted", async () => {
     const u = await env.c.users.upsertFromGoogle({ sub: "g-boss", email: "Boss@Example.com", name: "Boss", emailVerified: true });
     expect(u.role).toBe("ADMIN");
+    await createUser(env, { role: "ADMIN" }); // another admin, so the last-admin guard allows the demotion
     await env.c.users.updateRole(u.id, "USER"); // explicit admin action
     const again = await env.c.users.upsertFromGoogle({ sub: "g-other", email: "someone@example.com", name: "X", emailVerified: true });
     expect(again.role).toBe("USER");
@@ -93,6 +94,53 @@ describe("users", () => {
     const ok = await env.http.patch(`/api/v1/admin/users/${target.id}/role`).set("Authorization", auth).send({ role: " admin " });
     expect(ok.status).toBe(200);
     expect(ok.body.role).toBe("ADMIN");
+  });
+});
+
+describe("admin users: roles and last-admin guard", () => {
+  const roleUrl = (id: string) => `/api/v1/admin/users/${id}/role`;
+
+  it("sets CANDIDATE, lists the role, and rejects unknown roles with the new message", async () => {
+    const admin = await createUser(env, { role: "ADMIN" });
+    const target = await createUser(env, { role: "USER" });
+    const auth = await bearer(env, admin);
+    const ok = await env.http.patch(roleUrl(target.id)).set("Authorization", auth).send({ role: "CANDIDATE" });
+    expect(ok.status).toBe(200);
+    expect(ok.body.role).toBe("CANDIDATE");
+    const bad = await env.http.patch(roleUrl(target.id)).set("Authorization", auth).send({ role: "king" });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe("invalid_role");
+    expect(bad.body.message).toBe("role must be USER, CANDIDATE or ADMIN");
+    const list = await env.http.get("/api/v1/admin/users").set("Authorization", auth);
+    expect(list.status).toBe(200);
+    expect(list.body.find((u: { id: string }) => u.id === target.id).role).toBe("CANDIDATE");
+  });
+
+  it("refuses to demote the last admin but allows it when another admin exists", async () => {
+    // The harness DB is shared: demote every other admin first so exactly one remains.
+    const only = await createUser(env, { role: "ADMIN" });
+    for (const u of await env.c.users.listUsers()) {
+      if (u.id !== only.id && u.role === "ADMIN") await env.c.repos.users.updateRole(u.id, "USER");
+    }
+    const auth = await bearer(env, only);
+    const blocked = await env.http.patch(roleUrl(only.id)).set("Authorization", auth).send({ role: "CANDIDATE" });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe("last_admin");
+    expect((await env.c.users.getById(only.id))?.role).toBe("ADMIN");
+
+    const second = await createUser(env, { role: "ADMIN" });
+    const ok = await env.http.patch(roleUrl(second.id)).set("Authorization", auth).send({ role: "USER" });
+    expect(ok.status).toBe(200);
+    expect(ok.body.role).toBe("USER");
+  });
+
+  it("answers 403 forbidden to non-admins", async () => {
+    const plain = await createUser(env, { role: "CANDIDATE" });
+    const auth = await bearer(env, plain);
+    const res = await env.http.patch(roleUrl(plain.id)).set("Authorization", auth).send({ role: "ADMIN" });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("forbidden");
+    expect((await env.http.get("/api/v1/admin/users").set("Authorization", auth)).status).toBe(403);
   });
 });
 

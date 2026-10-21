@@ -11,6 +11,7 @@ import type { InterviewSessionRepository } from "../repositories/pg.js";
 import type { BlueprintPrepService } from "./blueprintPrep.js";
 import { InterviewSessionError } from "./interviewSessions.js";
 import { LiveAvailability } from "./liveAvailability.js";
+import type { InterviewAccess } from "./interviewAccess.js";
 import type { RoundEvaluationService } from "./roundEvaluation.js";
 
 const END_REASONS = ["completed", "ended_by_interviewer", "candidate_ended", "technical"] as const;
@@ -70,9 +71,11 @@ export class LiveSessionService {
     private readonly log: Logger | null = null,
     private readonly evaluation: RoundEvaluationService | null = null,
     private readonly background: BackgroundTasks | null = null,
+    private readonly access: InterviewAccess,
   ) {}
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
+    await this.access.assertCanInterview(candidateId);
     const s = await this.requireOwned(candidateId, sessionId);
     if (s.status === "LIVE_IN_PROGRESS") {
       await this.ensureAgent(s); // resume
@@ -113,6 +116,7 @@ export class LiveSessionService {
    * error for a round that is not eligible. Changes nothing but the dispatch: no status, no seen problems, no clock.
    */
   async warm(candidateId: string, sessionId: string): Promise<WarmResponse> {
+    await this.access.assertCanInterview(candidateId);
     const s = await this.requireOwned(candidateId, sessionId);
     const eligible = s.status === "LIVE_IN_PROGRESS" || (s.status === "PREP_READY" && this.live.isAvailableFor(candidateId));
     if (!eligible) return { warming: false };

@@ -1,5 +1,5 @@
 /**
- * Print the user id for an email (dev only), e.g. for LIVE_INTERVIEWER_ALLOWLIST.
+ * Print the user id for an email (dev only).
  *
  *   pnpm exec tsx --env-file=.env scripts/dev/user-id.ts <email>
  */

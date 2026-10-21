@@ -293,7 +293,7 @@ export function adminUsersRouter(c: Container): Router {
     const raw = isObject(req.body) ? str(req.body.role) : null;
     const role = raw?.trim().toUpperCase();
     if (!role || !(ROLES as readonly string[]).includes(role)) {
-      sendError(res, 400, "invalid_role", "role must be USER or ADMIN");
+      sendError(res, 400, "invalid_role", "role must be USER, CANDIDATE or ADMIN");
       return;
     }
     const user = await c.users.updateRole(id, role as Role);

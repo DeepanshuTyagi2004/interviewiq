@@ -42,7 +42,7 @@ export class JwtService {
   async verify(token: string): Promise<AuthPrincipal> {
     const { payload } = await jwtVerify(token, this.key, { algorithms: ["HS256"], clockTolerance: 60 });
     if (typeof payload.sub !== "string" || payload.sub === "") throw new Error("token has no subject");
-    const role = payload.role === "ADMIN" || payload.role === "USER" ? payload.role : null;
+    const role = payload.role === "ADMIN" || payload.role === "CANDIDATE" || payload.role === "USER" ? payload.role : null;
     return {
       userId: payload.sub,
       email: typeof payload.email === "string" ? payload.email : null,

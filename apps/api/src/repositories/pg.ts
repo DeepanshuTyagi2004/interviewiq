@@ -72,6 +72,11 @@ export class UserRepository {
     return this.db.select().from(users).where(inArray(users.id, ids));
   }
 
+  async countByRole(role: Role): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(users).where(eq(users.role, role));
+    return row?.n ?? 0;
+  }
+
   findAll(): Promise<UserRow[]> {
     return this.db.select().from(users).orderBy(asc(users.createdAt));
   }
