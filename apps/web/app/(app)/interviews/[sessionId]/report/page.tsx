@@ -1,4 +1,4 @@
-import { ReportPlaceholder } from "./_components/ReportPlaceholder";
+import { ReportView } from "./_components/ReportView";
 
 export default async function InterviewReportPage({
   params,
@@ -6,5 +6,5 @@ export default async function InterviewReportPage({
   params: Promise<{ sessionId: string }>;
 }) {
   const { sessionId } = await params;
-  return <ReportPlaceholder sessionId={sessionId} />;
+  return <ReportView sessionId={sessionId} />;
 }
