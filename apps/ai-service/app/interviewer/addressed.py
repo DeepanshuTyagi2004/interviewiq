@@ -47,6 +47,9 @@ _YES_START = re.compile(r"^\s*(?:yes|yeah|yep)\b", re.I)
 _FILLER = re.compile(
     r"^\s*(?:(?:hmm+|umm?|uh+|er+|ah+|oh|so|and|okay|ok|well|wait|also|actually|then|but|no|nope|yeah|yes|sorry|like|now|right|i mean|i was wondering|"
     r"i wanted to ask|just)\b[,\s]*)+", re.I)
+# Words that are only a thinking noise or a pause-filler: said alone they ask nothing ("Hmm", "Hmm hmm hmm", "Okay"). "yes", "no", "sorry" are left out on
+# purpose: those can answer the interviewer.
+_FILLER_ONLY = re.compile(r"^(?:\s*(?:hmm+|mm+|mhm+|umm?|uh+|er+|ah+|oh|ok(?:ay)?|so|well|right|alright|let me think|let me see)\b[\s,.!\u2026-]*)+$", re.I)
 _YES_NO_START = re.compile(r"^(?:does|do|is|are|can|could|should|will|would|am|may|shall|did)\b", re.I)
 _WH_START = re.compile(r"^(?:what|how|why|which|where|when|who)\b", re.I)
 # A question in the middle of a sentence ("I think I will use dp, is that fine", "so can I use extra space"), or a closing tag question.
@@ -114,11 +117,22 @@ def asks_inside_readout(text: str) -> bool:
     return bool(is_ask_cue(t) or "?" in t or any(_WH_START.match(c) for c in _clauses(t)) or _ASK_IN_READOUT.search(t))
 
 
-def classify_by_rules(text: str, *, last_line: str, reading: bool, typing: bool, ask_armed: bool, on_problem: bool = True) -> Addressed | None:
+def classify_by_rules(text: str, *, last_line: str, reading: bool, typing: bool, ask_armed: bool, on_problem: bool = True,
+                      volume: str | None = None) -> Addressed | None:
     """Place an utterance by rule, in order of certainty; `None` means the rules cannot tell. A question or a request is never placed as
-    thinking aloud or reading (an extra check-in is cheaper than a missed question): anything carrying a cue goes to the model unless it is a plain ask."""
+    thinking aloud or reading (an extra check-in is cheaper than a missed question): anything carrying a cue goes to the model unless it is a plain ask.
+    On a problem (decided 2026-10-21, live round 3e574171) a filler-only utterance ("Hmm"), words that are the problem's own text with no ask in them,
+    and quiet speech with no ask in it are for nobody, even straight after a question: they come before the "answers the last question" rule.
+    `volume` ("quiet" | "normal" | "loud" | None) only ever adds the quiet rule: a loud utterance is never placed by it."""
     if ask_armed or QUICK_QUESTION.search(text):
         return "to_interviewer"
+    if on_problem and not is_strong_request(text, reveal=False):
+        if _FILLER_ONLY.match(text or ""):
+            return "thinking_aloud"
+        if reading and not asks_inside_readout(text):
+            return "reading_problem"
+        if volume == "quiet" and not has_question_cue(text):
+            return "thinking_aloud"
     # Their next words answer what the interviewer just asked (a question, or "walk me through...").
     if (last_line or "").rstrip().endswith("?") or awaiting_answer(last_line):
         return "to_interviewer"
@@ -170,25 +184,27 @@ PROMPT = """You watch a mock interview. Decide who the candidate's latest words 
 - thinking_aloud: they talk to themselves while working. Example: "Okay so if I take the first digit, then the rest..."
 - reading_problem: they read the problem statement aloud. Example: "Given a string of digits, return the number of ways to decode it."
 - unclear: you cannot tell. Example: "What happens with zero?"
-A question the candidate asks themselves while working is thinking_aloud only when it is clearly rhetorical; when in doubt answer unclear."""
+A question the candidate asks themselves while working is thinking_aloud only when it is clearly rhetorical; when in doubt answer unclear.
+The facts may include the candidate's speech volume compared with their usual: quiet speech is usually self-talk; clear, loud speech with a question is for the interviewer."""
 
 
-def _messages(*, last_line: str, text: str, phase: str, problem_excerpt: str, typing: bool, recent: list[str]) -> list[dict]:
+def _messages(*, last_line: str, text: str, phase: str, problem_excerpt: str, typing: bool, recent: list[str], volume: str | None = None) -> list[dict]:
     facts = (f"Round phase: {phase}\nProblem: {(problem_excerpt or '')[:400]}\nInterviewer's last line: {last_line}\n"
              f"Candidate is typing code right now: {'yes' if typing else 'no'}\n"
-             f"Candidate's recent utterances: {' | '.join(recent[-3:]) if recent else '(none)'}\nCandidate's latest words: {text}")
+             + (f"Speech volume compared with their usual: {volume}\n" if volume in ("quiet", "normal", "loud") else "")
+             + f"Candidate's recent utterances: {' | '.join(recent[-3:]) if recent else '(none)'}\nCandidate's latest words: {text}")
     return [{"role": "system", "content": PROMPT}, {"role": "user", "content": facts}]
 
 
 async def classify_by_model(chat: Any, *, last_line: str, text: str, phase: str, problem_excerpt: str, typing: bool, recent: list[str],
                             since_problem_s: float | None, overlaps_problem: bool = False, on_problem: bool = False,
-                            timeout_s: float = ADDRESSED_TIMEOUT_S, raw: dict | None = None) -> tuple[Addressed, float, str]:
+                            volume: str | None = None, timeout_s: float = ADDRESSED_TIMEOUT_S, raw: dict | None = None) -> tuple[Addressed, float, str]:
     """(result, confidence, source): source is "model" or "fallback" (a timeout, an error, an answer that is not one of the four, which fall to `lean`).
     A model answer below the confidence threshold is `unclear` (the label it gave is kept in `raw["label"]` when a dict is passed). Never raises."""
     try:
         if hasattr(chat, "with_temperature"):
             chat = chat.with_temperature(ADDRESSED_TEMPERATURE)
-        messages = _messages(last_line=last_line, text=text, phase=phase, problem_excerpt=problem_excerpt, typing=typing, recent=recent)
+        messages = _messages(last_line=last_line, text=text, phase=phase, problem_excerpt=problem_excerpt, typing=typing, recent=recent, volume=volume)
         data, _ = await asyncio.wait_for(chat.json(messages, "addressed_check", SCHEMA, ADDRESSED_MAX_TOKENS), timeout_s)
         label = str((data or {}).get("addressed") or "").strip().lower()
         confidence = float((data or {}).get("confidence"))

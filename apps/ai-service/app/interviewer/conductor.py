@@ -59,6 +59,9 @@ _BEHAVIOURAL_WORDS: dict[str, Any] = asdict(pack_for("behavioural").words)
 REFUSAL_CEILING = 3            # after this many refusals on one problem the interviewer may no longer resist (decided 2026-10-18 after live round 781a1f0a, where a firm persona refused four times)
 MIN_SECOND_PROBLEM_S = 480.0   # a second problem is only started when the round has this much left for it
 STRUGGLED_HINT_STEPS = 2
+MIN_THINK_S = 480.0            # a problem may not be left as "struggled" (the director's read, the hint ladder) before the candidate has had this long on it ...
+MIN_THINK_FRACTION = 0.6       # ... or this share of the problem's timebox if that is longer, never more than the timebox (decided 2026-10-21, live round 3e574171:
+                               # a coding problem was left 4 minutes in on a candidate who was reading and thinking aloud). A give-up, the round clock and wrap-up are not held.
 ATTACHED = "attached to deep_dive"
 PROMISED_PREFIX = "They promised to come back to: "
 FOCUS_QUESTIONS = 2             # questions the deep dive asks about one promised area before it moves to the next (live round 781a1f0a, turns 41-54)
@@ -88,6 +91,8 @@ _ABOUT_THEM = re.compile(r"\byou(?:'ve| have)?\s+(?:mentioned|said|told me|talke
 # left, the coding ends only after a refusal on the current problem, and nothing happens once the coding has ended.
 CHANGE_CAP = 1
 # Said when they ask again and the next problem follows: it takes up their second request, after "stay with this one" a turn earlier.
+DROP_QUESTION_ORDER = ("You have asked this same question several times. Stop asking that question, in any wording, and stay on the part you are on: "
+                       "respond to what the candidate said, let them keep working, and do not move on, wrap up or leave the problem because of it.")
 GIVE_UP_LINE = LINES["give_up"][0]       # one wording of a pool (lines.py): the run says a random one, with no repeat in the round
 # Said when the second ask ends the coding part: no blame; the run says it, moves the plan on, and the interviewer opens the next part. Only the
 # acknowledgement: the part's own opening says "That wraps up the coding part." (a live round said both back to back, bf82d318 turns 24-25;
@@ -365,6 +370,7 @@ class Conductor:
         self.nudges_in_a_row = 0                 # silence check-ins since they last spoke: each waits twice as long as the one before
         self.candidate_speaking = False
         self.agent_speaking = False
+        self._ask_log: list[dict[str, Any]] = []   # the asks counted since the last reset (turn, part, question), so an unplayed one can be taken back
         self.ask_streak = 0       # consecutive interviewer questions on one part that asked the same thing
         self.last_ask = ""        # the interviewer's last question while it stays unanswered (the part and tool moves clear it)
         self.ask_item = ""        # the part that question was asked in
@@ -1132,11 +1138,14 @@ class Conductor:
     def reset_asks(self) -> None:
         """A tool move (or a new part) is progress: the count of repeated questions starts again."""
         self.ask_streak, self.last_ask, self.ask_item, self.ask_intent = 0, "", "", ""
+        self._ask_log = []
 
-    def note_interviewer_line(self, text: str) -> None:
+    def note_interviewer_line(self, text: str, turn: int | None = None) -> None:
         """What the interviewer just said. A question that asks again what an earlier one on the same part asked is a repeat, even
         with candidate replies in between: an off-topic candidate answered each ask without answering it, and a live round asked for
-        the format confirmation three times (see `asks_again`). The third ask orders it dropped."""
+        the format confirmation three times (see `asks_again`). The third ask orders that question dropped (only that question: the part and
+        the problem stay). Only asks the candidate heard count: `forget_ask` takes back one whose turn was never played (live round 3e574171,
+        where two played asks and three unplayed ones made three)."""
         if self.current().phase == "deep_dive":
             self.deep_dive_asked |= {n for n, prompt in enumerate(self._planned_deep_dive()) if asks_planned(text, prompt)}
         ask = last_question(text)
@@ -1144,13 +1153,34 @@ class Conductor:
             return
         item_id = self.current().item_id
         probes = [str(p.get("prompt") or "") for p in (self.blueprint.get("personalization") or {}).get("resume_probes") or []]
-        intent = ask_intent(text, probes)
-        again = item_id == self.ask_item and asks_again(ask, text, self.last_ask, intent, self.ask_intent)
+        entry = {"turn": turn, "item": item_id, "ask": ask, "text": text, "intent": ask_intent(text, probes)}
+        self._ask_log = [*getattr(self, "_ask_log", []), entry][-12:]
+        self._count_ask(entry)
+        self._maybe_drop_question()
+
+    def _count_ask(self, e: dict[str, Any]) -> None:
+        again = e["item"] == self.ask_item and asks_again(e["ask"], e["text"], self.last_ask, e["intent"], self.ask_intent)
         self.ask_streak = self.ask_streak + 1 if again else 1
-        self.last_ask, self.ask_item, self.ask_intent = ask, item_id, intent
+        self.last_ask, self.ask_item, self.ask_intent = e["ask"], e["item"], e["intent"]
+
+    def _maybe_drop_question(self) -> None:
         if self.ask_streak >= 3 and not any(o.kind == "drop_question" for o in self.pending_orders()):
-            self._order("drop_question", "You have asked about this three times now. Do not ask it again, in any wording. "
-                                         "Take what they said, respond to it briefly, and go on to the next part.", self.clock())
+            self._order("drop_question", DROP_QUESTION_ORDER, self.clock())
+
+    def forget_ask(self, turn: int) -> None:
+        """The candidate never heard this turn (never played, or cut off before its question): its ask does not count. The streak is
+        counted again from the asks that were heard, and a drop_question order the count no longer supports is withdrawn."""
+        log = [e for e in getattr(self, "_ask_log", [])]
+        if not any(e["turn"] == turn for e in log):
+            return
+        self._ask_log = [e for e in log if e["turn"] != turn]
+        self.ask_streak, self.last_ask, self.ask_item, self.ask_intent = 0, "", "", ""
+        for e in self._ask_log:
+            self._count_ask(e)
+        if self.ask_streak < 3:
+            for o in self.pending_orders():
+                if o.kind == "drop_question":
+                    o.consumed = True
 
     def set_aside(self, orders: list[Order], why: str) -> list[Order]:
         """The talker did not act on these, because what the candidate just said covers them or makes them wrong. Only
@@ -1307,6 +1337,8 @@ class Conductor:
         """`struggled` or `strong` for a problem. The director's read decides when it has one; two ladder hints or running out of the
         problem's time (with the director not calling it strong) also count as struggling."""
         signal = self.signals.get(item.item_id)
+        if item.kind == "slot" and not self.gave_up(item) and not self.had_think_time(item):
+            return "strong"          # too early to call a struggle: reading, thinking aloud and silence are not one
         if not self._gates():
             return "struggled" if signal == "struggling" else "strong"          # a used timebox or a narrowing ask is no struggle outside the DSA gating
         if signal == "struggling" or (item.hint_step >= STRUGGLED_HINT_STEPS and self.hints_for(item) == "ladder"):
@@ -1315,6 +1347,13 @@ class Conductor:
         if out_of_time and signal != "strong":
             return "struggled"
         return "strong"
+
+    def think_floor_s(self, item: Item) -> float:
+        """The least time a candidate gets on a problem before it can read as a struggle."""
+        return min(max(MIN_THINK_S, MIN_THINK_FRACTION * item.max_seconds), float(item.max_seconds))
+
+    def had_think_time(self, item: Item) -> bool:
+        return self.clock() - (item.started_at or self.clock()) >= self.think_floor_s(item)
 
     def _time_for_next_problem(self) -> float:
         """What is left of the round for a next problem, once everything else still planned after the current part has its time."""

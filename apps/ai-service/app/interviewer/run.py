@@ -89,6 +89,7 @@ START_CODING_QUIET_S = 60.0     # after they said they were about to write the c
 DEAD_AIR_S = 7.0                # a candidate turn nobody has started answering this long is answered now (live round 781a1f0a, turn 10)
 MERGE_WINDOW_S = 6.0            # a fragment whose reply was cut before audio is joined to the continuation spoken within this long (live round 781a1f0a, turns 24 and 26)
 UNPLAYED_AFTER_S = 8.0          # a spoken turn the voice never confirmed, with the interviewer silent this long, was dropped before it played
+PATIENCE_S = 25.0               # after a question, the interviewer does not ask again or probe this long while the candidate speaks or types (2026-10-21)
 CODE_QUIET_S = 15.0             # while they have typed this recently, their talk is narration: no reply
 BRIDGE_BREATH_S = 1.0          # a short breath before the sentence that moves on to the problem, so the change of stage is not abrupt
 PROBLEM_LINE_PAUSE_S = 1.5     # between the screen changing and the line that invites them to read the problem
@@ -287,6 +288,8 @@ class InterviewRun:
         self._unconfirmed: dict[int, dict[str, Any]] = {}   # turns spoken as far as we know, until the voice confirms each was played
         self._started_coding_at: float | None = None   # when they said they were about to write the code, until the interviewer speaks again
         self._skips = 0                               # replies skipped in a row because they were still talking
+        self.loudness: Any = None                      # a loudness.CandidateLoudness fed from the candidate's microphone (worker.py); None when there is none
+        self._last_ask_at = float("-inf")             # when the interviewer last asked a question that was said (patience before it asks again)
         self._code_at = float("-inf")                  # when their code last changed
         self._audio_base: float | None = None         # what first_audio_ms counts from: the candidate's last words, or the turn's own start
         self._owed_question = False                  # the last reply lost a sentence to a guard and asked them nothing: an acknowledgement next is an answer
@@ -576,6 +579,7 @@ class InterviewRun:
         its continuation, the same words the reply and the request routing see."""
         st, item = self.addressed, self.conductor.current()
         self._addressed_now, self._addr_ctx = (None, None), {}
+        level_db, volume = self._measure_volume()
         # The Ask button counts for words that BEGAN within its window: a press, a think and a long question still counts (the arm is judged at the start).
         began = min(now, self._speech_start) if self._speech_start is not None and now - self._speech_start <= 90.0 else now
         self._speech_start = None
@@ -596,12 +600,13 @@ class InterviewRun:
                 st.checkin_at = None                    # the button answers the check-in too: they are talking to the interviewer
             reading = on_problem and self._reading_the_problem(text, item)
             result = classify_by_rules(text, last_line=self._last_line_for_addressed(), reading=reading, typing=self._typing_recently(), ask_armed=armed,
-                                       on_problem=on_problem)
+                                       on_problem=on_problem, volume=volume)
         st.ask_armed_until = None                       # the button counts once
         if QUICK_QUESTION.search(text):
             st.ask_armed_until = now + ASK_ARMED_S      # "quick question" arms like the button: the question that follows is for the interviewer
         ctx: dict[str, Any] = {"seq": self.seq, "item_id": item_id, "result": result, "source": source, "confidence": 1.0 if result else None,
-                               "ms": 0, "mode": self.d.addressed_mode, "text": text, "direct_only": item_id in st.direct_only_items}
+                               "ms": 0, "mode": self.d.addressed_mode, "text": text, "direct_only": item_id in st.direct_only_items,
+                               "volume": volume, "level_db": level_db}
         self._addr_ctx = ctx
         if result is not None:
             self._addressed_now = (result, None)
@@ -614,11 +619,23 @@ class InterviewRun:
         overlaps = on_problem and self._shares_problem_words(text, item, 0.3)
         task = asyncio.create_task(self._model_addressed(ctx, last_line=self._last_line_for_addressed(), text=text, phase=item.phase,
                                                           problem_excerpt=excerpt, typing=self._typing_recently(), recent=recent, since_problem_s=since,
-                                                          overlaps_problem=overlaps, on_problem=on_problem))
+                                                          overlaps_problem=overlaps, on_problem=on_problem, volume=volume))
         self._tasks.add(task)
         task.add_done_callback(self._done)
         self._addressed_now = (None, task)
         return None
+
+    def _measure_volume(self) -> tuple[float | None, str | None]:
+        """(mean dBFS, quiet | normal | loud | None) of the utterance just finished, from the candidate's microphone; (None, None) when there is no meter,
+        no frames or an error: the volume is then simply unknown."""
+        if self.loudness is None:
+            return None, None
+        try:
+            level, volume = self.loudness.measure()
+            return (round(level, 1) if level is not None else None), volume
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("loudness measure ignored: %s", exc)
+            return None, None
 
     def _last_line_for_addressed(self) -> str:
         """The interviewer's last line that is not one of its own addressed remarks (the check-in "...for me?", the nudge, the reading nod): answering
@@ -635,7 +652,8 @@ class InterviewRun:
     @staticmethod
     def _addressed_doc(ctx: dict[str, Any]) -> dict[str, Any]:
         return {"result": ctx["result"], "source": ctx["source"], "confidence": ctx["confidence"], "ms": ctx["ms"], "mode": ctx["mode"],
-                "direct_only": bool(ctx.get("direct_only"))}
+                "direct_only": bool(ctx.get("direct_only")),
+                **({"volume": ctx["volume"], "level_db": ctx.get("level_db")} if ctx.get("volume") or ctx.get("level_db") is not None else {})}
 
     async def _model_addressed(self, ctx: dict[str, Any], **facts: Any) -> None:
         started = time.monotonic()
@@ -1024,6 +1042,8 @@ class InterviewRun:
             return                                  # cut at the very end: they heard all of it
         logger.info("turn %s was cut off; heard %r of %r", turn, heard, intended)
         self._cut_short = len(heard.split()) <= CUT_SHORT_WORDS
+        if "?" not in heard:
+            self.conductor.forget_ask(turn)           # cut before its question was said: not heard, not counted
         self.talker.said.keep_only(str(turn), heard)
         if u.get("covered"):
             # Only what they heard counts: a promise this turn covered stays covered only if the part they heard still asks about it.
@@ -1047,6 +1067,7 @@ class InterviewRun:
         logger.warning("turn %s was never played to the candidate; asking for it again", turn)
         self.talker.said.forget(str(turn))
         self.conductor.forget_warnings(turn)
+        self.conductor.forget_ask(turn)          # a question the candidate never heard is not an ask they ignored
         if turn == self._checkin_turn:
             # The check-in was never heard: it is not spent (it may be asked on this problem again), and there is nothing to nudge or to answer.
             self._checkin_turn = None
@@ -1064,6 +1085,8 @@ class InterviewRun:
                 continue
             # An ending is carried out whether or not it was heard, and a part's timer order was already acted on (the plan moved):
             # re-arming it would move the plan again. The other orders (a warning, an opening) are said again.
+            if o.kind == "drop_question" and self.conductor.ask_streak < 3:
+                continue                                      # the heard asks no longer make three: the order is not said again
             if o.kind != "end" and o.kind not in TIMER_ORDERS and not (o.kind == "skip_notice" and (self.conductor.ended or self.conductor.current().phase == "wrap_up")):
                 o.consumed = False
         if opened and any(o.kind == "open_item" for o in u["orders"]):
@@ -1205,6 +1228,11 @@ class InterviewRun:
         self.conductor.set_candidate_speaking(state == "speaking")
         if state == "speaking" and self._speech_start is None:
             self._speech_start = self.d.clock()          # (the Ask arm is judged at the start of what they say, not its end)
+        if state == "speaking" and self.loudness is not None:
+            try:
+                self.loudness.speech_started()           # their level for this utterance is measured from here to the final transcript
+            except Exception as exc:  # noqa: BLE001 - loudness is evidence, never required
+                logger.debug("loudness start ignored: %s", exc)
 
     def on_user_transcript(self, text: str, is_final: bool, created_at: float) -> None:
         """An interim or final speech-to-text update: stamps the candidate's words for the activity digest."""
@@ -1529,6 +1557,14 @@ class InterviewRun:
         finally:
             self._replies_open -= 1
 
+    def _patient(self) -> bool:
+        """The interviewer's own move (no candidate words to answer) waits while the last question is under 25 s old and the candidate has spoken or typed
+        since it: thinking on the question is the answer (live round 3e574171, where the same question was asked over and over). Urgent orders and the end never wait."""
+        now = self.d.clock()
+        if now - self._last_ask_at >= PATIENCE_S or self.conductor.urgent_pending() or self.conductor.end_order is not None or self.conductor.ended:
+            return False
+        return self.conductor.last_candidate_at > self._last_ask_at or self._code_at > self._last_ask_at or self.conductor.candidate_speaking
+
     async def _reply(self, candidate_text: str | None) -> AsyncIterator[str]:
         if self.finishing:
             return
@@ -1547,6 +1583,8 @@ class InterviewRun:
             self._cut_short = False
             self.unanswered, self.conductor.reply_owed = None, False
             return
+        if candidate_text is None and self._patient():
+            return                                      # they are busy answering the last question: no re-ask or probe yet (the tick tries again)
         checkin_line = gate[1] if gate is not None else None
         if candidate_text is None:
             self.addressed.checkin_at = None            # the interviewer speaks on its own: the check-in is stale
@@ -2159,7 +2197,9 @@ class InterviewRun:
             return [o for o in pending_before if o.consumed and all(o is not x for x in aside_orders)]
 
         if text and not result.interrupted and not failed:
-            self.conductor.note_interviewer_line(text)      # a question asked a second time with no answer in between is dropped
+            if "?" in text:
+                self._last_ask_at = self.d.clock()
+            self.conductor.note_interviewer_line(text, turn)      # a question asked a second time with no answer in between is dropped (counted only if played: see _drop_unplayed)
             for o in orders:
                 if o.kind == "skip_notice" and not self.finishing and not self.conductor.notice_said(o, text):
                     self.conductor.renew_notice(o)          # the notice was ordered and not said: ordered again

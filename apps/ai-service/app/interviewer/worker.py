@@ -24,6 +24,7 @@ from app.interviewer.api_client import ApiClient
 from app.interviewer.keyterms import stt_keyterms
 from app.interviewer.llm import build_chats
 from app.interviewer.protocol import WORKSPACE_TOPIC, agent_message
+from app.interviewer.loudness import CandidateLoudness, watch_loudness
 from app.interviewer.run import InterviewRun, RunDeps
 from app.interviewer.store import MongoStore
 from app.interviewer.talker import Pacing
@@ -333,6 +334,12 @@ async def entrypoint(ctx: JobContext) -> None:
 
         watch_candidate(ctx.room, run)
 
+        try:
+            run.loudness = CandidateLoudness()          # the candidate's speech level, as evidence for "is that for me?" (never required)
+            watch_loudness(ctx.room, run.loudness, _is_agent)
+        except Exception as exc:  # noqa: BLE001
+            logger.info("loudness not available: %s", exc)
+            run.loudness = None
         # The interviewer is in the room with its speech connections up while the round waits for the candidate's first
         # hello. What the browser sends before the round starts is held by the run, never lost. close_on_disconnect=False:
         # a page refresh drops the candidate for a few seconds and LiveKit would close the session with them; the run

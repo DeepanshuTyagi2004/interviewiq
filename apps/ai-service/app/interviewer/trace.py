@@ -33,7 +33,8 @@ def render(run: dict[str, Any] | None, turns: list[dict[str, Any]], briefs: list
             if doc.get("addressed"):
                 ad = doc["addressed"]
                 detail = f"{ad.get('source')} {ad.get('confidence') or 0:.2f}" + (f", {ad['ms']} ms" if ad.get("ms") is not None else "")
-                lines.append(f"    addressed: {ad.get('result')} ({detail})" + (", direct-only" if ad.get("direct_only") else ""))
+                lines.append(f"    addressed: {ad.get('result')} ({detail})" + (", direct-only" if ad.get("direct_only") else "")
+                             + (f", volume {ad['volume']}" if ad.get("volume") else "") + (f" ({ad['level_db']} dBFS)" if ad.get("level_db") is not None else ""))
             continue
         if doc.get("speaker") == "event":
             lines.append(f"#{doc['seq']} EVENT: {doc.get('text', '')}")

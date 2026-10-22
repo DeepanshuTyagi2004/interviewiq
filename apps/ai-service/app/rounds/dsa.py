@@ -147,7 +147,9 @@ DIRECTOR: tuple[str, ...] = (
     ('- problem_signal: your read of how the CURRENT problem is going: "strong" (a clear approach, working code, handles the '
      'probes), "adequate", "struggling" (needed repeated hints, no working approach, lost) or "unknown" if it is too early to say. '
      "Judge from their reasoning and code, not from their confidence. It decides whether a second problem is given, so be honest "
-     "and update it every brief."),
+     "and update it every brief. Reading the problem aloud, thinking aloud, muttering, quiet speech and silence on a problem are not "
+     'struggling. Before the candidate has had the minimum time on it (8 minutes, or 60% of its timebox if that is longer), keep problem_signal "unknown" or '
+     '"adequate" unless they asked for help twice or gave up.'),
 )
 
 # Live overrides of the blueprint's pol1 request policies (spec 5.7, "live-pol1").

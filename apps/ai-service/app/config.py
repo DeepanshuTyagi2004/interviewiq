@@ -251,7 +251,7 @@ class Settings(BaseSettings):
     # the cold first call (a round measured 4.4 s with no cached tokens).
     interviewer_warm_up: bool = Field(True, alias="INTERVIEWER_WARM_UP")
     # Is the candidate talking to the interviewer? off = today's behaviour; shadow = classify and record only; on = act on it (decided 2026-10-19).
-    addressed_check: Literal["off", "shadow", "on"] = Field("shadow", alias="ADDRESSED_CHECK")
+    addressed_check: Literal["off", "shadow", "on"] = Field("on", alias="ADDRESSED_CHECK")
     interviewer_stt_keyterms: bool = Field(True, alias="INTERVIEWER_STT_KEYTERMS")      # nova-3 keyterm prompting from the resume, company and names
     # Speech-to-text provider (decided 2026-10-18): "sarvam" (saaras:v3-realtime over the realtime WebSocket) or "deepgram" (nova-3). Sarvam's realtime
     # model takes the keyterms as a plain-text `prompt` hint; its latency profile is fast, balanced or simulated; the silence that ends a turn on its
