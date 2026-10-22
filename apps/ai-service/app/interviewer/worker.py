@@ -19,6 +19,7 @@ from app.blueprint import store as bp_store
 from app.config import Settings, get_settings
 from app.db import mongo
 from app.interviewer import lifecycle
+from app.interviewer.heartbeat import start_heartbeat
 from app.interviewer.agent import (InterviewerAgent, LiveKitSpeaker, PlaceholderLLM, build_turn_handling, watch_turn_detector,
                                    wire_session_events)
 from app.interviewer.api_client import ApiClient
@@ -400,7 +401,10 @@ def main() -> None:
     lifecycle.clear_ready(name)                 # a marker left by an earlier run is not this worker's
     atexit.register(lifecycle.clear_ready, name)
     server = AgentServer.from_server_options(build_worker_options(settings))
-    server.on("worker_registered", lambda *_: lifecycle.mark_ready(name))    # /health reports `interviewer: ready` from here on
+    def _registered(*_: Any) -> None:
+        lifecycle.mark_ready(name)
+        start_heartbeat(settings)                # /health reports `interviewer: ready` while this keeps beating
+    server.on("worker_registered", _registered)
     cli.run_app(server)
 
 

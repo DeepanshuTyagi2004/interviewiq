@@ -22,7 +22,7 @@ from app.config import get_settings
 from app.db import mongo, repositories as repo
 from app.llm.client import LLMError, build_llm_client, build_profile_scoring_llm_client
 from app.jobs.brief_generation import generate_one
-from app.interviewer.lifecycle import worker_ready
+from app.interviewer.heartbeat import worker_alive
 from app.exa.client import ExaClient, ExaConfigError, build_exa_client
 from app.models.resume import ParsedResume
 from app.models.engineering_levels import Level
@@ -40,13 +40,19 @@ router = APIRouter()
 _MAX_RESUME_BYTES = 6 * 1024 * 1024
 
 
+async def _interviewer_state() -> str:
+    """`ready` while the voice worker is beating (it registered with LiveKit and has not gone quiet), else `down`: a worker hosted by
+    LiveKit Cloud is scaled to zero when idle and comes back when a round is dispatched."""
+    return "ready" if await worker_alive(mongo.get_db(), get_settings().interviewer_agent_name) else "down"
+
+
 @router.get("/health")
 async def health() -> dict:
     mongo_ok = await mongo.ping()
     return {
         "status": "ok" if mongo_ok else "degraded",
         "mongo": "up" if mongo_ok else "down",
-        "interviewer": "ready" if worker_ready(get_settings().interviewer_agent_name) else "down",   # the voice worker, registered with LiveKit
+        "interviewer": await _interviewer_state(),
     }
 
 
