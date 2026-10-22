@@ -27,7 +27,7 @@ services:
       - key: MONGODB_URI # Atlas dev cluster
         sync: false
       - key: MONGODB_DATABASE
-        value: interviewiq_dev
+        value: interviewiq # the same database as local (candidate profiles and fragments pair with the shared Supabase users)
       - key: JWT_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID
@@ -82,7 +82,7 @@ services:
       - key: MONGODB_URL # Atlas dev cluster
         sync: false
       - key: MONGODB_DB
-        value: interviewiq_intelligence_dev
+        value: interviewiq_intelligence # the same database as local: it holds the problem bank, briefs and research
       - key: INTERNAL_API_KEY # same value as the api
         sync: false
       - key: API_BASE_URL # https://interviewiq-api.onrender.com
