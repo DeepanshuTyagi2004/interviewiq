@@ -55,6 +55,11 @@ export function interviewsRouter(c: Container): Router {
     res.json(await c.liveSessions.getLive(userId(req), uuidParam(req, "sessionId")));
   });
 
+  /** Whether the live interviewer is up (any role): `waking` while its host sleeps. The page polls it before and during a round. */
+  r.get("/live/readiness", async (_req, res) => {
+    res.json(await c.liveSessions.readiness());
+  });
+
   /** Get the interviewer into the room while the candidate reads the instructions: best effort, never an error for a round that is not eligible. */
   r.post("/sessions/:sessionId/live/warm", async (req, res) => {
     res.json(await c.liveSessions.warm(userId(req), uuidParam(req, "sessionId")));

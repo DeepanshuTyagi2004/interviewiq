@@ -108,6 +108,19 @@ export class AiServiceClient {
     }
   }
 
+  /**
+   * The ai-service liveness report (`interviewer` is "ready" once its voice worker has registered); null on any failure, so a
+   * sleeping or unreachable service reads as "not ready". Calling it wakes a sleeping dev host.
+   */
+  async health(): Promise<{ interviewer?: string } | null> {
+    try {
+      const body = await this.getJson("/health", 10_000);
+      return isObject(body) ? { interviewer: typeof body.interviewer === "string" ? body.interviewer : undefined } : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Ingested question-bank metadata for the admin console; null on failure. */
   async listQuestions(roundType: string | null, company: string | null, difficulty: string | null, limit: number,
     extra: { contentStatus?: string | null; topic?: string | null; includeContent?: boolean } = {}): Promise<unknown | null> {

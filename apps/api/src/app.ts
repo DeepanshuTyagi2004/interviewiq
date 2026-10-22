@@ -70,6 +70,16 @@ export function createApp(c: Container): express.Express {
   app.get("/api/v1/main/healthcheck", (_req, res) => {
     res.type("text/plain").send("Server Up");
   });
+  // Dev hosts sleep when idle: the web calls this on every page load (signed in or not) so the API and the ai-service (with its
+  // voice worker) are already up if the visitor signs in and starts a round. The ai-service ping is fire-and-forget, at most once a minute.
+  let lastAiWake = 0;
+  app.get("/api/v1/main/wake", (_req, res) => {
+    if (Date.now() - lastAiWake > 60_000) {
+      lastAiWake = Date.now();
+      void c.aiService.health();
+    }
+    res.status(204).end();
+  });
   app.use(authRouter(c));
 
   const v1 = router();

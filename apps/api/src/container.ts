@@ -214,7 +214,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
   });
   const liveSessions = new LiveSessionService(repos.sessions, liveKit, blueprintPrep, liveAvailability,
     new LiveKitRoomAdmin(config.livekit.url, config.livekit.apiKey, config.livekit.apiSecret, fetchImpl), repos.companies, log,
-    roundEvaluation, background, interviewAccess);
+    roundEvaluation, background, interviewAccess, aiService);
   const seeder = new CatalogueSeeder(repos.roleConfigs, repos.companies, repos.jds, log);
 
   const jobs = {

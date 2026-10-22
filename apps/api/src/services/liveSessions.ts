@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { InterviewSessionRow, LiveSummary } from "../db/pg/schema.js";
 import type { SessionStatus } from "../domain/enums.js";
 import { sessionRoundMinutes } from "../domain/liveRound.js";
+import type { AiServiceClient } from "../integrations/aiService/client.js";
 import type { AgentRooms, LiveKitTokenService } from "../integrations/livekit.js";
 import { errorMessage } from "../lib/errors.js";
 import type { BackgroundTasks } from "../lib/background.js";
@@ -43,6 +44,11 @@ export interface LiveSessionResponse {
   status: SessionStatus;
 }
 
+/** Whether the live interviewer is up: `waking` while its host is asleep or its worker has not registered yet. */
+export interface LiveReadinessResponse {
+  interviewer: "ready" | "waking";
+}
+
 /** What a warm-up tells the page: an interviewer is in the room or on its way (`warming`), or nothing was started. */
 export interface WarmResponse {
   warming: boolean;
@@ -72,7 +78,14 @@ export class LiveSessionService {
     private readonly evaluation: RoundEvaluationService | null = null,
     private readonly background: BackgroundTasks | null = null,
     private readonly access: InterviewAccess,
+    private readonly aiService: Pick<AiServiceClient, "health"> | null = null,
   ) {}
+
+  /** Asks the ai-service (which wakes it if asleep); anything but a ready interviewer, or no answer in time, is `waking`. */
+  async readiness(): Promise<LiveReadinessResponse> {
+    const h = await this.aiService?.health();
+    return { interviewer: h?.interviewer === "ready" ? "ready" : "waking" };
+  }
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {
     await this.access.assertCanInterview(candidateId);

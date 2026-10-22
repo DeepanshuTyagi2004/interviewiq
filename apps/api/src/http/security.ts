@@ -6,7 +6,7 @@ import { sendError } from "./support.js";
 /**
  * Path-based access rules — a direct port of the Spring SecurityConfig, evaluated in order:
  *
- *   public   /api/v1/main/healthcheck, /oauth2/**, /login/oauth2/**, /api/v1/auth/refresh,
+ *   public   /api/v1/main/healthcheck, /api/v1/main/wake, /oauth2/**, /login/oauth2/**, /api/v1/auth/refresh,
  *            /api/v1/auth/logout, /api/v1/connections/github/callback,
  *            /api/v1/auth/{register,login,verify-email,forgot-password,reset-password} (exact),
  *            /api/v1/internal/** (guarded by the shared internal API key instead)
@@ -18,6 +18,7 @@ import { sendError } from "./support.js";
  */
 const PUBLIC_EXACT = new Set([
   "/api/v1/main/healthcheck",
+  "/api/v1/main/wake",
   "/api/v1/auth/refresh",
   "/api/v1/auth/logout",
   "/api/v1/auth/register",

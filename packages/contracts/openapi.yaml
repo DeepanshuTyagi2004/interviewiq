@@ -1617,6 +1617,20 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/WarmLiveResponse" } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/interviews/live/readiness:
+    get:
+      operationId: getLiveInterviewerReadiness
+      tags: [interview-sessions]
+      summary: Whether the live interviewer is up.
+      description: >
+        Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` once the voice
+        worker has registered; `waking` when the service is unreachable, slow or its worker is not up yet. Any signed-in role.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The interviewer's readiness.
+          content: { application/json: { schema: { $ref: "#/components/schemas/LiveReadinessResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/v1/interviews/sessions/{sessionId}/live/end:
     parameters:
       - $ref: "#/components/parameters/SessionId"
@@ -3578,6 +3592,14 @@ components:
         warming:
           type: boolean
           description: True when an interviewer is in the room, on its way, or was just dispatched.
+    LiveReadinessResponse:
+      type: object
+      required: [interviewer]
+      properties:
+        interviewer:
+          type: string
+          enum: [ready, waking]
+          description: "`waking` while the AI service or its voice worker is not up yet."
     GoLiveResponse:
       type: object
       description: >
