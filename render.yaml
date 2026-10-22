@@ -1,6 +1,8 @@
 # Render Blueprint — dev environment (free plan). Web is on Vercel; databases are Supabase + Atlas.
 # Dashboard → New → Blueprint → pick this repo. Every `sync: false` value is asked for once, then lives in Render.
 # Free web services sleep after ~15 min idle (first request ~30-60 s), so in-process schedulers pause while asleep.
+# The voice worker runs inside the ai-service container (INTERVIEWER_IN_CONTAINER); the live room's readiness poll keeps both awake.
+# Vercel (web) env: API_PROXY_TARGET=https://interviewiq-api.onrender.com and NEXT_PUBLIC_API_URL="" (first-party refresh cookie).
 services:
   - type: web
     name: interviewiq-api
@@ -54,7 +56,7 @@ services:
         sync: false
       - key: INTERNAL_API_KEY # same value in the ai-service
         sync: false
-      # Live rounds need the voice worker running somewhere always-on (not on Render free).
+      # The voice worker runs inside the ai-service container; the live page polls /interviews/live/readiness until it is up.
       # Entering a live round needs this switch on AND a CANDIDATE or ADMIN role.
       - key: LIVE_INTERVIEWER_AVAILABLE
         value: "true"
@@ -100,6 +102,25 @@ services:
       - key: LLM_BASE_URL
         value: https://generativelanguage.googleapis.com/v1beta/openai
       - key: ADDRESSED_CHECK
-        value: shadow
+        value: "on"
       - key: LOG_LEVEL
         value: INFO
+      # Voice worker inside this container (start.sh). Sized for 512 MB / 0.1 CPU: no idle job process, one round at a time.
+      - key: INTERVIEWER_IN_CONTAINER
+        value: "true"
+      - key: INTERVIEWER_IDLE_PROCESSES
+        value: "0"
+      - key: INTERVIEWER_LOAD_THRESHOLD
+        value: "1.0"
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
