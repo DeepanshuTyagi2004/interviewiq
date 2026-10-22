@@ -38,6 +38,34 @@ def lock_path(agent_name: str) -> Path:
     return Path(tempfile.gettempdir()) / f"interviewiq-worker-{safe}.lock"
 
 
+def ready_path(agent_name: str) -> Path:
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in agent_name) or "interviewer"
+    return Path(tempfile.gettempdir()) / f"interviewiq-worker-{safe}.ready"
+
+
+def mark_ready(agent_name: str, path: Path | None = None) -> None:
+    """Record that this worker has registered with LiveKit (its pid, so a dead worker's marker is not believed)."""
+    (path or ready_path(agent_name)).write_text(str(os.getpid()))
+
+
+def clear_ready(agent_name: str, path: Path | None = None) -> None:
+    try:
+        (path or ready_path(agent_name)).unlink()
+    except OSError:
+        pass
+
+
+def worker_ready(agent_name: str, path: Path | None = None) -> bool:
+    """Whether a worker for this agent name has registered and its process is alive. Reads only the .ready file, never the .lock
+    (probing the lock from the HTTP side could make a starting worker exit with AlreadyRunning). Any error reads as not ready."""
+    try:
+        pid = int((path or ready_path(agent_name)).read_text().strip())
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def single_instance(agent_name: str, path: Path | None = None):
     """Take the lock for this process's lifetime (keep the returned file object alive). Raises AlreadyRunning if it is held."""
     if fcntl is None:

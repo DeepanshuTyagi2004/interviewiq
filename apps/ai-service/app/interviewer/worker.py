@@ -4,6 +4,7 @@ metadata {"session_id": …}. One interviewer per room; a restarted worker resum
 from __future__ import annotations
 
 import asyncio
+import atexit
 import dataclasses
 import json
 import logging
@@ -11,7 +12,7 @@ import time
 from typing import Any, Callable
 
 from livekit import rtc
-from livekit.agents import AgentSession, JobContext, WorkerOptions, cli, room_io
+from livekit.agents import AgentServer, AgentSession, JobContext, WorkerOptions, cli, room_io
 from livekit.plugins import deepgram, sarvam
 
 from app.blueprint import store as bp_store
@@ -376,8 +377,13 @@ async def entrypoint(ctx: JobContext) -> None:
 
 def build_worker_options(settings: Settings) -> WorkerOptions:
     """Creds come from Settings (the .env is loaded by pydantic, not exported to os.environ)."""
+    sizing: dict[str, Any] = {}      # only what is set: the LiveKit defaults stay otherwise
+    if settings.interviewer_idle_processes is not None:
+        sizing["num_idle_processes"] = settings.interviewer_idle_processes
+    if settings.interviewer_load_threshold is not None:
+        sizing["load_threshold"] = settings.interviewer_load_threshold
     return WorkerOptions(entrypoint_fnc=entrypoint, agent_name=settings.interviewer_agent_name,
-                         ws_url=settings.livekit_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
+                         ws_url=settings.livekit_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret, **sizing)
 
 
 def main() -> None:
@@ -390,7 +396,12 @@ def main() -> None:
     except lifecycle.AlreadyRunning as exc:
         raise SystemExit(f"interviewer worker: {exc}") from None
     lifecycle.start_watchdog(settings.interviewer_stop_when_down)
-    cli.run_app(build_worker_options(settings))
+    name = settings.interviewer_agent_name
+    lifecycle.clear_ready(name)                 # a marker left by an earlier run is not this worker's
+    atexit.register(lifecycle.clear_ready, name)
+    server = AgentServer.from_server_options(build_worker_options(settings))
+    server.on("worker_registered", lambda *_: lifecycle.mark_ready(name))    # /health reports `interviewer: ready` from here on
+    cli.run_app(server)
 
 
 if __name__ == "__main__":

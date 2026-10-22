@@ -297,6 +297,12 @@ A LiveKit Agents worker that runs a prepared blueprint by voice (spec:
 Needs `LIVEKIT_*`, `DEEPGRAM_API_KEY`, `OPENROUTER_API_KEY`, `MONGODB_URL`, `API_BASE_URL` and `INTERNAL_API_KEY` in
 `.env`. The API dispatches it (agent name `interviewer`) when a candidate goes live.
 
+Container mode (the dev Render deploy, where the worker has no inbound HTTP of its own): `INTERVIEWER_IN_CONTAINER=true` makes
+`start.sh` run the worker (`python -m app.interviewer.worker start`) beside uvicorn, and the container exits when either does.
+Once the worker registers with LiveKit it writes a ready marker (`interviewiq-worker-<agent>.ready` in the temp dir, holding its
+pid), and `GET /health` reports `"interviewer": "ready"` while that process is alive, else `"down"`. The API's live readiness check
+reads that. `INTERVIEWER_IDLE_PROCESSES` and `INTERVIEWER_LOAD_THRESHOLD` shrink the worker for small hosts.
+
 - Text-only rehearsal, no LiveKit: `.venv/bin/python -m app.interviewer.simulate --session <id> --script <file>`
 - Replay a session's decisions: `.venv/bin/python -m app.interviewer.trace <session_id>`
 - Latency spike: `.venv/bin/python scripts/interviewer_latency_spike.py --session <id>`

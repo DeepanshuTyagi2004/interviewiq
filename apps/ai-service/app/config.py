@@ -210,6 +210,9 @@ class Settings(BaseSettings):
     interviewer_agent_name: str = Field("interviewer", alias="INTERVIEWER_AGENT_NAME")
     # Comma-separated host:port or URLs; the worker stops itself when one stays unreachable ("" = never). Dev only: `pnpm dev` sets it.
     interviewer_stop_when_down: str = Field("", alias="INTERVIEWER_STOP_WHEN_DOWN")
+    # Worker sizing for small hosts (the dev Render container): unset = the LiveKit defaults (idle processes by CPU count, load 0.7).
+    interviewer_idle_processes: int | None = Field(None, alias="INTERVIEWER_IDLE_PROCESSES", ge=0)
+    interviewer_load_threshold: float | None = Field(None, alias="INTERVIEWER_LOAD_THRESHOLD", gt=0)
     interviewer_talker_model: str = Field("deepseek/deepseek-v4.1-flash-1017", alias="INTERVIEWER_TALKER_MODEL")
     # "none" turns reasoning off on the speaking path; anything else is sent as OpenRouter's reasoning effort.
     interviewer_talker_reasoning: str = Field("none", alias="INTERVIEWER_TALKER_REASONING")

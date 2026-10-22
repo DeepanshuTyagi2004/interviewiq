@@ -22,6 +22,7 @@ from app.config import get_settings
 from app.db import mongo, repositories as repo
 from app.llm.client import LLMError, build_llm_client, build_profile_scoring_llm_client
 from app.jobs.brief_generation import generate_one
+from app.interviewer.lifecycle import worker_ready
 from app.exa.client import ExaClient, ExaConfigError, build_exa_client
 from app.models.resume import ParsedResume
 from app.models.engineering_levels import Level
@@ -45,6 +46,7 @@ async def health() -> dict:
     return {
         "status": "ok" if mongo_ok else "degraded",
         "mongo": "up" if mongo_ok else "down",
+        "interviewer": "ready" if worker_ready(get_settings().interviewer_agent_name) else "down",   # the voice worker, registered with LiveKit
     }
 
 
