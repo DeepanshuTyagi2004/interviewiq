@@ -9,7 +9,6 @@ import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessi
 import { ScriptedLiveSession } from "@/features/interview-live/session/ScriptedLiveSession";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
 import { useInterviewerReadiness } from "@/features/interview-live/session/useInterviewerReadiness";
-import { useWarmInterviewer } from "@/features/interview-live/session/useWarmInterviewer";
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { useLiveState, useSession } from "@/features/interview/hooks";
 import type { SessionStatus } from "@/features/interview/types";
@@ -58,9 +57,10 @@ export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; met
   const { state } = useLiveSession();
   const router = useRouter();
   // Poll readiness through the whole entered flow: it wakes sleeping dev services and, every 4 minutes once ready, keeps them awake for the round.
-  const interviewerReady = useInterviewerReadiness(state !== "ended" && state !== "error");
-  // The instructions page is open: get the interviewer into the room while the candidate reads (one call, best effort, once the stack is awake).
-  useWarmInterviewer(sessionId, (state === "prejoin" || state === "checks") && interviewerReady);
+  // While the candidate reads the instructions and runs the checks it is also the warm-up: a worker that is down is started for this round and
+  // the answer is ready only once its heartbeat shows it up (no session id after that, so a later poll never dispatches).
+  const beforeEntering = state === "prejoin" || state === "checks";
+  const interviewerReady = useInterviewerReadiness(state !== "ended" && state !== "error", beforeEntering ? sessionId : undefined);
 
   switch (state) {
     // The round runs full screen from its first page: the instructions, the checks and the connecting step wait

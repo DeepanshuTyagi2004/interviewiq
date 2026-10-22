@@ -40,9 +40,11 @@ export function getLive(id: string): Promise<GoLiveResponse> {
   return apiFetch<GoLiveResponse>(INTERVIEW_ENDPOINTS.live(id));
 }
 
-/** GET /api/v1/interviews/live/readiness — whether the interviewer stack is awake ("waking" while a sleeping dev service starts). */
-export function getLiveReadiness(): Promise<LiveReadinessResponse> {
-  return apiFetch<LiveReadinessResponse>(INTERVIEW_ENDPOINTS.liveReadiness);
+/** GET /api/v1/interviews/live/readiness — whether the voice worker is alive ("waking" while a sleeping service starts). With a session id
+ * a down worker is also started for that round (LiveKit starts a worker that scaled to zero when the interviewer is dispatched). */
+export function getLiveReadiness(sessionId?: string): Promise<LiveReadinessResponse> {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''
+  return apiFetch<LiveReadinessResponse>(`${INTERVIEW_ENDPOINTS.liveReadiness}${query}`)
 }
 
 /** POST /api/v1/interviews/sessions/{id}/live/warm — get the interviewer into the room while the candidate reads the instructions (best effort). */
