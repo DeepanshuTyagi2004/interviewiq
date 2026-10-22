@@ -14,6 +14,7 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type FitViewOptions,
   type Node,
   type NodeChange,
 } from "@xyflow/react";
@@ -81,7 +82,7 @@ function Inner({ graph, mode, nodeStates, nodeResults, selectedId, onSelect, onG
   // the editor keeps its roomier fit.
   const insetLeft = editable ? (insets?.left ?? 0) : 0;
   const insetRight = editable ? (insets?.right ?? 0) : 0;
-  const fitOptions = useMemo(
+  const fitOptions = useMemo<FitViewOptions>(
     () =>
       editable
         ? {
