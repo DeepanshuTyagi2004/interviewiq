@@ -297,11 +297,15 @@ A LiveKit Agents worker that runs a prepared blueprint by voice (spec:
 Needs `LIVEKIT_*`, `DEEPGRAM_API_KEY`, `OPENROUTER_API_KEY`, `MONGODB_URL`, `API_BASE_URL` and `INTERNAL_API_KEY` in
 `.env`. The API dispatches it (agent name `interviewer`) when a candidate goes live.
 
-Container mode (the dev Render deploy, where the worker has no inbound HTTP of its own): `INTERVIEWER_IN_CONTAINER=true` makes
-`start.sh` run the worker (`python -m app.interviewer.worker start`) beside uvicorn, and the container exits when either does.
-Once the worker registers with LiveKit it writes a ready marker (`interviewiq-worker-<agent>.ready` in the temp dir, holding its
-pid), and `GET /health` reports `"interviewer": "ready"` while that process is alive, else `"down"`. The API's live readiness check
-reads that. `INTERVIEWER_IDLE_PROCESSES` and `INTERVIEWER_LOAD_THRESHOLD` shrink the worker for small hosts.
+Hosting (the dev deploy): the worker runs on LiveKit Cloud (`lk agent create` from a clean copy of `app/`, `requirements.txt`, `Dockerfile` and
+`start.sh`, without this folder's `package.json`, which makes the CLI treat it as a Node project; secrets from a file, minus `LIVEKIT_*`, which
+LiveKit injects). The Dockerfile's `CMD` is the worker (`python -m app.interviewer.worker start`, a fixed command is required); Render overrides it
+with `dockerCommand: ./start.sh`, which runs only uvicorn unless `INTERVIEWER_IN_CONTAINER=true` also starts the worker beside it.
+Deploy it with `pnpm deploy:worker` (`apps/ai-service/scripts/deploy-worker.sh`, which stages that clean copy; `livekit.toml` holds the agent id).
+Liveness: once the worker registers with LiveKit it upserts a heartbeat document (`worker_heartbeats`, `_id` = agent name) every 15 s
+(`app/interviewer/heartbeat.py`), and `GET /health` reports `"interviewer": "ready"` while it is under 45 s old, else `"down"`. LiveKit's free plan
+scales an idle worker to zero; the only thing that starts it again is a dispatch, which the API sends from its readiness check for a round that
+could go live. `INTERVIEWER_IDLE_PROCESSES` and `INTERVIEWER_LOAD_THRESHOLD` shrink the worker for small hosts.
 
 - Text-only rehearsal, no LiveKit: `.venv/bin/python -m app.interviewer.simulate --session <id> --script <file>`
 - Replay a session's decisions: `.venv/bin/python -m app.interviewer.trace <session_id>`

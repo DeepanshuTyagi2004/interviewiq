@@ -16,5 +16,6 @@ USER appuser
 EXPOSE 8000
 
 # Host runs llama.cpp; this service reaches it via LLM_BASE_URL (never hardcoded).
-# start.sh runs uvicorn on $PORT (8000 by default) and, when INTERVIEWER_IN_CONTAINER=true, the voice worker beside it.
-CMD ["./start.sh"]
+# LiveKit Cloud agent hosting runs this image as the voice worker (it needs a fixed start command, no wrapper script).
+# Render overrides it with dockerCommand ./start.sh, which runs the HTTP API on $PORT (and, with INTERVIEWER_IN_CONTAINER=true, the worker too).
+CMD ["python", "-m", "app.interviewer.worker", "start"]

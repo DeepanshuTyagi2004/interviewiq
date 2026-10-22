@@ -17,7 +17,12 @@
     "db:migrate": "pnpm --filter @interviewiq/api db:migrate",
     "stack:up": "docker compose -f infra/docker-compose.yml up --build",
     "stack:down": "docker compose -f infra/docker-compose.yml down",
-    "contracts:types": "pnpm --filter @interviewiq/web generate:types"
+    "contracts:types": "pnpm --filter @interviewiq/web generate:types",
+    "deploy:web": "vercel deploy --prod --yes",
+    "deploy:api": "render deploys create srv-dbd5mnnb9u1s73df11e0 --wait --confirm -o text",
+    "deploy:ai": "render deploys create srv-dbd5mnnb9u1s73df11eg --wait --confirm -o text",
+    "deploy:worker": "bash apps/ai-service/scripts/deploy-worker.sh",
+    "deploy:all": "pnpm deploy:ai && pnpm deploy:api && pnpm deploy:worker && pnpm deploy:web"
   },
   "devDependencies": {
     "turbo": "^2.11.5"
