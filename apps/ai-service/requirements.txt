@@ -12,3 +12,4 @@ openai>=2.0                      # Live interviewer: OpenRouter (OpenAI-compatib
 livekit-agents~=1.8.5            # Live interviewer worker (voice pipeline, built-in Silero VAD + turn detector)
 livekit-plugins-sarvam~=1.8.5    # Live interviewer: Sarvam speech-to-text (saaras:v3-realtime) and Bulbul v4 Flash voice (Indian English)
 livekit-plugins-deepgram~=1.8.5  # Live interviewer: Deepgram speech-to-text (fallback provider) and the Flux (Indian-English) voice; 1.8.5 is the first with Flux TTS
+langgraph>=1.2                   # Company research graph (app/research/graph.py): StateGraph + in-memory checkpoints
