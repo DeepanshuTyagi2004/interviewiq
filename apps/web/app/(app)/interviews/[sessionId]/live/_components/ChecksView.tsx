@@ -68,7 +68,7 @@ function CheckRow({
  * Mic/camera each get their own getUserMedia({ audio } / { video }) probe — independent calls so
  * one being denied doesn't fail the other's result — and stop their tracks immediately after
  * reading track presence; the session acquires its own (kept-open) stream later, in connect(). */
-export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
+export function ChecksView({ sessionId, meta, interviewerReady }: { sessionId: string; meta?: RoomMeta; interviewerReady: boolean }) {
   const { session, send } = useLiveSession();
   const { extended, supported } = useExternalDisplay();
   const [micStatus, setMicStatus] = useState<CheckStatus>("checking");
@@ -236,12 +236,18 @@ export function ChecksView({ sessionId, meta }: { sessionId: string; meta?: Room
 
       <Button
         size="lg" className="w-full"
-        disabled={!ready || entering}
+        disabled={!ready || !interviewerReady || entering}
         onClick={() => void handleEnter()}
       >
         {entering ? <Loader2 aria-hidden data-motion className="animate-spin" /> : null}
         Enter interview
       </Button>
+      {ready && !interviewerReady ? (
+        <p role="status" className="m-0 flex items-center justify-center gap-2 text-center text-[13px] leading-[1.5] text-ink-2">
+          <Loader2 aria-hidden data-motion className="size-3.5 animate-spin" />
+          Getting your interviewer ready… this can take up to a minute.
+        </p>
+      ) : null}
       {blocked ? (
         <p role="status" className="m-0 text-center text-[13px] leading-[1.5] text-ink-2">
           Allow microphone and camera access in your browser&apos;s site settings, then reload this page.

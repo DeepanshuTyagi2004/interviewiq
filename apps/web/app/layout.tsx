@@ -6,6 +6,7 @@ import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { WakeServices } from "@/lib/providers/WakeServices";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -26,6 +27,7 @@ export default function RootLayout({
       className={`${inter.variable} ${interTight.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
+        <WakeServices />
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>

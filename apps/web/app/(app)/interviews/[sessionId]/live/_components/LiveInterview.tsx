@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LiveSessionProvider } from "@/features/interview-live/session/LiveSessionProvider";
 import { ScriptedLiveSession } from "@/features/interview-live/session/ScriptedLiveSession";
 import { useLiveSession } from "@/features/interview-live/session/useLiveSession";
+import { useInterviewerReadiness } from "@/features/interview-live/session/useInterviewerReadiness";
 import { useWarmInterviewer } from "@/features/interview-live/session/useWarmInterviewer";
 import type { LiveSession } from "@/features/interview-live/session/types";
 import { useLiveState, useSession } from "@/features/interview/hooks";
@@ -56,8 +57,10 @@ function notReadyNote(status: SessionStatus | undefined): string {
 export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; meta?: RoomMeta }) {
   const { state } = useLiveSession();
   const router = useRouter();
-  // The instructions page is open: get the interviewer into the room while the candidate reads (one call, best effort).
-  useWarmInterviewer(sessionId, state === "prejoin");
+  // Poll readiness through the whole entered flow: it wakes sleeping dev services and, every 4 minutes once ready, keeps them awake for the round.
+  const interviewerReady = useInterviewerReadiness(state !== "ended" && state !== "error");
+  // The instructions page is open: get the interviewer into the room while the candidate reads (one call, best effort, once the stack is awake).
+  useWarmInterviewer(sessionId, (state === "prejoin" || state === "checks") && interviewerReady);
 
   switch (state) {
     // The round runs full screen from its first page: the instructions, the checks and the connecting step wait
@@ -74,7 +77,7 @@ export function LiveInterviewInner({ sessionId, meta }: { sessionId: string; met
       return (
         <FullscreenGate meta={meta}>
           <RoomFrame>
-            <ChecksView sessionId={sessionId} meta={meta} />
+            <ChecksView sessionId={sessionId} meta={meta} interviewerReady={interviewerReady} />
           </RoomFrame>
         </FullscreenGate>
       );

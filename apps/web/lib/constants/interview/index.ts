@@ -18,6 +18,7 @@ export const INTERVIEW_ENDPOINTS = {
   retryPrep: (id: string) => `${SESSIONS}/${id}/prep/retry`,
   live: (id: string) => `${SESSIONS}/${id}/live`,
   liveEnd: (id: string) => `${SESSIONS}/${id}/live/end`,
+  liveReadiness: "/api/v1/interviews/live/readiness",
   liveWarm: (id: string) => `${SESSIONS}/${id}/live/warm`,
   reschedule: (id: string) => `${SESSIONS}/${id}/reschedule`,
   cancel: (id: string) => `${SESSIONS}/${id}/cancel`,

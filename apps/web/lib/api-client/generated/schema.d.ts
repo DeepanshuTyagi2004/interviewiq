@@ -1412,6 +1412,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/live/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the live interviewer is up.
+         * @description Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` once the voice worker has registered; `waking` when the service is unreachable, slow or its worker is not up yet. Any signed-in role.
+         *
+         */
+        get: operations["getLiveInterviewerReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interviews/sessions/{sessionId}/live/end": {
         parameters: {
             query?: never;
@@ -3054,6 +3075,13 @@ export interface components {
         WarmLiveResponse: {
             /** @description True when an interviewer is in the room, on its way, or was just dispatched. */
             warming: boolean;
+        };
+        LiveReadinessResponse: {
+            /**
+             * @description `waking` while the AI service or its voice worker is not up yet.
+             * @enum {string}
+             */
+            interviewer: "ready" | "waking";
         };
         /** @description Result of starting or checking the live interview. `livekitUrl`/`token`/`roomName` are populated while status == LIVE_IN_PROGRESS and null otherwise (e.g. before prep is ready, or after the session has COMPLETED/ABORTED_TECHNICAL).
          *      */
@@ -7176,6 +7204,27 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getLiveInterviewerReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The interviewer's readiness. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveReadinessResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     endLiveInterviewSession: {

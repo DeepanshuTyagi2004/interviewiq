@@ -6,6 +6,7 @@ import type {
   GoLiveResponse,
   InterviewSession,
   InterviewSessionListResponse,
+  LiveReadinessResponse,
   WarmLiveResponse,
 } from "./types";
 
@@ -37,6 +38,11 @@ export function goLive(id: string): Promise<GoLiveResponse> {
 /** GET /api/v1/interviews/sessions/{id}/live — current live state (fresh token if LIVE_IN_PROGRESS). */
 export function getLive(id: string): Promise<GoLiveResponse> {
   return apiFetch<GoLiveResponse>(INTERVIEW_ENDPOINTS.live(id));
+}
+
+/** GET /api/v1/interviews/live/readiness — whether the interviewer stack is awake ("waking" while a sleeping dev service starts). */
+export function getLiveReadiness(): Promise<LiveReadinessResponse> {
+  return apiFetch<LiveReadinessResponse>(INTERVIEW_ENDPOINTS.liveReadiness);
 }
 
 /** POST /api/v1/interviews/sessions/{id}/live/warm — get the interviewer into the room while the candidate reads the instructions (best effort). */
