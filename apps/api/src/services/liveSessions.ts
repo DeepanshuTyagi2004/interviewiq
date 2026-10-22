@@ -81,10 +81,27 @@ export class LiveSessionService {
     private readonly aiService: Pick<AiServiceClient, "health"> | null = null,
   ) {}
 
-  /** Asks the ai-service (which wakes it if asleep); anything but a ready interviewer, or no answer in time, is `waking`. */
-  async readiness(): Promise<LiveReadinessResponse> {
+  /**
+   * Whether the voice worker is alive; anything short of that, or no answer in time, is `waking` (never an error). The ai-service
+   * answers from the worker's own heartbeat (asking also wakes the ai-service if it sleeps). When it answers but the worker is down
+   * (LiveKit Cloud scaled it to zero), a dispatch for this round is the only thing that starts it, so a round that could go live gets
+   * one (shared with go-live, never a second interviewer) and the page keeps Start disabled until the heartbeat shows the worker up.
+   */
+  async readiness(candidateId: string, sessionId?: string): Promise<LiveReadinessResponse> {
     const h = await this.aiService?.health();
-    return { interviewer: h?.interviewer === "ready" ? "ready" : "waking" };
+    if (!h) return { interviewer: "waking" };
+    if (h.interviewer === "ready") return { interviewer: "ready" };
+    if (sessionId && this.rooms) {
+      try {
+        await this.access.assertCanInterview(candidateId);
+        const s = await this.requireOwned(candidateId, sessionId);
+        const eligible = s.status === "LIVE_IN_PROGRESS" || (s.status === "PREP_READY" && this.live.isAvailableFor(candidateId));
+        if (eligible) await this.dispatchUnlessPresent(sessionId, "warm");
+      } catch (err) {
+        this.log?.warn(`interviewer wake-up failed for session ${sessionId}: ${errorMessage(err)}`);
+      }
+    }
+    return { interviewer: "waking" };
   }
 
   async startLive(candidateId: string, sessionId: string): Promise<LiveSessionResponse> {

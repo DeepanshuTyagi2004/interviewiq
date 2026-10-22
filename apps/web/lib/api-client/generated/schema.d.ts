@@ -1421,7 +1421,7 @@ export interface paths {
         };
         /**
          * Whether the live interviewer is up.
-         * @description Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` once the voice worker has registered; `waking` when the service is unreachable, slow or its worker is not up yet. Any signed-in role.
+         * @description Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` while the voice worker is beating (it registered with LiveKit and has not gone quiet); `waking` when the service is unreachable or slow, or its worker is down. With `sessionId` for a round that could go live, a down worker is also started: dispatching the interviewer makes LiveKit Cloud start a worker it scaled to zero. Never an error status: a failed check is `waking`. Any signed-in role.
          *
          */
         get: operations["getLiveInterviewerReadiness"];
@@ -7208,7 +7208,10 @@ export interface operations {
     };
     getLiveInterviewerReadiness: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The round whose room the interviewer must be in. */
+                sessionId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

@@ -1623,9 +1623,17 @@ paths:
       tags: [interview-sessions]
       summary: Whether the live interviewer is up.
       description: >
-        Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` once the voice
-        worker has registered; `waking` when the service is unreachable, slow or its worker is not up yet. Any signed-in role.
+        Asks the AI service for its health (a short timeout, which also wakes a sleeping dev host). `ready` while the voice worker
+        is beating (it registered with LiveKit and has not gone quiet); `waking` when the service is unreachable or slow, or its worker
+        is down. With `sessionId` for a round that could go live, a down worker is also started: dispatching the interviewer makes
+        LiveKit Cloud start a worker it scaled to zero. Never an error status: a failed check is `waking`. Any signed-in role.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: sessionId
+          in: query
+          required: false
+          description: The round whose room the interviewer must be in.
+          schema: { type: string, format: uuid }
       responses:
         "200":
           description: The interviewer's readiness.
