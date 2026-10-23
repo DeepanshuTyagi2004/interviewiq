@@ -280,7 +280,7 @@ function DraftStatus({ state }: { state: DraftState }) {
     <span
       role={state === "error" ? "alert" : "status"}
       className={cn(
-        "hidden font-mono text-[10.5px] uppercase tracking-[0.08em] sm:inline",
+        "hidden font-mono text-xs uppercase tracking-[0.08em] sm:inline",
         state === "error" ? "text-destructive" : "text-faint",
       )}
     >

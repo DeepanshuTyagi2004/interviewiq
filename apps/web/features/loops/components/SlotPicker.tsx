@@ -48,7 +48,7 @@ export function SlotPicker({ day, hour, onChange, sessions, ignoreSessionId }: S
                 onClick={() => onChange(d, hour !== null && unavailable(d, hour) ? null : hour)}
                 className={cn(chip(selected), "py-2")}
               >
-                <span className="block text-[10.5px] uppercase opacity-70">{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                <span className="block text-xs uppercase opacity-70">{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
                 <span className="block text-[16px] leading-tight tabular-nums">{d.getDate()}</span>
               </button>
             );

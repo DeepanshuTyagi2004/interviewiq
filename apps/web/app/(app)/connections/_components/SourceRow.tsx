@@ -59,7 +59,7 @@ export function SourceTile({
       aria-hidden
       className={cn(
         "flex flex-none items-center justify-center font-mono",
-        size === "md" ? "h-11 w-11 rounded-[12px] text-xs" : "h-[34px] w-[34px] rounded-[10px] text-[11px]",
+        size === "md" ? "h-11 w-11 rounded-[12px] text-xs" : "h-[34px] w-[34px] rounded-[10px] text-xs",
         unavailable ? "text-ink-3 shadow-[inset_0_0_0_1px_hsl(var(--line))]" : "bg-surface-2 text-ink",
       )}
     >

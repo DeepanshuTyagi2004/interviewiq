@@ -578,7 +578,7 @@
 .mq {
   display: block;
   overflow: visible;
-  --mq-ease: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --mq-ease: cubic-bezier(0.25, 1, 0.5, 1);
   --mq-px: 22px; --mq-tx: 76px; --mq-sx: 22px; --mq-sy: 38px;
   transition:
     --mq-lift 0.7s ease, --mq-sq 0.7s ease, --mq-wob 0.7s ease, --mq-goo 0.7s ease,

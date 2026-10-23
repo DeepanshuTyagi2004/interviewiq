@@ -73,7 +73,7 @@ export function WeekAgenda({
                       aria-hidden
                       className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-xl bg-surface leading-none shadow-ring"
                     >
-                      <span className="text-[11px] text-ink-3">{weekday}</span>
+                      <span className="text-xs text-ink-3">{weekday}</span>
                       <span className="mt-1 font-display text-[16px] tabular-nums">{day}</span>
                     </span>
                     <span className="min-w-0 flex-1">

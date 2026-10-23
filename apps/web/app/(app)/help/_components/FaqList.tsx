@@ -45,7 +45,7 @@ export function FaqList({ items }: { items: FaqItem[] }) {
                 className="flex w-full items-center justify-between gap-4 bg-transparent px-5 py-4 text-left text-[15px] tracking-[-0.01em] text-foreground transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className="flex min-w-0 items-baseline gap-3">
-                  <span aria-hidden className="flex-none font-mono text-[11px] tabular-nums text-ink-3">
+                  <span aria-hidden className="flex-none font-mono text-xs tabular-nums text-ink-3">
                     Q.{String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0">{item.question}</span>

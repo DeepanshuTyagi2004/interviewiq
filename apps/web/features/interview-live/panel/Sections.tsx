@@ -31,7 +31,7 @@ export function Sections({ card }: { card: ProblemCard }) {
           aria-label={KIND_LABEL[s.kind]}
           className={cn('rounded-[11px] border px-3 py-2.5', s.author === 'interviewer' ? 'border-brand/30' : 'border-line-2')}
         >
-          <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em]">
+          <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.08em]">
             <span className="text-foreground">{KIND_LABEL[s.kind]}</span>
             <span aria-hidden className="h-px flex-1 bg-line-2" />
             <StatusDot

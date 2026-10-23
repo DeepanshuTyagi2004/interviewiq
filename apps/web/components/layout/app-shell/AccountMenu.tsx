@@ -72,7 +72,7 @@ const item =
   "cursor-pointer gap-3 rounded-[10px] px-2.5 py-[7px] text-[13.5px] focus:bg-surface-2 focus:text-ink data-[state=open]:bg-surface-2 [&_svg]:text-ink-3 focus:[&_svg]:text-ink";
 const groupLabel = "px-2.5 pb-1 pt-2 text-[12px] font-normal text-ink-3";
 const separator = "-mx-1.5 my-1.5 bg-line";
-const kbd = "ml-auto rounded-md border border-line px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-ink-3";
+const kbd = "ml-auto rounded-md border border-line px-1.5 py-0.5 font-mono text-xs leading-none text-ink-3";
 
 export interface AccountMenuProps {
   name: string;
@@ -153,7 +153,7 @@ export function AccountMenu({
             <p className="m-0 flex items-center gap-2 text-sm font-medium tracking-[-0.01em]">
               <span className="truncate">{name}</span>
               {isAdmin ? (
-                <span className="flex-none rounded-full bg-surface-2 px-2 py-px text-[11px] font-medium text-ink-2">
+                <span className="flex-none rounded-full bg-surface-2 px-2 py-px text-xs font-medium text-ink-2">
                   Admin
                 </span>
               ) : null}

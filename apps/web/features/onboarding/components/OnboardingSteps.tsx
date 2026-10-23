@@ -21,7 +21,7 @@ export function OnboardingSteps({ steps, current }: { steps: string[]; current: 
             >
               <span
                 className={cn(
-                  "flex h-6 w-6 flex-none items-center justify-center rounded-full border font-mono text-[11px] transition-colors duration-300",
+                  "flex h-6 w-6 flex-none items-center justify-center rounded-full border font-mono text-xs transition-colors duration-300",
                   active && "border-brand bg-brand text-brand-foreground",
                   done && "border-primary bg-primary text-primary-foreground",
                   !active && !done && "border-line-4 text-faint",

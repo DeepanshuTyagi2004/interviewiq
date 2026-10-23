@@ -10,7 +10,7 @@ export function MomentLink({ turnId, label = "Jump to moment" }: { turnId: numbe
       type="button"
       aria-label={`${label} ${turnId}`}
       onClick={() => jumpToTurn(turnId)}
-      className={`${PILL_BUTTON} h-5 px-1.5 font-mono text-[11px]`}
+      className={`${PILL_BUTTON} h-5 px-1.5 font-mono text-xs`}
     >
       ↗
     </button>

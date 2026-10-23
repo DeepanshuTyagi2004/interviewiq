@@ -44,13 +44,13 @@ export function TranscriptSection({ report }: { report: RoundReport }) {
                 <div className="min-w-0">
                   {(t.cutOff || (t.markers ?? []).length > 0) ? (
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      {t.cutOff ? <span className="rounded-full bg-surface-2 px-2 text-[11px] leading-5 text-ink-2">cut off</span> : null}
+                      {t.cutOff ? <span className="rounded-full bg-surface-2 px-2 text-xs leading-5 text-ink-2">cut off</span> : null}
                       {(t.markers ?? []).map((m, i) => (
                         <span
                           key={`${m.kind}-${i}`}
                           title={m.note || undefined}
                           className={cn(
-                            "rounded-full px-2 text-[11px] leading-5",
+                            "rounded-full px-2 text-xs leading-5",
                             markerMeta(m.kind ?? "").tone === "good" ? "bg-ink text-background" : "bg-surface-2 text-ink-2",
                           )}
                         >

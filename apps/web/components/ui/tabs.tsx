@@ -53,7 +53,7 @@ const TabsTrigger = React.forwardRef<
         "inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
         v === "pill"
           ? "h-8 rounded-full px-4 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-ring"
-          : "-mb-px h-10 rounded-t-md border-b-2 border-transparent px-3 hover:text-foreground data-[state=active]:border-ink data-[state=active]:text-foreground",
+          : "-mb-px h-10 border-b-2 border-transparent px-3 hover:text-foreground data-[state=active]:border-ink data-[state=active]:text-foreground",
         className
       )}
       {...props}

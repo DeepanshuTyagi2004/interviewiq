@@ -18,7 +18,7 @@ export function ProfileScoreReadout() {
       <Stat
         label={
           <span className="inline-flex items-center gap-2">
-            Profile score <Chip tone="outline" className="h-5 px-2 text-[11px]">BETA</Chip>
+            Profile score <Chip tone="outline" className="h-5 px-2 text-xs">BETA</Chip>
           </span>
         }
         value={query.isLoading ? "…" : plainScoreValue(score)}

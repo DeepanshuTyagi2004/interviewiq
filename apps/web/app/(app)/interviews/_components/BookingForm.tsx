@@ -281,7 +281,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                     onClick={() => setDate(d)}
                     className={cn(chipClass(selected), "py-2")}
                   >
-                    <span className="block text-[10.5px] uppercase opacity-70">
+                    <span className="block text-xs uppercase opacity-70">
                       {d.toLocaleDateString(undefined, { weekday: "short" })}
                     </span>
                     <span className="block text-[17px] leading-tight tabular-nums">{d.getDate()}</span>
@@ -300,7 +300,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
                     }
                     className={cn(chipClass(Boolean(laterDate)), "flex flex-col items-center justify-center py-2")}
                   >
-                    <span className="block text-[10.5px] uppercase opacity-70">
+                    <span className="block text-xs uppercase opacity-70">
                       {laterDate ? laterDate.toLocaleDateString(undefined, { month: "short" }) : "Later"}
                     </span>
                     {laterDate ? (

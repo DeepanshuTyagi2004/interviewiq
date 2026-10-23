@@ -48,7 +48,7 @@ function AreaRow({ area, report, sessionId }: { area: ReportArea; report: RoundR
                       <button
                         type="button"
                         onClick={() => jumpToTurn(Number(turn[1]))}
-                        className={`${PILL_BUTTON} h-5 px-2 font-mono text-[11px]`}
+                        className={`${PILL_BUTTON} h-5 px-2 font-mono text-xs`}
                       >
                         Moment ↗
                       </button>
@@ -109,7 +109,7 @@ export function ScoreBuildUp({ report, sessionId }: { report: RoundReport; sessi
       </ul>
       {report.cap ? (
         <div role="note" className="flex gap-3 border-t border-line bg-surface px-5 py-3.5 text-[13.5px]">
-          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3">Cap</span>
+          <span className="font-mono text-xs uppercase tracking-[0.06em] text-ink-3">Cap</span>
           <span className="min-w-0">{report.cap}</span>
         </div>
       ) : null}

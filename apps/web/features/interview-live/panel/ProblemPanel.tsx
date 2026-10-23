@@ -13,7 +13,7 @@ import { Statement } from './Statement'
 
 export const FLASH_MS = 1200
 
-const iconButton = 'h-7 w-7 text-muted-foreground hover:text-foreground'
+const iconButton = 'h-7 w-7 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11'
 
 /** The problem panel (spec §6.3, §10): one tab per problem the interviewer showed, labelled
  * generically. Expands to fill the right side, has its own full screen, and shrinks to a label strip

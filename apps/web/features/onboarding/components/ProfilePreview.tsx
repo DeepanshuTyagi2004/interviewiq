@@ -65,7 +65,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
     <aside aria-label="Profile preview" className={cn("min-w-0 flex-col gap-4 rounded-lg bg-panel p-5 sm:p-6", className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="iq-eyebrow m-0 font-normal">Profile preview</h2>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.08em] text-faint">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />
           Live
         </span>
@@ -107,7 +107,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
 
           <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-panel px-3 py-2.5">
             <span className="text-[11.5px] text-faint">Interview score</span>
-            <span className="text-lg leading-none tracking-[-0.04em] text-faint-2">
+            <span className="text-lg leading-none tracking-[-0.04em] text-faint">
               <span aria-hidden>—</span>
               <span className="sr-only">Not scored yet</span>
             </span>
@@ -121,7 +121,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
                 <li key={i} className="flex min-w-0 items-baseline justify-between gap-3 text-[13px]">
                   <span className="min-w-0 truncate">{join([r.title, r.company])}</span>
                   {join([r.startDate, r.endDate], " – ") ? (
-                    <span className="flex-none font-mono text-[10.5px] text-faint">{join([r.startDate, r.endDate], " – ")}</span>
+                    <span className="flex-none font-mono text-xs text-faint">{join([r.startDate, r.endDate], " – ")}</span>
                   ) : null}
                 </li>
               ))}
@@ -141,7 +141,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
                   <li key={i} className="flex min-w-0 items-baseline justify-between gap-3 text-[13px]">
                     <span className="min-w-0 truncate">{p.name}</span>
                     {tech.length ? (
-                      <span className="min-w-0 truncate font-mono text-[10.5px] text-faint">{tech.join(" · ")}</span>
+                      <span className="min-w-0 truncate font-mono text-xs text-faint">{tech.join(" · ")}</span>
                     ) : null}
                   </li>
                 );
@@ -162,7 +162,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
                 </li>
               ))}
               {skills.length > MAX_SKILLS ? (
-                <li className="px-1 py-[3px] font-mono text-[11px] text-faint">+{skills.length - MAX_SKILLS} more</li>
+                <li className="px-1 py-[3px] font-mono text-xs text-faint">+{skills.length - MAX_SKILLS} more</li>
               ) : null}
             </ul>
           ) : (
@@ -182,7 +182,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
                     {s.code}
                   </span>
                   <span>{s.label}</span>
-                  {s.handle ? <span className="min-w-0 truncate font-mono text-[11px] text-faint">{s.handle}</span> : null}
+                  {s.handle ? <span className="min-w-0 truncate font-mono text-xs text-faint">{s.handle}</span> : null}
                 </li>
               ))}
             </ul>
@@ -215,7 +215,7 @@ function Section({ label, count, children }: { label: string; count?: number; ch
     <section className="flex flex-col gap-2.5 border-t border-line px-5 py-3.5">
       <h3 className="iq-eyebrow m-0 flex items-center gap-2 font-normal">
         {label}
-        {count ? <span className="text-faint-2">{count}</span> : null}
+        {count ? <span className="text-faint">{count}</span> : null}
       </h3>
       {children}
     </section>
@@ -227,5 +227,5 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 function More({ count }: { count: number }) {
-  return count > 0 ? <li className="font-mono text-[11px] text-faint">+{count} more</li> : null;
+  return count > 0 ? <li className="font-mono text-xs text-faint">+{count} more</li> : null;
 }

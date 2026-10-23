@@ -119,7 +119,7 @@ function DifficultyBlocks({ solved }: { solved: LeetCodeFragment["solved"] }) {
             className="flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-3"
             style={{ borderColor: color, color } as CSSProperties}
           >
-            <span className="text-[11px] uppercase tracking-[0.12em]">{block.label}</span>
+            <span className="text-xs uppercase tracking-[0.12em]">{block.label}</span>
             <span className="font-mono text-xl tabular-nums text-foreground">{block.value.toLocaleString()}</span>
           </div>
         );

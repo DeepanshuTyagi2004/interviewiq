@@ -30,7 +30,7 @@ export function DepthMeter({ availability, compact = false, className }: DepthMe
         <span className="text-ink-3">Data depth</span>
         <span className="flex items-baseline gap-2">
           {/* Readout restating the meter; screen readers get it as words instead. */}
-          <span aria-hidden className="font-mono text-[11px] tabular-nums text-ink-3">
+          <span aria-hidden className="font-mono text-xs tabular-nums text-ink-3">
             {depth.bars}/{DEPTH_STEPS}
           </span>
           <span className="sr-only">

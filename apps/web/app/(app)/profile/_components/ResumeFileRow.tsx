@@ -26,7 +26,7 @@ export function ResumeFileRow() {
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
         <span
           aria-hidden
-          className="flex h-11 w-[38px] flex-none items-center justify-center rounded-[10px] bg-surface-2 font-mono text-[10px] text-ink-3"
+          className="flex h-11 w-[38px] flex-none items-center justify-center rounded-[10px] bg-surface-2 font-mono text-xs text-ink-3"
         >
           PDF
         </span>

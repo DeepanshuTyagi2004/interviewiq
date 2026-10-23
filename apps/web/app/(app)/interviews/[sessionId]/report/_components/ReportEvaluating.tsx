@@ -26,7 +26,7 @@ export function ReportEvaluating() {
         {EVALUATING_STEPS.map((step, i) => (
           <li key={step} className="flex items-center gap-3 text-[14px]">
             <StatusDot state="live" label="In progress" srOnly />
-            <span className="font-mono text-[11px] text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+            <span className="font-mono text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
             <span>{step}</span>
           </li>
         ))}

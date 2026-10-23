@@ -7,7 +7,7 @@ const OWN_PROFILE_URL = "https://www.linkedin.com/in/me/";
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line font-mono text-[11px] text-ink-3">
+      <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line font-mono text-xs text-ink-3">
         {n}
       </span>
       <div className="min-w-0 flex-1 leading-[1.55]">{children}</div>

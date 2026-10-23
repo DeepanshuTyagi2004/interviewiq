@@ -124,7 +124,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
             className={cn(chip, "h-9 flex-none", showMore ? chipOn : "bg-background text-foreground shadow-ring hover:bg-surface")}
           >
             {showMore ? "Fewer filters" : "More filters"}
-            {!showMore && secondaryActive > 0 ? <span className="rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-background">{secondaryActive}</span> : null}
+            {!showMore && secondaryActive > 0 ? <span className="rounded-full bg-ink px-1.5 text-xs leading-[18px] text-background">{secondaryActive}</span> : null}
             <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform", showMore && "rotate-180")} />
           </button>
           {active > 0 ? (

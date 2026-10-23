@@ -43,7 +43,7 @@ export function WorkOnSection({ report }: { report: RoundReport }) {
       ) : null}
       {gaps.length > 0 ? (
         <div className="border-t border-line px-5 py-5">
-          <h3 className="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-ink-3">Topic gaps</h3>
+          <h3 className="m-0 font-mono text-xs font-normal uppercase tracking-[0.08em] text-ink-3">Topic gaps</h3>
           <ul className="m-0 mt-3 list-none space-y-5 p-0">
             {gaps.map((g) => (
               <li key={g.subject}>

@@ -146,7 +146,7 @@ export function ScoreRail({ report, cta, nav }: Props) {
                       )}
                     />
                     {item.label}
-                    {item.count !== undefined ? <span className="font-mono text-[11px] text-ink-3">{item.count}</span> : null}
+                    {item.count !== undefined ? <span className="font-mono text-xs text-ink-3">{item.count}</span> : null}
                   </a>
                 </li>
               );

@@ -17,7 +17,7 @@ export function ExperienceGuide() {
           <ol className="m-0 flex list-none flex-col gap-3 p-0">
             {PER_ROUND.map(([title, body], i) => (
               <li key={title} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5">
-                <span className="font-mono text-[11px] leading-5 text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-xs leading-5 text-ink-3">{String(i + 1).padStart(2, "0")}</span>
                 <span className="min-w-0 text-[13px] leading-5">
                   <span className="text-foreground">{title}</span>
                   <span className="block text-ink-2">{body}</span>

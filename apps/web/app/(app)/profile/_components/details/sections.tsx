@@ -235,7 +235,7 @@ export function ProjectsSection({ className }: { className?: string }) {
               {tech.length ? (
                 <ul aria-label="Tech" className="m-0 mt-2.5 flex list-none flex-wrap gap-1 p-0">
                   {tech.map((t) => (
-                    <li key={t} className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-ink-2">
+                    <li key={t} className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-xs text-ink-2">
                       {t}
                     </li>
                   ))}

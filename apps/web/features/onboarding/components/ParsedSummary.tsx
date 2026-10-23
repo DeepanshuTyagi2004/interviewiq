@@ -34,7 +34,7 @@ export function ParsedSummary({ control }: { control: Control<CandidateFormValue
         >
           <dt className="text-faint">{row.k}</dt>
           <dd className="m-0 truncate">{row.v || <span className="text-faint">Not found</span>}</dd>
-          <span className="font-mono text-[10px] text-faint">{row.v ? "FOUND" : "—"}</span>
+          <span className="font-mono text-xs text-faint">{row.v ? "FOUND" : "—"}</span>
         </div>
       ))}
     </dl>

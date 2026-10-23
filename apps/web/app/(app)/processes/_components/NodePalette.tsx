@@ -45,7 +45,7 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
     <div className="shrink-0 space-y-3 border-b border-line p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 font-display text-[16px] font-medium tracking-[-0.01em]">Node library</h2>
-        <span className="font-mono text-[10px] text-ink-3">{NODE_PRESETS.length} nodes</span>
+        <span className="font-mono text-xs text-ink-3">{NODE_PRESETS.length} nodes</span>
       </div>
       <p className="m-0 text-[12.5px] leading-relaxed text-ink-2">Click to chain a round. Drag to place it. Reference steps never run.</p>
       <div className="relative">
@@ -54,7 +54,7 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
         {query ? <button type="button" aria-label="Clear search" disabled={disabled} onClick={() => setQuery("")} className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"><X aria-hidden className="h-3.5 w-3.5" /></button> : null}
       </div>
       <CustomSelect label="Node category" value={category} onValueChange={setCategory} disabled={disabled} options={[{ value: "all", label: "All categories" }, ...NODE_CATEGORIES.map((group) => ({ value: group.id, label: group.label }))]} className="h-9 text-[12.5px]" />
-      <div className="flex items-center justify-between gap-2 text-[11px] text-ink-3">
+      <div className="flex items-center justify-between gap-2 text-xs text-ink-3">
         <span role="status" aria-live="polite" aria-atomic="true">{results.length} {results.length === 1 ? "node" : "nodes"} found</span>
         {query || category !== "all" ? <button type="button" disabled={disabled} onClick={reset} className="rounded text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">Reset filters</button> : null}
       </div>
@@ -88,8 +88,8 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
               className={cn("group flex w-full select-none items-start gap-2 rounded-2xl bg-background px-3 py-2.5 text-left shadow-ring transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-40", node.kind === "info" && "border border-dashed border-line-3 bg-surface shadow-none", capped && "opacity-60")}>
               <span draggable={false} className="min-w-0 flex-1">
                 <span className="block text-[12.5px] font-medium leading-snug">{node.label}</span>
-                <span className="mt-1 block text-[11px] leading-relaxed text-ink-2">{node.description}</span>
-                <span className="mt-2 flex items-center gap-1 font-mono text-[10px] text-ink-3">{node.kind === "round" ? `${ROUND_MINUTES_LABEL} · ${node.difficulty}` : <><Info aria-hidden className="h-3 w-3" />Reference only</>}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-ink-2">{node.description}</span>
+                <span className="mt-2 flex items-center gap-1 font-mono text-xs text-ink-3">{node.kind === "round" ? `${ROUND_MINUTES_LABEL} · ${node.difficulty}` : <><Info aria-hidden className="h-3 w-3" />Reference only</>}</span>
                 <span id={`${uid}-${node.id}-hint`} className="sr-only">Topics: {node.topics.join(", ")}.{node.keywords.length ? ` Keywords: ${node.keywords.join(", ")}.` : ""}{capped ? " Limit reached; remove a node first." : ""}</span>
               </span>
               <Plus aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-3" />
@@ -99,6 +99,6 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
       </section>)}
       {!results.length ? <div className="rounded-2xl border border-dashed border-line-3 px-4 py-6 text-center"><p className="m-0 text-sm">No matching nodes</p><p className="mb-4 mt-2 text-[12.5px] leading-relaxed text-ink-3">Try a technology, interview topic, or another category.</p><button type="button" disabled={disabled} onClick={reset} className="rounded-full px-4 py-2 text-[12.5px] shadow-ring hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">Show all nodes</button></div> : null}
     </div>
-    <div className="flex shrink-0 justify-between border-t border-line px-4 py-2.5 font-mono text-[10px] text-ink-3"><span>{roundCount}/{MAX_ROUND_NODES} rounds</span><span>{infoCount}/{MAX_INFO_NODES} references</span></div>
+    <div className="flex shrink-0 justify-between border-t border-line px-4 py-2.5 font-mono text-xs text-ink-3"><span>{roundCount}/{MAX_ROUND_NODES} rounds</span><span>{infoCount}/{MAX_INFO_NODES} references</span></div>
   </aside>;
 }
