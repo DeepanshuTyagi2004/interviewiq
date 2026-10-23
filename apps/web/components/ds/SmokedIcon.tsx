@@ -11,7 +11,17 @@ export type SmokedIconName =
   | "track"
   | "sources"
   | "practice"
-  | "share";
+  | "share"
+  | "resume"
+  | "github"
+  | "portfolio"
+  | "layers"
+  | "chart"
+  | "trophy"
+  | "assessment"
+  | "design"
+  | "reviews"
+  | "video";
 
 type Kind = "main" | "dim" | "glass" | "solid" | "solidDim";
 interface Shape {
@@ -115,6 +125,75 @@ const ICONS: Record<SmokedIconName, Shape[]> = {
     { d: "M30 28h46a12 12 0 0 1 12 12v22a12 12 0 0 1-12 12H48l-12 11v-11h-6A12 12 0 0 1 18 62V40a12 12 0 0 1 12-12Z", kind: "glass" },
     { d: "M32 44h40M32 56h24", kind: "main" },
   ],
+  // a resume: a profile and its lines
+  resume: [
+    { d: "M40 22h30l20 20v46a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V30a8 8 0 0 1 8-8Z", kind: "glass" },
+    { d: "M70 22v14a6 6 0 0 0 6 6h14", kind: "main" },
+    { d: c(52, 54, 7), kind: "main" },
+    { d: "M40 78c0-8 5-12 12-12s12 4 12 12M68 54h12M68 64h8", kind: "main" },
+    { d: "M42 90h34", kind: "dim" },
+  ],
+  // a repository: two branches that merge
+  github: [
+    { d: "M40 40v40M80 56c0 14-14 18-40 22", kind: "main" },
+    { d: c(40, 34, 6), kind: "glass" },
+    { d: c(40, 86, 6), kind: "glass" },
+    { d: c(80, 50, 6), kind: "glass" },
+    { d: c(40, 34, 6), kind: "main" },
+    { d: c(40, 86, 6), kind: "main" },
+    { d: c(80, 50, 6), kind: "solid" },
+  ],
+  // a portfolio: a browser window with a globe
+  portfolio: [
+    { d: "M34 28h52a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H34A10 10 0 0 1 24 80V38a10 10 0 0 1 10-10Z", kind: "glass" },
+    { d: "M24 44h72", kind: "main" },
+    { d: `${c(33, 36, 1.8)}${c(40, 36, 1.8)}${c(47, 36, 1.8)}`, kind: "solidDim" },
+    { d: c(60, 68, 12), kind: "main" },
+    { d: "M48 68h24M60 56c-7 7-7 17 0 24M60 56c7 7 7 17 0 24", kind: "dim" },
+  ],
+  // a stack of layers
+  layers: [
+    { d: "M60 28 94 46 60 64 26 46Z", kind: "glass" },
+    { d: "M60 28 94 46 60 64 26 46Z", kind: "main" },
+    { d: "M26 62 60 80 94 62", kind: "main" },
+    { d: "M26 78 60 96 94 78", kind: "dim" },
+  ],
+  // bars and a trend
+  chart: [
+    { d: "M30 96h60", kind: "dim" },
+    { d: "M34 58 52 42 70 54 92 30", kind: "dim" },
+    { d: "M38 90V66M56 90V50M74 90V72", kind: "main" },
+    { d: c(92, 30, 4), kind: "solid" },
+  ],
+  // a trophy
+  trophy: [
+    { d: "M42 28h36v24a18 18 0 0 1-36 0Z", kind: "glass" },
+    { d: "M42 34H30c0 13 6 19 14 20M78 34h12c0 13-6 19-14 20M60 70v14M46 94h28", kind: "main" },
+    { d: "M42 28h36v24a18 18 0 0 1-36 0Z", kind: "main" },
+  ],
+  // a timed assessment: a clipboard of checks
+  assessment: [
+    { d: "M42 30h36a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H42a10 10 0 0 1-10-10V40a10 10 0 0 1 10-10Z", kind: "glass" },
+    { d: "M50 30v-5h20v5M42 54l5 5 9-10M42 76l5 5 9-10", kind: "main" },
+    { d: "M64 54h14M64 76h14", kind: "dim" },
+  ],
+  // a system: boxes joined by connectors
+  design: [
+    { d: "M44 24h32a6 6 0 0 1 6 6v10a6 6 0 0 1-6 6H44a6 6 0 0 1-6-6V30a6 6 0 0 1 6-6Z", kind: "glass" },
+    { d: "M24 74h28a6 6 0 0 1 6 6v6a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6v-6a6 6 0 0 1 6-6Z", kind: "glass" },
+    { d: "M68 74h28a6 6 0 0 1 6 6v6a6 6 0 0 1-6 6H68a6 6 0 0 1-6-6v-6a6 6 0 0 1 6-6Z", kind: "glass" },
+    { d: "M60 46v14M38 74V60h44v14", kind: "main" },
+  ],
+  // company reviews: a star
+  reviews: [
+    { d: "M60 26l9 19 21 3-15 15 4 21-19-10-19 10 4-21-15-15 21-3Z", kind: "glass" },
+    { d: "M60 26l9 19 21 3-15 15 4 21-19-10-19 10 4-21-15-15 21-3Z", kind: "main" },
+  ],
+  // a video
+  video: [
+    { d: "M36 32h48a14 14 0 0 1 14 14v28a14 14 0 0 1-14 14H36A14 14 0 0 1 22 74V46a14 14 0 0 1 14-14Z", kind: "glass" },
+    { d: "M52 48v24l22-12Z", kind: "solid" },
+  ],
 };
 
 /**
@@ -158,11 +237,11 @@ export function SmokedIcon({ name, size = 56, className }: { name: SmokedIconNam
       <rect x="1" y="1" width="118" height="118" rx="29" fill="none" stroke={`url(#${id}-rim)`} strokeWidth="2" />
 
       {shapes.map((s, i) => {
-        const common = { key: i, d: s.d, transform: s.transform, strokeDasharray: s.dash };
+        const common = { d: s.d, transform: s.transform, strokeDasharray: s.dash };
         if (s.kind === "glass")
-          return <path {...common} fill={`url(#${id}-glass)`} stroke="#fff" strokeOpacity=".55" strokeWidth={w * 0.6} strokeLinejoin="round" />;
-        if (s.kind === "dim") return <path {...common} {...line} stroke="#fff" strokeOpacity=".42" strokeWidth={w} />;
-        if (s.kind === "solidDim") return <path {...common} fill="#fff" fillOpacity=".5" stroke="none" />;
+          return <path key={i} {...common} fill={`url(#${id}-glass)`} stroke="#fff" strokeOpacity=".55" strokeWidth={w * 0.6} strokeLinejoin="round" />;
+        if (s.kind === "dim") return <path key={i} {...common} {...line} stroke="#fff" strokeOpacity=".42" strokeWidth={w} />;
+        if (s.kind === "solidDim") return <path key={i} {...common} fill="#fff" fillOpacity=".5" stroke="none" />;
         if (s.kind === "solid")
           return (
             <g key={i}>

@@ -1,17 +1,15 @@
 "use client";
 
-import * as React from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
-import { BriefcaseBusiness, Code2, FileText, GitBranch, Globe, type LucideIcon } from "lucide-react";
-import { GlyphTile } from "@/components/ds";
+import { SmokedIcon, type SmokedIconName } from "@/components/ds";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 import { SOURCE_STACK } from "./content";
 
 const ROTATE_MS = 2000;
-/** A drawn icon per source (no brand logos). */
-const ICON: Record<string, LucideIcon> = { Resume: FileText, GitHub: GitBranch, LeetCode: Code2, LinkedIn: BriefcaseBusiness, Portfolio: Globe };
+/** A custom icon per source (no brand logos). */
+const ICON: Record<string, SmokedIconName> = { Resume: "resume", GitHub: "github", LeetCode: "practice", LinkedIn: "professional", Portfolio: "portfolio" };
 
 /**
  * Hero illustration: a vertical carousel of source cards. The centred card is "Connected" and
@@ -53,9 +51,7 @@ export function SourceStack() {
                 zIndex: 10 - distance,
               }}
             >
-              <GlyphTile size={52} className="h-10 w-10 sm:h-[52px] sm:w-[52px]">
-                {React.createElement(ICON[source.name] ?? Globe, { className: "h-5 w-5 sm:h-6 sm:w-6", strokeWidth: 1.6 })}
-              </GlyphTile>
+              <SmokedIcon name={ICON[source.name] ?? "portfolio"} size={52} className="h-10 w-10 flex-none sm:h-[52px] sm:w-[52px]" />
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-lg font-semibold tracking-[-0.03em] sm:text-2xl">{source.name}</span>
                 <span className="block truncate text-xs text-faint sm:text-[12.5px]">{source.detail}</span>

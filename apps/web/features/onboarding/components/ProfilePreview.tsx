@@ -1,11 +1,9 @@
 "use client";
 
-import * as React from "react";
 import { useWatch, type Control } from "react-hook-form";
 import { GraduationCap, MapPin } from "lucide-react";
 import { useProfile } from "@/features/profile";
-import { BarChart3, BriefcaseBusiness, ChefHat, Code2, FileText, GitBranch, Globe, Layers, Trophy, type LucideIcon } from "lucide-react";
-import { GlyphTile, Orb } from "@/components/ds";
+import { Orb, SmokedIcon, type SmokedIconName } from "@/components/ds";
 import { PROVIDERS } from "@/app/(app)/connections/_components/providers";
 import { cn } from "@/lib/utils/cn";
 import { initialsOf } from "@/lib/utils/format";
@@ -13,16 +11,16 @@ import { educationLine } from "../education";
 import type { CandidateFormValues } from "../form";
 import { parseSkills } from "./SkillsInput";
 
-/** A drawn icon per connected source code (no brand logos). */
-const SOURCE_ICONS: Record<string, LucideIcon> = {
-  GH: GitBranch,
-  CV: FileText,
-  LC: Code2,
-  TF: Layers,
-  CF: BarChart3,
-  CC: ChefHat,
-  AC: Trophy,
-  IN: BriefcaseBusiness,
+/** A custom icon per connected source code (no brand logos). */
+const SOURCE_ICONS: Record<string, SmokedIconName> = {
+  GH: "github",
+  CV: "resume",
+  LC: "practice",
+  TF: "layers",
+  CF: "chart",
+  CC: "practice",
+  AC: "trophy",
+  IN: "professional",
 };
 
 const MAX_ROLES = 3;
@@ -190,9 +188,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {sources.map((s) => (
                 <li key={s.source} className="flex min-w-0 items-center gap-2.5 text-[13px]">
-                  <GlyphTile size={26}>
-                    {React.createElement(SOURCE_ICONS[s.code] ?? Globe, { className: "h-3.5 w-3.5", strokeWidth: 1.8 })}
-                  </GlyphTile>
+                  <SmokedIcon name={SOURCE_ICONS[s.code] ?? "portfolio"} size={28} />
                   <span>{s.label}</span>
                   {s.handle ? <span className="min-w-0 truncate font-mono text-xs text-faint">{s.handle}</span> : null}
                 </li>
