@@ -70,7 +70,7 @@ export function InterviewDemo() {
 
       {/* The transcript card is always dark, in both themes — hence the fixed colours. */}
       <div className="flex w-full flex-col gap-3 rounded-[22px] bg-inv p-5 text-white shadow-float">
-        <div className="flex items-center gap-2 text-xs text-[#a1a1a6]">
+        <div className="flex items-center gap-2 text-xs text-[#a39d92]">
           <span
             aria-hidden
             data-motion
@@ -82,10 +82,10 @@ export function InterviewDemo() {
             {formatClock(seconds)}
           </span>
         </div>
-        <p className="m-0 text-[14.5px] leading-[1.5] text-[#f5f5f7]">{INTERVIEW_QUESTION}</p>
-        <div aria-hidden className="h-px bg-[#2c2c2e]" />
-        <p className="m-0 text-xs text-[#a1a1a6]">You</p>
-        <p className="m-0 min-h-[42px] text-sm leading-[1.5] text-[#d2d2d7]">
+        <p className="m-0 text-[14.5px] leading-[1.5] text-[#f5f2ec]">{INTERVIEW_QUESTION}</p>
+        <div aria-hidden className="h-px bg-[#2e2b27]" />
+        <p className="m-0 text-xs text-[#a39d92]">You</p>
+        <p className="m-0 min-h-[42px] text-sm leading-[1.5] text-[#d4cec3]">
           <span ref={typedRef} />
           <span
             aria-hidden

@@ -14,14 +14,14 @@
 @layer base {
   :root {
     --page: 0 0% 100%;
-    --surface: 240 11% 96.5%;
-    --surface-2: 240 12% 92%;
-    --stone: 240 24% 96%;
-    --line: 240 6% 90%;
-    --ink: 240 3% 12%;
-    --ink-2: 240 2% 26%;
-    /* #6e6e73: 5.1:1 on white and 4.7:1 on the surface grey. */
-    --ink-3: 240 2% 44%;
+    --surface: 40 24% 95%;
+    --surface-2: 38 22% 90%;
+    --stone: 40 24% 93%;
+    --line: 38 16% 88%;
+    --ink: 40 6% 10%;
+    --ink-2: 40 6% 25%;
+    /* #6b675f: 5.6:1 on white and 5.1:1 on the beige surface. */
+    --ink-3: 40 5% 40%;
 
     --background: var(--page);
     --foreground: var(--ink);
@@ -61,43 +61,43 @@
     --glass-bg: 0 0% 100% / 0.72;
     --glass-bg-thick: 0 0% 100% / 0.86;
     --glass-edge: 0 0% 100% / 0.65;
-    --glass-line: 240 8% 20% / 0.13;
+    --glass-line: 30 10% 20% / 0.13;
     --glass-card: 0 0% 100% / 0.64;
     --glass-sheen: 0 0% 100% / 0.55;
-    --glass-shadow: 232 45% 28% / 0.3;
+    --glass-shadow: 30 18% 16% / 0.28;
 
     /* Legacy names, re-pointed to the nearest new grey so unmigrated pages stay neutral. */
     --frame: var(--surface);
     --panel: var(--surface);
     --faint: var(--ink-3);
-    --faint-2: 240 2% 62%;
-    --line-2: 240 6% 86%;
-    --line-3: 240 5% 81%;
-    --line-4: 240 4% 72%;
+    --faint-2: 40 6% 62%;
+    --line-2: 38 14% 84%;
+    --line-3: 38 12% 78%;
+    --line-4: 38 10% 68%;
     --ink-hover: 0 0% 0%;
     --inv: var(--ink);
     --blob-1: 0 0% 100%;
-    --blob-2: 240 3% 60%;
-    --blob-4: 240 3% 42%;
-    /* Brand: one indigo-blue, for primary actions, focus, selection and the wordmark only.
-       #4f5bff holds 4.9:1 against white text; --brand-top is the lit upper edge of a glass button. */
-    --brand: 235 100% 65%;
-    --brand-top: 236 100% 72%;
-    --brand-hover: 235 100% 60%;
+    --blob-2: 40 6% 60%;
+    --blob-4: 40 5% 42%;
+    /* Brand: warm black for primary actions, focus and selection; --brand-top is the lit upper
+       edge of a glass button. --brand-2 is bronze, the one warm accent (the "IQ", a headline phrase). */
+    --brand: 40 6% 12%;
+    --brand-top: 40 5% 30%;
+    --brand-hover: 40 6% 18%;
     --brand-foreground: 0 0% 100%;
-    --brand-2: 262 90% 62%;
+    --brand-2: 36 38% 38%;
 
     /* Hero aurora: soft hues for the content layer behind the glass. Never used on controls. */
-    --aurora-1: 214 95% 82%;
-    --aurora-2: 268 80% 85%;
-    --aurora-3: 24 95% 86%;
+    --aurora-1: 38 45% 84%;
+    --aurora-2: 40 8% 78%;
+    --aurora-3: 28 40% 88%;
 
     /* Data-viz: a cool grey ramp, darkest first. */
-    --chart-1: 240 3% 12%;
-    --chart-2: 240 2% 26%;
-    --chart-3: 240 2% 46%;
-    --chart-4: 240 3% 65%;
-    --chart-5: 240 5% 82%;
+    --chart-1: 40 6% 10%;
+    --chart-2: 40 6% 25%;
+    --chart-3: 40 5% 46%;
+    --chart-4: 40 8% 65%;
+    --chart-5: 40 14% 82%;
     --sidebar-background: var(--surface);
     --sidebar-foreground: var(--ink-2);
     --sidebar-primary: var(--ink);
@@ -110,26 +110,26 @@
     --color-lc-medium: var(--chart-3);
     --color-lc-hard: var(--chart-1);
     /* Contribution heatmap: line to ink in five steps. */
-    --heat-0: 240 6% 92%;
-    --heat-1: 240 4% 80%;
-    --heat-2: 240 3% 60%;
-    --heat-3: 240 3% 34%;
-    --heat-4: 240 3% 12%;
+    --heat-0: 40 12% 90%;
+    --heat-1: 40 8% 78%;
+    --heat-2: 40 6% 58%;
+    --heat-3: 40 6% 34%;
+    --heat-4: 40 6% 10%;
   }
 
   .dark {
-    --page: 240 8% 4%;
-    --surface: 240 3% 11%;
-    --surface-2: 240 2% 17%;
-    --stone: 240 4% 9%;
-    --line: 240 3% 18%;
-    --ink: 240 11% 96.5%;
-    --ink-2: 240 5% 79%;
-    /* #8e8e93: 6.0:1 on the page, 5.2:1 on the surface. */
-    --ink-3: 240 2% 56%;
+    --page: 30 10% 4%;
+    --surface: 30 6% 10%;
+    --surface-2: 30 5% 15%;
+    --stone: 30 7% 8%;
+    --line: 30 5% 17%;
+    --ink: 40 20% 94%;
+    --ink-2: 40 10% 78%;
+    /* #948d82: 6.1:1 on the page, 5.3:1 on the surface. */
+    --ink-3: 38 6% 56%;
 
     --destructive: 3 100% 61%;
-    --destructive-foreground: 240 8% 4%;
+    --destructive-foreground: 30 10% 4%;
 
     --shadow-ring:
       inset 0 0.5px 0 rgb(255 255 255 / 0.06), 0 0 0 0.5px rgb(255 255 255 / 0.07), 0 8px 24px -10px rgb(0 0 0 / 0.6);
@@ -137,46 +137,46 @@
       inset 0 0.5px 0 rgb(255 255 255 / 0.1), 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 14px 32px -10px rgb(0 0 0 / 0.6),
       0 40px 80px -32px rgb(0 0 0 / 0.8);
 
-    --glass-bg: 240 3% 14% / 0.66;
-    --glass-bg-thick: 240 3% 12% / 0.84;
+    --glass-bg: 30 5% 14% / 0.66;
+    --glass-bg-thick: 30 5% 12% / 0.84;
     --glass-edge: 0 0% 100% / 0.14;
     --glass-line: 0 0% 100% / 0.1;
-    --glass-card: 240 6% 16% / 0.5;
+    --glass-card: 30 5% 16% / 0.5;
     --glass-sheen: 0 0% 100% / 0.12;
-    --glass-shadow: 240 80% 2% / 0.6;
+    --glass-shadow: 30 30% 2% / 0.6;
 
-    --faint-2: 240 2% 40%;
-    --line-2: 240 3% 22%;
-    --line-3: 240 3% 26%;
-    --line-4: 240 3% 34%;
+    --faint-2: 30 4% 38%;
+    --line-2: 30 5% 21%;
+    --line-3: 30 5% 25%;
+    --line-4: 30 5% 33%;
     --ink-hover: 0 0% 100%;
-    --inv: 240 6% 2%;
-    --blob-1: 240 3% 28%;
-    --blob-2: 240 4% 10%;
-    --blob-4: 240 3% 47%;
-    --brand: 235 100% 70%;
-    --brand-top: 236 100% 76%;
-    --brand-hover: 235 100% 75%;
-    --brand-foreground: 240 30% 8%;
-    --brand-2: 262 95% 72%;
+    --inv: 30 8% 2%;
+    --blob-1: 30 5% 28%;
+    --blob-2: 30 6% 10%;
+    --blob-4: 30 4% 47%;
+    --brand: 40 20% 94%;
+    --brand-top: 40 30% 99%;
+    --brand-hover: 40 20% 88%;
+    --brand-foreground: 30 10% 8%;
+    --brand-2: 36 45% 62%;
 
-    --aurora-1: 214 90% 42%;
-    --aurora-2: 268 70% 44%;
-    --aurora-3: 24 90% 46%;
+    --aurora-1: 34 30% 26%;
+    --aurora-2: 30 8% 22%;
+    --aurora-3: 24 30% 24%;
 
-    --chart-1: 240 11% 96.5%;
-    --chart-2: 240 5% 79%;
-    --chart-3: 240 3% 50%;
-    --chart-4: 240 3% 34%;
-    --chart-5: 240 3% 22%;
+    --chart-1: 40 20% 94%;
+    --chart-2: 40 10% 78%;
+    --chart-3: 38 5% 50%;
+    --chart-4: 30 4% 34%;
+    --chart-5: 30 5% 22%;
     --color-lc-easy: var(--chart-4);
     --color-lc-medium: var(--chart-3);
     --color-lc-hard: var(--chart-1);
-    --heat-0: 240 3% 14%;
-    --heat-1: 240 3% 22%;
-    --heat-2: 240 3% 38%;
-    --heat-3: 240 4% 62%;
-    --heat-4: 240 11% 96.5%;
+    --heat-0: 30 5% 14%;
+    --heat-1: 30 5% 22%;
+    --heat-2: 30 5% 38%;
+    --heat-3: 38 6% 62%;
+    --heat-4: 40 20% 94%;
   }
 
   /* ---- HUD scope: the signed-in app + admin (class set on <html> by useHudScope) ----
@@ -244,7 +244,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background: hsl(var(--brand) / 0.28);
+    background: hsl(var(--brand-2) / 0.28);
     color: inherit;
   }
 
@@ -457,7 +457,7 @@
   }
   /* Wordmark: the brand gradient, for the "IQ" only. */
   .iq-wordmark-iq {
-    background: linear-gradient(135deg, hsl(var(--brand)), hsl(var(--brand-2)));
+    background: linear-gradient(135deg, hsl(var(--ink)), hsl(var(--brand-2)));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

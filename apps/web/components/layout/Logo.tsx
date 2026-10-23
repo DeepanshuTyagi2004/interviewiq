@@ -2,8 +2,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The InterviewIQ mark: a lowercase "i" in glass on a midnight-indigo squircle. The dot is the
- * interviewer's orb, lit from the top left; the stem is frosted glass. Gradient ids are fixed so
+ * The InterviewIQ mark: a lowercase "i" in glass on a warm-black squircle. The dot is the
+ * interviewer's orb (a pearl-to-champagne sphere lit from the top left); the stem is frosted glass. Gradient ids are fixed so
  * every instance on a page shares one definition. `app/icon.svg` carries the same drawing.
  */
 export function LogoMark({ className, size = 28 }: { className?: string; size?: number }) {
@@ -11,8 +11,8 @@ export function LogoMark({ className, size = 28 }: { className?: string; size?: 
     <svg aria-hidden viewBox="0 0 64 64" width={size} height={size} className={cn("flex-none", className)}>
       <defs>
         <linearGradient id="iqm-tile" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#2A2C5C" />
-          <stop offset="1" stopColor="#0C0C1C" />
+          <stop offset="0" stopColor="#35322E" />
+          <stop offset="1" stopColor="#0E0D0C" />
         </linearGradient>
         <linearGradient id="iqm-edge" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".5" />
@@ -20,17 +20,17 @@ export function LogoMark({ className, size = 28 }: { className?: string; size?: 
         </linearGradient>
         <radialGradient id="iqm-orb" cx=".32" cy=".26" r=".85">
           <stop offset="0" stopColor="#fff" />
-          <stop offset=".22" stopColor="#C9D2FF" />
-          <stop offset=".6" stopColor="#6F7BFF" />
-          <stop offset="1" stopColor="#4B2DD6" />
+          <stop offset=".22" stopColor="#FFF3DE" />
+          <stop offset=".6" stopColor="#D9C29B" />
+          <stop offset="1" stopColor="#8C7249" />
         </radialGradient>
         <linearGradient id="iqm-stem" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".96" />
-          <stop offset="1" stopColor="#C9CCEB" stopOpacity=".78" />
+          <stop offset="1" stopColor="#D9D4CA" stopOpacity=".78" />
         </linearGradient>
         <radialGradient id="iqm-glow" cx=".5" cy=".5" r=".5">
-          <stop offset="0" stopColor="#7C86FF" stopOpacity=".55" />
-          <stop offset="1" stopColor="#7C86FF" stopOpacity="0" />
+          <stop offset="0" stopColor="#E8D5AE" stopOpacity=".5" />
+          <stop offset="1" stopColor="#E8D5AE" stopOpacity="0" />
         </radialGradient>
       </defs>
       <rect width="64" height="64" rx="16" fill="url(#iqm-tile)" />

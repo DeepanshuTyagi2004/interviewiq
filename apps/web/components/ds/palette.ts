@@ -1,7 +1,7 @@
 /**
- * Shared art palette. Colour lives only in the orbs (eight hues; decorative art, so literal
- * values are allowed). Everything else is monochrome: tiles are graphite glass with a white
- * glyph, so the site stays one language and the orb is its single colourful signature.
+ * Shared art palette. The site is monochrome: black, white, warm greys and beige. Orbs come in
+ * eight neutral "materials" (pearl, champagne, sand, stone, graphite, onyx, ivory, taupe), each
+ * with highlight, body and shadow tones. Decorative art only, so literal values are allowed.
  */
 export interface Hue {
   key: string;
@@ -10,14 +10,14 @@ export interface Hue {
 }
 
 export const HUES: readonly Hue[] = [
-  { key: "azure", orb: ["#BFE0FF", "#4F8CFF", "#2230C8"] },
-  { key: "violet", orb: ["#E4CCFF", "#9A6BFF", "#5B2BC0"] },
-  { key: "rose", orb: ["#FFC6D9", "#FF5C8A", "#B3205E"] },
-  { key: "amber", orb: ["#FFE0A8", "#FFA43D", "#D2541B"] },
-  { key: "emerald", orb: ["#C2F5D8", "#34D399", "#0B8A63"] },
-  { key: "cyan", orb: ["#BDF1FF", "#38BDF8", "#0E7FB0"] },
-  { key: "fuchsia", orb: ["#F5C6FF", "#D946EF", "#8E1FA3"] },
-  { key: "graphite", orb: ["#E8EAF0", "#94A3B8", "#334155"] },
+  { key: "pearl", orb: ["#FFFFFF", "#D9D6D0", "#8E8A83"] },
+  { key: "champagne", orb: ["#FFF3DE", "#E2CBA2", "#9C7E52"] },
+  { key: "sand", orb: ["#F7EBD9", "#CDB89A", "#7A6548"] },
+  { key: "stone", orb: ["#F0EEEA", "#B5B0A6", "#5F5A51"] },
+  { key: "graphite", orb: ["#E8E6E2", "#8A867F", "#2B2926"] },
+  { key: "onyx", orb: ["#D8D5CF", "#5A5650", "#0E0D0C"] },
+  { key: "ivory", orb: ["#FFFFFF", "#EFE7D8", "#B9A98B"] },
+  { key: "taupe", orb: ["#EDE6DC", "#A99C8A", "#5A4F40"] },
 ] as const;
 
 export const HUE_COUNT = HUES.length;
@@ -36,9 +36,9 @@ export function hueIndex(seed: string): HueIndex {
 
 /** Three graphite shades, so neighbouring tiles differ a little without any hue. */
 const GRAPHITE: readonly (readonly [string, string])[] = [
-  ["#3d3d41", "#161618"],
-  ["#4a4a4f", "#1d1d20"],
-  ["#323236", "#111113"],
+  ["#3b3834", "#151311"],
+  ["#48443f", "#1c1a18"],
+  ["#312e2a", "#100f0d"],
 ];
 
 /** The graphite-glass a tile paints: a soft top-left sheen over a two-stop dark base. */

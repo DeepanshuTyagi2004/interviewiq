@@ -34,7 +34,7 @@ function StackArt() {
               top: -48 + 28 - i * 20,
               transform: "rotateX(60deg) rotateZ(45deg)",
               borderColor: INK,
-              background: i === 3 ? "linear-gradient(135deg,#3d3d41,#161618)" : "hsl(var(--card))",
+              background: i === 3 ? "linear-gradient(135deg,#3b3834,#151311)" : "hsl(var(--card))",
               boxShadow: "0 6px 16px -10px rgb(0 0 0/.35)",
             }}
           />

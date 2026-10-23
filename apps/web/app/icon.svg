@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2C5C"/><stop offset="1" stop-color="#0C0C1C"/></linearGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#35322E"/><stop offset="1" stop-color="#0E0D0C"/></linearGradient>
     <linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <radialGradient id="o" cx=".32" cy=".26" r=".85"><stop offset="0" stop-color="#fff"/><stop offset=".22" stop-color="#C9D2FF"/><stop offset=".6" stop-color="#6F7BFF"/><stop offset="1" stop-color="#4B2DD6"/></radialGradient>
-    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".96"/><stop offset="1" stop-color="#C9CCEB" stop-opacity=".78"/></linearGradient>
-    <radialGradient id="g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7C86FF" stop-opacity=".55"/><stop offset="1" stop-color="#7C86FF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="o" cx=".32" cy=".26" r=".85"><stop offset="0" stop-color="#fff"/><stop offset=".22" stop-color="#FFF3DE"/><stop offset=".6" stop-color="#D9C29B"/><stop offset="1" stop-color="#8C7249"/></radialGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".96"/><stop offset="1" stop-color="#D9D4CA" stop-opacity=".78"/></linearGradient>
+    <radialGradient id="g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#E8D5AE" stop-opacity=".55"/><stop offset="1" stop-color="#E8D5AE" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="64" height="64" rx="16" fill="url(#t)"/>
   <rect x=".5" y=".5" width="63" height="63" rx="15.5" fill="none" stroke="url(#e)"/>

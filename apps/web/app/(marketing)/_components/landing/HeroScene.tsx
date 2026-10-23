@@ -15,14 +15,14 @@ export function HeroScene() {
       <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2">
         <span
           className="absolute -inset-24 rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle,hsl(var(--brand) / 0.5),hsl(var(--brand-2) / 0.25) 45%,transparent 68%)" }}
+          style={{ background: "radial-gradient(circle,hsl(var(--aurora-1) / 0.9),hsl(var(--aurora-3) / 0.4) 45%,transparent 68%)" }}
         />
         <Orb variant={1} size={176} state="breathing" className="relative" />
       </div>
 
       {/* Live chip */}
       <div className="iq-glass iq-float-a absolute right-[7%] top-[7%] flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium">
-        <span className="h-2 w-2 rounded-full bg-[#34d399] shadow-[0_0_0_3px_rgb(52_211_153/.25)]" />
+        <span className="h-2 w-2 rounded-full bg-foreground shadow-[0_0_0_3px_hsl(var(--foreground)/0.15)]" />
         Live · 14:12
       </div>
 
@@ -30,7 +30,7 @@ export function HeroScene() {
       <div className="iq-glass-card iq-float-b absolute left-[5%] top-[57%] w-[64%] p-4 shadow-float !rounded-[22px]">
         <div className="flex items-center justify-between gap-3 text-xs text-ink-3">
           <span className="font-medium">Interviewer · speaking</span>
-          <Waveform bars={14} height={14} className="text-brand" />
+          <Waveform bars={14} height={14} className="text-foreground" />
         </div>
         <p className="m-0 mt-2 text-[14.5px] leading-[1.45] text-foreground">
           &ldquo;Three pods, 50k requests a second. Where does the rate-limit state live?&rdquo;

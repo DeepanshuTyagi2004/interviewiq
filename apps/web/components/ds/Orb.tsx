@@ -11,8 +11,7 @@ export function orbVariant(seed: string): OrbVariantIndex {
 }
 
 /** A glass sphere: a soft body gradient, a deep pool low right, a specular highlight and a rim. */
-/** Orbs use the seven colour hues; graphite is for tiles only (a grey orb reads as disabled). */
-const ORB_HUES = HUES.slice(0, 7);
+const ORB_HUES = HUES;
 
 function orbBackground(index: number): string {
   const [hi, mid, lo] = ORB_HUES[index % ORB_HUES.length].orb;
@@ -31,7 +30,7 @@ function orbShadow(index: number, size: number): string {
     `inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`,
     `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`,
     `inset 0 0 0 0.5px rgb(255 255 255/.25)`,
-    `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}b3`,
+    `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}99`,
   ].join(",");
 }
 
@@ -53,7 +52,7 @@ export interface OrbProps {
   className?: string;
 }
 
-/** Glass orb in one of eight hues: the signature decoration (avatars, interviewer, empty states). */
+/** Glass orb in one of eight neutral materials: the signature decoration (avatars, interviewer, empty states). */
 export function Orb({ seed, variant, size = 32, state = "still", className }: OrbProps) {
   const v = variant ?? orbVariant(seed ?? "");
   const motion = MOTION[state];
