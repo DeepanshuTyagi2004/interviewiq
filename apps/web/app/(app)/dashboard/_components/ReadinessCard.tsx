@@ -55,7 +55,7 @@ export function ReadinessCard({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col", className)}>
       <SectionHeader title="Readiness" href={ROUTES.loops} />
-      <Card aria-label="Tracks and readiness" className="min-h-[260px] flex-1">
+      <Card aria-label="Tracks and readiness" className="flex-1">
         {isLoading ? (
           <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading tracks">
             {Array.from({ length: 3 }, (_, i) => (
@@ -64,7 +64,9 @@ export function ReadinessCard({ className }: { className?: string }) {
           </div>
         ) : live.length === 0 ? (
           <EmptyState
-            className="my-auto py-6"
+            inline
+            orbSize={52}
+            className="my-auto"
             title="Not started"
             hint="Confirm a role's process to start a track. Readiness rises as you pass rounds of an unedited process. Counts unedited processes only."
           >

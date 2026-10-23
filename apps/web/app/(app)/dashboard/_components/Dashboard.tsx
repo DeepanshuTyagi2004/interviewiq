@@ -16,9 +16,9 @@ import { WeekAgenda } from "./WeekAgenda";
 import { isJoinable } from "@/features/interview/presentation";
 
 /**
- * Signed-in home, from top to bottom: header, quick-start tiles, up next beside readiness, the
- * calendar beside this week, recent results and the researched processes. The app shell supplies
- * the page width and padding.
+ * Signed-in home: header, quick-start tiles, up next beside readiness, then the calendar beside
+ * this week and recent results, and the researched processes. Sections are spaced to breathe and
+ * the page scrolls; nothing is squeezed to fit one window. The app shell supplies the page width.
  */
 export function Dashboard() {
   const { user, interviewBlocked } = useCurrentUser();
@@ -34,7 +34,7 @@ export function Dashboard() {
   const ready = (loops.data ?? []).find((l) => l.status === "active" && l.progress.nextNodeIds.length > 0);
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="flex min-w-0 flex-col gap-9">
       <Greeting
         name={user?.name}
         // Viewing a booked round is fine; booking or joining needs interview access.
@@ -51,24 +51,20 @@ export function Dashboard() {
         }
       />
 
-      <div className="mt-[30px] mb-10">
-        <QuickTiles />
-      </div>
+      <QuickTiles />
 
-      <div className="mb-11 grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-9 lg:grid-cols-[1.25fr_1fr]">
         <UpNextCard session={next} />
         <ReadinessCard />
       </div>
 
-      <div className="mb-11 grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-9 lg:grid-cols-[1.25fr_1fr] lg:items-start">
         <CalendarCard sessions={all} />
-        <WeekAgenda sessions={all} />
+        <div className="flex flex-col gap-9">
+          <WeekAgenda sessions={all} />
+          <RecentInterviews sessions={recent} isLoading={sessions.isLoading} isError={sessions.isError} />
+        </div>
       </div>
-
-      <RecentInterviews
-        sessions={recent}
-        isLoading={sessions.isLoading}
-        isError={sessions.isError}      />
 
       <CompaniesCarousel />
     </div>

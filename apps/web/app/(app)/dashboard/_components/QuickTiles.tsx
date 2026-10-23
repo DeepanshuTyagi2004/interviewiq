@@ -42,20 +42,22 @@ export function QuickTiles() {
   return (
     <ul
       aria-label="Quick start"
-      className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6"
+      className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 xl:grid-cols-6"
     >
       {tiles.map(({ key, href, title, hint, icon }, i) => (
         <li key={key} className="iq-fade-up min-w-0" style={{ "--i": i } as React.CSSProperties}>
           <Link
             href={href}
-            className="group block h-full rounded-card bg-card p-3.5 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group flex h-full flex-col gap-3.5 rounded-[22px] bg-card p-4 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <SmokedIcon name={icon} size={52} className="mb-3 transition-transform duration-300 ease-iq group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
-            <span className="block truncate text-[13.5px] font-medium" title={title}>
-              {title}
-            </span>
-            <span className="mt-0.5 block truncate text-[12.5px] text-ink-3">
-              {key === "find" ? rolesSubtitle(jds.data, jds.isError) : hint}
+            <SmokedIcon name={icon} size={52} className="transition-transform duration-300 ease-iq group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
+            <span className="min-w-0">
+              <span className="block truncate text-[14px] font-medium" title={title}>
+                {title}
+              </span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-ink-3">
+                {key === "find" ? rolesSubtitle(jds.data, jds.isError) : hint}
+              </span>
             </span>
           </Link>
         </li>

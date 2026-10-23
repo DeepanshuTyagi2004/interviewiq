@@ -6,8 +6,6 @@ import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { levelLabel } from "@/lib/constants/engineering-levels";
 import { ROUND_OPTIONS } from "@/lib/constants/interview";
 import { ROUTES } from "@/lib/constants/shared";
 import type { InterviewSession } from "@/features/interview";
@@ -29,7 +27,7 @@ export interface RecentInterviewsProps {
 export function RecentInterviews({ sessions, isLoading, isError, now = new Date(), className }: RecentInterviewsProps) {
   const { interviewBlocked } = useCurrentUser();
   return (
-    <section aria-label="Recent results" className={className}>
+    <section aria-label="Recent results" className={cn("flex flex-col", className)}>
       <SectionHeader
         title="Recent results"
         href={ROUTES.interviews}
@@ -41,19 +39,22 @@ export function RecentInterviews({ sessions, isLoading, isError, now = new Date(
           </Button>
         }
       />
-      {isLoading ? (
-        <div className="flex flex-col gap-2 rounded-tile p-4 shadow-ring" aria-busy="true" aria-label="Loading interviews">
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : isError ? (
-        <p role="alert" className="m-0 rounded-tile px-5 py-6 text-sm text-destructive shadow-ring">
-          Couldn&apos;t load your interviews. Refresh to try again.
-        </p>
-      ) : sessions.length === 0 ? (
-        <div className="rounded-tile shadow-ring">
+      <div className="iq-glass-card flex-1 p-1.5">
+        {isLoading ? (
+          <div className="flex flex-col gap-2 p-3" aria-busy="true" aria-label="Loading interviews">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-11 w-full" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p role="alert" className="m-0 px-4 py-5 text-sm text-destructive">
+            Couldn&apos;t load your interviews. Refresh to try again.
+          </p>
+        ) : sessions.length === 0 ? (
           <EmptyState
+            inline
+            orbSize={48}
+            className="my-auto"
             title="No results yet"
             hint="Every round you finish shows up here with its score and debrief."
           >
@@ -65,82 +66,50 @@ export function RecentInterviews({ sessions, isLoading, isError, now = new Date(
               </Button>
             )}
           </EmptyState>
-        </div>
-      ) : (
-        <Table className="min-w-[640px]">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[34%] px-5">Round</TableHead>
-              <TableHead>Track</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Outcome</TableHead>
-              <TableHead className="w-10 pr-5">
-                <span className="sr-only">Report</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        ) : (
+          <ul className="m-0 flex list-none flex-col p-0">
             {sessions.map((s) => {
               const round = ROUND_LABEL.get(s.roundType) ?? s.roundType;
               const company = s.companyName ?? s.company;
-              const track = s.loopId ? `${company} ${levelLabel(s.level)}` : "Standalone";
               const score = scoreText(s.score);
               const chip = outcomeChip(s, now);
               return (
-                <TableRow key={s.id} className="relative">
-                  <TableCell className="px-5">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Orb seed={s.id} size={34} />
-                      <div className="min-w-0">
-                        <Link
-                          href={`${ROUTES.interviews}/${s.id}/report`}
-                          title={`${round} · ${company}`}
-                          className="block max-w-[260px] truncate rounded-sm font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-brand"
-                        >
-                          {round}
-                        </Link>
-                        <small className="block max-w-[260px] truncate text-[12.5px] text-ink-3">{company}</small>
-                      </div>
+                <li key={s.id} className="relative rounded-2xl px-3 py-2.5 transition-colors hover:bg-foreground/[0.04]">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Orb seed={s.id} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`${ROUTES.interviews}/${s.id}/report`}
+                        title={`${round} · ${company}`}
+                        className="block truncate rounded-sm text-[14px] font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        {round}
+                      </Link>
+                      <small className="block truncate text-[12.5px] text-ink-3">
+                        {company} · {dayMonth(s.scheduledAt)}
+                      </small>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="block max-w-[200px] truncate" title={track}>
-                      {track}
-                    </span>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-ink-2">{dayMonth(s.scheduledAt)}</TableCell>
-                  <TableCell className="whitespace-nowrap">
                     {score ? (
-                      <span className="font-display text-[20px] tracking-[-0.02em] tabular-nums">
+                      <span className="flex-none font-display text-[18px] tabular-nums tracking-[-0.02em]">
                         {score}
                         <small className="font-sans text-[12px] text-ink-3"> /10</small>
                       </span>
-                    ) : (
-                      <>
-                        <span aria-hidden className="text-ink-3">—</span>
-                        <span className="sr-only">No score</span>
-                      </>
-                    )}
-                  </TableCell>
-                  <TableCell>
+                    ) : null}
                     <Chip
                       tone={chip.tone === "passed" ? "default" : "outline"}
                       dot={chip.tone === "passed" ? "filled" : "hollow"}
-                      className={cn(chip.tone === "neutral" && "text-ink-3")}
+                      className={cn("flex-none", chip.tone === "neutral" && "text-ink-3")}
                     >
                       {chip.label}
                     </Chip>
-                  </TableCell>
-                  <TableCell className="pr-5">
-                    <ChevronRight aria-hidden className="h-4 w-4 text-ink-3" strokeWidth={1.8} />
-                  </TableCell>
-                </TableRow>
+                    <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink-3" strokeWidth={1.8} />
+                  </div>
+                </li>
               );
             })}
-          </TableBody>
-        </Table>
-      )}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
