@@ -15,10 +15,10 @@ export function PageHeader({ eyebrow, title, description, actions, className }: 
   return (
     <header className={cn("flex flex-wrap items-end justify-between gap-x-5 gap-y-4", className)}>
       <div className="min-w-0">
-        {eyebrow ? <div className="text-[13px] text-ink-3">{eyebrow}</div> : null}
-        <h1 className="m-0 mt-1.5 font-display text-[32px] font-light leading-[1.1] tracking-[-0.035em] sm:text-[40px]">
+        <h1 className="m-0 font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[40px]">
           {title}
         </h1>
+        {eyebrow ? <div className="mt-2 text-[13px] text-ink-3">{eyebrow}</div> : null}
         {description ? <p className="m-0 mt-3 max-w-2xl text-[14px] leading-[1.55] text-ink-2">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
