@@ -11,10 +11,10 @@ export function markInitials(name: string): string {
 }
 
 const INK = "#23211E";
-const GOLD = "#C9A56A";
-const GOLD_LIGHT = "#F0DCB0";
+const GOLD = "#A9A6A0"; // silver: the lighter shape in each emblem
+const GOLD_LIGHT = "#E6E4E0";
 
-/** Eight small compositions on a 48px grid, picked by the seed. Ink, champagne and white only. */
+/** Eight small compositions on a 48px grid, picked by the seed. Ink, silver and white only. */
 const EMBLEMS: readonly React.ReactNode[] = [
   // orb and moon
   <>
@@ -73,7 +73,7 @@ export interface CompanyMarkProps {
 }
 
 /**
- * A small generated emblem for a company or role: ink and champagne shapes on a pearl tile, one of
+ * A small generated emblem for a company or role: ink and silver shapes on a glass tile, one of
  * eight compositions per seed. Decorative: the name is always shown beside it.
  */
 export function CompanyMark({ seed, size = 40, className }: CompanyMarkProps) {
@@ -89,7 +89,7 @@ export function CompanyMark({ seed, size = 40, className }: CompanyMarkProps) {
         borderRadius: Math.round(size * 0.3),
       }}
     >
-      <svg viewBox="0 0 48 48" width={size * 0.74} height={size * 0.74} style={{ filter: "drop-shadow(0 2px 2px rgb(60 45 25 / .25))" }}>
+      <svg viewBox="0 0 48 48" width={size * 0.74} height={size * 0.74} style={{ filter: "drop-shadow(0 2px 2px rgb(40 38 34 / .25))" }}>
         {EMBLEMS[i]}
       </svg>
     </span>

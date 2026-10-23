@@ -52,7 +52,7 @@ export interface OrbProps {
   className?: string;
 }
 
-/** Glass orb in one of eight neutral materials: the signature decoration (avatars, interviewer, empty states). */
+/** Glass orb in one of eight hues (seven colours and pearl): the signature decoration (avatars, interviewer, empty states). */
 export function Orb({ seed, variant, size = 32, state = "still", className }: OrbProps) {
   const v = variant ?? orbVariant(seed ?? "");
   const motion = MOTION[state];

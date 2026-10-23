@@ -1,7 +1,8 @@
 /**
- * Shared art palette. The site is monochrome: black, white, warm greys and beige. Orbs come in
- * eight neutral "materials" (pearl, champagne, sand, stone, graphite, onyx, ivory, taupe), each
- * with highlight, body and shadow tones. Decorative art only, so literal values are allowed.
+ * Shared art palette. The site is monochrome (black, white, greys; beige and gold only in subtle
+ * background gradients). Colour lives in orbs: seven hues plus a neutral pearl, each with
+ * highlight, body and shadow tones for the glass sphere. Decorative art only, so literal values
+ * are allowed.
  */
 export interface Hue {
   key: string;
@@ -10,14 +11,14 @@ export interface Hue {
 }
 
 export const HUES: readonly Hue[] = [
+  { key: "azure", orb: ["#BFE0FF", "#4F8CFF", "#2230C8"] },
+  { key: "violet", orb: ["#E4CCFF", "#9A6BFF", "#5B2BC0"] },
+  { key: "rose", orb: ["#FFC6D9", "#FF5C8A", "#B3205E"] },
+  { key: "amber", orb: ["#FFE0A8", "#FFA43D", "#D2541B"] },
+  { key: "emerald", orb: ["#C2F5D8", "#34D399", "#0B8A63"] },
+  { key: "cyan", orb: ["#BDF1FF", "#38BDF8", "#0E7FB0"] },
+  { key: "fuchsia", orb: ["#F5C6FF", "#D946EF", "#8E1FA3"] },
   { key: "pearl", orb: ["#FFFFFF", "#D9D6D0", "#8E8A83"] },
-  { key: "champagne", orb: ["#FFF3DE", "#E2CBA2", "#9C7E52"] },
-  { key: "sand", orb: ["#F7EBD9", "#CDB89A", "#7A6548"] },
-  { key: "stone", orb: ["#F0EEEA", "#B5B0A6", "#5F5A51"] },
-  { key: "graphite", orb: ["#E8E6E2", "#8A867F", "#2B2926"] },
-  { key: "onyx", orb: ["#D8D5CF", "#5A5650", "#0E0D0C"] },
-  { key: "ivory", orb: ["#FFFFFF", "#EFE7D8", "#B9A98B"] },
-  { key: "taupe", orb: ["#EDE6DC", "#A99C8A", "#5A4F40"] },
 ] as const;
 
 export const HUE_COUNT = HUES.length;

@@ -31,7 +31,7 @@ export function Hero() {
           <div className="flex min-w-0 flex-col items-start text-left">
             <h1 className="iq-intro m-0 text-balance text-[clamp(36px,4.7vw,64px)] font-bold leading-[1.06] tracking-[-0.035em] [--i:1]">
               Rehearse the interview you&apos;re{" "}
-              <span className="iq-wordmark-iq">actually walking into</span>
+              <span className="text-ink-3">actually walking into</span>
             </h1>
             <p className="iq-intro m-0 mt-6 max-w-[540px] text-pretty text-[19px] leading-[1.45] text-ink-2 [--i:2] sm:text-[21px]">
               Spend less time guessing, more time practising — with an AI interviewer that knows your resume and

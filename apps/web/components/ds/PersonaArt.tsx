@@ -1,4 +1,5 @@
 import * as React from "react";
+import { HUES } from "./palette";
 
 export type PersonaKind = "student" | "campus" | "professional" | "hiring" | "bootcamp";
 export type PersonaVariant = "pearl" | "smoked" | "crystal" | "layered";
@@ -21,12 +22,12 @@ interface Theme {
 }
 
 const THEMES: Record<PersonaVariant, Theme> = {
-  /** A: frosted pearl glass on a pearl tile; dark glass accents. */
+  /** A: frosted pearl glass on a soft pearl tile; graphite glass accents. */
   pearl: {
     tile: ["#FFFFFF", "#F5EDDD", "#E3D6BD"],
     tileRim: ["#FFFFFF", "#FFFFFF", "#7A6548"],
-    glass: [["#FFFFFF", 0.98], ["#FBF5E8", 0.86], ["#EADFC8", 0.78]],
-    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.5], ["#9A8156", 0.5]],
+    glass: [["#FFFFFF", 0.98], ["#F8F7F4", 0.86], ["#E4E2DD", 0.78]],
+    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.5], ["#8F8C86", 0.5]],
     rimWidth: 1,
     dark: ["#5E5951", "#1A1814"],
     ink: "#3B3834",
@@ -34,15 +35,15 @@ const THEMES: Record<PersonaVariant, Theme> = {
     glowOpacity: 0.95,
     ghost: false,
   },
-  /** B: smoked glass on a graphite tile; the objects glow pearl and champagne. */
+  /** B: smoked glass on a graphite tile; the objects glow white. */
   smoked: {
-    tile: ["#57524A", "#2A2723", "#100F0D"],
+    tile: ["#55534F", "#292826", "#0F0F0E"],
     tileRim: ["#FFFFFF", "#FFFFFF", "#000000"],
-    glass: [["#FFFFFF", 0.34], ["#FFF6E2", 0.14], ["#F2D9A6", 0.2]],
-    rim: [["#FFFFFF", 0.95], ["#FFFFFF", 0.22], ["#F2D9A6", 0.5]],
+    glass: [["#FFFFFF", 0.34], ["#FFFFFF", 0.14], ["#FFFFFF", 0.2]],
+    rim: [["#FFFFFF", 0.95], ["#FFFFFF", 0.22], ["#FFFFFF", 0.5]],
     rimWidth: 1,
-    dark: ["#FFF9EA", "#CDBA94"],
-    ink: "#FFF3DE",
+    dark: ["#FFFFFF", "#C9C7C2"],
+    ink: "#FFFFFF",
     inkOpacity: [0.9, 0.5, 0.35],
     glowOpacity: 0.7,
     ghost: false,
@@ -51,8 +52,8 @@ const THEMES: Record<PersonaVariant, Theme> = {
   crystal: {
     tile: ["#FFFFFF", "#F3EBDC", "#DDD0B8"],
     tileRim: ["#FFFFFF", "#FFFFFF", "#7A6548"],
-    glass: [["#FFFFFF", 0.62], ["#FFFFFF", 0.14], ["#F2E3C4", 0.34]],
-    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.7], ["#B8995F", 0.85]],
+    glass: [["#FFFFFF", 0.62], ["#FFFFFF", 0.14], ["#E9E7E2", 0.34]],
+    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.7], ["#9A9791", 0.85]],
     rimWidth: 1.5,
     dark: ["#6A655C", "#2B2823"],
     ink: "#3B3834",
@@ -60,12 +61,12 @@ const THEMES: Record<PersonaVariant, Theme> = {
     glowOpacity: 0.85,
     ghost: false,
   },
-  /** D: layered depth: warm bronze-beige tile; every object sits on an offset champagne ghost. */
+  /** D: layered depth: silver tile; every object sits on an offset grey ghost. */
   layered: {
-    tile: ["#F6E8CC", "#E2CBA0", "#BE9F6A"],
-    tileRim: ["#FFFFFF", "#FFFFFF", "#6A5330"],
-    glass: [["#FFFFFF", 0.96], ["#FFF8E6", 0.82], ["#F0DFC0", 0.7]],
-    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.5], ["#9A7A44", 0.55]],
+    tile: ["#ECEAE6", "#D3D0CA", "#A9A6A0"],
+    tileRim: ["#FFFFFF", "#FFFFFF", "#5E5B56"],
+    glass: [["#FFFFFF", 0.96], ["#F6F5F2", 0.82], ["#E2E0DB", 0.7]],
+    rim: [["#FFFFFF", 1], ["#FFFFFF", 0.5], ["#8F8C86", 0.55]],
     rimWidth: 1,
     dark: ["#4E4A43", "#171510"],
     ink: "#3B3834",
@@ -75,12 +76,16 @@ const THEMES: Record<PersonaVariant, Theme> = {
   },
 };
 
+/** The one coloured accent in each scene: an orb in a hue from the shared palette. */
+const ORB_HUE: Record<PersonaKind, number> = { student: 0, campus: 1, professional: 3, hiring: 2, bootcamp: 5 };
+
 function Scene({ kind, id, t }: { kind: PersonaKind; id: string; t: Theme }) {
   const g = `url(#${id}-glass)`;
   const rim = `url(#${id}-rim)`;
   const dk = `url(#${id}-dark)`;
   const gold = `url(#${id}-gold)`;
   const orb = `url(#${id}-orb)`;
+  const silver = "#9C9993";
   const bloom = `url(#${id}-bloom)`;
   const [i1, i2, i3] = t.inkOpacity;
   return (
@@ -89,7 +94,7 @@ function Scene({ kind, id, t }: { kind: PersonaKind; id: string; t: Theme }) {
         <>
           <path d="M20 76 58 82v24L20 100Z" fill={g} stroke={rim} strokeWidth={t.rimWidth} />
           <path d="M100 76 62 82v24l38-6Z" fill={g} stroke={rim} strokeWidth={t.rimWidth} />
-          <path d="M28 86 50 90M28 93 50 97M70 90 92 86M70 97 92 93" stroke="#C9A56A" strokeOpacity=".7" strokeLinecap="round" />
+          <path d="M28 86 50 90M28 93 50 97M70 90 92 86M70 97 92 93" stroke={silver} strokeOpacity=".7" strokeLinecap="round" />
           <path d="M42 50v13c10 8 26 8 36 0V50" fill={dk} stroke={rim} strokeOpacity=".5" />
           <path d="M60 20 102 37 60 54 18 37Z" fill={dk} stroke={rim} strokeOpacity=".6" />
           <path d="M60 23 92 36 60 39 28 36Z" fill="#fff" fillOpacity=".22" />
@@ -120,7 +125,7 @@ function Scene({ kind, id, t }: { kind: PersonaKind; id: string; t: Theme }) {
           <rect x="52" y="72" width="16" height="19" rx="5" fill={dk} stroke={rim} strokeOpacity=".5" />
           <rect x="26" y="60" width="68" height="3" rx="1.5" fill="#fff" fillOpacity=".7" />
           <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M70 40 84 27l10 7 14-15" stroke="#E2C48C" strokeWidth="6" opacity=".7" filter={bloom} />
+            <path d="M70 40 84 27l10 7 14-15" stroke="#fff" strokeWidth="6" opacity=".8" filter={bloom} />
             <path d="M70 40 84 27l10 7 14-15M100 19h8v8" stroke={gold} strokeWidth="3.4" />
           </g>
           <circle cx="22" cy="32" r="6" fill={orb} />
@@ -135,21 +140,21 @@ function Scene({ kind, id, t }: { kind: PersonaKind; id: string; t: Theme }) {
           <rect x="48" y="30" width="34" height="4.5" rx="2.25" fill={t.ink} fillOpacity={i1} />
           <rect x="48" y="40" width="22" height="4.5" rx="2.25" fill={t.ink} fillOpacity={i2} />
           <circle cx="91" cy="37" r="9.5" fill={dk} stroke={rim} strokeOpacity=".55" />
-          <path d="m86.5 37 3.2 3.2 5.6-6.4" fill="none" stroke={t.dark[0] === "#FFF9EA" ? "#1A1814" : "#fff"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="m86.5 37 3.2 3.2 5.6-6.4" fill="none" stroke={t.dark[0] === "#FFFFFF" ? "#1A1814" : "#fff"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           <rect x="30" y="66" width="30" height="4" rx="2" fill={t.ink} fillOpacity={i3} />
         </>
       ) : null}
       {kind === "bootcamp" ? (
         <>
           <rect x="22" y="24" width="76" height="54" rx="10" fill={dk} stroke={rim} strokeOpacity=".6" />
-          <rect x="27" y="29" width="66" height="44" rx="6" fill="#1A1814" />
+          <rect x="27" y="29" width="66" height="44" rx="6" fill="#151412" />
           <rect x="27" y="29" width="66" height="14" rx="6" fill="#fff" fillOpacity=".08" />
           <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m50 44-9 7 9 7M70 44l9 7-9 7M64 42l-8 18" stroke="#E2C48C" strokeWidth="6" opacity=".6" filter={bloom} />
+            <path d="m50 44-9 7 9 7M70 44l9 7-9 7M64 42l-8 18" stroke="#fff" strokeWidth="6" opacity=".7" filter={bloom} />
             <path d="m50 44-9 7 9 7M70 44l9 7-9 7M64 42l-8 18" stroke={gold} strokeWidth="3" />
           </g>
           <path d="M12 81h96v3a10 10 0 0 1-10 10H22A10 10 0 0 1 12 84Z" fill={g} stroke={rim} strokeWidth={t.rimWidth} />
-          <rect x="46" y="83" width="28" height="3.5" rx="1.75" fill="#7A6548" fillOpacity=".35" />
+          <rect x="46" y="83" width="28" height="3.5" rx="1.75" fill="#6B6862" fillOpacity=".35" />
           <circle cx="100" cy="28" r="8" fill={orb} />
         </>
       ) : null}
@@ -160,8 +165,9 @@ function Scene({ kind, id, t }: { kind: PersonaKind; id: string; t: Theme }) {
 /**
  * Small liquid-glass scenes for the audience cards: a student, a campus, a professional, a hiring
  * team and a bootcamp. Built the way Apple builds glass icons: translucent objects with soft
- * gradients, a lit rim instead of an outline, and a champagne glow refracting through them. Four
- * material treatments (`variant`) share one set of drawings. Decorative (aria-hidden).
+ * gradients and a lit rim instead of an outline. Strictly monochrome (white, silver, graphite glass)
+ * with one small coloured orb per scene as the only accent. Four material treatments (`variant`)
+ * share one set of drawings. Decorative (aria-hidden).
  */
 export function PersonaArt({
   kind,
@@ -176,6 +182,7 @@ export function PersonaArt({
 }) {
   const t = THEMES[variant];
   const id = `pg-${variant}-${kind}`;
+  const orbTones = HUES[ORB_HUE[kind]].orb;
   const stops = (s: Theme["glass"]) => s.map(([c, o], i) => <stop key={i} offset={[0, 0.55, 1][i]} stopColor={c} stopOpacity={o} />);
   return (
     <svg aria-hidden viewBox="0 0 120 120" width={size} height={size} className={className}>
@@ -201,28 +208,28 @@ export function PersonaArt({
           <stop offset="1" stopColor={t.dark[1]} />
         </linearGradient>
         <linearGradient id={`${id}-gold`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#FFF3D6" />
-          <stop offset=".5" stopColor="#E2C48C" />
-          <stop offset="1" stopColor="#B08A4F" />
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset=".5" stopColor="#D8D6D2" />
+          <stop offset="1" stopColor="#9C9993" />
         </linearGradient>
         <radialGradient id={`${id}-glow`} cx=".5" cy=".5" r=".5">
-          <stop offset="0" stopColor="#F2D9A6" stopOpacity={t.glowOpacity} />
-          <stop offset="1" stopColor="#F2D9A6" stopOpacity="0" />
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity={t.glowOpacity} />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}-orb`} cx=".32" cy=".26" r=".85">
           <stop offset="0" stopColor="#fff" />
-          <stop offset=".3" stopColor="#FFF3DE" />
-          <stop offset=".7" stopColor="#D9C29B" />
-          <stop offset="1" stopColor="#8C7249" />
+          <stop offset=".3" stopColor={orbTones[0]} />
+          <stop offset=".7" stopColor={orbTones[1]} />
+          <stop offset="1" stopColor={orbTones[2]} />
         </radialGradient>
         <filter id={`${id}-shadow`} x="-25%" y="-25%" width="150%" height="160%">
-          <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor={variant === "smoked" ? "#000" : "#4A3515"} floodOpacity={variant === "smoked" ? 0.5 : 0.28} />
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor={variant === "smoked" ? "#000" : "#2A2723"} floodOpacity={variant === "smoked" ? 0.5 : 0.28} />
         </filter>
         <filter id={`${id}-bloom`} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="2.4" />
         </filter>
         <filter id={`${id}-ghost`} x="-20%" y="-20%" width="140%" height="140%">
-          <feColorMatrix type="matrix" values="0 0 0 0 0.89  0 0 0 0 0.77  0 0 0 0 0.55  0 0 0 0.9 0" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0.62  0 0 0 0 0.61  0 0 0 0 0.58  0 0 0 0.9 0" />
           <feGaussianBlur stdDeviation="1.4" />
         </filter>
       </defs>
