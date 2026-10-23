@@ -102,9 +102,11 @@ function CarouselButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="h-11 w-11 cursor-pointer rounded-full bg-card text-sm text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
+      className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-card text-sm text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
     >
-      <span aria-hidden>{children}</span>
+      <span aria-hidden className="flex items-center justify-center">
+        {children}
+      </span>
     </button>
   );
 }
