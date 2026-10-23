@@ -11,13 +11,13 @@ export function Personas() {
           <h2 data-reveal className="iq-h2">
             Mock interviews, whenever you&apos;re ready
           </h2>
-          <p className="m-0 text-sm leading-[1.55] text-muted-foreground">
+          <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
             No waiting for a senior, a coach or a slot. Unlimited practice, on your schedule.
           </p>
         </div>
         <p
           data-reveal
-          className="m-0 text-[clamp(96px,17vw,240px)] font-normal leading-[0.8] tracking-[-0.07em]"
+          className="m-0 text-[clamp(96px,17vw,240px)] font-semibold leading-[0.8] tracking-[-0.06em]"
         >
           <span data-count="24">24</span>/7
         </p>

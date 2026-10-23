@@ -2,16 +2,14 @@ import { MarketingFooter } from "./_components/MarketingFooter";
 import { MarketingHeader } from "./_components/MarketingHeader";
 
 /**
- * Marketing shell from the design: a sticky header on the grey frame, page content in a rounded
- * white card inset from the edges, and a frame-coloured footer.
+ * Marketing shell: a sticky glass header over full-bleed content, and a quiet grey footer. The
+ * hero's aurora runs up behind the header so the glass has colour to blur.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="iq-landing flex min-h-screen flex-1 flex-col overflow-x-clip bg-frame leading-[normal]">
+    <div className="iq-landing flex min-h-screen flex-1 flex-col overflow-x-clip bg-background leading-[normal]">
       <MarketingHeader />
-      <main className="mx-2 flex-1 overflow-hidden rounded-[18px] border border-line-3 bg-card sm:mx-3">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
       <MarketingFooter />
     </div>
   );

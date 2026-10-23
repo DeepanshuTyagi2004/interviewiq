@@ -75,7 +75,7 @@ export function CustomSelect({ value, onValueChange, options, label, disabled, r
         <span className="min-w-0 truncate">{chosen?.label ?? value}</span><ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink-3" />
       </button>
     </Popover.Trigger>
-    <Popover.Portal><Popover.Content align="start" sideOffset={5} className="z-[80] min-w-[var(--radix-popover-trigger-width)] rounded-tile bg-popover p-1.5 text-foreground shadow-float"
+    <Popover.Portal><Popover.Content align="start" sideOffset={5} className="z-[80] min-w-[var(--radix-popover-trigger-width)] rounded-tile iq-glass-thick p-1.5 text-foreground shadow-float"
       onOpenAutoFocus={(event) => { event.preventDefault(); list.current?.focus(); }}>
       <div ref={list} id={listId} role="listbox" aria-label={label} tabIndex={0} aria-activedescendant={`${uid}-${active}`}
         onKeyDown={key} className="max-h-[min(320px,var(--radix-popover-content-available-height))] overflow-y-auto outline-none">

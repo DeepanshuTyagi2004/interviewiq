@@ -7,7 +7,7 @@ export function DebriefPanel() {
   return (
     <div className="iq-float w-full max-w-[460px] overflow-hidden">
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-b border-line px-5 py-[18px]">
-        <span data-count="74" className="text-[44px] leading-none tracking-[-0.05em]">
+        <span data-count="74" className="text-[48px] font-semibold leading-none tracking-[-0.05em]">
           74
         </span>
         <span className="text-[12.5px] text-faint">/ 100 · pass mark 70</span>
@@ -23,7 +23,7 @@ export function DebriefPanel() {
               key={text}
               className={cn(
                 "grid grid-cols-[30px_minmax(0,1fr)] pl-3.5 pr-5",
-                kind === "add" && "bg-panel text-foreground",
+                kind === "add" && "bg-surface text-foreground",
                 kind === "del" && "text-faint-2",
                 kind === "ctx" && "text-muted-foreground",
               )}
@@ -39,7 +39,7 @@ export function DebriefPanel() {
       <div className="flex flex-wrap items-center gap-1.5 border-t border-line px-5 py-3.5">
         <span className="mr-1 text-xs text-faint">Learn next</span>
         {LEARN_NEXT.map((topic) => (
-          <span key={topic} className="rounded-full bg-panel px-2.5 py-1 text-xs">
+          <span key={topic} className="rounded-full bg-surface-2 px-3 py-1 text-xs font-medium">
             {topic}
           </span>
         ))}

@@ -17,11 +17,11 @@ export function Universities() {
         <Eyebrow>INTERVIEWIQ FOR UNIVERSITIES</Eyebrow>
         <h2
           data-reveal
-          className="m-0 max-w-[520px] text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.045em]"
+          className="iq-h2 max-w-[520px] text-[clamp(34px,4.2vw,58px)] leading-[1.04]"
         >
           Don&apos;t change your placement process. Just add InterviewIQ.
         </h2>
-        <p className="m-0 max-w-[420px] text-[15px] leading-[1.55] text-muted-foreground">
+        <p className="m-0 max-w-[420px] text-[17px] leading-[1.5] text-muted-foreground">
           Realistic practice for every student, for the companies coming to your campus — running alongside what you
           already do.
         </p>

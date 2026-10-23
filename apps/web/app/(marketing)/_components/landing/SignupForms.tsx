@@ -8,11 +8,11 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROUTES } from "@/lib/constants/shared";
 
 const brandButton =
-  "flex items-center justify-center whitespace-nowrap rounded-full bg-brand text-sm text-brand-foreground hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "flex items-center justify-center whitespace-nowrap rounded-full bg-brand text-sm font-medium text-brand-foreground transition-colors hover:bg-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const lineButton =
-  "flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-line-3 bg-card text-[13.5px] text-foreground hover:border-faint-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-card text-sm font-medium text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const emailInput =
-  "min-w-0 rounded-full border bg-card px-4 text-foreground outline-none placeholder:text-faint focus:border-faint";
+  "min-w-0 rounded-full bg-card px-5 text-foreground shadow-ring outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * The email field is a head start on sign-up: submitting carries the address to the sign-up form
@@ -46,9 +46,9 @@ export function HeroSignup() {
           type="email"
           autoComplete="email"
           placeholder="Enter email"
-          className={cn(emailInput, "h-[46px] flex-1 border-line-3 text-[14.5px]")}
+          className={cn(emailInput, "h-[54px] flex-1 text-[15px]")}
         />
-        <button type="submit" className={cn(brandButton, "h-[46px] px-4 sm:px-[18px]")}>
+        <button type="submit" className={cn(brandButton, "h-[54px] px-5 sm:px-6")}>
           Start for free
         </button>
       </form>
@@ -92,9 +92,9 @@ export function CtaSignup() {
         type="email"
         autoComplete="email"
         placeholder="Enter email"
-        className={cn(emailInput, "h-11 border-line-4 text-sm")}
+        className={cn(emailInput, "h-12 text-sm")}
       />
-      <button type="submit" className={cn(brandButton, "h-11")}>
+      <button type="submit" className={cn(brandButton, "h-12")}>
         Get started for free
       </button>
     </form>

@@ -150,7 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             id={SIDEBAR_ID}
             aria-label="Sidebar"
             className={cn(
-              "hidden h-full flex-none overflow-hidden border-r border-line bg-background lg:block",
+              "hidden h-full flex-none overflow-hidden bg-surface shadow-[inset_-0.5px_0_0_hsl(var(--line))] lg:block",
               collapsed ? "w-16" : "w-[248px]",
               animate && "transition-[width] duration-200 ease-iq motion-reduce:transition-none",
             )}
@@ -166,7 +166,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="relative isolate flex min-w-0 flex-1 flex-col overflow-y-auto">
+            <div aria-hidden className="iq-app-wash" />
             <AnnouncementStrip />
             <TopBar
               pathname={pathname}

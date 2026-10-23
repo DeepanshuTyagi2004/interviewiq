@@ -26,7 +26,7 @@ export function RoundsPanel() {
   return (
     <aside
       aria-label="What you'll practise"
-      className="m-3 flex min-h-[420px] min-w-0 flex-none flex-col overflow-hidden rounded-lg bg-panel lg:min-h-0 lg:flex-1"
+      className="iq-stage m-3 flex min-h-[420px] min-w-0 flex-none flex-col lg:min-h-0 lg:flex-1"
     >
       <p className="iq-eyebrow m-0 p-5 sm:p-7">What you&apos;ll practise</p>
       <div aria-hidden className="relative mx-auto w-[min(420px,88%)] flex-1 [--step:58px] sm:[--step:66px]">
@@ -40,9 +40,9 @@ export function RoundsPanel() {
             <div
               key={round.n}
               className={cn(
-                "absolute inset-x-0 top-1/2 -mt-10 flex h-20 items-center gap-3 rounded-[14px] bg-card px-3.5 sm:-mt-11 sm:h-[88px] sm:gap-4 sm:px-[18px]",
+                "absolute inset-x-0 top-1/2 -mt-10 flex h-20 items-center gap-3 rounded-[22px] bg-card px-3.5 sm:-mt-11 sm:h-[88px] sm:gap-4 sm:px-[18px]",
                 "transition-[transform,opacity,box-shadow] duration-[800ms] ease-iq",
-                centred ? "shadow-hero" : "shadow-hairline",
+                centred ? "shadow-float" : "shadow-ring",
               )}
               style={{
                 transform: `translateY(calc(var(--step) * ${offset})) scale(${1 - distance * 0.08})`,
@@ -50,17 +50,17 @@ export function RoundsPanel() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-primary font-mono text-xs text-primary-foreground sm:h-12 sm:w-12">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[14px] bg-primary text-xs font-semibold text-primary-foreground sm:h-12 sm:w-12">
                 {round.n}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-base tracking-[-0.025em] sm:text-[19px]">{round.title}</span>
+                <span className="block truncate text-base font-semibold tracking-[-0.025em] sm:text-[19px]">{round.title}</span>
                 <span className="block truncate text-xs text-faint sm:text-[12.5px]">{round.meta}</span>
               </span>
               <span
                 className={cn(
-                  "flex-none rounded-[8px] px-2.5 py-[5px] text-xs transition-colors duration-[600ms]",
-                  centred ? "bg-brand text-brand-foreground" : "bg-panel text-foreground",
+                  "flex-none rounded-full px-3 py-[5px] text-xs font-medium transition-colors duration-[600ms]",
+                  centred ? "bg-brand text-brand-foreground" : "bg-surface-2 text-foreground",
                 )}
               >
                 {centred ? "Up next" : `Round ${i + 1}`}

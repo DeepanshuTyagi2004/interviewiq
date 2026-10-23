@@ -39,7 +39,7 @@ export function PersonaCarousel() {
     <section aria-roledescription="carousel" aria-label="Who InterviewIQ is for">
       <div
         ref={viewportRef}
-        className="mt-12 overflow-hidden sm:mt-[72px]"
+        className="-mx-6 mt-12 overflow-hidden px-6 pb-8 pt-2 sm:mt-[64px]"
         onTouchStart={(e) => (touchX.current = e.touches[0]?.clientX ?? null)}
         onTouchEnd={(e) => {
           const start = touchX.current;
@@ -58,21 +58,21 @@ export function PersonaCarousel() {
               key={p.role}
               aria-roledescription="slide"
               aria-label={`${i + 1} of ${PERSONAS.length}: ${p.who}`}
-              className="mr-7 flex min-h-[330px] flex-[0_0_300px] flex-col gap-3.5 border-r border-line-2 pr-7"
+              className="iq-card mr-5 flex min-h-[340px] flex-[0_0_300px] flex-col gap-3.5 p-6"
             >
-              <p className="m-0 font-mono text-[10px] tracking-[0.08em] text-faint">{p.role}</p>
+              <p className="iq-eyebrow m-0">{p.role}</p>
               <span
                 aria-hidden
                 className={cn(
-                  "flex h-[88px] w-[88px] items-center justify-center rounded-md text-[30px] tracking-[-0.04em]",
-                  p.featured ? "bg-brand text-brand-foreground" : "bg-panel text-foreground",
+                  "flex h-[88px] w-[88px] items-center justify-center rounded-[22px] text-[30px] font-semibold tracking-[-0.04em]",
+                  p.featured ? "bg-brand text-brand-foreground" : "bg-surface-2 text-foreground",
                 )}
               >
                 {p.mono}
               </span>
-              <h3 className="m-0 text-lg font-normal tracking-[-0.02em]">{p.who}</h3>
-              <p className="m-0 text-[13.5px] leading-[1.5] text-muted-foreground">{p.body}</p>
-              <p className="m-0 mt-auto font-mono text-[11px] tracking-[0.06em]">{p.status}</p>
+              <h3 className="m-0 text-xl font-semibold tracking-[-0.02em]">{p.who}</h3>
+              <p className="m-0 text-sm leading-[1.5] text-muted-foreground">{p.body}</p>
+              <p className="m-0 mt-auto text-xs font-semibold tracking-[0.05em]">{p.status}</p>
             </li>
           ))}
         </ul>
@@ -106,7 +106,7 @@ function CarouselButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="h-[34px] w-[34px] cursor-pointer rounded-full border border-line-4 bg-card text-sm text-foreground hover:border-faint-2 hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
+      className="h-11 w-11 cursor-pointer rounded-full bg-card text-sm text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
     >
       <span aria-hidden>{children}</span>
     </button>

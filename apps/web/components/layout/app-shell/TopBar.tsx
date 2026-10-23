@@ -34,7 +34,7 @@ export interface TopBarProps {
  */
 export function TopBar({ pathname, names, sidebarId, sidebarExpanded, onToggleSidebar, onOpenSearch, account }: TopBarProps) {
   return (
-    <header className="iq-topbar sticky top-0 z-20 flex h-[60px] flex-none items-center gap-3 border-b border-line px-4 sm:gap-3.5 sm:px-7">
+    <header className="iq-glass sticky top-0 z-20 flex h-[60px] flex-none items-center gap-3 px-4 sm:gap-3.5 sm:px-7">
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2.5 md:flex-[0_1_auto]">
         <button
           type="button"
@@ -55,7 +55,7 @@ export function TopBar({ pathname, names, sidebarId, sidebarExpanded, onToggleSi
         onClick={onOpenSearch}
         aria-keyshortcuts="Meta+K Control+K"
         className={cn(
-          "hidden h-[38px] min-w-[200px] flex-[0_1_380px] items-center md:mx-auto gap-[9px] rounded-full border border-line bg-background pl-3.5 pr-2 text-left text-[13.5px] text-ink-3 shadow-ring transition-colors duration-150 hover:bg-surface md:flex",
+          "hidden h-[38px] min-w-[200px] flex-[0_1_380px] items-center md:mx-auto gap-[9px] rounded-full bg-card/70 pl-3.5 pr-2 text-left text-[13.5px] text-ink-3 shadow-ring transition-colors duration-150 hover:bg-card md:flex",
           FOCUS,
         )}
       >

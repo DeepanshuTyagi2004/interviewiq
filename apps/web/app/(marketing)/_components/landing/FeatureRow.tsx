@@ -17,7 +17,7 @@ export interface FeatureRowProps {
 }
 
 /**
- * Two-up feature section: a grey illustration panel beside the copy column. Stacks (panel first)
+ * Two-up feature section: an illustration stage beside the copy column. Stacks (panel first)
  * below `lg`; side by side above it, with the list pinned to the bottom of the copy column.
  */
 export function FeatureRow({
@@ -36,7 +36,7 @@ export function FeatureRow({
       <div
         data-reveal
         className={cn(
-          "flex min-h-[420px] min-w-0 items-center justify-center bg-panel px-5 py-10 sm:min-h-[520px] sm:px-9 sm:py-12 lg:flex-[1_1_440px]",
+          "iq-stage flex min-h-[420px] min-w-0 items-center justify-center px-5 py-10 sm:min-h-[540px] sm:px-9 sm:py-12 lg:flex-[1_1_440px]",
           panelRight && "lg:order-2",
         )}
       >
@@ -47,7 +47,7 @@ export function FeatureRow({
         <h2 data-reveal className="iq-h2 max-w-[480px]">
           {title}
         </h2>
-        <p className="m-0 max-w-[460px] text-[15.5px] leading-[1.55] text-muted-foreground">{body}</p>
+        <p className="m-0 max-w-[460px] text-[17px] leading-[1.5] text-muted-foreground">{body}</p>
         <div className="mt-auto flex flex-col gap-3 pt-6 lg:pt-10">
           <FeatureList items={items} />
           <OutlineLink href={cta.href} className="mt-3.5">

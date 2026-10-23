@@ -12,13 +12,14 @@ export const metadata: Metadata = {
 
 /**
  * Focused onboarding shell — no app menu (the gate keeps new users here until they finish anyway).
- * Fits the viewport exactly: the top bar sits on the frame and the card fills the rest. The page
+ * Fits the viewport exactly: the top bar sits on the canvas and the sheet fills the rest. The page
  * never scrolls; the wizard scrolls its own content inside the card.
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <div className="flex h-dvh flex-col overflow-hidden bg-frame">
+      <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-surface">
+        <div aria-hidden className="iq-app-wash" />
         <header className="flex h-[68px] flex-none items-center gap-4 px-4 sm:px-8">
           <Logo href={ROUTES.home} />
           <div className="ml-auto flex items-center gap-2">
@@ -26,7 +27,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
             <SignOutButton />
           </div>
         </header>
-        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
+        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-hero bg-card shadow-float sm:mx-4 sm:mb-4">
           {/* Sends users who have already finished onboarding to the dashboard. */}
           <OnboardingGate>{children}</OnboardingGate>
         </main>

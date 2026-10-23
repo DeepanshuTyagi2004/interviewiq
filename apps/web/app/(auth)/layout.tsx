@@ -5,12 +5,13 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { ROUTES } from "@/lib/constants/shared";
 
 /**
- * Auth shell from the design: frame header (logo, theme, back to site) over a rounded card that
+ * Auth shell: a header (logo, theme, back to site) over a floating white sheet on a soft canvas that
  * fills the rest of the viewport. The page never scrolls; content scrolls inside the card.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-frame">
+    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-surface">
+      <div aria-hidden className="iq-app-wash" />
       <header className="flex h-[68px] flex-none items-center gap-5 px-4 sm:px-8">
         <Logo href={ROUTES.home} />
         <div className="ml-auto flex items-center gap-3.5">
@@ -22,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
       </header>
-      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line-3 bg-card sm:mx-3 sm:mb-3">
+      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-hero bg-card shadow-float sm:mx-4 sm:mb-4">
         {children}
       </main>
     </div>

@@ -38,9 +38,9 @@ export function SourceStack() {
             <li
               key={source.name}
               className={cn(
-                "absolute inset-x-0 top-1/2 -mt-[40px] flex h-20 items-center gap-3 rounded-[14px] bg-card px-3.5 sm:-mt-[46px] sm:h-[92px] sm:gap-[18px] sm:px-5",
+                "absolute inset-x-0 top-1/2 -mt-[40px] flex h-20 items-center gap-3 rounded-[22px] bg-card px-3.5 sm:-mt-[46px] sm:h-[96px] sm:gap-[18px] sm:px-6",
                 "transition-[transform,opacity,box-shadow] duration-[800ms] ease-iq",
-                centred ? "shadow-hero" : "shadow-hairline",
+                centred ? "shadow-float" : "shadow-ring",
               )}
               style={{
                 transform: `translateY(calc(var(--step) * ${offset})) scale(${1 - distance * 0.09})`,
@@ -48,17 +48,17 @@ export function SourceStack() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-primary font-mono text-xs text-primary-foreground sm:h-[52px] sm:w-[52px] sm:text-[13px]">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[14px] bg-primary text-xs font-semibold text-primary-foreground sm:h-[52px] sm:w-[52px] sm:text-[13px]">
                 {source.icon}
               </span>
               <span className="min-w-0 flex-1 text-left">
-                <span className="block text-lg tracking-[-0.03em] sm:text-2xl">{source.name}</span>
+                <span className="block text-lg font-semibold tracking-[-0.03em] sm:text-2xl">{source.name}</span>
                 <span className="block truncate text-xs text-faint sm:text-[12.5px]">{source.detail}</span>
               </span>
               <span
                 className={cn(
-                  "flex-none rounded-[8px] px-2.5 py-1.5 text-xs transition-colors duration-[600ms] sm:px-3 sm:text-[13px]",
-                  centred ? "bg-brand text-brand-foreground" : "bg-line text-foreground",
+                  "flex-none rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-[600ms] sm:px-3.5 sm:text-[13px]",
+                  centred ? "bg-brand text-brand-foreground" : "bg-surface-2 text-foreground",
                 )}
               >
                 {centred ? "Connected" : "Connect"}

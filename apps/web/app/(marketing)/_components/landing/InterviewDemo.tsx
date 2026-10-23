@@ -75,8 +75,8 @@ export function InterviewDemo() {
       </div>
 
       {/* The transcript card is always dark, in both themes — hence the fixed colours. */}
-      <div className="flex w-full flex-col gap-3 rounded-[14px] bg-inv p-[18px] text-white shadow-[0_24px_50px_-20px_rgba(0,0,0,.4)]">
-        <div className="flex items-center gap-2 text-xs text-[#a3a39e]">
+      <div className="flex w-full flex-col gap-3 rounded-[22px] bg-inv p-5 text-white shadow-float">
+        <div className="flex items-center gap-2 text-xs text-[#a1a1a6]">
           <span
             aria-hidden
             data-motion
@@ -84,14 +84,14 @@ export function InterviewDemo() {
             style={{ animation: reduced ? undefined : "iq-breathe 1.4s ease-in-out infinite" }}
           />
           Interviewer · speaking
-          <span className="ml-auto font-mono tabular-nums text-white">
+          <span className="ml-auto font-medium tabular-nums text-white">
             {formatClock(seconds)}
           </span>
         </div>
-        <p className="m-0 text-[14.5px] leading-[1.5] text-[#EFEEE9]">{INTERVIEW_QUESTION}</p>
-        <div aria-hidden className="h-px bg-[#2e2e2c]" />
-        <p className="m-0 text-xs text-[#a3a39e]">You</p>
-        <p className="m-0 min-h-[42px] text-sm leading-[1.5] text-[#d6d5d0]">
+        <p className="m-0 text-[14.5px] leading-[1.5] text-[#f5f5f7]">{INTERVIEW_QUESTION}</p>
+        <div aria-hidden className="h-px bg-[#2c2c2e]" />
+        <p className="m-0 text-xs text-[#a1a1a6]">You</p>
+        <p className="m-0 min-h-[42px] text-sm leading-[1.5] text-[#d2d2d7]">
           <span ref={typedRef} />
           <span
             aria-hidden
@@ -106,9 +106,9 @@ export function InterviewDemo() {
         {SIGNALS.map(([label, base]) => {
           const value = jitter(base, tick);
           return (
-            <div key={label} className="rounded-lg bg-card px-3 py-2.5 shadow-hairline">
-              <dt className="text-[11px] text-faint">{label}</dt>
-              <dd className="m-0 mt-0.5 font-mono text-[17px] tabular-nums">
+            <div key={label} className="rounded-2xl bg-card px-3 py-2.5 shadow-ring">
+              <dt className="text-xs text-faint">{label}</dt>
+              <dd className="m-0 mt-0.5 text-[19px] font-semibold tabular-nums">
                 {label === "Fillers" ? String(Math.round(value / 3.5)) : (value / 10).toFixed(1)}
               </dd>
             </div>

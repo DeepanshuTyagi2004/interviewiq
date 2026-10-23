@@ -9,8 +9,8 @@ const NOW_FRACTION = (CURRENT_WEEK + 0.5) / WEEKS.length;
 const BAR: Record<TrackTone, string> = {
   ink: "bg-primary text-primary-foreground",
   soft: "bg-line-2 text-foreground",
-  panel: "bg-panel text-muted-foreground",
-  custom: "bg-panel text-faint",
+  panel: "bg-surface-2 text-muted-foreground",
+  custom: "bg-surface-2 text-faint",
 };
 const SEGMENT_DONE: Record<TrackTone, string> = {
   ink: "bg-brand",
@@ -36,21 +36,21 @@ export function ReadinessTimeline() {
             Track how ready you are, role by role
           </h2>
         </div>
-        <p className="m-0 max-w-[400px] text-[15px] leading-[1.55] text-muted-foreground">
+        <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-muted-foreground">
           Readiness rises as you clear rounds of the official process — from getting started to interview-ready.
         </p>
       </div>
 
-      <figure data-reveal className="m-0 mt-10 bg-panel p-3 sm:px-9 sm:py-10">
+      <figure data-reveal className="iq-stage m-0 mt-10 p-3 sm:px-9 sm:py-10">
         <figcaption className="sr-only">Example readiness timeline for four target roles</figcaption>
         <div
           tabIndex={0}
           role="region"
           aria-label="Readiness timeline (scrolls horizontally)"
-          className="overflow-x-auto rounded-[14px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.18)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="overflow-x-auto rounded-[22px] bg-card shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="min-w-[640px] [--role:150px] sm:min-w-[760px] sm:[--role:200px]">
-            <div className="grid grid-cols-[var(--role)_repeat(8,minmax(0,1fr))] border-b border-line font-mono text-[10px] tracking-[0.06em] text-faint">
+            <div className="grid grid-cols-[var(--role)_repeat(8,minmax(0,1fr))] border-b border-line text-xs font-semibold tracking-[0.05em] text-faint">
               <div className="px-3.5 py-3.5 sm:px-[18px]">ROLE</div>
               {WEEKS.map((week, i) => (
                 <div key={week} className={cn("py-3.5 text-center", i === CURRENT_WEEK && "text-foreground")}>
@@ -70,13 +70,13 @@ export function ReadinessTimeline() {
                   className="grid h-[66px] grid-cols-[var(--role)_minmax(0,1fr)] items-center border-b border-line last:border-b-0"
                 >
                   <div className="px-3.5 sm:px-[18px]">
-                    <div className="text-[13.5px]">{track.role}</div>
-                    <div className="mt-0.5 text-[11.5px] text-faint">{track.level}</div>
+                    <div className="text-sm font-medium">{track.role}</div>
+                    <div className="mt-0.5 text-xs text-faint">{track.level}</div>
                   </div>
                   <div className="relative h-full">
                     <div
                       className={cn(
-                        "absolute top-5 flex h-[26px] items-center gap-[5px] overflow-hidden whitespace-nowrap rounded-[8px] px-2.5 text-[11.5px]",
+                        "absolute top-5 flex h-[28px] items-center gap-[5px] overflow-hidden whitespace-nowrap rounded-full px-3 text-xs font-medium",
                         BAR[track.tone],
                       )}
                       style={{ left: track.left, width: track.width }}
@@ -86,7 +86,7 @@ export function ReadinessTimeline() {
                           key={i}
                           aria-hidden
                           className={cn(
-                            "h-1 flex-1 rounded-sm",
+                            "h-1 flex-1 rounded-full",
                             i < track.done ? SEGMENT_DONE[track.tone] : SEGMENT_TODO[track.tone],
                           )}
                         />

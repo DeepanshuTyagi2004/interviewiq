@@ -3,23 +3,25 @@
 @tailwind utilities;
 
 /*
- * InterviewIQ design tokens: monochrome language (spec 2026-10-18-monochrome-redesign §3).
- * Paper-white page, warm-grey surfaces, near-black ink; no hue in chrome except a muted red
- * `destructive`. New names: page, surface, surface-2, stone, line, ink, ink-2, ink-3.
+ * InterviewIQ design tokens: monochrome chrome with depth (2026-10 Apple-style pass).
+ * White content cards on cool-grey surfaces, near-black ink, layered shadows; hue lives only in
+ * the content layer (hero aurora) and a muted red `destructive`. Glass (`.iq-glass`) is for the
+ * functional layer only: bars, menus, sheets, floating cards. Names: page, surface, surface-2,
+ * stone, line, ink, ink-2, ink-3.
  * shadcn tokens are re-pointed onto them. The legacy names (frame, panel, faint*, line-2..4,
  * brand*, blob-*) stay until the pages that use them migrate (Task 21).
  */
 @layer base {
   :root {
     --page: 0 0% 100%;
-    --surface: 60 5.9% 96.7%;
-    --surface-2: 40 9.7% 93.9%;
-    --stone: 30 23.1% 94.9%;
-    --line: 60 2.4% 92%;
-    --ink: 0 0% 4.3%;
-    --ink-2: 0 0% 30.6%;
-    /* #6f6c67: the spec's #8a8781 is 3.6:1 on white, so it is darkened to pass AA at body size. */
-    --ink-3: 37.5 3.7% 42%;
+    --surface: 240 11% 96.5%;
+    --surface-2: 240 12% 92%;
+    --stone: 240 24% 96%;
+    --line: 240 6% 90%;
+    --ink: 240 3% 12%;
+    --ink-2: 240 2% 26%;
+    /* #6e6e73: 5.1:1 on white and 4.7:1 on the surface grey. */
+    --ink-3: 240 2% 44%;
 
     --background: var(--page);
     --foreground: var(--ink);
@@ -35,46 +37,60 @@
     --muted-foreground: var(--ink-3);
     --accent: var(--surface-2);
     --accent-foreground: var(--ink);
-    --destructive: 0 60% 42%;
+    --destructive: 354 100% 42%;
     --destructive-foreground: 0 0% 100%;
     --border: var(--line);
     --input: var(--line);
-    /* Focus ring: 2px ink with an offset (spec §6). */
+    /* Focus ring: 2px ink with an offset. */
     --ring: var(--ink);
     /* Pills are the default control shape; `rounded-lg` etc. keep a modest base. */
-    --radius: 0.625rem;
+    --radius: 0.75rem;
     /* Size unit for fluid screens: 1px everywhere, scaled inside `.iq-fit` / `.iq-page`. */
     --u: 1px;
 
-    /* Elevation: a hairline ring plus a soft warm drop; one stronger float for popovers/dialogs. */
-    --shadow-ring: inset 0 0 0 0.5px rgb(0 0 0 / 0.075), 0 6px 16px rgb(78 50 23 / 0.04);
-    --shadow-float: inset 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 18px 48px -12px rgb(78 50 23 / 0.2);
+    /* Elevation: a hairline, a contact shadow and a long soft one. Content cards use `ring`;
+       anything that floats above content (popovers, dialogs, the hero card) uses `float`. */
+    --shadow-ring:
+      0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -10px rgb(0 0 0 / 0.1);
+    --shadow-float:
+      0 0 0 0.5px rgb(0 0 0 / 0.06), 0 2px 4px rgb(0 0 0 / 0.04), 0 14px 32px -10px rgb(0 0 0 / 0.14),
+      0 40px 80px -32px rgb(0 0 0 / 0.22);
+
+    /* Liquid-glass material for the functional layer only (bars, menus, sheets, floating cards). */
+    --glass-bg: 0 0% 100% / 0.72;
+    --glass-bg-thick: 0 0% 100% / 0.86;
+    --glass-edge: 0 0% 100% / 0.65;
+    --glass-line: 240 6% 20% / 0.08;
 
     /* Legacy names, re-pointed to the nearest new grey so unmigrated pages stay neutral. */
     --frame: var(--surface);
     --panel: var(--surface);
     --faint: var(--ink-3);
-    --faint-2: 42.9 3.8% 63.7%;
-    --line-2: 60 2% 88%;
-    --line-3: 60 2% 83%;
-    --line-4: 45 3% 74%;
+    --faint-2: 240 2% 62%;
+    --line-2: 240 6% 86%;
+    --line-3: 240 5% 81%;
+    --line-4: 240 4% 72%;
     --ink-hover: 0 0% 0%;
     --inv: var(--ink);
     --blob-1: 0 0% 100%;
-    --blob-2: 50 3% 60.4%;
-    --blob-4: 48 2.3% 42.5%;
-    /* Transitional (Task 21 removes): brand = ink so no orange shows. */
+    --blob-2: 240 3% 60%;
+    --blob-4: 240 3% 42%;
+    /* Transitional: brand = ink so no accent shows in chrome. */
     --brand: var(--ink);
     --brand-hover: var(--ink);
     --brand-foreground: var(--page);
 
+    /* Hero aurora: soft hues for the content layer behind the glass. Never used on controls. */
+    --aurora-1: 214 95% 82%;
+    --aurora-2: 268 80% 85%;
+    --aurora-3: 24 95% 86%;
 
-    /* Data-viz: a grey ramp, darkest first. Chrome and charts are both monochrome. */
-    --chart-1: 0 0% 4.3%;
-    --chart-2: 0 0% 30.6%;
-    --chart-3: 40 3% 48%;
-    --chart-4: 45 3% 65%;
-    --chart-5: 60 2.5% 80%;
+    /* Data-viz: a cool grey ramp, darkest first. */
+    --chart-1: 240 3% 12%;
+    --chart-2: 240 2% 26%;
+    --chart-3: 240 2% 46%;
+    --chart-4: 240 3% 65%;
+    --chart-5: 240 5% 82%;
     --sidebar-background: var(--surface);
     --sidebar-foreground: var(--ink-2);
     --sidebar-primary: var(--ink);
@@ -87,56 +103,66 @@
     --color-lc-medium: var(--chart-3);
     --color-lc-hard: var(--chart-1);
     /* Contribution heatmap: line to ink in five steps. */
-    --heat-0: 60 2.4% 92%;
-    --heat-1: 50 2.5% 78%;
-    --heat-2: 45 2.5% 58%;
-    --heat-3: 40 2.5% 34%;
-    --heat-4: 0 0% 4.3%;
+    --heat-0: 240 6% 92%;
+    --heat-1: 240 4% 80%;
+    --heat-2: 240 3% 60%;
+    --heat-3: 240 3% 34%;
+    --heat-4: 240 3% 12%;
   }
 
   .dark {
-    --page: 60 3.7% 5.3%;
-    --surface: 60 2.3% 8.4%;
-    --surface-2: 30 3.6% 11%;
-    --stone: 40 5.9% 10%;
-    --line: 60 2.9% 13.7%;
-    --ink: 60 4.3% 95.5%;
-    --ink-2: 40 3.8% 69.4%;
-    /* Lightened from the spec's #7a7873 (4.4:1) to #85837e (5.1:1 on page). */
-    --ink-3: 42.9 2.8% 50.8%;
+    --page: 240 8% 4%;
+    --surface: 240 3% 11%;
+    --surface-2: 240 2% 17%;
+    --stone: 240 4% 9%;
+    --line: 240 3% 18%;
+    --ink: 240 11% 96.5%;
+    --ink-2: 240 5% 79%;
+    /* #8e8e93: 6.0:1 on the page, 5.2:1 on the surface. */
+    --ink-3: 240 2% 56%;
 
-    --destructive: 0 62% 62%;
-    --destructive-foreground: 60 3.7% 5.3%;
+    --destructive: 3 100% 61%;
+    --destructive-foreground: 240 8% 4%;
 
-    --shadow-ring: inset 0 0 0 0.5px rgb(255 255 255 / 0.07), 0 6px 16px rgb(0 0 0 / 0.4);
-    --shadow-float: inset 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 18px 48px -12px rgb(0 0 0 / 0.7);
+    --shadow-ring:
+      inset 0 0.5px 0 rgb(255 255 255 / 0.06), 0 0 0 0.5px rgb(255 255 255 / 0.07), 0 8px 24px -10px rgb(0 0 0 / 0.6);
+    --shadow-float:
+      inset 0 0.5px 0 rgb(255 255 255 / 0.1), 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 14px 32px -10px rgb(0 0 0 / 0.6),
+      0 40px 80px -32px rgb(0 0 0 / 0.8);
 
-    --faint-2: 42.9 3% 36%;
-    --line-2: 60 2.5% 17%;
-    --line-3: 60 2.5% 21%;
-    --line-4: 45 3% 28%;
+    --glass-bg: 240 3% 14% / 0.66;
+    --glass-bg-thick: 240 3% 12% / 0.84;
+    --glass-edge: 0 0% 100% / 0.14;
+    --glass-line: 0 0% 100% / 0.1;
+
+    --faint-2: 240 2% 40%;
+    --line-2: 240 3% 22%;
+    --line-3: 240 3% 26%;
+    --line-4: 240 3% 34%;
     --ink-hover: 0 0% 100%;
-    --inv: 60 3% 3%;
-    --blob-1: 60 2.8% 28.2%;
-    --blob-2: 60 3.8% 10.2%;
-    --blob-4: 50 2.5% 46.7%;
+    --inv: 240 6% 2%;
+    --blob-1: 240 3% 28%;
+    --blob-2: 240 4% 10%;
+    --blob-4: 240 3% 47%;
     --brand-foreground: var(--page);
 
-    /* Prep-animation cat: same fur; a dark stage, softer paper, light outlines on the stage. */
+    --aurora-1: 214 90% 42%;
+    --aurora-2: 268 70% 44%;
+    --aurora-3: 24 90% 46%;
 
-    --chart-1: 60 4.3% 95.5%;
-    --chart-2: 40 3.8% 69.4%;
-    --chart-3: 42.9 3% 50%;
-    --chart-4: 45 3% 34%;
-    --chart-5: 60 2.9% 22%;
+    --chart-1: 240 11% 96.5%;
+    --chart-2: 240 5% 79%;
+    --chart-3: 240 3% 50%;
+    --chart-4: 240 3% 34%;
+    --chart-5: 240 3% 22%;
     --color-lc-easy: var(--chart-4);
     --color-lc-medium: var(--chart-3);
     --color-lc-hard: var(--chart-1);
-    --heat-0: 60 2.9% 13.7%;
-    --heat-1: 45 3% 22%;
-    --heat-2: 42.9 3% 38%;
-    --heat-3: 40 3.8% 62%;
-    --heat-4: 60 4.3% 95.5%;
+    --heat-0: 240 3% 14%;
+    --heat-1: 240 3% 22%;
+    --heat-2: 240 3% 38%;
+    --heat-3: 240 4% 62%;
+    --heat-4: 240 11% 96.5%;
   }
 
   /* ---- HUD scope: the signed-in app + admin (class set on <html> by useHudScope) ----
@@ -220,23 +246,136 @@
 @layer components {
   /* Uppercase mono label that heads every section ("COMPANY RESEARCH"). */
   .iq-eyebrow {
-    @apply font-mono text-[10.5px] uppercase leading-normal tracking-[0.08em] text-faint;
+    @apply text-xs font-semibold uppercase leading-normal tracking-[0.07em] text-faint;
   }
-  /* Section heading — light weight, very tight tracking. */
+  /* Section heading: semibold, tight tracking. */
   .iq-h2 {
-    @apply m-0 font-normal;
-    font-size: clamp(30px, 3.4vw, 46px);
-    line-height: 1.06;
-    letter-spacing: -0.04em;
+    @apply m-0 font-semibold;
+    font-size: clamp(30px, 3.6vw, 48px);
+    line-height: 1.07;
+    letter-spacing: -0.035em;
   }
   /* Small mono status pill ("PASSED", "LOCKED", "OCT 04"). */
   .iq-pill {
-    @apply inline-flex items-center whitespace-nowrap rounded font-mono text-[9.5px] uppercase leading-none tracking-[0.05em];
-    padding: 4px 7px;
+    @apply inline-flex items-center whitespace-nowrap rounded-full text-xs font-semibold uppercase leading-none tracking-[0.04em];
+    padding: 5px 9px;
   }
   /* White card floating on a panel fill. */
   .iq-float {
-    @apply rounded-[14px] bg-card shadow-float;
+    @apply rounded-[20px] bg-card shadow-float;
+  }
+
+  /* Liquid-glass material: functional layer only (bars, menus, sheets, floating cards), never
+     list rows or content cards. A hairline top edge catches light; blur + saturation keep colour
+     behind it alive. Falls back to an opaque fill without backdrop-filter, with Reduce
+     Transparency, and with Increase Contrast. */
+  .iq-glass,
+  .iq-glass-thick {
+    background: hsl(var(--glass-bg));
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    backdrop-filter: blur(24px) saturate(1.6);
+    box-shadow:
+      inset 0 0.5px 0 hsl(var(--glass-edge)),
+      0 0 0 0.5px hsl(var(--glass-line));
+  }
+  .iq-glass-thick {
+    background: hsl(var(--glass-bg-thick));
+    -webkit-backdrop-filter: blur(40px) saturate(1.8);
+    backdrop-filter: blur(40px) saturate(1.8);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .iq-glass,
+    .iq-glass-thick {
+      background: hsl(var(--card));
+    }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .iq-glass,
+    .iq-glass-thick {
+      background: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      box-shadow: 0 0 0 1px hsl(var(--line-3));
+    }
+  }
+
+  /* Stage: the large rounded surface a product shot sits on. A cool grey gradient with two
+     faint aurora tints, a hairline and a top highlight. Content layer: opaque, never glass. */
+  .iq-stage {
+    position: relative;
+    overflow: hidden;
+    border-radius: 32px;
+    background:
+      radial-gradient(60% 55% at 12% 0%, hsl(var(--aurora-1) / 0.2), transparent 70%),
+      radial-gradient(55% 55% at 92% 100%, hsl(var(--aurora-2) / 0.16), transparent 70%),
+      linear-gradient(180deg, hsl(var(--surface)), hsl(var(--stone)));
+    box-shadow: inset 0 0 0 0.5px hsl(var(--line)), inset 0 1px 0 hsl(0 0% 100% / 0.7);
+  }
+  .dark .iq-stage {
+    box-shadow: inset 0 0 0 0.5px hsl(var(--line)), inset 0 1px 0 hsl(0 0% 100% / 0.06);
+  }
+  /* Card: white (or elevated-dark) content card with the layered shadow; lifts on hover. */
+  .iq-card {
+    @apply rounded-card bg-card shadow-ring;
+    transition:
+      transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
+      box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .iq-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-float);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .iq-card:hover {
+      transform: none;
+    }
+  }
+  /* App wash: a faint aurora behind the top of every signed-in page, so the glass top bar has
+     colour to blur. Content layer; sits under the content (z -10 in the scroll container). */
+  .iq-app-wash {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: -10;
+    height: 340px;
+    pointer-events: none;
+    background:
+      radial-gradient(48% 100% at 18% 0%, hsl(var(--aurora-1) / 0.22), transparent 70%),
+      radial-gradient(42% 90% at 78% 0%, hsl(var(--aurora-2) / 0.18), transparent 70%),
+      radial-gradient(34% 80% at 58% 0%, hsl(var(--aurora-3) / 0.14), transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent);
+    mask-image: linear-gradient(to bottom, #000 30%, transparent);
+  }
+  .dark .iq-app-wash {
+    background:
+      radial-gradient(48% 100% at 18% 0%, hsl(var(--aurora-1) / 0.4), transparent 70%),
+      radial-gradient(42% 90% at 78% 0%, hsl(var(--aurora-2) / 0.32), transparent 70%),
+      radial-gradient(34% 80% at 58% 0%, hsl(var(--aurora-3) / 0.22), transparent 70%);
+  }
+  /* Aurora: three heavily blurred hue pools drifting behind the hero. Fades out toward the
+     bottom so the page returns to its own colour. */
+  .iq-aurora {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  }
+  .iq-aurora > span {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    opacity: 0.42;
+    animation: iq-drift 26s ease-in-out infinite;
+  }
+  .dark .iq-aurora > span {
+    opacity: 0.32;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .iq-aurora > span {
+      animation: none;
+    }
   }
 
   /* Scroll cue for a scroll box (scrollbars are hidden site-wide): the edge that hides content
@@ -286,10 +425,11 @@
      this at the base class's specificity, so a size utility on the element still wins. */
   :where(.iq-hud) .iq-eyebrow {
     font-size: calc(12.5 * var(--u));
-    letter-spacing: 0.18em;
+    letter-spacing: 0.07em;
   }
   /* Four L-shaped corner ticks, set just inside the card's rounded corners. */
   .iq-hud .hud-ticks {
+    display: none !important;
     --t: hsl(var(--hud-tick));
     --l: calc(8 * var(--u));
     position: absolute;
@@ -323,6 +463,7 @@
   }
   /* Cursor spotlight: a faint radial glow under the content (needs `isolate` on the card). */
   .iq-hud .hud-spot {
+    display: none !important;
     position: absolute;
     inset: 0;
     z-index: -1;
@@ -422,7 +563,11 @@
   /* 45° notch, top-right, 18px — larger than the 14px corner so it replaces the curve cleanly.
      The clip removes the border there; .hud-notch-line redraws it along the diagonal. */
   .iq-hud .hud-notch {
-    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    clip-path: none;
+  }
+  .iq-hud .hud-notch-line,
+  .iq-hud.dark .hud-notch-line[data-inverse] {
+    display: none !important;
   }
   .iq-hud .hud-notch-line {
     /* An 18px box on the cut (offset over the border); the stripe along its diagonal sits just
@@ -451,9 +596,7 @@
   }
   /* Faint dot grid: panels, the page card, placeholders. */
   .iq-hud .hud-grid {
-    background-image: radial-gradient(hsl(var(--hud-grid)) 1px, transparent 1.2px);
-    background-size: 18px 18px;
-    background-attachment: local;
+    background-image: none;
   }
 
   /* Form rows laid out by the width they actually get — onboarding's wide column, a narrow profile

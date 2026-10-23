@@ -108,16 +108,16 @@ module.exports = {
   			hero: 'var(--shadow-float)'
   		},
   		transitionTimingFunction: {
-  			iq: 'cubic-bezier(.2,.7,.2,1)'
+  			iq: 'cubic-bezier(.25,1,.5,1)'
   		},
   		borderRadius: {
   			DEFAULT: 'calc(var(--radius) - 4px)',
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)',
-  			tile: '16px',
-  			card: '20px',
-  			hero: '28px'
+  			tile: '18px',
+  			card: '24px',
+  			hero: '32px'
   		},
   		fontFamily: {
   			sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

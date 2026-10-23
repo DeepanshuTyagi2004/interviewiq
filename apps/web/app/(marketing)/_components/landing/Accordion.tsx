@@ -34,7 +34,7 @@ export function Accordion({ items, defaultOpen = 0, variant = "plus" }: Accordio
         const buttonId = `${baseId}-trigger-${i}`;
         const panelId = `${baseId}-panel-${i}`;
         return (
-          <div key={item.title} className="border-b border-line-2">
+          <div key={item.title} className="border-b border-line">
             <h3 className="m-0">
               <button
                 id={buttonId}
@@ -43,7 +43,7 @@ export function Accordion({ items, defaultOpen = 0, variant = "plus" }: Accordio
                 aria-controls={panelId}
                 onClick={() => setOpen(isOpen ? -1 : i)}
                 className={cn(
-                  "flex w-full cursor-pointer items-center justify-between gap-4 border-0 bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  "flex w-full cursor-pointer items-center justify-between gap-4 border-0 bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   variant === "sign" ? "py-[22px] text-[17px] tracking-[-0.02em] sm:text-lg" : "py-5 text-[15px] sm:text-base",
                 )}
               >
@@ -78,7 +78,7 @@ export function Accordion({ items, defaultOpen = 0, variant = "plus" }: Accordio
               <div className="overflow-hidden">
                 <p
                   className={cn(
-                    "m-0 mb-[22px] text-sm text-muted-foreground",
+                    "m-0 mb-[22px] text-[15px] text-muted-foreground",
                     variant === "sign" ? "max-w-[520px] leading-[1.55]" : "max-w-[600px] leading-[1.6]",
                   )}
                 >

@@ -41,7 +41,7 @@ function NavLink({
         "flex items-center rounded-[10px] text-[14px] transition-colors duration-150",
         FOCUS,
         collapsed ? "h-10 w-10 justify-center" : "gap-[11px] px-2.5 py-2",
-        active ? "bg-surface-2 font-medium text-ink" : "text-ink-2 hover:bg-surface hover:text-ink",
+        active ? "bg-card font-medium text-ink shadow-ring" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
       )}
     >
       <item.icon aria-hidden strokeWidth={1.6} className="h-[17px] w-[17px] flex-none" />
@@ -139,7 +139,7 @@ export function Sidebar({ collapsed = false, groups, level, readiness, account, 
               ) : (
                 <button
                   type="button"
-                  className={cn("flex w-full items-center gap-2.5 rounded-[12px] p-2 text-left transition-colors duration-150 hover:bg-surface data-[state=open]:bg-surface", FOCUS)}
+                  className={cn("flex w-full items-center gap-2.5 rounded-[12px] p-2 text-left transition-colors duration-150 hover:bg-surface-2 data-[state=open]:bg-surface-2", FOCUS)}
                 >
                   <Orb seed={seed} size={30} />
                   <span className="min-w-0 flex-1">

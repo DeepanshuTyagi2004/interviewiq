@@ -10,7 +10,7 @@ import { WakeServices } from "@/lib/providers/WakeServices";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const interTight = Inter_Tight({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-display" });
+const interTight = Inter_Tight({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "InterviewIQ",
