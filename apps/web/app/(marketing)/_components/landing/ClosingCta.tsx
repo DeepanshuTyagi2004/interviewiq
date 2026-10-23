@@ -14,13 +14,13 @@ const BLOBS: [string, string, string, string, number][] = [
 export function ClosingCta() {
   return (
     <section id="start" className={cn(CONTAINER, "mt-24 scroll-mt-16 sm:mt-[120px]")}>
-      <div className="iq-stage relative flex min-h-[440px] items-center sm:min-h-[520px]">
+      <div className="iq-stage-ink dark relative flex min-h-[440px] items-center sm:min-h-[520px]">
         <div aria-hidden className="absolute inset-0 blur-[60px]">
           {BLOBS.map(([token, left, top, size, delay], i) => (
             <span
               key={`${token}-${left}`}
               data-motion
-              className="absolute rounded-full opacity-60"
+              className="absolute rounded-full opacity-40"
               style={{
                 left,
                 top,
@@ -39,7 +39,7 @@ export function ClosingCta() {
           >
             It&apos;s time to rehearse the real interview, not random questions
           </h2>
-          <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-muted-foreground">
+          <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-ink-2">
             Everything you need to walk in prepared — the company&apos;s process, a real interviewer, and a debrief after
             every round.
           </p>

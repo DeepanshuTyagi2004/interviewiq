@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import { Accordion } from "./Accordion";
 import { UNIVERSITY_POINTS } from "./content";
-import { CONTAINER, Eyebrow, OutlineLink } from "./primitives";
+import { CONTAINER, OutlineLink } from "./primitives";
 
 const ITEMS = UNIVERSITY_POINTS.map(([title, body]) => ({ title, body }));
 
@@ -14,7 +14,6 @@ export function Universities() {
       className={cn(CONTAINER, "flex scroll-mt-16 flex-col gap-10 pt-24 sm:pt-[140px] lg:flex-row lg:gap-14")}
     >
       <div className="flex min-w-0 flex-col gap-5 lg:flex-[1_1_380px]">
-        <Eyebrow>INTERVIEWIQ FOR UNIVERSITIES</Eyebrow>
         <h2
           data-reveal
           className="iq-h2 max-w-[520px] text-[clamp(34px,4.2vw,58px)] leading-[1.04]"

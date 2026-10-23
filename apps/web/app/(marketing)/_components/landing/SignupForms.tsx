@@ -36,7 +36,7 @@ export function HeroSignup() {
 
   return (
     <div className="flex w-full max-w-[460px] flex-col gap-3">
-      <form onSubmit={onSubmit} className="flex gap-2">
+      <form onSubmit={onSubmit} className="flex flex-col gap-2 min-[460px]:flex-row">
         <label htmlFor={emailId} className="sr-only">
           Email
         </label>
@@ -46,9 +46,9 @@ export function HeroSignup() {
           type="email"
           autoComplete="email"
           placeholder="Enter email"
-          className={cn(emailInput, "h-[54px] flex-1 text-[15px]")}
+          className={cn(emailInput, "h-[54px] min-[460px]:flex-1 text-[15px]")}
         />
-        <button type="submit" className={cn(brandButton, "h-[54px] px-5 sm:px-6")}>
+        <button type="submit" className={cn(brandButton, "h-[54px] px-5 min-[460px]:px-6")}>
           Start for free
         </button>
       </form>

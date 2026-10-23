@@ -12,12 +12,12 @@ export function HeroScene() {
       <div className="iq-stage absolute inset-0 !rounded-[44px]" />
 
       {/* The interviewer: orb with a wide halo. */}
-      <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2">
+      <div className="absolute left-1/2 top-[36%] -translate-x-1/2 -translate-y-1/2">
         <span
           className="absolute -inset-24 rounded-full blur-3xl"
           style={{ background: "radial-gradient(circle,hsl(var(--aurora-1) / 0.9),hsl(var(--aurora-3) / 0.4) 45%,transparent 68%)" }}
         />
-        <Orb variant={1} size={176} state="breathing" className="relative" />
+        <Orb variant={1} size={176} state="breathing" className="relative scale-[0.7] sm:scale-100" />
       </div>
 
       {/* Live chip */}
@@ -27,7 +27,7 @@ export function HeroScene() {
       </div>
 
       {/* The question */}
-      <div className="iq-glass-card iq-float-b absolute left-[5%] top-[57%] w-[64%] p-4 shadow-float !rounded-[22px]">
+      <div className="iq-glass-card iq-float-b absolute left-[5%] top-[57%] w-[90%] p-4 shadow-float sm:w-[64%] !rounded-[22px]">
         <div className="flex items-center justify-between gap-3 text-xs text-ink-3">
           <span className="font-medium">Interviewer · speaking</span>
           <Waveform bars={14} height={14} className="text-foreground" />
@@ -38,7 +38,7 @@ export function HeroScene() {
       </div>
 
       {/* The round + signals */}
-      <div className="iq-glass-card iq-float-a absolute bottom-[5%] right-[5%] w-[52%] p-4 shadow-float !rounded-[22px]">
+      <div className="iq-glass-card iq-float-a absolute bottom-[5%] right-[5%] hidden w-[52%] sm:block p-4 shadow-float !rounded-[22px]">
         <p className="m-0 text-xs font-medium text-ink-3">Round 2 · Problem Solving</p>
         <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           {[

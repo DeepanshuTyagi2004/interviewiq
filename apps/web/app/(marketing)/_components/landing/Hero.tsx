@@ -28,12 +28,8 @@ export function Hero() {
 
       <div className={cn(CONTAINER, "relative z-10")}>
         <div className="grid items-center gap-12 pb-14 pt-14 sm:pt-20 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pb-20">
-          <div className="flex flex-col items-start text-left">
-            <p className="iq-intro iq-glass m-0 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium text-ink-2 [--i:0]">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-foreground shadow-[0_0_0_3px_hsl(var(--foreground)/0.15)]" />
-              AI mock interviews, round by round
-            </p>
-            <h1 className="iq-intro m-0 mt-5 text-balance text-[clamp(36px,4.7vw,64px)] font-bold leading-[1.06] tracking-[-0.035em] [--i:1]">
+          <div className="flex min-w-0 flex-col items-start text-left">
+            <h1 className="iq-intro m-0 text-balance text-[clamp(36px,4.7vw,64px)] font-bold leading-[1.06] tracking-[-0.035em] [--i:1]">
               Rehearse the interview you&apos;re{" "}
               <span className="iq-wordmark-iq">actually walking into</span>
             </h1>
@@ -46,7 +42,7 @@ export function Hero() {
               <HeroSignup />
             </div>
           </div>
-          <div className="iq-intro [--i:3]">
+          <div className="iq-intro min-w-0 [--i:3]">
             <HeroScene />
           </div>
         </div>

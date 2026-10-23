@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils/cn";
 import { CURRENT_WEEK, TRACKS, WEEKS, type TrackTone } from "./content";
-import { CONTAINER, Eyebrow } from "./primitives";
+import { CONTAINER } from "./primitives";
 
 const SEGMENTS = 4;
 /** Horizontal position of the "today" line: centre of the current week column. */
@@ -30,12 +30,9 @@ export function ReadinessTimeline() {
   return (
     <section id="readiness" className={cn(CONTAINER, "scroll-mt-16 pt-24 sm:pt-[120px]")}>
       <div className="flex flex-wrap items-end justify-between gap-6">
-        <div className="flex flex-col gap-4">
-          <Eyebrow>READINESS</Eyebrow>
-          <h2 data-reveal className="iq-h2 max-w-[560px]">
-            Track how ready you are, role by role
-          </h2>
-        </div>
+        <h2 data-reveal className="iq-h2 max-w-[560px]">
+          Track how ready you are, role by role
+        </h2>
         <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-muted-foreground">
           Readiness rises as you clear rounds of the official process — from getting started to interview-ready.
         </p>

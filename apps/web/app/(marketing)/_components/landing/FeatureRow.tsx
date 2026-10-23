@@ -1,10 +1,9 @@
 import { cn } from "@/lib/utils/cn";
 import type { ListItem } from "./content";
-import { CONTAINER, Eyebrow, FeatureList, OutlineLink } from "./primitives";
+import { CONTAINER, FeatureList, OutlineLink } from "./primitives";
 
 export interface FeatureRowProps {
   id?: string;
-  eyebrow: string;
   title: string;
   body: string;
   items: ListItem[];
@@ -13,6 +12,8 @@ export interface FeatureRowProps {
   panel: React.ReactNode;
   /** Put the panel on the right on wide screens. On narrow screens the panel always leads. */
   panelRight?: boolean;
+  /** Seat the illustration on the dark ink stage, where glass reads. */
+  ink?: boolean;
   className?: string;
 }
 
@@ -22,13 +23,13 @@ export interface FeatureRowProps {
  */
 export function FeatureRow({
   id,
-  eyebrow,
   title,
   body,
   items,
   cta,
   panel,
   panelRight = false,
+  ink = false,
   className,
 }: FeatureRowProps) {
   return (
@@ -36,14 +37,14 @@ export function FeatureRow({
       <div
         data-reveal
         className={cn(
-          "iq-stage flex min-h-[420px] min-w-0 items-center justify-center px-5 py-10 sm:min-h-[540px] sm:px-9 sm:py-12 lg:flex-[1_1_440px]",
+          ink ? "iq-stage-ink dark" : "iq-stage",
+          "flex min-h-[420px] min-w-0 items-center justify-center px-5 py-10 sm:min-h-[540px] sm:px-9 sm:py-12 lg:flex-[1_1_440px]",
           panelRight && "lg:order-2",
         )}
       >
         {panel}
       </div>
       <div className="flex min-w-0 flex-col gap-5 lg:flex-[1_1_380px] lg:py-6">
-        <Eyebrow>{eyebrow}</Eyebrow>
         <h2 data-reveal className="iq-h2 max-w-[480px]">
           {title}
         </h2>

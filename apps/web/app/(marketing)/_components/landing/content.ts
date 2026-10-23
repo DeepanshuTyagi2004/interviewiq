@@ -29,21 +29,21 @@ export const RESEARCH_ROUNDS: { n: string; title: string; status: string; state:
 ];
 
 export const LIST_RESEARCH: ListItem[] = [
-  { icon: "◎", b: "Company research", t: "from experiences candidates share, filtered by country, level and role" },
-  { icon: "↳", b: "Round-by-round roadmaps", t: "with topics, difficulty and interviewer style" },
-  { icon: "⌘", b: "Source-linked insights", t: "so you know how much data is behind every page" },
+  { icon: "compass", b: "Company research", t: "from experiences candidates share, filtered by country, level and role" },
+  { icon: "route", b: "Round-by-round roadmaps", t: "with topics, difficulty and interviewer style" },
+  { icon: "link", b: "Source-linked insights", t: "so you know how much data is behind every page" },
 ];
 
 export const LIST_INTERVIEW: ListItem[] = [
-  { icon: "◐", b: "Voice interviewer", t: "that builds on your own resume and projects" },
-  { icon: "⌗", b: "Code editor and whiteboard", t: "read live as you work" },
-  { icon: "↻", b: "Adaptive difficulty", t: "— hints when stuck, harder follow-ups when flying" },
+  { icon: "mic", b: "Voice interviewer", t: "that builds on your own resume and projects" },
+  { icon: "code", b: "Code editor and whiteboard", t: "read live as you work" },
+  { icon: "refresh", b: "Adaptive difficulty", t: "— hints when stuck, harder follow-ups when flying" },
 ];
 
 export const LIST_DEBRIEF: ListItem[] = [
-  { icon: "±", b: "Question breakdown", t: "with what you said next to a strong answer" },
-  { icon: "◇", b: "Eight live signals", t: "including clarity, hesitation and filler words" },
-  { icon: "→", b: "Pass to unlock", t: "the next round, or retake after 1–2 weeks" },
+  { icon: "list", b: "Question breakdown", t: "with what you said next to a strong answer" },
+  { icon: "gauge", b: "Eight live signals", t: "including clarity, hesitation and filler words" },
+  { icon: "unlock", b: "Pass to unlock", t: "the next round, or retake after 1–2 weeks" },
 ];
 
 export const INTERVIEW_QUESTION = "“Three pods, 50k requests a second. Where does the rate-limit state live?”";
@@ -90,10 +90,10 @@ export const TRACKS: { role: string; level: string; left: string; width: string;
 ];
 
 export const FEATURES = [
-  { icon: "◎", title: "Built on the real process", body: "Rounds, topics and difficulty researched from real candidate experiences." },
-  { icon: "◐", title: "Personal by default", body: "Questions come from your resume and projects — nothing to memorise." },
-  { icon: "↻", title: "Adapts in real time", body: "Hints, harder follow-ups and course-correction, like a real interviewer." },
-  { icon: "◇", title: "Readiness you can trust", body: "Pass marks, cooldowns and proctoring make every level mean something." },
+  { icon: "compass", title: "Built on the real process", body: "Rounds, topics and difficulty researched from real candidate experiences." },
+  { icon: "user", title: "Personal by default", body: "Questions come from your resume and projects — nothing to memorise." },
+  { icon: "refresh", title: "Adapts in real time", body: "Hints, harder follow-ups and course-correction, like a real interviewer." },
+  { icon: "gauge", title: "Readiness you can trust", body: "Pass marks, cooldowns and proctoring make every level mean something." },
 ];
 
 export const UNIVERSITY_POINTS: [title: string, body: string][] = [

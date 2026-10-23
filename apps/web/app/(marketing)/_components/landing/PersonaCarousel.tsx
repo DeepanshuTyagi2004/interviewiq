@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GlyphTile, hueIndex } from "@/components/ds";
 import { PERSONAS } from "./content";
 
-/** Card width (300) + trailing gap (20) — one carousel step. */
+/** Column width (296) + trailing gap (24) — one carousel step. */
 const STEP_PX = 320;
 const SWIPE_THRESHOLD_PX = 40;
 
@@ -39,7 +40,7 @@ export function PersonaCarousel() {
     <section aria-roledescription="carousel" aria-label="Who InterviewIQ is for">
       <div
         ref={viewportRef}
-        className="-mx-6 mt-12 overflow-hidden px-6 pb-8 pt-2 sm:mt-[64px]"
+        className="mt-12 overflow-hidden sm:mt-[64px]"
         onTouchStart={(e) => (touchX.current = e.touches[0]?.clientX ?? null)}
         onTouchEnd={(e) => {
           const start = touchX.current;
@@ -58,13 +59,13 @@ export function PersonaCarousel() {
               key={p.role}
               aria-roledescription="slide"
               aria-label={`${i + 1} of ${PERSONAS.length}: ${p.who}`}
-              className="iq-card mr-5 flex min-h-[340px] flex-[0_0_300px] flex-col gap-3.5 p-6"
+              className="mr-6 flex min-h-[320px] flex-[0_0_296px] flex-col gap-3.5 border-l border-line-2 pl-6"
             >
-              <p className="iq-eyebrow m-0">{p.role}</p>
               <GlyphTile tone={p.featured ? 0 : hueIndex(p.mono)} size={88} className="text-[30px] font-semibold tracking-[-0.04em]">
                 {p.mono}
               </GlyphTile>
               <h3 className="m-0 text-xl font-semibold tracking-[-0.02em]">{p.who}</h3>
+              <p className="m-0 -mt-2 text-sm text-ink-3">{p.role}</p>
               <p className="m-0 text-sm leading-[1.5] text-muted-foreground">{p.body}</p>
               <p className="m-0 mt-auto text-xs font-semibold tracking-[0.05em]">{p.status}</p>
             </li>
@@ -73,10 +74,10 @@ export function PersonaCarousel() {
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <CarouselButton label="Previous" disabled={index === 0} onClick={() => go(-1)}>
-          ←
+          <ChevronLeft className="h-4 w-4" />
         </CarouselButton>
         <CarouselButton label="Next" disabled={index >= maxIndex} onClick={() => go(1)}>
-          →
+          <ChevronRight className="h-4 w-4" />
         </CarouselButton>
       </div>
     </section>

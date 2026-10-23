@@ -1,17 +1,16 @@
 import { cn } from "@/lib/utils/cn";
 import { LAYERS } from "./content";
 import { LAYER_ART } from "./LayerArt";
-import { CONTAINER, Eyebrow } from "./primitives";
+import { CONTAINER } from "./primitives";
 
 /** "One process. Three steps." — three illustrated cards inside a dashed frame. */
 export function HowItWorks() {
   return (
     <section id="how" className={cn(CONTAINER, "mt-24 scroll-mt-16 sm:mt-[120px]")}>
       <div className="iq-stage flex flex-col items-center px-4 pb-12 pt-14 sm:px-8 sm:pb-[72px] sm:pt-20">
-        <Eyebrow>HOW IT WORKS</Eyebrow>
         <h2
           data-reveal
-          className="iq-h2 mt-3.5 text-center text-[clamp(32px,4vw,56px)]"
+          className="iq-h2 text-center text-[clamp(32px,4vw,56px)]"
         >
           One process. Three steps.
         </h2>
@@ -20,14 +19,14 @@ export function HowItWorks() {
           sharper.
         </p>
         <div className="mt-12 w-full max-w-[1040px]">
-          <ol className="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
+          <ol className="m-0 grid list-none grid-cols-1 gap-y-12 p-0 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-0">
             {LAYERS.map((layer) => {
               const Art = LAYER_ART[layer.key];
               return (
                 <li
                   key={layer.key}
                   data-reveal
-                  className="iq-card flex flex-col items-center gap-2.5 px-[22px] pb-[26px] pt-[30px] text-center md:last:col-span-2 lg:last:col-span-1"
+                  className="flex flex-col items-center gap-2.5 px-6 text-center md:last:col-span-2 lg:border-l lg:border-line-2 lg:first:border-l-0 lg:last:col-span-1"
                 >
                   <h3 className="m-0 text-[24px] font-semibold tracking-[-0.03em]">{layer.title}</h3>
                   <p className="m-0 max-w-[240px] text-sm leading-[1.5] text-muted-foreground">{layer.body}</p>

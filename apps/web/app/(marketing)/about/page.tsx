@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ROUTES } from "@/lib/constants/shared";
-import { CONTAINER, Eyebrow, OutlineLink } from "../_components/landing/primitives";
+import { CONTAINER, OutlineLink } from "../_components/landing/primitives";
 
 export const metadata: Metadata = {
   title: "About — InterviewIQ",
@@ -18,7 +18,6 @@ export default function AboutPage() {
   return (
     <section className={`${CONTAINER} flex flex-col gap-12 py-16 sm:py-24`}>
       <div className="flex max-w-[680px] flex-col gap-4">
-        <Eyebrow>ABOUT INTERVIEWIQ</Eyebrow>
         <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">
           Interview practice is scarce, expensive and inconsistent. It shouldn&apos;t be.
         </h1>

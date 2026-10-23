@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ROUTES } from "@/lib/constants/shared";
-import { CONTAINER, Eyebrow, OutlineLink } from "../_components/landing/primitives";
+import { CONTAINER, OutlineLink } from "../_components/landing/primitives";
 import { Universities } from "../_components/landing/Universities";
 
 export const metadata: Metadata = {
@@ -19,7 +19,6 @@ export default function ForCollegesPage() {
     <>
       <section className={`${CONTAINER} flex flex-col gap-10 pt-16 sm:pt-24`}>
         <div className="flex max-w-[680px] flex-col gap-4">
-          <Eyebrow>FOR PLACEMENT CELLS</Eyebrow>
           <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">
             Every student gets a real rehearsal before the real thing.
           </h1>
@@ -38,7 +37,7 @@ export default function ForCollegesPage() {
         </div>
         <ol className="m-0 grid list-none gap-4 p-0 md:grid-cols-3">
           {STEPS.map(([title, body], i) => (
-            <li key={title} className="flex flex-col gap-2 rounded-[18px] border border-line-3 bg-panel p-6">
+            <li key={title} className="flex flex-col gap-2 iq-glass-card flex-col p-6">
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Step {String(i + 1).padStart(2, "0")}</span>
               <h2 className="m-0 text-[20px] font-normal leading-[1.15] tracking-[-0.02em]">{title}</h2>
               <p className="m-0 text-[14.5px] leading-[1.55] text-muted-foreground">{body}</p>

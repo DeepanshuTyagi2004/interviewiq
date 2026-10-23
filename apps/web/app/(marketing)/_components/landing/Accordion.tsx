@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export interface AccordionItem {
@@ -49,18 +50,15 @@ export function Accordion({ items, defaultOpen = 0, variant = "plus" }: Accordio
               >
                 {item.title}
                 {variant === "sign" ? (
-                  <span aria-hidden className="text-xl font-light text-faint">
-                    {isOpen ? "−" : "+"}
+                  <span aria-hidden className="flex-none text-faint">
+                    {isOpen ? <Minus className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <Plus className="h-[18px] w-[18px]" strokeWidth={1.6} />}
                   </span>
                 ) : (
                   <span
                     aria-hidden
-                    className={cn(
-                      "flex-none text-lg font-light transition-transform duration-[350ms]",
-                      isOpen && "rotate-45",
-                    )}
+                    className={cn("flex-none transition-transform duration-[350ms]", isOpen && "rotate-45")}
                   >
-                    +
+                    <Plus className="h-[18px] w-[18px]" strokeWidth={1.6} />
                   </span>
                 )}
               </button>

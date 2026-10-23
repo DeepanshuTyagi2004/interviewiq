@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ROUTES } from "@/lib/constants/shared";
-import { CONTAINER, Eyebrow, OutlineLink } from "../_components/landing/primitives";
+import { CONTAINER, OutlineLink } from "../_components/landing/primitives";
 
 export const metadata: Metadata = {
   title: "Contact — InterviewIQ",
@@ -30,7 +30,6 @@ export default function ContactPage() {
   return (
     <section className={`${CONTAINER} flex flex-col gap-10 py-16 sm:py-24`}>
       <div className="flex max-w-[640px] flex-col gap-4">
-        <Eyebrow>CONTACT</Eyebrow>
         <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">Talk to us.</h1>
         <p className="m-0 text-[16px] leading-[1.55] text-muted-foreground">
           Two reasons people write: a college or company wants a demo, or someone needs help with their account. Pick yours.
@@ -38,9 +37,9 @@ export default function ContactPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {PATHS.map((p) => (
-          <div key={p.eyebrow} className="flex flex-col gap-4 rounded-[18px] border border-line-3 bg-panel p-6 sm:p-8">
-            <Eyebrow>{p.eyebrow}</Eyebrow>
-            <h2 className="m-0 text-[24px] font-normal leading-[1.1] tracking-[-0.03em]">{p.title}</h2>
+          <div key={p.eyebrow} className="flex flex-col gap-4 iq-glass-card p-6 sm:p-8">
+            <h2 className="m-0 text-[24px] font-semibold leading-[1.1] tracking-[-0.03em]">{p.title}</h2>
+            <p className="m-0 -mt-2 text-sm text-ink-3">{p.eyebrow}</p>
             <p className="m-0 text-[15px] leading-[1.55] text-muted-foreground">{p.body}</p>
             {CONTACT_EMAIL ? (
               <OutlineLink href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(p.subject)}`} className="mt-auto h-10 w-fit px-[18px]">

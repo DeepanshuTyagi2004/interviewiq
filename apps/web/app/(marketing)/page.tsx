@@ -29,7 +29,6 @@ export default function MarketingHomePage() {
       <FeatureRow
         id="product"
         className="pt-20 sm:pt-24"
-        eyebrow="COMPANY RESEARCH"
         title="Practise the process you'll really face"
         body="Turn scattered interview experiences into one clear, round-by-round process for your company and role — so every practice session counts."
         items={LIST_RESEARCH}
@@ -39,18 +38,17 @@ export default function MarketingHomePage() {
       <FeatureRow
         id="interview"
         className="pt-24 sm:pt-[120px]"
-        eyebrow="THE INTERVIEW"
         title="A spoken interview that adapts to you"
         body="It greets you, asks about your own projects, and takes you through the round one question at a time — reading your code and diagrams as you work."
         items={LIST_INTERVIEW}
         cta={{ label: "See a sample interview", href: ROUTES.login }}
         panel={<InterviewDemo />}
         panelRight
+        ink
       />
       <FeatureRow
         id="debrief"
         className="pt-24 sm:pt-[120px]"
-        eyebrow="DEBRIEF"
         title="Know exactly what a strong answer looked like"
         body="Every round ends with a question-by-question breakdown — what you said, what great sounded like, and what to study before your next attempt."
         items={LIST_DEBRIEF}
