@@ -15,6 +15,7 @@ export const ROUTES = {
   help: "/help",
   onboarding: "/onboarding",
   profile: "/profile",
+  profileScore: "/profile/score",
   connections: "/connections",
   jobs: "/jobs",
   interviews: "/interviews",

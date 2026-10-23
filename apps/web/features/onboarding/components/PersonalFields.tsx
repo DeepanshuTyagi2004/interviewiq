@@ -11,7 +11,7 @@ import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel } from "@/lib/constants/e
  * Personal details (also reused in profile edit). Reads the shared RHF context. Onboarding hides
  * the target-role field because it has its own Target step.
  */
-export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boolean }) {
+export function PersonalFields({ showTargetRole = true, levelHint }: { showTargetRole?: boolean; levelHint?: string }) {
   const {
     register,
     watch,
@@ -23,7 +23,7 @@ export function PersonalFields({ showTargetRole = true }: { showTargetRole?: boo
   return (
     <div className="iq-fields">
       <div className="iq-grid gap-4" data-cols="3">
-        <FormField label="Engineering level" error={errors.level?.message} hint="Your current level, independent of your target role">
+        <FormField label="Engineering level" error={errors.level?.message} hint={levelHint ?? "Your current level, independent of your target role"}>
           <CustomSelect label="Engineering level" value={watch("level")} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setValue("level", value, { shouldDirty: true, shouldValidate: true }); }} />
         </FormField>
         <FormField

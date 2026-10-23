@@ -116,7 +116,7 @@ def test_parse_resume_route_happy(monkeypatch):
     monkeypatch.setattr(routes, "get_settings", lambda: _FakeSettings())
     monkeypatch.setattr(routes, "extract_text", lambda b: "Asha Rao\nPython, SQL")
     llm_out = {"full_name": "Asha Rao", "skills": ["Python", "SQL"]}
-    monkeypatch.setattr(routes, "build_llm_client", lambda settings, *, model=None: _FakeLLM(llm_out))
+    monkeypatch.setattr(routes, "build_resume_llm_client", lambda settings: _FakeLLM(llm_out))
     result = asyncio.run(routes.parse_resume(_FakeRequest(b"%PDF-1.4 fake")))
     assert result["full_name"] == "Asha Rao"
     assert result["skills"] == ["Python", "SQL"]

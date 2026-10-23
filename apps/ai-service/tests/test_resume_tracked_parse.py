@@ -42,7 +42,7 @@ def _steps(run_id):
 def test_tracked_parse_happy(monkeypatch):
     monkeypatch.setattr(tp, "extract_text", lambda b: "Asha Rao\nExperience\nAcme — Intern\nBuilt X")
     data = {"full_name": "Asha Rao", "experience": [{"company": "Acme", "title": "Intern", "bullets": ["Built X"]}]}
-    monkeypatch.setattr(tp, "build_llm_client", lambda s, *, model=None: _FakeLLM(data, reasoning="thinking..."))
+    monkeypatch.setattr(tp, "build_resume_llm_client", lambda s: _FakeLLM(data, reasoning="thinking..."))
 
     run_id = tp.start_resume_run("cv.pdf", 1234)
     asyncio.run(tp.run_resume_parse(b"%PDF-1.4 x", "cv.pdf", run_id, _FakeSettings()))
@@ -77,8 +77,8 @@ def test_tracked_parse_extract_failure_skips_rest(monkeypatch):
 
 def test_tracked_parse_llm_failure_skips_validate_done(monkeypatch):
     monkeypatch.setattr(tp, "extract_text", lambda b: "text " * 20)
-    monkeypatch.setattr(tp, "build_llm_client",
-                        lambda s, *, model=None: _FakeLLM(None, exc=LLMError("all keys cooling")))
+    monkeypatch.setattr(tp, "build_resume_llm_client",
+                        lambda s: _FakeLLM(None, exc=LLMError("all keys cooling")))
 
     run_id = tp.start_resume_run("cv.pdf", 10)
     asyncio.run(tp.run_resume_parse(b"%PDF x", "cv.pdf", run_id, _FakeSettings()))

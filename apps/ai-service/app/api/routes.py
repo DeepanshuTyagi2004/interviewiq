@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.api.deps import get_exa, require_internal_key
 from app.config import get_settings
 from app.db import mongo, repositories as repo
-from app.llm.client import LLMError, build_llm_client, build_profile_scoring_llm_client
+from app.llm.client import LLMError, build_llm_client, build_profile_scoring_llm_client, build_resume_llm_client
 from app.jobs.brief_generation import generate_one
 from app.interviewer.heartbeat import worker_alive
 from app.exa.client import ExaClient, ExaConfigError, build_exa_client
@@ -153,7 +153,7 @@ async def parse_resume(request: Request) -> dict:
 
     settings = get_settings()
     try:
-        async with build_llm_client(settings, model=settings.resume_llm_model or None) as llm:
+        async with build_resume_llm_client(settings) as llm:
             data = await llm.complete_json(
                 RESUME_SYSTEM, build_parse_resume_prompt(text), label="resume-parse")
     except LLMError as exc:

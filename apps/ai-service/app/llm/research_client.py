@@ -31,7 +31,8 @@ class ResearchLLMClient(LLMClient):
     their own deadline, Groq stage budget and output cap without changing research behaviour."""
 
     def __init__(self, settings: Settings, *, deadline_seconds: float | None = None,
-                 groq_stage_seconds: float | None = None, max_output_tokens: int | None = None):
+                 groq_stage_seconds: float | None = None, max_output_tokens: int | None = None,
+                 gemini_stage_fraction: float = 0.6):
         keys = list(dict.fromkeys(k.strip() for k in settings.groq_api_keys if k.strip()))
         models = list(dict.fromkeys(model.strip() for model in
                                    [settings.groq_model, *settings.groq_fallback_models] if model.strip()))
@@ -51,6 +52,7 @@ class ResearchLLMClient(LLMClient):
         self._fallback = ResearchGoogleClient(settings) if settings.llm_api_keys else None
         self._quarantined: set[int] = set()
         self._deadline = deadline_seconds or settings.research_llm_deadline_seconds
+        self._gemini_fraction = gemini_stage_fraction
         self._groq_stage_seconds = groq_stage_seconds or min(25.0, settings.research_groq_stage_seconds)
         self._max_tokens = max_output_tokens or settings.research_max_output_tokens
         self._bytes_per_token = getattr(settings, "groq_bytes_per_token", 3.0) or 3.0
@@ -216,9 +218,9 @@ class ResearchLLMClient(LLMClient):
         try:
             async with asyncio.timeout(self._deadline):
                 if self._gemini is not None:
-                    # At most 60% of the caller's deadline, so the fallback chain still has time to answer.
+                    # Only a share of the caller's deadline, so the fallback chain still has time to answer.
                     try:
-                        async with asyncio.timeout(self._deadline * 0.6):
+                        async with asyncio.timeout(self._deadline * self._gemini_fraction):
                             result = await self._gemini.complete_full(system, user, label=label)
                     except TimeoutError:
                         call.failures.append("gemini:stage_deadline")

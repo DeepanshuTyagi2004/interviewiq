@@ -14,7 +14,7 @@ import time
 
 from app.config import Settings
 from app.jobs.pipeline_runs import RUNS, bind_run, unbind_run
-from app.llm.client import LLMError, build_llm_client
+from app.llm.client import LLMError, build_resume_llm_client
 from app.models.resume import ParsedResume
 from app.prompts.parse_resume import RESUME_SYSTEM, RESUME_VERSION, build_parse_resume_prompt
 from app.resume.extract import ResumeExtractError, extract_text
@@ -71,7 +71,7 @@ async def run_resume_parse(pdf_bytes: bytes, filename: str, run_id: str, setting
         RUNS.begin_step(run_id, "llm_response")
         started = time.monotonic()
         try:
-            async with build_llm_client(settings, model=model) as llm:
+            async with build_resume_llm_client(settings) as llm:
                 data, reasoning = await llm.complete(RESUME_SYSTEM, user_prompt, label="resume-parse")
         except LLMError as exc:
             RUNS.log(run_id, "ERROR", f"LLM call failed: {exc}")
