@@ -41,8 +41,8 @@ const SYMBOLS: Record<PersonaKind, { main: string; detail?: string; fill?: strin
 const ORB_HUE: Record<PersonaKind, number> = { student: 0, campus: 1, professional: 3, hiring: 2, bootcamp: 5 };
 
 /**
- * Audience symbols: a thin-line glyph on a liquid-glass tile, with one frosted disc behind it for
- * depth and a single small coloured orb as the only accent. Four treatments (`variant`): ink line
+ * Audience symbols: a thin-line glyph on a liquid-glass tile with a single small coloured orb as the
+ * only accent. Four treatments (`variant`): ink line
  * on pearl, white line on smoked glass, an engraved letterpress glyph, and a duotone glyph with a
  * translucent glass fill. Decorative (aria-hidden).
  */
@@ -95,10 +95,6 @@ export function PersonaGlyph({
           <stop offset="0" stopColor="#2A2825" />
           <stop offset="1" stopColor="#57534D" />
         </linearGradient>
-        <linearGradient id={`${id}-disc`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity={dark ? 0.2 : 0.85} />
-          <stop offset="1" stopColor="#fff" stopOpacity={dark ? 0.04 : 0.2} />
-        </linearGradient>
         <radialGradient id={`${id}-orb`} cx=".32" cy=".26" r=".85">
           <stop offset="0" stopColor="#fff" />
           <stop offset=".3" stopColor={hi} />
@@ -117,13 +113,6 @@ export function PersonaGlyph({
       <rect width="120" height="120" rx="30" fill={`url(#${id}-tile)`} />
       <rect x="9" y="5" width="102" height="52" rx="26" fill={`url(#${id}-sheen)`} opacity=".65" />
       <rect x="1" y="1" width="118" height="118" rx="29" fill="none" stroke={`url(#${id}-rim)`} strokeWidth="2" />
-
-      {/* frosted disc behind the symbol, offset down and right for depth */}
-      {variant !== "engraved" ? (
-        <g filter={`url(#${id}-lift)`}>
-          <circle cx="68" cy="70" r="30" fill={`url(#${id}-disc)`} stroke={`url(#${id}-rim)`} strokeWidth="1" />
-        </g>
-      ) : null}
 
       {/* the symbol */}
       {variant === "engraved" ? (
