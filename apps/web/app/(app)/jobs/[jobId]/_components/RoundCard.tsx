@@ -47,7 +47,7 @@ export function RoundCard({ round, index, jdId, number, practiceTemplate = false
   const questions = [...new Set(round.problems?.map((question) => question.trim()).filter(Boolean) ?? [])];
 
   const disclosure = "mt-1 text-[13px]";
-  const summary = "cursor-pointer text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm";
+  const summary = "cursor-pointer text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm";
   return (
     <li
       className={cn(

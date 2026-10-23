@@ -35,7 +35,7 @@ export function SidebarInvite() {
           markDismissed(INVITE_KEY, "1");
           setDismissed(true);
         }}
-        className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full text-ink-3 outline-none transition-colors hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ink"
+        className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full text-ink-3 outline-none transition-colors hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand"
       >
         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
       </button>

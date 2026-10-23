@@ -24,7 +24,7 @@ export function ToolRail() {
             title={label}
             onClick={() => setSurface(id)}
             className={cn(
-              'relative flex h-10 w-10 items-center justify-center rounded-full text-ink-2 transition-colors duration-150 ease-iq hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'relative flex h-10 w-10 items-center justify-center rounded-full text-ink-2 transition-colors duration-150 ease-iq hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background',
               surface === id && 'bg-ink text-background hover:bg-ink hover:text-background',
             )}
           >

@@ -16,7 +16,7 @@ export function AskPill() {
         type="button"
         aria-label="Clear the selection"
         onClick={clearAsk}
-        className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+        className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <X aria-hidden className="h-3.5 w-3.5" />
       </button>

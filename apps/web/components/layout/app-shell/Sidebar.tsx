@@ -14,7 +14,7 @@ import { SidebarInvite } from "./SidebarInvite";
 const READINESS_SEGMENTS = 4;
 
 const FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function filledSegments(r: { completed: number; total: number } | null): number {
   return r && r.total > 0 ? Math.round((r.completed / r.total) * READINESS_SEGMENTS) : 0;

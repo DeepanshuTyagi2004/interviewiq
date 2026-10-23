@@ -86,7 +86,7 @@ export function ProblemPanel() {
                 if (strip) setExpanded('none')
               }}
               className={cn(
-                'h-[26px] flex-none rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                'h-[26px] flex-none rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 c.itemId === panel.activeId ? 'bg-ink text-background' : 'text-ink-3 hover:bg-surface-2 hover:text-foreground',
                 panel.flashId === c.itemId && 'ring-2 ring-ink/50 motion-safe:animate-pulse',
               )}

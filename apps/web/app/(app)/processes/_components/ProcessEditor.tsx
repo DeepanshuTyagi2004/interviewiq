@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils/cn";
 import { NodePalette } from "./NodePalette";
 import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "@/lib/constants/engineering-levels";
 
-const field = "h-10 w-full rounded-full bg-background px-4 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50";
-const area = "w-full rounded-2xl bg-background px-4 py-2.5 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const field = "h-10 w-full rounded-full bg-background px-4 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50";
+const area = "w-full rounded-2xl bg-background px-4 py-2.5 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="iq-eyebrow">{children}</span>;
@@ -271,7 +271,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
           maxLength={120}
           title={name}
           onChange={(e) => setName(e.target.value)}
-          className="h-9 min-w-0 flex-[1_1_220px] rounded-full border border-transparent bg-transparent px-3 font-display text-[16px] tracking-[-0.01em] outline-none transition-colors hover:border-line-3 focus-visible:ring-2 focus-visible:ring-ink"
+          className="h-9 min-w-0 flex-[1_1_220px] rounded-full border border-transparent bg-transparent px-3 font-display text-[16px] tracking-[-0.01em] outline-none transition-colors hover:border-line-3 focus-visible:ring-2 focus-visible:ring-brand"
         />
         <CustomSelect label="Process level" value={level} disabled={update.isPending || confirm.isPending} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setLevel(value); }} className="h-9 w-40" />
         {!normalizeLegacyLevel(process.data.level) && !level ? <span className="text-[12.5px] text-ink-2">Saved level is unrecognized. Choose a level to save or start.</span> : null}

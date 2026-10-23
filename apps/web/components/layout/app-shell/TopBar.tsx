@@ -11,7 +11,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import type { BreadcrumbNames } from "./breadcrumbs";
 
 const FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /** The mockup's `.tb`: a 36px pill with a hairline ring. */
 const pill =

@@ -8,11 +8,11 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROUTES } from "@/lib/constants/shared";
 
 const brandButton =
-  "flex items-center justify-center whitespace-nowrap rounded-full bg-brand text-sm font-medium text-brand-foreground transition-colors hover:bg-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "iq-brand-glass flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const lineButton =
-  "flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-card text-sm font-medium text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "iq-glass-btn flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const emailInput =
-  "min-w-0 rounded-full bg-card px-5 text-foreground shadow-ring outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring";
+  "min-w-0 rounded-full bg-card/70 px-5 text-foreground shadow-ring outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * The email field is a head start on sign-up: submitting carries the address to the sign-up form
@@ -61,7 +61,7 @@ export function HeroSignup() {
           Start with your resume
         </Link>
       </div>
-      <p className="m-0 text-[11.5px] text-faint">
+      <p className="m-0 text-xs text-faint">
         By signing up, I agree to InterviewIQ&apos;s{" "}
         <a href="#" className="text-muted-foreground underline">
           Terms

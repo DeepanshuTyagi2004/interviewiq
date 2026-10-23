@@ -46,7 +46,7 @@ export function SectionHeader({ title, href, actions, className }: SectionHeader
       {href ? (
         <Link
           href={href}
-          className="rounded-md outline-none transition-opacity duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="rounded-md outline-none transition-opacity duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {heading}
         </Link>

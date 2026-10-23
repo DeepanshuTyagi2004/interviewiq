@@ -20,7 +20,7 @@ export default function ForCollegesPage() {
       <section className={`${CONTAINER} flex flex-col gap-10 pt-16 sm:pt-24`}>
         <div className="flex max-w-[680px] flex-col gap-4">
           <Eyebrow>FOR PLACEMENT CELLS</Eyebrow>
-          <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.045em]">
+          <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">
             Every student gets a real rehearsal before the real thing.
           </h1>
           <p className="m-0 text-[16px] leading-[1.55] text-muted-foreground">

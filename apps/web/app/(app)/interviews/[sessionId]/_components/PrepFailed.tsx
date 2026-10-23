@@ -22,7 +22,7 @@ export function PrepFailed({ session }: { session: InterviewSession }) {
         <RetryPrepButton session={session} />
         {session.prep.errorCode ? (
           <details className="text-[13px] text-ink-3">
-            <summary className="cursor-pointer select-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ink">Details</summary>
+            <summary className="cursor-pointer select-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-brand">Details</summary>
             <p className="m-0 mt-1.5">
               Error code <span className="font-mono text-ink">{session.prep.errorCode}</span>
             </p>

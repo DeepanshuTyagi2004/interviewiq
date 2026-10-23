@@ -7,7 +7,7 @@ import { MarketingHeader } from "./_components/MarketingHeader";
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="iq-landing flex min-h-screen flex-1 flex-col overflow-x-clip bg-background leading-[normal]">
+    <div className="iq-landing flex min-h-screen flex-1 flex-col overflow-x-clip leading-[normal]">
       <MarketingHeader />
       <main className="flex-1">{children}</main>
       <MarketingFooter />

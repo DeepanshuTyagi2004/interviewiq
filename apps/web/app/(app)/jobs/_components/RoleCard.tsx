@@ -24,7 +24,7 @@ export function RoleCard({ jd, fit = null, fitLoading = false }: { jd: JdSummary
     <li className="flex min-w-0 flex-col">
       <Link
         href={`${ROUTES.jobs}/${jd.id}`}
-        className="group/role relative flex flex-1 items-start gap-4 rounded-card bg-surface p-5 shadow-ring outline-none transition-transform duration-200 ease-iq hover:-translate-y-[3px] focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        className="group/role relative flex flex-1 items-start gap-4 rounded-card bg-surface p-5 shadow-ring outline-none transition-transform duration-200 ease-iq hover:-translate-y-[3px] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       >
         <CompanyMark seed={jd.company} name={jd.companyName ?? jd.company} size={42} className="mt-0.5" />
         <span className="min-w-0 flex-1">

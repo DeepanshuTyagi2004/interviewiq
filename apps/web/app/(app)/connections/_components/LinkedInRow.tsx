@@ -182,7 +182,7 @@ export function LinkedInRow({ provider, variant = "stack", resumeLinkedInUrl }: 
                 onDragLeave={() => setDragging(false)}
                 onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files?.[0]); }}
                 className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-ink-3/50 bg-surface p-6 text-center transition-colors duration-150 hover:border-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-ink-3/50 bg-surface p-6 text-center transition-colors duration-150 hover:border-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   (dragging || file) && "border-ink-3",
                   dragging && "bg-surface-2",
                   pending !== null && "pointer-events-none opacity-70",

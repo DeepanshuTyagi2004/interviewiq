@@ -48,7 +48,7 @@ export function PrivacySettings() {
                     disabled={update.isPending}
                     onClick={() => save({ leaderboardVisibility: v.value })}
                     className={cn(
-                      "flex items-start gap-3 rounded-tile border px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "flex items-start gap-3 rounded-tile border px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       selected ? "border-ink bg-background" : "border-line bg-surface hover:bg-surface-2",
                     )}
                   >

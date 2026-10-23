@@ -17,7 +17,7 @@ const TABS = ["tracks", "schedule", "targets"] as const;
 type Tab = (typeof TABS)[number];
 
 const FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function StatTile({ label, value, href }: { label: string; value: number | string; href?: string }) {
   const tile = (

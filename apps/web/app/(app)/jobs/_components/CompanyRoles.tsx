@@ -19,10 +19,10 @@ import {
    stackCounts, toSearchParams, YOE_STEPS, type RoleFilters,
 } from "./roleFilters";
 
-const chip = "inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const chip = "inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const chipOff = "bg-surface-2 text-ink-2 hover:text-foreground";
 const chipOn = "bg-ink text-background";
-const select = "h-9 w-auto rounded-full bg-background px-3.5 text-[13px] text-foreground shadow-ring transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const select = "h-9 w-auto rounded-full bg-background px-3.5 text-[13px] text-foreground shadow-ring transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const STACK_COLLAPSED = 14;
 
 function toggle(list: string[], value: string): string[] {
@@ -102,7 +102,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
           onSubmit={(e) => { e.preventDefault(); update({ q: searchText }); }}
         >
           {/* Icon and input share one flex row inside the pill, so the icon can never sit on the text. */}
-          <label className="flex h-11 min-w-0 flex-[1_1_280px] items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-background sm:max-w-[460px]">
+          <label className="flex h-11 min-w-0 flex-[1_1_280px] items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-background sm:max-w-[460px]">
             <Search aria-hidden className="h-4 w-4 flex-none text-ink-3" />
             <input
               type="search"
@@ -172,7 +172,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
               );
             })}
             {stacks.length > STACK_COLLAPSED ? (
-              <button type="button" onClick={() => setShowAllStack((v) => !v)} className="inline-flex h-7 items-center gap-1 rounded-full px-2 text-[12.5px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
+              <button type="button" onClick={() => setShowAllStack((v) => !v)} className="inline-flex h-7 items-center gap-1 rounded-full px-2 text-[12.5px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
                 {showAllStack ? "Show less" : `Show all ${stacks.length}`}
                 <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform", showAllStack && "rotate-180")} />
               </button>
@@ -199,7 +199,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
       </p>
       {fit.data && fit.data.userLevel === null && all.length > 0 ? (
         <p className="m-0 mt-1 text-[13px] text-ink-3">
-          <Link href={ROUTES.profile} className="rounded-sm underline-offset-[3px] hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
+          <Link href={ROUTES.profile} className="rounded-sm underline-offset-[3px] hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
             Set your level
           </Link>{" "}
           for a fairer match score.

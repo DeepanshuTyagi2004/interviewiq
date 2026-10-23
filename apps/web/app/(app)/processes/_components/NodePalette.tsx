@@ -50,13 +50,13 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
       <p className="m-0 text-[12.5px] leading-relaxed text-ink-2">Click to chain a round. Drag to place it. Reference steps never run.</p>
       <div className="relative">
         <Search aria-hidden className="pointer-events-none absolute left-3.5 top-3.5 h-3.5 w-3.5 text-ink-3" />
-        <input aria-label="Search nodes" disabled={disabled} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search skills, tools, topics…" className="h-10 w-full rounded-full bg-background pl-9 pr-9 text-[12.5px] shadow-ring outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50" />
-        {query ? <button type="button" aria-label="Clear search" disabled={disabled} onClick={() => setQuery("")} className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"><X aria-hidden className="h-3.5 w-3.5" /></button> : null}
+        <input aria-label="Search nodes" disabled={disabled} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search skills, tools, topics…" className="h-10 w-full rounded-full bg-background pl-9 pr-9 text-[12.5px] shadow-ring outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50" />
+        {query ? <button type="button" aria-label="Clear search" disabled={disabled} onClick={() => setQuery("")} className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><X aria-hidden className="h-3.5 w-3.5" /></button> : null}
       </div>
       <CustomSelect label="Node category" value={category} onValueChange={setCategory} disabled={disabled} options={[{ value: "all", label: "All categories" }, ...NODE_CATEGORIES.map((group) => ({ value: group.id, label: group.label }))]} className="h-9 text-[12.5px]" />
       <div className="flex items-center justify-between gap-2 text-xs text-ink-3">
         <span role="status" aria-live="polite" aria-atomic="true">{results.length} {results.length === 1 ? "node" : "nodes"} found</span>
-        {query || category !== "all" ? <button type="button" disabled={disabled} onClick={reset} className="rounded text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">Reset filters</button> : null}
+        {query || category !== "all" ? <button type="button" disabled={disabled} onClick={reset} className="rounded text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Reset filters</button> : null}
       </div>
     </div>
     <div aria-label="Node results" className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-3">
@@ -85,7 +85,7 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
               }}
               onDragEnd={clearDragPreview}
               style={{ userSelect: "none", WebkitUserSelect: "none" }}
-              className={cn("group flex w-full select-none items-start gap-2 rounded-2xl bg-background px-3 py-2.5 text-left shadow-ring transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-40", node.kind === "info" && "border border-dashed border-line-3 bg-surface shadow-none", capped && "opacity-60")}>
+              className={cn("group flex w-full select-none items-start gap-2 rounded-2xl bg-background px-3 py-2.5 text-left shadow-ring transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-40", node.kind === "info" && "border border-dashed border-line-3 bg-surface shadow-none", capped && "opacity-60")}>
               <span draggable={false} className="min-w-0 flex-1">
                 <span className="block text-[12.5px] font-medium leading-snug">{node.label}</span>
                 <span className="mt-1 block text-xs leading-relaxed text-ink-2">{node.description}</span>
@@ -97,7 +97,7 @@ export function NodePalette({ onAdd, disabled, roundCount, infoCount }: {
           })}
         </div>
       </section>)}
-      {!results.length ? <div className="rounded-2xl border border-dashed border-line-3 px-4 py-6 text-center"><p className="m-0 text-sm">No matching nodes</p><p className="mb-4 mt-2 text-[12.5px] leading-relaxed text-ink-3">Try a technology, interview topic, or another category.</p><button type="button" disabled={disabled} onClick={reset} className="rounded-full px-4 py-2 text-[12.5px] shadow-ring hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">Show all nodes</button></div> : null}
+      {!results.length ? <div className="rounded-2xl border border-dashed border-line-3 px-4 py-6 text-center"><p className="m-0 text-sm">No matching nodes</p><p className="mb-4 mt-2 text-[12.5px] leading-relaxed text-ink-3">Try a technology, interview topic, or another category.</p><button type="button" disabled={disabled} onClick={reset} className="rounded-full px-4 py-2 text-[12.5px] shadow-ring hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Show all nodes</button></div> : null}
     </div>
     <div className="flex shrink-0 justify-between border-t border-line px-4 py-2.5 font-mono text-xs text-ink-3"><span>{roundCount}/{MAX_ROUND_NODES} rounds</span><span>{infoCount}/{MAX_INFO_NODES} references</span></div>
   </aside>;

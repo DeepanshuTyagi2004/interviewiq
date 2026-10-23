@@ -124,7 +124,7 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
   return (
     <div className="flex flex-col">
       <div className="p-3 pb-1">
-        <div className="flex items-center gap-2.5 rounded-full border border-line bg-background pl-4 pr-3 shadow-ring focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-popover">
+        <div className="flex items-center gap-2.5 rounded-full border border-line bg-background pl-4 pr-3 shadow-ring focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-popover">
           <Search aria-hidden strokeWidth={1.8} className="h-4 w-4 flex-none text-ink-3" />
           <input
             autoFocus

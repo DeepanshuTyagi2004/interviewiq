@@ -8,7 +8,7 @@ const DAYS = 14;
 
 const chip = (selected: boolean) =>
   cn(
-    "rounded-full font-sans transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40",
+    "rounded-full font-sans transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40",
     selected ? "bg-ink text-background" : "bg-surface-2 text-foreground shadow-ring enabled:hover:bg-stone",
   );
 

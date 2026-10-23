@@ -4,7 +4,7 @@ import { FOOTER_COLUMNS } from "./nav";
 /** Quiet grey footer: the three-bar mark, legal links and four link columns. */
 export function MarketingFooter() {
   return (
-    <footer className="mt-24 bg-surface sm:mt-[120px]">
+    <footer className="iq-glass mt-24 sm:mt-[120px]">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-12 px-6 pb-12 pt-14 sm:pt-16 lg:flex-row">
         <div className="flex flex-col gap-10 lg:flex-[1_1_280px]">
           <span aria-hidden className="flex h-12 items-end gap-1.5">

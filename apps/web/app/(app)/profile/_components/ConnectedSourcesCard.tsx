@@ -16,7 +16,7 @@ export function ConnectedSourcesCard({ profile }: { profile: ProfileResponse }) 
       action={
         <Link
           href={ROUTES.connections}
-          className="inline-flex items-center gap-1 text-[13px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          className="inline-flex items-center gap-1 text-[13px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           Manage
           <ArrowRight aria-hidden className="h-3.5 w-3.5" />

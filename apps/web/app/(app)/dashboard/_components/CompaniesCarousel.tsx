@@ -44,7 +44,7 @@ export function CompaniesCarousel() {
           <li key={c.slug} className="w-[min(86vw,358px)]">
             <Link
               href={`${ROUTES.jobs}/c/${c.slug}`}
-              className="group grid min-h-[200px] grid-cols-[44%_1fr] gap-4 rounded-card bg-surface p-2.5 shadow-ring outline-none transition-transform duration-[250ms] ease-iq hover:-translate-y-[3px] focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+              className="group grid min-h-[200px] grid-cols-[44%_1fr] gap-4 rounded-card bg-surface p-2.5 shadow-ring outline-none transition-transform duration-[250ms] ease-iq hover:-translate-y-[3px] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               <CompanyArt slug={c.slug} name={c.name} />
               <span className="flex min-w-0 flex-col py-2.5 pr-1.5">

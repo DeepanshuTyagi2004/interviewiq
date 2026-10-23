@@ -38,7 +38,7 @@ function ManageSource() {
   return (
     <a
       href={ROUTES.connections}
-      className="text-[13px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+      className="text-[13px] text-ink-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
     >
       Manage
     </a>

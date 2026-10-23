@@ -23,7 +23,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 
 export const SNAPSHOT_DEBOUNCE_MS = 800
 
-const toolButton = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background h-7 rounded-full border border-line-3 px-2.5 text-[12px] text-foreground transition-colors hover:border-faint-2'
+const toolButton = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background h-7 rounded-full border border-line-3 px-2.5 text-[12px] text-foreground transition-colors hover:border-faint-2'
 
 /** The shared Monaco editor. Sends a `code.snapshot` 800ms after typing stops; registers the code
  * adapter that applies the interviewer's comments, inserts and highlights; lets the candidate
@@ -118,7 +118,7 @@ export function CodeEditor({ session }: { session: LiveSession }) {
           value={lang}
           onValueChange={(v) => { const next = LANGUAGES.find((item) => item === v); if (next) changeLanguage(next) }}
           options={LANGUAGES.map((language) => ({ value: language, label: language }))}
-          className="h-7 w-auto rounded-full border border-line-3 bg-card px-2.5 font-mono text-[12px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="h-7 w-auto rounded-full border border-line-3 bg-card px-2.5 font-mono text-[12px] text-foreground transition-colors hover:border-faint-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         />
         {selection ? (
           <div role="toolbar" aria-label="Code selection" className="ml-auto flex items-center gap-1">

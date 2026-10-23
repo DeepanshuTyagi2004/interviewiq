@@ -70,7 +70,7 @@ export function ProcessList({ query, onCreate }: { query: string; onCreate: () =
                   <Link
                     href={processHref(p.id)}
                     title={p.name}
-                    className="block truncate rounded-sm font-display text-[18px] font-normal leading-tight tracking-[-0.02em] outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="block truncate rounded-sm font-display text-[18px] font-normal leading-tight tracking-[-0.02em] outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     {p.name}
                   </Link>

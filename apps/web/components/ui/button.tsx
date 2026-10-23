@@ -5,22 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils/cn"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         /** Primary CTA: an ink pill. */
-        default: "bg-ink text-background hover:bg-ink-2",
+        default: "iq-brand-glass",
         /** Same ink pill, kept as an alias for existing call sites. */
-        ink: "bg-ink text-background hover:bg-ink-2",
+        ink: "bg-ink text-background shadow-[inset_0_1px_0_rgb(255_255_255/.18)] hover:bg-ink-2",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "bg-background text-foreground shadow-ring hover:bg-surface",
+        outline: "iq-glass-btn",
         /** Alias of outline, kept for existing call sites. */
-        strong: "bg-background text-foreground shadow-ring hover:bg-surface",
+        strong: "iq-glass-btn",
         /** A stone pill with the ring. */
-        secondary: "bg-stone text-foreground shadow-ring hover:bg-surface-2",
+        secondary: "iq-glass-btn",
         ghost: "text-foreground hover:bg-surface-2",
         link: "rounded-md text-foreground underline-offset-4 hover:underline",
       },

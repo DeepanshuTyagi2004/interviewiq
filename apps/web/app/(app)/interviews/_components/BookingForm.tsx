@@ -81,7 +81,7 @@ function slotLabel(d: Date, h: number): string {
 /** Chip styling shared by the day, time and round pickers: ink fill when chosen, a ringed pill on the stone card otherwise. */
 function chipClass(selected: boolean) {
   return cn(
-    "rounded-full font-sans outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:cursor-not-allowed disabled:opacity-40",
+    "rounded-full font-sans outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:cursor-not-allowed disabled:opacity-40",
     selected ? "bg-ink text-background" : "bg-background text-foreground shadow-ring enabled:hover:bg-surface",
   );
 }
@@ -229,7 +229,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         <CustomSelect
           id="booking-job-description"
           label="Job description"
-          className="h-10 w-full rounded-full bg-background px-4 text-[13.5px] text-foreground shadow-ring transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone"
+          className="h-10 w-full rounded-full bg-background px-4 text-[13.5px] text-foreground shadow-ring transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-stone"
           value={jdId}
           disabled={create.isPending || jdsLoading}
           onValueChange={setJobDescriptionId}

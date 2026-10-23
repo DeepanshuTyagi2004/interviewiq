@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils/cn";
 import { COMPANIES } from "./content";
+import { HeroScene } from "./HeroScene";
 import { CONTAINER } from "./primitives";
 import { HeroSignup } from "./SignupForms";
 import { SourceStack } from "./SourceStack";
@@ -11,7 +12,7 @@ const AURORA: [string, string, string, string, string, number][] = [
   ["--aurora-3", "70%", "6%", "36%", "50%", 13],
 ];
 
-/** Headline, sign-up block and the rotating "connected sources" panel, rising in on load. */
+/** Headline and sign-up on the left, the glass interview scene on the right, then the sources stage. */
 export function Hero() {
   return (
     <section id="top" className="relative scroll-mt-20">
@@ -26,21 +27,31 @@ export function Hero() {
       </div>
 
       <div className={cn(CONTAINER, "relative z-10")}>
-        <div className="mx-auto flex max-w-[900px] flex-col items-center pb-12 pt-16 text-center sm:pb-16 sm:pt-[104px]">
-          <h1 className="iq-intro m-0 bg-gradient-to-b from-ink to-ink-2 bg-clip-text text-balance pb-1 text-[clamp(40px,6.6vw,88px)] font-semibold leading-[1.03] tracking-[-0.045em] text-transparent [--i:0]">
-            Rehearse the interview you&apos;re actually walking into
-          </h1>
-          <p className="iq-intro m-0 mt-6 max-w-[620px] text-pretty text-[19px] leading-[1.4] text-ink-2 [--i:1] sm:text-[22px]">
-            Spend less time guessing, more time practising — with an AI interviewer that knows your resume and
-            your target company&apos;s real process.
-          </p>
-          <p className="iq-intro m-0 mt-4 text-[13px] text-ink-3 [--i:2]">Free to start, no card required</p>
-          <div className="iq-intro mt-7 flex w-full justify-center [--i:3]">
-            <HeroSignup />
+        <div className="grid items-center gap-12 pb-14 pt-14 sm:pt-20 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pb-20">
+          <div className="flex flex-col items-start text-left">
+            <p className="iq-intro iq-glass m-0 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium text-ink-2 [--i:0]">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand shadow-[0_0_0_3px_hsl(var(--brand)/0.2)]" />
+              AI mock interviews, round by round
+            </p>
+            <h1 className="iq-intro m-0 mt-5 text-balance text-[clamp(36px,4.7vw,64px)] font-bold leading-[1.06] tracking-[-0.035em] [--i:1]">
+              Rehearse the interview you&apos;re{" "}
+              <span className="iq-wordmark-iq">actually walking into</span>
+            </h1>
+            <p className="iq-intro m-0 mt-6 max-w-[540px] text-pretty text-[19px] leading-[1.45] text-ink-2 [--i:2] sm:text-[21px]">
+              Spend less time guessing, more time practising — with an AI interviewer that knows your resume and
+              your target company&apos;s real process.
+            </p>
+            <p className="iq-intro m-0 mt-4 text-[13px] text-ink-3 [--i:3]">Free to start, no card required</p>
+            <div className="iq-intro mt-6 flex w-full [--i:4]">
+              <HeroSignup />
+            </div>
+          </div>
+          <div className="iq-intro [--i:3]">
+            <HeroScene />
           </div>
         </div>
 
-        <div className="iq-intro iq-stage relative flex h-[420px] items-center justify-center [--i:4] sm:h-[580px]">
+        <div className="iq-intro iq-stage relative flex h-[420px] items-center justify-center [--i:5] sm:h-[580px]">
           <p className="iq-eyebrow absolute left-6 top-6 m-0 sm:left-9 sm:top-8">Connected sources</p>
           <SourceStack />
         </div>
@@ -59,7 +70,7 @@ export function CompanyLogos() {
           <li
             key={name}
             className={cn(
-              "text-lg font-semibold tracking-[-0.04em] sm:text-[24px]",
+              "font-display text-lg font-semibold tracking-[-0.03em] sm:text-[24px]",
               i === 0 ? "text-foreground" : "text-ink-3/70",
             )}
           >

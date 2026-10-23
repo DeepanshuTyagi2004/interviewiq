@@ -145,12 +145,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider delayDuration={150}>
       <BreadcrumbNamesContext.Provider value={setBreadcrumbNames}>
-        <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+        <div className="flex h-dvh overflow-hidden text-foreground">
           <aside
             id={SIDEBAR_ID}
             aria-label="Sidebar"
             className={cn(
-              "hidden h-full flex-none overflow-hidden bg-surface shadow-[inset_-0.5px_0_0_hsl(var(--line))] lg:block",
+              "iq-glass hidden h-full flex-none overflow-hidden lg:block",
               collapsed ? "w-16" : "w-[248px]",
               animate && "transition-[width] duration-200 ease-iq motion-reduce:transition-none",
             )}

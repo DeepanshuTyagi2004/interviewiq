@@ -27,7 +27,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-2 rounded-full px-3 py-1.5 text-sm outline-none focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink data-[state=open]:bg-surface-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "flex cursor-default select-none items-center gap-2 rounded-full px-3 py-1.5 text-sm outline-none focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand data-[state=open]:bg-surface-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       inset && "pl-8",
       className
     )}
@@ -84,7 +84,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-full px-3 py-1.5 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
+      "relative flex cursor-default select-none items-center gap-2 rounded-full px-3 py-1.5 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
       inset && "pl-8",
       className
     )}
@@ -100,7 +100,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-full py-1.5 pl-8 pr-3 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-full py-1.5 pl-8 pr-3 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     checked={checked}
@@ -124,7 +124,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-full py-1.5 pl-8 pr-3 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-full py-1.5 pl-8 pr-3 text-sm outline-none transition-colors duration-150 focus:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}

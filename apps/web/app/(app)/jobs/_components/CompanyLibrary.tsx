@@ -45,7 +45,7 @@ function StatusSegments({
           aria-pressed={value === s.value}
           onClick={() => onChange(s.value)}
           className={cn(
-            "h-8 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "h-8 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             value === s.value
               ? "bg-background text-foreground shadow-ring"
               : "text-ink-2 hover:text-foreground",

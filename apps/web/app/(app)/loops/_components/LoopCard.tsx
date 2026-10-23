@@ -42,7 +42,7 @@ export function LoopCard({ loop, onBook }: { loop: Loop; onBook?: (loop: Loop, n
             <Link
               href={loopHref(loop.id)}
               title={title}
-              className="block truncate rounded-sm font-display text-[18px] font-normal leading-tight tracking-[-0.02em] outline-none hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="block truncate rounded-sm font-display text-[18px] font-normal leading-tight tracking-[-0.02em] outline-none hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {title}
             </Link>

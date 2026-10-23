@@ -29,7 +29,7 @@ export function SettingsNav() {
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "inline-flex h-8 flex-none items-center whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:h-10",
+                "inline-flex h-8 flex-none items-center whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:h-10",
                 active
                   ? "bg-background text-foreground shadow-ring lg:bg-surface-2 lg:shadow-none"
                   : "text-ink-2 hover:text-foreground lg:hover:bg-surface",

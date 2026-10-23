@@ -127,7 +127,7 @@ export function AccountMenu({
         className={
           trigger != null
             ? undefined
-            : "flex h-9 w-9 flex-none items-center justify-center rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:ring-2 data-[state=open]:ring-ink data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background"
+            : "flex h-9 w-9 flex-none items-center justify-center rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:ring-2 data-[state=open]:ring-ink data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background"
         }
       >
         {trigger ?? <Orb seed={seed ?? name} size={34} />}

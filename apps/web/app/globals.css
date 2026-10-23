@@ -42,7 +42,7 @@
     --border: var(--line);
     --input: var(--line);
     /* Focus ring: 2px ink with an offset. */
-    --ring: var(--ink);
+    --ring: var(--brand);
     /* Pills are the default control shape; `rounded-lg` etc. keep a modest base. */
     --radius: 0.75rem;
     /* Size unit for fluid screens: 1px everywhere, scaled inside `.iq-fit` / `.iq-page`. */
@@ -51,16 +51,20 @@
     /* Elevation: a hairline, a contact shadow and a long soft one. Content cards use `ring`;
        anything that floats above content (popovers, dialogs, the hero card) uses `float`. */
     --shadow-ring:
-      0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -10px rgb(0 0 0 / 0.1);
+      inset 0 1px 0 rgb(255 255 255 / 0.7), 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04),
+      0 8px 24px -10px rgb(0 0 0 / 0.1);
     --shadow-float:
-      0 0 0 0.5px rgb(0 0 0 / 0.06), 0 2px 4px rgb(0 0 0 / 0.04), 0 14px 32px -10px rgb(0 0 0 / 0.14),
-      0 40px 80px -32px rgb(0 0 0 / 0.22);
+      inset 0 1px 0 rgb(255 255 255 / 0.8), 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 2px 4px rgb(0 0 0 / 0.04),
+      0 14px 32px -10px rgb(0 0 0 / 0.14), 0 40px 80px -32px rgb(0 0 0 / 0.22);
 
     /* Liquid-glass material for the functional layer only (bars, menus, sheets, floating cards). */
     --glass-bg: 0 0% 100% / 0.72;
     --glass-bg-thick: 0 0% 100% / 0.86;
     --glass-edge: 0 0% 100% / 0.65;
-    --glass-line: 240 6% 20% / 0.08;
+    --glass-line: 240 8% 20% / 0.13;
+    --glass-card: 0 0% 100% / 0.64;
+    --glass-sheen: 0 0% 100% / 0.55;
+    --glass-shadow: 232 45% 28% / 0.3;
 
     /* Legacy names, re-pointed to the nearest new grey so unmigrated pages stay neutral. */
     --frame: var(--surface);
@@ -75,10 +79,13 @@
     --blob-1: 0 0% 100%;
     --blob-2: 240 3% 60%;
     --blob-4: 240 3% 42%;
-    /* Transitional: brand = ink so no accent shows in chrome. */
-    --brand: var(--ink);
-    --brand-hover: var(--ink);
-    --brand-foreground: var(--page);
+    /* Brand: one indigo-blue, for primary actions, focus, selection and the wordmark only.
+       #4f5bff holds 4.9:1 against white text; --brand-top is the lit upper edge of a glass button. */
+    --brand: 235 100% 65%;
+    --brand-top: 236 100% 72%;
+    --brand-hover: 235 100% 60%;
+    --brand-foreground: 0 0% 100%;
+    --brand-2: 262 90% 62%;
 
     /* Hero aurora: soft hues for the content layer behind the glass. Never used on controls. */
     --aurora-1: 214 95% 82%;
@@ -134,6 +141,9 @@
     --glass-bg-thick: 240 3% 12% / 0.84;
     --glass-edge: 0 0% 100% / 0.14;
     --glass-line: 0 0% 100% / 0.1;
+    --glass-card: 240 6% 16% / 0.5;
+    --glass-sheen: 0 0% 100% / 0.12;
+    --glass-shadow: 240 80% 2% / 0.6;
 
     --faint-2: 240 2% 40%;
     --line-2: 240 3% 22%;
@@ -144,7 +154,11 @@
     --blob-1: 240 3% 28%;
     --blob-2: 240 4% 10%;
     --blob-4: 240 3% 47%;
-    --brand-foreground: var(--page);
+    --brand: 235 100% 70%;
+    --brand-top: 236 100% 76%;
+    --brand-hover: 235 100% 75%;
+    --brand-foreground: 240 30% 8%;
+    --brand-2: 262 95% 72%;
 
     --aurora-1: 214 90% 42%;
     --aurora-2: 268 70% 44%;
@@ -196,9 +210,33 @@
   ::-webkit-scrollbar {
     display: none;
   }
+  /* Display type: Plus Jakarta Sans for headings; Inter for everything else. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  }
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+  }
+  /* Colour canvas: soft hue pools fixed behind every page so glass has something to refract. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(55% 45% at 8% 4%, hsl(var(--aurora-1) / 0.3), transparent 70%),
+      radial-gradient(50% 45% at 96% 12%, hsl(var(--aurora-2) / 0.24), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, hsl(var(--aurora-3) / 0.18), transparent 70%);
+  }
+  .dark body::before {
+    background:
+      radial-gradient(55% 45% at 8% 4%, hsl(var(--aurora-1) / 0.4), transparent 70%),
+      radial-gradient(50% 45% at 96% 12%, hsl(var(--aurora-2) / 0.32), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, hsl(var(--aurora-3) / 0.1), transparent 70%);
   }
   body {
     @apply bg-background text-foreground;
@@ -206,8 +244,8 @@
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background: hsl(var(--foreground));
-    color: hsl(var(--background));
+    background: hsl(var(--brand) / 0.28);
+    color: inherit;
   }
 
   /* The landing page eases every colour change (hover + theme), exactly like the design.
@@ -253,7 +291,7 @@
     @apply m-0 font-semibold;
     font-size: clamp(30px, 3.6vw, 48px);
     line-height: 1.07;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.03em;
   }
   /* Small mono status pill ("PASSED", "LOCKED", "OCT 04"). */
   .iq-pill {
@@ -299,42 +337,130 @@
     }
   }
 
-  /* Stage: the large rounded surface a product shot sits on. A cool grey gradient with two
-     faint aurora tints, a hairline and a top highlight. Content layer: opaque, never glass. */
+  /* Liquid-glass card: translucent over the colour canvas, with a diagonal sheen, a lit top edge
+     and a tinted long shadow. Use it for cards that float over colour; text on it must not depend
+     on the canvas behind (the fill is held at 58% white / 50% charcoal and blurred). */
+  .iq-glass-card,
+  .iq-card {
+    border-radius: 24px;
+    background:
+      linear-gradient(135deg, hsl(var(--glass-sheen)), hsl(0 0% 100% / 0.04) 42%, hsl(var(--glass-sheen) / 0.5)),
+      hsl(var(--glass-card));
+    -webkit-backdrop-filter: blur(28px) saturate(1.7);
+    backdrop-filter: blur(28px) saturate(1.7);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.8),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.45),
+      0 0 0 0.5px hsl(var(--glass-line)),
+      0 18px 40px -20px hsl(var(--glass-shadow));
+  }
+  .dark .iq-glass-card,
+  .dark .iq-card {
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.16),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.08),
+      0 0 0 0.5px hsl(var(--glass-line)),
+      0 18px 40px -20px hsl(var(--glass-shadow));
+  }
+  /* Stage: the large rounded surface a product shot sits on: glass over the canvas with two
+     aurora tints. */
   .iq-stage {
     position: relative;
     overflow: hidden;
     border-radius: 32px;
     background:
-      radial-gradient(60% 55% at 12% 0%, hsl(var(--aurora-1) / 0.2), transparent 70%),
-      radial-gradient(55% 55% at 92% 100%, hsl(var(--aurora-2) / 0.16), transparent 70%),
-      linear-gradient(180deg, hsl(var(--surface)), hsl(var(--stone)));
-    box-shadow: inset 0 0 0 0.5px hsl(var(--line)), inset 0 1px 0 hsl(0 0% 100% / 0.7);
+      radial-gradient(60% 55% at 12% 0%, hsl(var(--aurora-1) / 0.22), transparent 70%),
+      radial-gradient(55% 55% at 92% 100%, hsl(var(--aurora-2) / 0.18), transparent 70%),
+      linear-gradient(180deg, hsl(var(--glass-card) / 0.7), hsl(var(--glass-card) / 0.4));
+    -webkit-backdrop-filter: blur(30px) saturate(1.6);
+    backdrop-filter: blur(30px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.8),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.4),
+      0 0 0 0.5px hsl(var(--glass-line));
   }
   .dark .iq-stage {
-    box-shadow: inset 0 0 0 0.5px hsl(var(--line)), inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.12),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.06),
+      0 0 0 0.5px hsl(var(--glass-line));
   }
-  /* Card: white (or elevated-dark) content card with the layered shadow; lifts on hover. */
+  /* Card: a glass card that lifts on hover. */
   .iq-card {
-    @apply rounded-card bg-card shadow-ring;
     transition:
       transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
       box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   }
-  .dark .iq-card {
-    background: hsl(var(--surface));
-  }
   .iq-card:hover {
     transform: translateY(-3px);
-    box-shadow: var(--shadow-float);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.9),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.5),
+      0 0 0 0.5px hsl(var(--glass-line)),
+      0 28px 56px -22px hsl(var(--glass-shadow));
   }
   @media (prefers-reduced-motion: reduce) {
-    .dark .iq-card {
-    background: hsl(var(--surface));
-  }
-  .iq-card:hover {
+    .iq-card:hover {
       transform: none;
     }
+  }
+  /* Brand glass button: a tinted, lit pill. The primary action; one or two per view. */
+  .iq-brand-glass {
+    color: hsl(var(--brand-foreground));
+    background:
+      linear-gradient(180deg, hsl(0 0% 100% / 0.28), hsl(0 0% 100% / 0) 52%),
+      linear-gradient(180deg, hsl(var(--brand-top)), hsl(var(--brand)));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.5),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.14),
+      0 0 0 0.5px hsl(var(--brand) / 0.9),
+      0 10px 22px -10px hsl(var(--brand) / 0.8);
+    transition:
+      filter 0.2s ease,
+      transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .iq-brand-glass:hover {
+    filter: brightness(1.08) saturate(1.05);
+  }
+  .iq-brand-glass:active {
+    transform: scale(0.98);
+  }
+  /* Secondary glass button: clear glass with a lit edge. */
+  .iq-glass-btn {
+    color: hsl(var(--foreground));
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.7), hsl(0 0% 100% / 0.4));
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
+    box-shadow: var(--shadow-ring);
+    transition: background 0.2s ease, transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .dark .iq-glass-btn {
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.14), hsl(0 0% 100% / 0.06));
+  }
+  .iq-glass-btn:hover {
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.55));
+  }
+  .dark .iq-glass-btn:hover {
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.2), hsl(0 0% 100% / 0.1));
+  }
+  .iq-glass-btn:active {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .iq-glass-card,
+    .iq-stage,
+    .iq-glass-btn {
+      background: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  /* Wordmark: the brand gradient, for the "IQ" only. */
+  .iq-wordmark-iq {
+    background: linear-gradient(135deg, hsl(var(--brand)), hsl(var(--brand-2)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   /* App wash: a faint aurora behind the top of every signed-in page, so the glass top bar has
      colour to blur. Content layer; sits under the content (z -10 in the scroll container). */
@@ -696,6 +822,15 @@
 @keyframes iq-orb-breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
+}
+@keyframes iq-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.iq-float-a { animation: iq-float 7s ease-in-out infinite; }
+.iq-float-b { animation: iq-float 9s ease-in-out -3s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .iq-float-a, .iq-float-b { animation: none; }
 }
 @keyframes iq-orb-think {
   0%, 100% { filter: saturate(1) brightness(1); }

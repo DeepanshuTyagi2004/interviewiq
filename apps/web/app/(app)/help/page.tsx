@@ -73,7 +73,7 @@ export default function HelpPage() {
               </p>
               <Link
                 href={ROUTES.contact}
-                className="inline-flex items-center gap-1.5 self-start rounded-md text-sm underline underline-offset-4 outline-none transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex items-center gap-1.5 self-start rounded-md text-sm underline underline-offset-4 outline-none transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Contact us
                 <ArrowRight aria-hidden className="h-3.5 w-3.5" />

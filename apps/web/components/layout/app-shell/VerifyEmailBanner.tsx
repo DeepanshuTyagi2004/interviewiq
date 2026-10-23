@@ -29,7 +29,7 @@ export function VerifyEmailBanner({ email }: { email: string }) {
         type="button"
         onClick={() => resend.mutate()}
         disabled={resend.isPending}
-        className="rounded-sm text-ink underline underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:opacity-50"
+        className="rounded-sm text-ink underline underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-stone disabled:opacity-50"
       >
         {resend.isPending ? "Sending…" : "Resend link"}
       </button>

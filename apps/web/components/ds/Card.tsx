@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils/cn";
 export type CardTone = "default" | "stone" | "surface" | "stage" | "ink";
 
 const TONE: Record<CardTone, string> = {
-  default: "bg-card text-foreground shadow-ring dark:bg-surface",
+  default: "iq-glass-card text-foreground",
   stone: "bg-stone text-foreground shadow-ring",
   surface: "bg-surface text-foreground shadow-ring",
   // The colour-mesh stage surface (see .iq-stage): for hero-like cards that hold an orb or art.

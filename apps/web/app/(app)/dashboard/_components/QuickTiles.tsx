@@ -51,7 +51,7 @@ export function QuickTiles() {
         <li key={key} className="iq-fade-up min-w-0" style={{ "--i": i } as React.CSSProperties}>
           <Link
             href={href}
-            className="group block h-full rounded-card bg-card p-3.5 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group block h-full rounded-card bg-card p-3.5 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <GlyphTile tone={tone} size={52} className="mb-3 transition-transform duration-300 ease-iq group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
               <Icon aria-hidden className="h-6 w-6" strokeWidth={1.7} />

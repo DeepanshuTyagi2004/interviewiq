@@ -38,7 +38,7 @@ function Row({ s, loopTitle, onMove }: { s: InterviewSession; loopTitle: string 
       <TableCell className="whitespace-nowrap text-ink-2">{formatSlot(s.scheduledAt)}</TableCell>
       <TableCell className="text-ink-2">
         {s.loopId && loopTitle ? (
-          <Link href={loopHref(s.loopId)} title={loopTitle} className="block max-w-[200px] truncate rounded-sm underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ink">{loopTitle}</Link>
+          <Link href={loopHref(s.loopId)} title={loopTitle} className="block max-w-[200px] truncate rounded-sm underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-brand">{loopTitle}</Link>
         ) : (
           <span className="text-ink-3">Ad-hoc</span>
         )}

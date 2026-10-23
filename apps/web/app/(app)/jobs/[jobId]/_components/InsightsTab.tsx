@@ -27,7 +27,7 @@ function InsightCard({
 }
 
 const linkClass =
-  "rounded-sm underline-offset-[3px] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "rounded-sm underline-offset-[3px] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /**
  * What the brief says about this JD: dominant topics (cross-referenced to rounds, no invented
@@ -135,7 +135,7 @@ export function InsightsTab({ jd }: { jd: JdDetail }) {
               ))}
             </ul>
             <details className="group text-[13px]">
-              <summary className="cursor-pointer list-none rounded-sm text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-sm text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
                 <span className="group-open:hidden">Show all {sourceCount} links</span>
                 <span className="hidden group-open:inline">Hide links</span>
               </summary>

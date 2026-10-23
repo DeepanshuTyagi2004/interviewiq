@@ -67,7 +67,7 @@ export function WeekAgenda({
                 <li key={s.id} className={i === 0 ? "pb-3" : "border-t border-line py-3"}>
                   <Link
                     href={`${ROUTES.interviews}/${s.id}`}
-                    className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     <span
                       aria-hidden

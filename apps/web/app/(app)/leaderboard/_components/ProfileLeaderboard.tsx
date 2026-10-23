@@ -35,7 +35,7 @@ export function ProfileLeaderboard() {
                 aria-checked={selected}
                 onClick={() => setChosenLevel(o.value)}
                 className={cn(
-                  "inline-flex h-8 flex-none items-center justify-center whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "inline-flex h-8 flex-none items-center justify-center whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors duration-150 ease-iq focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   selected ? "bg-background text-foreground shadow-ring" : "text-ink-2 hover:text-foreground",
                 )}
               >

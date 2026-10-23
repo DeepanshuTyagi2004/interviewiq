@@ -5,7 +5,7 @@ import { levelLabel, specializationLabel } from "@/app/(app)/jobs/_components/li
 import type { JdBrief, Loop } from "@/features/loops";
 import { ROUTES } from "@/lib/constants/shared";
 
-const LINK = "rounded-sm outline-none hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const LINK = "rounded-sm outline-none hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /** "Software Engineer (Fresher)" with "Company · Fresher · Backend" underneath. */
 export function JdTitle({ jd, href, live = true, name, level }: { jd: JdBrief | null; href?: string; live?: boolean; name?: string; level?: string | null }) {

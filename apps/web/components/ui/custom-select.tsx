@@ -71,7 +71,7 @@ export function CustomSelect({ value, onValueChange, options, label, disabled, r
             setOpen(true);
           }
         }}
-        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-full bg-background px-4 text-left text-[13px] text-foreground shadow-ring outline-none transition-colors duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50", className)}>
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-full bg-background px-4 text-left text-[13px] text-foreground shadow-ring outline-none transition-colors duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50", className)}>
         <span className="min-w-0 truncate">{chosen?.label ?? value}</span><ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink-3" />
       </button>
     </Popover.Trigger>

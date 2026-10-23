@@ -33,7 +33,7 @@ export function RoomFrame({
             {leave ? (
               <Link
                 href={ROUTES.interviews}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-background px-4 text-[13px] font-medium text-foreground shadow-ring transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-background px-4 text-[13px] font-medium text-foreground shadow-ring transition-colors duration-150 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Back to interviews</span>

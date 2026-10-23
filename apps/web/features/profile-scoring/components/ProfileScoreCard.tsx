@@ -49,7 +49,7 @@ export function ProfileScoreCard() {
       </dl>
       <div className="space-y-2"><p className="m-0 text-[13px] text-ink-3">Declared engineering level</p>
         <p className="m-0 text-sm">{levelLabel(query.data.settings.declaredLevel)}</p>
-        <Link href="/profile#profile-level" className="text-[13px] underline underline-offset-4 hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">Edit engineering level in Profile details</Link>
+        <Link href="/profile#profile-level" className="text-[13px] underline underline-offset-4 hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Edit engineering level in Profile details</Link>
       </div>
       <div className="flex items-center justify-between gap-3"><label htmlFor="profile-leaderboard-opt-in" className="text-sm">Opt in to level leaderboard</label>
         <Switch id="profile-leaderboard-opt-in" checked={query.data.settings.leaderboardOptIn} disabled={settings.isPending || recalculate.isPending}

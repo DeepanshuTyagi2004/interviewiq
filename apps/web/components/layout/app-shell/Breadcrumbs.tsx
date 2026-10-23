@@ -26,7 +26,7 @@ export function useBreadcrumbNames(names: BreadcrumbNames): void {
 }
 
 const link =
-  "rounded-md text-ink-2 outline-none transition-colors duration-150 hover:text-ink focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "rounded-md text-ink-2 outline-none transition-colors duration-150 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /**
  * The top bar's trail: parents are links that never truncate, the current screen is ink and is the

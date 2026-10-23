@@ -132,7 +132,7 @@ export function ScoreBuildUp({ report, sessionId }: { report: RoundReport; sessi
                     type="button"
                     aria-label={`Jump to moment ${adj.turnId}`}
                     onClick={() => jumpToTurn(adj.turnId as number)}
-                    className="rounded-full hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                    className="rounded-full hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     ↗
                   </button>

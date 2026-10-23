@@ -28,7 +28,7 @@ export function TranscriptBubbles({ segments, interviewerName, comfortable = fal
       tabIndex={0}
       onTransitionEnd={scrollToEnd} // the type size animates with the room's layout change; once it settles the text has re-wrapped
       className={cn(
-        'flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto rounded-md py-2 transition-[font-size,line-height] duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
+        'flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto rounded-md py-2 transition-[font-size,line-height] duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
         comfortable ? 'text-[15.5px] leading-[1.55]' : 'text-[13.5px] leading-[1.5]',
       )}
     >

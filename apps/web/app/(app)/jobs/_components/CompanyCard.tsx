@@ -73,7 +73,7 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
       tone="default"
       interactive
       aria-labelledby={headingId}
-      className="group relative min-h-[176px] focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-background"
+      className="group relative min-h-[176px] focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-background"
       bodyClassName="flex h-full flex-col gap-3.5"
     >
       <div className="flex items-start gap-3">

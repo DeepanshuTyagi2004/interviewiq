@@ -10,7 +10,7 @@ import { ROUTES } from "@/lib/constants/shared";
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-surface">
+    <div className="relative isolate flex h-dvh flex-col overflow-hidden">
       <div aria-hidden className="iq-app-wash" />
       <header className="flex h-[68px] flex-none items-center gap-5 px-4 sm:px-8">
         <Logo href={ROUTES.home} />
@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
       </header>
-      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-hero bg-card shadow-float sm:mx-4 sm:mb-4">
+      <main className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden iq-glass-card rounded-hero sm:mx-4 sm:mb-4">
         {children}
       </main>
     </div>

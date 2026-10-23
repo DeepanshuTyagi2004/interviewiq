@@ -96,7 +96,7 @@ export function RecentInterviews({ sessions, isLoading, isError, now = new Date(
                         <Link
                           href={`${ROUTES.interviews}/${s.id}/report`}
                           title={`${round} · ${company}`}
-                          className="block max-w-[260px] truncate rounded-sm font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-ink"
+                          className="block max-w-[260px] truncate rounded-sm font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-brand"
                         >
                           {round}
                         </Link>

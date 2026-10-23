@@ -177,7 +177,7 @@ export function ReportView({ sessionId }: { sessionId: string }) {
         <p className="m-0 text-[14.5px] leading-[1.55]">
           This round was taken before scoring was introduced — it counts as completed (not scored).
         </p>
-        <Link href={ROUTES.interviews} className="mt-3 inline-block rounded-md text-[13.5px] text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2">
+        <Link href={ROUTES.interviews} className="mt-3 inline-block rounded-md text-[13.5px] text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
           Back to all interviews
         </Link>
       </Card>

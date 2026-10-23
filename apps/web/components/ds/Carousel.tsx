@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const PILL =
-  "inline-flex h-9 w-9 items-center justify-center rounded-full bg-background text-ink shadow-ring outline-none transition-[opacity,background-color] duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40";
+  "inline-flex h-9 w-9 items-center justify-center rounded-full bg-background text-ink shadow-ring outline-none transition-[opacity,background-color] duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40";
 
 export interface CarouselProps {
   label: string;

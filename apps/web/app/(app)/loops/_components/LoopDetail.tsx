@@ -75,7 +75,7 @@ export function LoopDetail({ loopId }: { loopId: string }) {
               <span className="line-clamp-2 break-words">{title}</span>
             </h1>
             <p className="m-0 mt-1.5 truncate text-[14px] text-ink-3" title={sub}>
-              {l.jd ? <Link href={`${ROUTES.jobs}/${l.jd.jdId}`} className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ink">{sub}</Link> : sub}
+              {l.jd ? <Link href={`${ROUTES.jobs}/${l.jd.jdId}`} className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand">{sub}</Link> : sub}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5"><LoopStatusPill status={l.status} /><KindPill loop={l} /></div>
           </div>

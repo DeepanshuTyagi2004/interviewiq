@@ -60,7 +60,7 @@ export function ContactSection({ className }: { className?: string }) {
               href={externalHref(profile.portfolioWebsite)!}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+              className="inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <span className="truncate">{displayLink(externalHref(profile.portfolioWebsite)!)}</span>
               <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
@@ -178,7 +178,7 @@ export function ExperienceSection({ className }: { className?: string }) {
                   href={externalHref(x.link ?? null)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  className="mt-1 inline-flex max-w-full items-center gap-1 font-mono text-[11.5px] text-ink-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <span className="truncate">{displayLink(externalHref(x.link ?? null)!)}</span>
                   <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />
@@ -220,7 +220,7 @@ export function ProjectsSection({ className }: { className?: string }) {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-0.5 inline-flex min-w-0 items-center gap-1 self-start font-mono text-[11.5px] text-ink-3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  className="mt-0.5 inline-flex min-w-0 items-center gap-1 self-start font-mono text-[11.5px] text-ink-3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <span className="truncate">{displayLink(href)}</span>
                   <ArrowUpRight aria-hidden className="h-3 w-3 flex-none" />

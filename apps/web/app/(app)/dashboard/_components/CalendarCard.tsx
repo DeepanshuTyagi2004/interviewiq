@@ -199,7 +199,7 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                 aria-label={dayLabel(date, isToday, list.length)}
                 onClick={() => select(date)}
                 className={cn(
-                  "relative grid h-10 min-w-0 place-items-center rounded-xl text-[13px] tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                  "relative grid h-10 min-w-0 place-items-center rounded-xl text-[13px] tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                   isSelected ? "bg-ink font-medium text-background" : "hover:bg-surface-2",
                   isToday && !isSelected && "font-medium shadow-[inset_0_0_0_1.5px_hsl(var(--ink))]",
                 )}
@@ -236,7 +236,7 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                   <li key={s.id} className="min-w-0">
                     <Link
                       href={`${ROUTES.interviews}/${s.id}`}
-                      className="flex min-w-0 items-center gap-2.5 rounded-md text-[14px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ink"
+                      className="flex min-w-0 items-center gap-2.5 rounded-md text-[14px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       <span className="shrink-0 text-[12.5px] tabular-nums text-ink-3">{timeOf(s.scheduledAt)}</span>
                       <span className="truncate">

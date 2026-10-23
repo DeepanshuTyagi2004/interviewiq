@@ -25,7 +25,7 @@ export function ProcessesPage() {
         }
       />
 
-      <label className="mt-8 flex h-11 min-w-0 items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-background">
+      <label className="mt-8 flex h-11 min-w-0 items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-background">
         <Search aria-hidden className="h-4 w-4 flex-none text-ink-3" />
         <input
           type="search"

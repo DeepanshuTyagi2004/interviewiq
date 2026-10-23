@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-surface">
+      <div className="relative isolate flex h-dvh flex-col overflow-hidden">
         <div aria-hidden className="iq-app-wash" />
         <header className="flex h-[68px] flex-none items-center gap-4 px-4 sm:px-8">
           <Logo href={ROUTES.home} />
@@ -27,7 +27,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
             <SignOutButton />
           </div>
         </header>
-        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-hero bg-card shadow-float sm:mx-4 sm:mb-4">
+        <main className="relative mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden iq-glass-card rounded-hero sm:mx-4 sm:mb-4">
           {/* Sends users who have already finished onboarding to the dashboard. */}
           <OnboardingGate>{children}</OnboardingGate>
         </main>

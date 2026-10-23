@@ -29,7 +29,7 @@ export default function PricingPage() {
     <section className={`${CONTAINER} flex flex-col gap-10 py-16 sm:py-24`}>
       <div className="flex max-w-[640px] flex-col gap-4">
         <Eyebrow>PRICING</Eyebrow>
-        <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.045em]">Plans are being finalised.</h1>
+        <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">Plans are being finalised.</h1>
         <p className="m-0 text-[16px] leading-[1.55] text-muted-foreground">
           Until they are, nothing here is paywalled. Students sign up and practise; colleges get a pilot scoped with them. When plans go
           live they will be on this page first.

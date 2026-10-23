@@ -24,7 +24,7 @@ export function LogoutButton() {
       onClick={() => void signOut()}
       disabled={pending}
       aria-busy={pending}
-      className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-background px-[18px] text-sm font-medium text-foreground shadow-ring transition-colors duration-150 hover:bg-surface hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-progress disabled:opacity-60 sm:w-auto sm:self-start"
+      className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-background px-[18px] text-sm font-medium text-foreground shadow-ring transition-colors duration-150 hover:bg-surface hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-progress disabled:opacity-60 sm:w-auto sm:self-start"
     >
       <LogOut aria-hidden className="h-4 w-4 shrink-0" />
       {pending ? "Logging out…" : "Log out"}
