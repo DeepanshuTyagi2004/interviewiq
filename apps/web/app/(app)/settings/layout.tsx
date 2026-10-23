@@ -4,7 +4,7 @@ import { SettingsNav } from "./_components/SettingsNav";
 /** Settings: a left sub-nav (a pill segment below 1024px), each section its own route. */
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Settings"
         title="Your account"

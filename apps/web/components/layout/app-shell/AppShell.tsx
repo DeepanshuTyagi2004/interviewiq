@@ -186,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 "flex flex-1 flex-col",
                 fullBleed
                   ? "min-h-0 overflow-y-auto"
-                  : "mx-auto w-full max-w-[1180px] px-5 py-7 sm:px-9 sm:py-9",
+                  : "mx-auto w-full max-w-[1180px] px-5 py-7 sm:px-9 sm:py-[26px]",
               )}
             >
               {children}
