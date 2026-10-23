@@ -46,9 +46,7 @@ export function WeekAgenda({
       <Card aria-label="This week" className="flex-1">
         {week.length === 0 ? (
           <EmptyState
-            inline
-            orbSize={48}
-            className="my-auto"
+            className="my-auto py-6"
             title="Nothing this week"
             hint="Rounds you book for the next seven days show up here."
           >

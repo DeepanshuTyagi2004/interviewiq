@@ -186,7 +186,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const eyebrow = `${company} · ${levelLabel(session.level)}`;
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-7">
       <PageHeader
         eyebrow={
           <span className="flex min-w-0 flex-wrap items-center gap-2.5">

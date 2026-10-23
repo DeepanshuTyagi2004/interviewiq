@@ -49,8 +49,8 @@ const STATE_TEXT: Record<FriendlyStepState, string> = { done: "Done", active: "I
 /** The one spot the prep screen's mascot lives in: the bars, morphing Trio, Hopper, Jelly, Bloom and back. */
 function PrepMascot() {
   return (
-    <div className="flex justify-center pb-2 pt-8">
-      <BarsMascot mood="idle" size={140} />
+    <div className="flex justify-center pb-1 pt-1">
+      <BarsMascot mood="idle" size={104} />
     </div>
   );
 }
@@ -61,9 +61,9 @@ export function PrepPanel({ session }: { session: InterviewSession }) {
   return (
     <Card tone="stone" title="Preparing your interviewer" titleAs="h2" className="flex-1">
       <PrepMascot />
-      <ol className="m-0 mt-4 flex list-none flex-col p-0" aria-live="polite">
+      <ol className="m-0 mt-3 flex list-none flex-col p-0" aria-live="polite">
         {steps.map((step) => (
-          <li key={step.label} className="flex items-center gap-3.5 border-t border-line py-3 first:border-t-0">
+          <li key={step.label} className="flex items-center gap-3.5 border-t border-line py-2.5 first:border-t-0">
             <span className="flex h-[22px] w-[11px] flex-none items-center justify-center">
               {step.state === "done" ? (
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ink" />
@@ -86,7 +86,7 @@ export function PrepPanel({ session }: { session: InterviewSession }) {
           </li>
         ))}
       </ol>
-      <p className="m-0 mt-4 text-[13px] leading-[1.5] text-ink-3">
+      <p className="m-0 mt-3 text-[13px] leading-[1.5] text-ink-3">
         This usually takes a few minutes. You can leave this page; we&apos;ll keep going.
       </p>
     </Card>
