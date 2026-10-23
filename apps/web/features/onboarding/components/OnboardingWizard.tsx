@@ -11,60 +11,55 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import type { CurrentUser } from "@/lib/hooks/useCurrentUser";
-import type { JdSummary } from "@/features/jobs";
 import { ConnectionsGrid } from "@/app/(app)/connections/_components/ConnectionsGrid";
 import { emptyCandidateForm, useCandidateForm } from "../form";
+import { guessLevelFromResume } from "../level-guess";
 import { responseToForm, formToRequest } from "../mapping";
 import { useCandidateProfile, useSaveCandidateProfile } from "../hooks";
 import { clearStep, readStep, writeStep } from "../step-memory";
 import type { CandidateProfileResponse } from "../types";
+import type { EngineeringLevel } from "@/lib/constants/engineering-levels";
 import { EducationExperienceFields } from "./EducationExperienceFields";
 import { OnboardingSteps } from "./OnboardingSteps";
 import { ParsedSummary } from "./ParsedSummary";
 import { PersonalFields } from "./PersonalFields";
 import { ProfilePreview } from "./ProfilePreview";
 import { ResumeUpload } from "./ResumeUpload";
-import { TargetPicker, targetLabel } from "./TargetPicker";
 
-const STEPS = ["Resume", "Profile", "Sources", "Target"] as const;
+const STEPS = ["Resume", "Profile", "Sources"] as const;
 const PROFILE = 1;
 const SOURCES = 2;
-const LAST = STEPS.length - 1;
+const LAST = SOURCES;
 /** The step column's width — wide enough that form rows go 3–4 fields across beside the preview. */
 const STEP_WIDTH = "max-w-[960px] 2xl:max-w-[1040px]";
 
 const COPY: { eyebrow: string; title: string; description: string }[] = [
   {
-    eyebrow: "Step 1 of 4 · Resume",
+    eyebrow: "Step 1 of 3 · Resume",
     title: "Start with your resume",
     description: "We'll read it and fill in your profile. You can edit everything on the next step.",
   },
   {
-    eyebrow: "Step 2 of 4 · Profile",
+    eyebrow: "Step 2 of 3 · Profile",
     title: "Check your profile",
     description: "This is what the interviewer will know about you. Fix anything we got wrong.",
   },
   {
-    eyebrow: "Step 3 of 4 · Sources",
+    eyebrow: "Step 3 of 3 · Sources",
     title: "Connect your work",
     description: "Optional — but the more we see, the more personal your questions get.",
-  },
-  {
-    eyebrow: "Step 4 of 4 · Target",
-    title: "Where are you interviewing?",
-    description: "Optional. Pick a company and role to get its real interview process, round by round.",
   },
 ];
 
 type DraftState = "idle" | "saving" | "saved" | "error";
 
 /**
- * Four-step onboarding — Resume → Profile → Sources → Target — beside a live profile preview.
+ * Three-step onboarding — Resume → Profile → Sources — beside a live profile preview.
  *
  * Progress survives a refresh and the GitHub OAuth round trip: the profile is saved as a draft
  * (`complete: false`) once the resume is parsed and whenever the Profile step is left, and the
- * current step is remembered per tab. Name and current engineering level are required; Target is optional and,
- * when used, finishing lands on that role's roadmap.
+ * current step is remembered per tab. Name and current engineering level are required; the level is preselected from
+ * the parsed resume but stays the candidate's own choice.
  */
 export function OnboardingWizard() {
   const router = useRouter();
@@ -83,6 +78,8 @@ export function OnboardingWizard() {
   // Whether the form has been seeded (saved draft, parsed resume or manual entry). A ref, not
   // state: it only guards the prefill effect and never affects what renders.
   const seeded = useRef(false);
+  // The level we preselected from the resume, if any — shown as a hint while it is still what's chosen.
+  const [levelGuess, setLevelGuess] = useState<EngineeringLevel | null>(null);
 
   // Prefill from a saved draft (e.g. returning mid-onboarding), once.
   useEffect(() => {
@@ -92,9 +89,9 @@ export function OnboardingWizard() {
     }
   }, [existing.data, form]);
 
-  const [resumeFilename, targetJdId, targetRole, resumeLinkedInUrl] = useWatch({
+  const [resumeFilename, resumeLinkedInUrl, level] = useWatch({
     control: form.control,
-    name: ["resumeFilename", "targetJdId", "targetRole", "detectedLinks.linkedin"],
+    name: ["resumeFilename", "detectedLinks.linkedin", "level"],
   });
   const hasResume = Boolean(resumeFilename);
   const step = chosenStep ?? (existing.data ? PROFILE : 0);
@@ -121,7 +118,13 @@ export function OnboardingWizard() {
   }
 
   function handleParsed(parsed: CandidateProfileResponse) {
-    form.reset({ ...responseToForm(parsed), level: form.getValues("level") });
+    const parsedForm = responseToForm(parsed);
+    // Preselect a level only when nothing was chosen yet, or the choice is still our earlier guess.
+    const chosen = form.getValues("level");
+    const guess = guessLevelFromResume(parsedForm.experience, parsedForm.education);
+    const keep = chosen !== "" && chosen !== levelGuess;
+    form.reset({ ...parsedForm, level: keep ? chosen : (guess ?? chosen) });
+    setLevelGuess(keep ? null : guess);
     // Parsed data wins — a slower initial GET /candidate-profile must not clobber it.
     seeded.current = true;
     void saveDraft();
@@ -143,14 +146,8 @@ export function OnboardingWizard() {
     goTo(Math.max(step - 1, 0));
   }
 
-  function chooseTarget(jd: JdSummary | null) {
-    form.setValue("targetJdId", jd?.id ?? "", { shouldDirty: true });
-    form.setValue("targetRole", jd ? targetLabel(jd) : "", { shouldDirty: true });
-  }
-
-  const finish = (withTarget: boolean) => {
-    if (!withTarget) chooseTarget(null);
-    return form.handleSubmit(
+  const finish = () =>
+    form.handleSubmit(
       (values) => {
         finishSave.mutate(formToRequest(values, true), {
           onSuccess: () => {
@@ -160,7 +157,7 @@ export function OnboardingWizard() {
               old ? { ...old, onboardingComplete: true } : old,
             );
             toast.success("You're all set!");
-            router.replace(values.targetJdId ? `${ROUTES.jobs}/${values.targetJdId}` : ROUTES.dashboard);
+            router.replace(ROUTES.dashboard);
           },
           onError: () => toast.error("Couldn't save your details. Please try again."),
         });
@@ -170,15 +167,14 @@ export function OnboardingWizard() {
         toast.error("Please complete the required fields.");
       },
     )();
-  };
 
   if (existing.isLoading) return <WizardSkeleton />;
 
   const copy = COPY[step];
   const busy = draft.isPending || finishSave.isPending;
-  const preview = { control: form.control, target: targetJdId ? targetRole || null : null };
+  const preview = { control: form.control, target: null };
   const nextLabel =
-    step === LAST ? (targetJdId ? "Build my roadmap" : "Finish") : step === 0 && !hasResume ? "Continue without resume" : "Continue";
+    step === LAST ? "Finish" : step === 0 && !hasResume ? "Continue without resume" : "Continue";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -213,7 +209,7 @@ export function OnboardingWizard() {
                   ) : null}
                   {step === PROFILE ? (
                     <div className="flex flex-col gap-8">
-                      <PersonalFields showTargetRole={false} />
+                      <PersonalFields showTargetRole={false} levelHint={level && level === levelGuess ? "Suggested from your resume — change it if it isn't right" : undefined} />
                       <EducationExperienceFields />
                     </div>
                   ) : null}
@@ -226,8 +222,7 @@ export function OnboardingWizard() {
                       </p>
                     </div>
                   ) : null}
-                  {step === LAST ? <TargetPicker valueId={targetJdId || null} onChange={chooseTarget} /> : null}
-                </form>
+                                </form>
 
                 {/* On phones the preview sits under the step instead of beside it. */}
                 <ProfilePreview {...preview} className="mt-6 flex lg:hidden" />
@@ -247,7 +242,7 @@ export function OnboardingWizard() {
                     type="button"
                     variant="link"
                     className="h-11 px-3.5 text-muted-foreground underline"
-                    onClick={() => (step === LAST ? finish(false) : void next())}
+                    onClick={() => (step === LAST ? void finish() : void next())}
                     disabled={busy}
                   >
                     Skip for now
@@ -257,7 +252,7 @@ export function OnboardingWizard() {
                 <Button
                   type="button"
                   className="ml-auto h-11 gap-2.5 px-[22px]"
-                  onClick={() => (step === LAST ? finish(true) : void next())}
+                  onClick={() => (step === LAST ? void finish() : void next())}
                   disabled={busy}
                 >
                   {finishSave.isPending ? "Saving…" : draft.isPending && step === PROFILE ? "Saving draft…" : nextLabel}

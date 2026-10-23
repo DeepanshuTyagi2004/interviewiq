@@ -56,15 +56,6 @@ vi.mock("./ResumeUpload", () => ({
     </button>
   ),
 }));
-vi.mock("./TargetPicker", () => ({
-  targetLabel: (jd: { companyName: string; title: string }) => `${jd.companyName} · ${jd.title}`,
-  TargetPicker: ({ onChange }: { onChange: (jd: unknown) => void }) => (
-    <button type="button" onClick={() => onChange({ id: "jd-1", companyName: "Meesho", title: "SDE I Backend" })}>
-      Pick Meesho
-    </button>
-  ),
-}));
-
 import { OnboardingWizard } from "./OnboardingWizard";
 
 function renderWizard() {
@@ -94,7 +85,7 @@ describe("OnboardingWizard", () => {
 
   it("redirects completion to Profile when the saved draft level is unknown", async () => {
     const user = userEvent.setup();
-    sessionStorage.setItem("iq-onboarding-step", "3");
+    sessionStorage.setItem("iq-onboarding-step", "2");
     m.existing = { data: { ...draftProfile, level: null, legacyLevel: "Career switcher" }, isLoading: false };
     renderWizard();
     await user.click(screen.getByRole("button", { name: "Finish" }));
@@ -165,24 +156,18 @@ describe("OnboardingWizard", () => {
     expect(m.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ detectedLinks: expect.objectContaining({ linkedin }) }));
   });
 
-  it("finishing with a target stores the JD id and lands on its roadmap", async () => {
+  it("finishing on Sources completes the profile and lands on the dashboard", async () => {
     const user = userEvent.setup();
-    sessionStorage.setItem("iq-onboarding-step", "3");
+    sessionStorage.setItem("iq-onboarding-step", "2");
     m.existing = { data: draftProfile, isLoading: false };
     m.mutate.mockImplementation((_req, opts: { onSuccess: () => void }) => opts.onSuccess());
     renderWizard();
 
-    await user.click(screen.getByRole("button", { name: "Pick Meesho" }));
-    await user.click(screen.getByRole("button", { name: /build my roadmap/i }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
 
     await waitFor(() => expect(m.mutate).toHaveBeenCalled());
-    expect(m.mutate.mock.calls[0][0]).toMatchObject({
-      complete: true,
-      targetJdId: "jd-1",
-      targetRole: "Meesho · SDE I Backend",
-      level: "sde2",
-    });
-    expect(m.replace).toHaveBeenCalledWith("/jobs/jd-1");
+    expect(m.mutate.mock.calls[0][0]).toMatchObject({ complete: true, level: "sde2" });
+    expect(m.replace).toHaveBeenCalledWith("/dashboard");
     expect(sessionStorage.getItem("iq-onboarding-step")).toBeNull();
   });
 });

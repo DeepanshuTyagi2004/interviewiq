@@ -1,9 +1,11 @@
 """Google Gemini over the native generateContent API (a paid key): the first stage of routed calls.
 
 One attempt per eligible key per call, plus one format repair on the same key when a reply is
-truncated or isn't JSON. A rate-limited key cools down for the provider's retry hint and a rejected
+truncated or isn't JSON, and one quick retry on the same key after a transient failure (timeout,
+transport error, 5xx). A rate-limited key cools down for the provider's retry hint and a rejected
 key is quarantined; a timeout or a 5xx doesn't cool the key (a paid key isn't rate-limited, the next
-call should try it again). Failures are reported as fixed categories, never with a key, prompt or
+call should try it again). A 400/404 (unknown model or endpoint) sets the key aside for a while so
+later calls go straight to the fallback chain instead of failing here first. Failures are reported as fixed categories, never with a key, prompt or
 response body. JSON mode is requested and thought parts are skipped.
 """
 from __future__ import annotations
@@ -27,6 +29,8 @@ _FINISH_FAILURES = {
 }
 # Failures worth one more try on the same key with a "complete JSON only" nudge.
 _REPAIRABLE = ("invalid_json", "finish_reason_length", "missing_content")
+_TRANSIENT_RETRY_SECONDS = 1.0
+_REJECTED_COOLDOWN_SECONDS = 600.0
 
 
 def decode(body) -> tuple[dict | None, str, dict, str, str]:
@@ -86,6 +90,7 @@ class GeminiClient(LLMClient):
         attempts = 0
         last = "no_eligible_keys"
         repair_key: int | None = None   # local: concurrent calls share this client
+        retried: set[int] = set()       # keys already given their one transient retry in this call
         n = len(self._keys)
         queue = [(self._next + i) % n for i in range(n)]
         self._next += 1
@@ -101,6 +106,7 @@ class GeminiClient(LLMClient):
                 event(self._provider, self._model, "start", key, attempts, "format_repair" if repairing else "request")
                 cool_for = 0.0
                 finish = "none"
+                transient = False
                 try:
                     response = await self._client.post(self._url, headers={"x-goog-api-key": self._keys[key]},
                                                        json=self._payload(system, user, repairing))
@@ -109,8 +115,10 @@ class GeminiClient(LLMClient):
                     raise
                 except httpx.TimeoutException:
                     last = "timeout"
+                    transient = True
                 except httpx.TransportError:
                     last = "transport_error"
+                    transient = True
                 else:
                     if response.status_code == 200:
                         try:
@@ -134,6 +142,10 @@ class GeminiClient(LLMClient):
                             self._quarantined.add(key)
                         elif response.status_code == 429:
                             cool_for = retry_seconds(response.headers, response.text)
+                        elif response.status_code >= 500:
+                            transient = True
+                        elif response.status_code in (400, 404):
+                            cool_for = _REJECTED_COOLDOWN_SECONDS
                         elif response.status_code == 402:
                             # Prepaid credits are used up: set the key aside for a while (a top-up is picked up
                             # afterwards) so calls go straight to the fallback chain instead of failing here first.
@@ -141,6 +153,10 @@ class GeminiClient(LLMClient):
                 if cool_for:
                     self._cooldown_until[key] = max(self._cooldown_until[key], time.monotonic() + cool_for)
                 event(self._provider, self._model, "failure", key, attempts, last, finish_reason=finish)
+                if transient and key not in retried:
+                    retried.add(key)
+                    await asyncio.sleep(_TRANSIENT_RETRY_SECONDS)
+                    queue.insert(0, key)
         except asyncio.CancelledError as exc:
             exc.attempts = attempts
             raise

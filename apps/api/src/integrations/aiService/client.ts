@@ -193,7 +193,7 @@ export class AiServiceClient {
     const minimized = parseProfileScoringAssessmentRequest(request);
     let body: unknown;
     try {
-      body = await this.postJson("/profile-scoring/assess", minimized);
+      body = await this.retryTransient(() => this.postJson("/profile-scoring/assess", minimized));
     } catch (err) {
       // The shared transport retains upstream text/causes for other consumers. This private
       // evidence boundary must never expose reflected input, keys, or provider errors to logs.
@@ -411,6 +411,23 @@ export class AiServiceClient {
 
   private async postJson(pathAndQuery: string, body?: unknown): Promise<unknown> {
     return parseJsonBody(await this.send(this.jsonPost(pathAndQuery, body)), pathAndQuery.split("?")[0]!);
+  }
+
+  /**
+   * Re-run an idempotent call after a transport failure or a 503/504 (a 502 is the ai-service reporting its own
+   * exhausted LLM chain, already retried there, so it is not repeated here). One retry after a short pause.
+   */
+  private async retryTransient<T>(call: () => Promise<T>, retries = 1, delayMs = 2_000): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await call();
+      } catch (err) {
+        const transient = err instanceof UpstreamTransportError || (err instanceof UpstreamHttpError && [503, 504].includes(err.status));
+        if (!transient || attempt >= retries) throw err;
+        this.log.warn({ attempt: attempt + 1 }, "ai-service call failed transiently; retrying");
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
   }
 
   private nonEmptyJson(text: string, what: string): unknown {

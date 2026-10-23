@@ -5,7 +5,7 @@ export function experienceMonths(profile: ScoringProfile | null, asOf: string): 
   const warnings: string[] = [], ranges: [number, number][] = [];
   const now = new Date(asOf), current = now.getUTCFullYear() * 12 + now.getUTCMonth();
   for (const [index, entry] of (profile?.experience ?? []).entries()) {
-    const start = parseMonth(entry.startDate), end = /^(?:present|current|now)$/i.test(entry.endDate?.trim() ?? "") ? current : parseMonth(entry.endDate);
+    const start = parseMonth(entry.startDate), end = /^(?:present|current(?:ly)?|now|ongoing|till (?:date|now|present)|to (?:date|present))$/i.test(entry.endDate?.trim() ?? "") ? current : parseMonth(entry.endDate);
     const exactFuture = [entry.startDate, entry.endDate].some((date) => date && /^\d{4}-\d{2}-\d{2}$/.test(date) && Date.parse(date) > Date.parse(asOf));
     const exactReversed = entry.startDate && entry.endDate && /^\d{4}-\d{2}-\d{2}$/.test(entry.startDate) && /^\d{4}-\d{2}-\d{2}$/.test(entry.endDate) && Date.parse(entry.startDate) > Date.parse(entry.endDate);
     if (start === null || end === null || start > end || start > current || end > current || exactFuture || exactReversed) {
@@ -31,9 +31,10 @@ function parseMonth(value: string | null): number | null {
     year = Number(iso[1]); month = iso[2] ? Number(iso[2]) : 1;
     if (iso[3]) { const day = Number(iso[3]); if (day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null; }
   } else {
-    const named = /^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{4})$/i.exec(text);
+    // Resume parsers emit "Sept. 2023", "Jan. 2024" and "Sep 2023" alike; the first three letters decide the month.
+    const named = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+(\d{4})$/i.exec(text);
     if (!named) return null;
-    month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(named[1]!.slice(0, 3).toLowerCase()) + 1;
+    month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(named[1]!.toLowerCase()) + 1;
     year = Number(named[2]);
   }
   return year >= 1970 && month >= 1 && month <= 12 ? year * 12 + month - 1 : null;

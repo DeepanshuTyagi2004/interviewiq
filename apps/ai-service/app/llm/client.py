@@ -343,4 +343,27 @@ def build_profile_scoring_llm_client(settings: Settings, *, max_output_tokens: i
 
     return ResearchLLMClient(settings, deadline_seconds=settings.profile_scoring_llm_deadline_seconds,
                              groq_stage_seconds=settings.profile_scoring_groq_stage_seconds,
-                             max_output_tokens=max_output_tokens or settings.profile_scoring_max_output_tokens)
+                             max_output_tokens=max_output_tokens or settings.profile_scoring_max_output_tokens,
+                             gemini_stage_fraction=settings.profile_scoring_gemini_stage_fraction)
+
+
+def build_resume_llm_client(settings: Settings) -> LLMClient:
+    """Résumé parsing: the configured résumé model first (bounded to RESUME_PRIMARY_STAGE_SECONDS), then the
+    Gemini → Groq → Cloudflare → Google chain, so one provider timing out or erroring no longer fails the parse."""
+    from app.llm.chain import FallbackLLMClient
+    from app.llm.research_client import ResearchLLMClient
+
+    try:
+        primary = build_llm_client(settings, model=settings.resume_llm_model or None)
+    except LLMError:
+        primary = None   # no legacy key: the chain alone
+    try:
+        chain = ResearchLLMClient(settings, deadline_seconds=settings.resume_fallback_deadline_seconds,
+                                  groq_stage_seconds=min(25.0, settings.resume_fallback_deadline_seconds * 0.5),
+                                  max_output_tokens=settings.resume_fallback_max_output_tokens,
+                                  gemini_stage_fraction=0.5)
+    except LLMError:
+        if primary is None:
+            raise
+        return primary   # nothing else configured: behave exactly as before
+    return FallbackLLMClient(primary, chain, primary_stage_seconds=settings.resume_primary_stage_seconds)

@@ -312,9 +312,16 @@ class Settings(BaseSettings):
     research_groq_tpm: int = Field(8000, alias="RESEARCH_GROQ_TPM", ge=1)
     # Profile scoring (item assessment + company context) uses the same Groq-first routing as research
     # with its own limits. One call (plus one repair) must finish well inside the API's 120s wait.
-    profile_scoring_llm_deadline_seconds: float = Field(50.0, alias="PROFILE_SCORING_LLM_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
+    profile_scoring_llm_deadline_seconds: float = Field(90.0, alias="PROFILE_SCORING_LLM_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
     profile_scoring_groq_stage_seconds: float = Field(40.0, alias="PROFILE_SCORING_GROQ_STAGE_SECONDS", gt=0, allow_inf_nan=False)
+    # Share of that deadline the paid Gemini stage may use; the rest is kept for Groq, Cloudflare and Google.
+    profile_scoring_gemini_stage_fraction: float = Field(0.35, alias="PROFILE_SCORING_GEMINI_STAGE_FRACTION", gt=0, lt=1, allow_inf_nan=False)
     profile_scoring_max_output_tokens: int = Field(4096, alias="PROFILE_SCORING_MAX_OUTPUT_TOKENS", ge=256, le=8192)
+    # Résumé parsing: the configured résumé model first (bounded), then the Gemini → Groq → Cloudflare → Google
+    # chain. Primary + chain must finish inside the API's 120 s wait.
+    resume_primary_stage_seconds: float = Field(45.0, alias="RESUME_PRIMARY_STAGE_SECONDS", gt=0, allow_inf_nan=False)
+    resume_fallback_deadline_seconds: float = Field(65.0, alias="RESUME_FALLBACK_DEADLINE_SECONDS", gt=0, allow_inf_nan=False)
+    resume_fallback_max_output_tokens: int = Field(8192, alias="RESUME_FALLBACK_MAX_OUTPUT_TOKENS", ge=256, le=8192)
     research_groq_rpm: int = Field(30, alias="RESEARCH_GROQ_RPM", ge=1)
     research_chunk_chars: int = Field(4500, alias="RESEARCH_CHUNK_CHARS", ge=1000, le=12000)
     research_max_chunks: int = Field(4, alias="RESEARCH_MAX_CHUNKS", ge=1, le=12)
