@@ -49,8 +49,10 @@ export interface AssessmentRunsDoc {
   everAssessed: boolean;
   /** Last automatic attempt, so a failing first run is not retried on every page view. */
   autoTriedAt: Date | null;
+  /** After a run in which every model call failed: no new run until then, so an outage is not hammered. */
+  cooldownUntil?: Date | null;
 }
-export interface AssessmentUsage { used: number; oldest: Date | null; assessingUntil: Date | null; everAssessed: boolean; autoTriedAt: Date | null }
+export interface AssessmentUsage { used: number; oldest: Date | null; assessingUntil: Date | null; everAssessed: boolean; autoTriedAt: Date | null; cooldownUntil: Date | null }
 
 export const DEFAULT_SCORING_SETTINGS: ProfileScoringSettings = { declaredLevel: null, leaderboardOptIn: false };
 
@@ -181,7 +183,7 @@ export class ProfileAssessmentRunRepository {
     const doc = await this.c.profileScoringAssessmentRuns.findOne({ _id: userId });
     const cutoff = now.getTime() - windowMs;
     const runs = (doc?.runs ?? []).filter((at) => at.getTime() > cutoff).sort((a, b) => a.getTime() - b.getTime());
-    return { used: runs.length, oldest: runs[0] ?? null, assessingUntil: doc?.assessingUntil ?? null, everAssessed: doc?.everAssessed ?? false, autoTriedAt: doc?.autoTriedAt ?? null };
+    return { used: runs.length, oldest: runs[0] ?? null, assessingUntil: doc?.assessingUntil ?? null, everAssessed: doc?.everAssessed ?? false, autoTriedAt: doc?.autoTriedAt ?? null, cooldownUntil: doc?.cooldownUntil ?? null };
   }
 
   /**
@@ -189,7 +191,7 @@ export class ProfileAssessmentRunRepository {
    * recorded, so two replicas can never both take the last slot (the loser hits the duplicate _id).
    */
   async reserve(userId: string, now: Date, limit: number, windowMs: number, auto: boolean): Promise<boolean> {
-    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $pull: { runs: { $lte: new Date(now.getTime() - windowMs) } } });
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $pull: { runs: { $lte: new Date(now.getTime() - windowMs) } } } as never);
     try {
       const r = await this.c.profileScoringAssessmentRuns.updateOne(
         { _id: userId, [`runs.${limit - 1}`]: { $exists: false } },
@@ -214,7 +216,17 @@ export class ProfileAssessmentRunRepository {
     return r.modifiedCount === 1;
   }
 
-  async end(userId: string, assessed: boolean): Promise<void> {
-    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $set: { assessingUntil: null, ...(assessed ? { everAssessed: true } : {}) } });
+  /** Push the in-flight marker out while a long run is still working, so it never reads as finished early. */
+  async extend(userId: string, until: Date): Promise<void> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $set: { assessingUntil: until } });
+  }
+
+  async end(userId: string, assessed: boolean, cooldownUntil: Date | null = null): Promise<void> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $set: { assessingUntil: null, cooldownUntil, ...(assessed ? { everAssessed: true } : {}) } });
+  }
+
+  /** Record once that this user already has assessments (e.g. from the weekly batch), so views skip the check. */
+  async markAssessed(userId: string): Promise<void> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $set: { everAssessed: true }, $setOnInsert: { runs: [], assessingUntil: null, autoTriedAt: null } }, { upsert: true });
   }
 }

@@ -250,7 +250,11 @@ famous one.
   (everything reused, no items, or every call failed) gives its slot back. Over the limit: 429
   `profile_scoring_recalculation_limit`; `GET /users/me/profile-score` returns `assessment`
   (`available`, `inProgress`, `limit`, `remaining`, `nextAvailableAt`) so the UI can say how many are left or
-  when the next frees up. An in-flight marker expires after 10 minutes if its replica dies.
+  when the next frees up. The in-flight marker is pushed out 10 minutes before every model call of a run, so a long
+  run never reads as finished early (it only expires if its replica dies). When every call of a run failed, new
+  runs are held for 10 minutes (429 `profile_scoring_recalculation_cooldown`, no slot used) so a failing provider
+  chain is not retried in a loop. A user who already has assessments (e.g. from the weekly batch) is marked once,
+  so score views stop checking for a first assessment.
 - The former `POST /users/me/profile-score/assess` endpoint and its in-memory 3-per-hour limiter were removed.
 - One AI-service call per item (`/profile-scoring/assess`, prompt v5, Groq `openai/gpt-oss-120b` first, then
   `gpt-oss-20b`, Cloudflare and Google): the minimized item, the user's
