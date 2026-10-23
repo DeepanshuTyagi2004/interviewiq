@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -37,6 +37,7 @@ import { Orb, StatusDot } from "@/components/ds";
 import { useThemeSwitch, type AppTheme } from "@/components/layout/useThemeSwitch";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
+import { AccountSheet } from "./AccountSheet";
 
 interface LinkEntry {
   label: string;
@@ -66,6 +67,21 @@ const THEMES: { value: AppTheme; label: string; icon: LucideIcon }[] = [
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
 ];
+
+/** Phones get a bottom sheet; tablet and desktop keep the dropdown. Desktop on first render, so SSR and tests are unchanged. */
+const PHONE_QUERY = "(max-width: 767px)";
+function useIsPhone(): boolean {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(PHONE_QUERY);
+    const sync = () => setPhone(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return phone;
+}
 
 const panel = "rounded-tile border-0 bg-popover p-1.5 shadow-float";
 const item =
@@ -118,6 +134,23 @@ export function AccountMenu({
   // Actions that move focus elsewhere (search, the side menu) run once the dropdown has closed,
   // so its focus-return to the avatar doesn't steal focus straight back.
   const afterClose = useRef<(() => void) | null>(null);
+  const phone = useIsPhone();
+
+  if (phone) {
+    return (
+      <AccountSheet
+        name={name}
+        email={email}
+        status={status}
+        statusActive={statusActive}
+        isAdmin={isAdmin}
+        seed={seed}
+        onSignOut={onSignOut}
+        trigger={trigger}
+        triggerLabel={triggerLabel}
+      />
+    );
+  }
 
   return (
     <DropdownMenu>
