@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent side="left" className="w-[280px] max-w-[85vw] rounded-r-card p-0 sm:max-w-[280px] lg:hidden [&>button]:right-3 [&>button]:top-4">
+            <SheetContent side="left" className="w-[280px] max-w-[85vw] rounded-r-2xl p-0 sm:max-w-[280px] lg:hidden [&>button]:right-3 [&>button]:top-4">
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <SheetDescription className="sr-only">Navigate InterviewIQ</SheetDescription>
               <Sidebar {...sidebarProps} onNavigate={() => setSheetOpen(false)} />
