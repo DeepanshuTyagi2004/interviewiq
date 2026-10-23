@@ -19,10 +19,13 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 
 export function profileScoringRouter(c: Container): Router {
   const r = router();
-  r.get("/users/me/profile-score", async (req, res) => { parse(empty, req.query); res.json(await c.profileScoring.get(userId(req))); });
+  r.get("/users/me/profile-score", async (req, res) => {
+    parse(empty, req.query);
+    // A user who has never been assessed gets their first assessment now, in the background (once).
+    await c.profileScoring.autoAssessIfFirst(userId(req)).catch((err: unknown) => c.log.warn({ err }, "first profile assessment could not start"));
+    res.json(await c.profileScoring.get(userId(req)));
+  });
   r.post("/users/me/profile-score", async (req, res) => { parse(empty, req.body ?? {}); parse(empty, req.query); res.json(await c.profileScoring.recalculate(userId(req))); });
-  // Semantic item re-assessment; context is derived server-side, so the body must be empty.
-  r.post("/users/me/profile-score/assess", async (req, res) => { parse(empty, req.query); parse(empty, req.body ?? {}); res.json(await c.profileScoring.assessNow(userId(req))); });
   r.patch("/users/me/profile-score/settings", async (req, res) => { parse(empty, req.query); res.json(await c.profileScoring.updateSettings(userId(req), parse(settingsPatch, req.body))); });
   r.get("/profile-leaderboard", async (req, res) => { const query = parse(boardQuery, req.query); res.json(await c.profileScoring.leaderboard(query.level, query.limit)); });
   // Existing path-based security middleware enforces ADMIN on both intelligence endpoints.

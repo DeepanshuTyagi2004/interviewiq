@@ -35,6 +35,23 @@ export interface SemanticAssessmentDoc extends SemanticItemAssessment { _id: str
 /** Global company knowledge base (no user data). Keyed by normalized company name. */
 export interface CompanyKnowledgeDoc extends CompanyKnowledgeBaseEntry { _id: string; source: "catalogue" | "llm" | "web"; updatedAt: Date }
 
+/**
+ * Per-user ledger of the AI assessment runs a person started (automatic or by Recalculate). The rolling-week
+ * limit and the "being assessed" marker live here, in Mongo, so they hold across restarts and API replicas.
+ */
+export interface AssessmentRunsDoc {
+  _id: string; // userId
+  /** Start times of runs inside (or just outside) the rolling window; pruned on every reservation. */
+  runs: Date[];
+  /** Set while a run is in flight; expires on its own if the replica running it dies. */
+  assessingUntil: Date | null;
+  /** True once an assessment has actually been stored for this user (the "first assessment" is done). */
+  everAssessed: boolean;
+  /** Last automatic attempt, so a failing first run is not retried on every page view. */
+  autoTriedAt: Date | null;
+}
+export interface AssessmentUsage { used: number; oldest: Date | null; assessingUntil: Date | null; everAssessed: boolean; autoTriedAt: Date | null }
+
 export const DEFAULT_SCORING_SETTINGS: ProfileScoringSettings = { declaredLevel: null, leaderboardOptIn: false };
 
 /** Only this repository touches scoring collections; diagnostics use reads, never a ping/write probe. */
@@ -152,7 +169,52 @@ export class ProfileScoringRepository {
     if (snapshots.length) {
       await this.c.profileScoringJobs.updateMany({ "rankPlan.id": { $in: snapshots.map((s) => s._id) } }, { $pull: { rankPlan: { id: { $in: snapshots.map((s) => s._id) } } } });
     }
-    await Promise.all([this.c.profileScoringSettings.deleteOne({ _id: userId }), this.c.profileScoreSnapshots.deleteMany({ userId }), this.c.profileScoringJobs.deleteMany({ userId }),
+    await Promise.all([this.c.profileScoringAssessmentRuns.deleteOne({ _id: userId }), this.c.profileScoringSettings.deleteOne({ _id: userId }), this.c.profileScoreSnapshots.deleteMany({ userId }), this.c.profileScoringJobs.deleteMany({ userId }),
       this.c.profileScoringSemantic.deleteMany({ userId })]);
+  }
+}
+
+export class ProfileAssessmentRunRepository {
+  constructor(private readonly c: MongoCollections) {}
+
+  async usage(userId: string, now: Date, windowMs: number): Promise<AssessmentUsage> {
+    const doc = await this.c.profileScoringAssessmentRuns.findOne({ _id: userId });
+    const cutoff = now.getTime() - windowMs;
+    const runs = (doc?.runs ?? []).filter((at) => at.getTime() > cutoff).sort((a, b) => a.getTime() - b.getTime());
+    return { used: runs.length, oldest: runs[0] ?? null, assessingUntil: doc?.assessingUntil ?? null, everAssessed: doc?.everAssessed ?? false, autoTriedAt: doc?.autoTriedAt ?? null };
+  }
+
+  /**
+   * Take one slot in the rolling window, atomically: the upsert only matches while fewer than `limit` runs are
+   * recorded, so two replicas can never both take the last slot (the loser hits the duplicate _id).
+   */
+  async reserve(userId: string, now: Date, limit: number, windowMs: number, auto: boolean): Promise<boolean> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $pull: { runs: { $lte: new Date(now.getTime() - windowMs) } } });
+    try {
+      const r = await this.c.profileScoringAssessmentRuns.updateOne(
+        { _id: userId, [`runs.${limit - 1}`]: { $exists: false } },
+        { $push: { runs: now }, ...(auto ? { $set: { autoTriedAt: now } } : {}), $setOnInsert: { assessingUntil: null, everAssessed: false, ...(auto ? {} : { autoTriedAt: null }) } } as never,
+        { upsert: true });
+      return r.matchedCount + r.upsertedCount > 0;
+    } catch (err) {
+      if ((err as { code?: number }).code === 11000) return false;
+      throw err;
+    }
+  }
+
+  async release(userId: string, at: Date): Promise<void> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $pull: { runs: at } });
+  }
+
+  /** Mark a run in flight. False when another is already running (its marker has not expired). */
+  async begin(userId: string, now: Date, ttlMs: number): Promise<boolean> {
+    const r = await this.c.profileScoringAssessmentRuns.updateOne(
+      { _id: userId, $or: [{ assessingUntil: null }, { assessingUntil: { $lte: now } }] },
+      { $set: { assessingUntil: new Date(now.getTime() + ttlMs) } });
+    return r.modifiedCount === 1;
+  }
+
+  async end(userId: string, assessed: boolean): Promise<void> {
+    await this.c.profileScoringAssessmentRuns.updateOne({ _id: userId }, { $set: { assessingUntil: null, ...(assessed ? { everAssessed: true } : {}) } });
   }
 }

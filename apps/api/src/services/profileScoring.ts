@@ -1,9 +1,9 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { buildScoringInput, effectiveDeclaredLevel, validTimestamp } from "../domain/profileScoring/adapters.js";
 import { isEngineeringLevel } from "../domain/engineeringLevels.js";
-import { DEFAULT_SCORING_CONFIG, supportsLinkedIn, validateScoringConfig } from "../domain/profileScoring/config.js";
+import { DEFAULT_SCORING_CONFIG, SCORING_ENGINE_REVISION, supportsLinkedIn, validateScoringConfig } from "../domain/profileScoring/config.js";
 import { evaluateProfile } from "../domain/profileScoring/engine.js";
-import type { DiagnosticCheck, EngineDebugEvent, EngineeringLevel, LiveTraceEvent, ProfileTraceLlmCall, SemanticItemAssessment, SemanticItemType, ProfileDiagnosticsResponse, ProfileLeaderboardResponse, ProfileLiveTraceResponse, ProfileScoreResponse, ProfileScoreSnapshot, ProfileScoringJobStatus, ProfileScoringSettings, ProfileTraceComponent, ProfileTraceProviderCheck, ProfileTraceSource, ProfileTraceStage, ScoreEvaluation, ScoreEvidence, ScoringConfig, ScoringInput } from "../domain/profileScoring/types.js";
+import type { DiagnosticCheck, EngineDebugEvent, ProfileAssessmentStatus, EngineeringLevel, LiveTraceEvent, ProfileTraceLlmCall, SemanticItemAssessment, SemanticItemType, ProfileDiagnosticsResponse, ProfileLeaderboardResponse, ProfileLiveTraceResponse, ProfileScoreResponse, ProfileScoreSnapshot, ProfileScoringJobStatus, ProfileScoringSettings, ProfileTraceComponent, ProfileTraceProviderCheck, ProfileTraceSource, ProfileTraceStage, ScoreEvaluation, ScoreEvidence, ScoringConfig, ScoringInput } from "../domain/profileScoring/types.js";
 import { canonicalize, sha256Hex } from "../lib/canonicalJson.js";
 import { cleanText, list, object } from "../domain/profileScoring/sanitization.js";
 import { ApiError } from "../lib/errors.js";
@@ -21,7 +21,8 @@ import { hashJson } from "../domain/profileScoring/sanitization.js";
 import type { CompanyRow, PlatformConnectionRow } from "../db/pg/schema.js";
 import { CODING_PLATFORMS } from "../domain/enums.js";
 import type { CandidateProfileDoc } from "../db/mongo/client.js";
-import { FixedWindowRateLimiter } from "../http/rateLimit.js";
+import type { BackgroundTasks } from "../lib/background.js";
+import type { ProfileAssessmentRunRepository } from "../repositories/profileScoring.js";
 import type { CompanyKnowledgeDoc, SemanticAssessmentDoc } from "../repositories/profileScoring.js";
 
 export function scoringWeek(now: Date): string {
@@ -29,6 +30,12 @@ export function scoringWeek(now: Date): string {
   day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
   return day.toISOString().slice(0, 10);
 }
+/** AI assessment runs a user may start per rolling week (automatic first run included); decided 2026-10-23. */
+export const RECALCULATION_LIMIT = 3;
+const RECALCULATION_WINDOW_MS = 7 * 24 * 3_600_000;
+/** An in-flight marker older than this belongs to a replica that died; the run may be started again. */
+const ASSESSMENT_RUN_TTL_MS = 10 * 60_000;
+const AUTO_RETRY_MS = 6 * 3_600_000;
 const nextWeek = (now: Date) => new Date(new Date(`${scoringWeek(now)}T00:00:00.000Z`).getTime() + 604_800_000).toISOString();
 const digest = (v: unknown) => sha256Hex(canonicalize(v));
 
@@ -50,6 +57,12 @@ interface Deps {
   companies?: { findAll(): Promise<CompanyRow[]> };
   /** Upper bound on LLM calls in one scoring batch (cost discipline). */
   semanticCallsPerBatch?: number;
+  /** Per-user run ledger (rolling-week limit, in-flight marker). Without it Recalculate stays deterministic-only. */
+  runs?: Pick<ProfileAssessmentRunRepository, "usage" | "reserve" | "release" | "begin" | "end">;
+  /** Where assessments run so a request never waits on the model; without it they run inline. */
+  background?: Pick<BackgroundTasks, "run">;
+  /** First assessment for a user who has never had one (after onboarding, or the first score view). */
+  autoAssess?: boolean;
   config?: ScoringConfig;
   now?: () => Date;
 }
@@ -83,8 +96,6 @@ function evaluationFromSnapshot(snapshot: ProfileScoreSnapshot): ScoreEvaluation
 export class ProfileScoringService {
   readonly config: ScoringConfig;
   private readonly now: () => Date;
-  /** User-triggered refreshes call a paid model: a few per hour per user, per process. */
-  private readonly assessLimiter = new FixedWindowRateLimiter({ limit: 3, windowMs: 3_600_000 });
   constructor(private readonly d: Deps) {
     this.config = structuredClone(d.config ?? DEFAULT_SCORING_CONFIG);
     validateScoringConfig(this.config);
@@ -116,7 +127,7 @@ export class ProfileScoringService {
       semanticAssessments: semantic.map(({ _id, userId: _userId, contextHash: _contextHash, updatedAt: _updatedAt, ...assessment }) => assessment) });
     const { asOf: _asOf, ...stableInput } = input;
     return { input, settings, name: user.name, identities: [user.name, user.email, profile?.fullName, profile?.email, profile?.phone].filter((value): value is string => typeof value === "string"), visibility: preferences.privacy.leaderboardVisibility,
-      fingerprint: digest({ input: stableInput, settings, settingsRevision, profileRevision: profile?.updatedAt.toISOString() ?? null,
+      fingerprint: digest({ engine: SCORING_ENGINE_REVISION, input: stableInput, settings, settingsRevision, profileRevision: profile?.updatedAt.toISOString() ?? null,
         privacyRevision: preferences.updatedAt, visibility: preferences.privacy.leaderboardVisibility,
         // Connection identifiers never enter the frozen scoring input, but do invalidate reconnections.
         connections: [github?.id ?? null, github?.githubLogin ?? null, leetcode?.id ?? null, leetcode?.username ?? null, leetcode?.status ?? null,
@@ -171,8 +182,74 @@ export class ProfileScoringService {
     }
   }
 
-  /** Explicit recalculation remains idempotent for the same week/config/input; preserves history. */
-  recalculate(userId: string): Promise<ProfileScoreResponse> { return this.get(userId); }
+  /**
+   * Recalculate: re-run the AI assessment for new or changed items (unchanged ones reuse their stored result), then
+   * score. The model work runs in the background, so this returns at once with `assessment.inProgress` set and the
+   * score card polls until the new snapshot is there. Limited to RECALCULATION_LIMIT runs per user in a rolling
+   * week, enforced in Mongo so restarts and replicas share it. Without assessments enabled it only recomputes
+   * the deterministic score, which is idempotent for the same week, configuration and input.
+   */
+  async recalculate(userId: string): Promise<ProfileScoreResponse> {
+    if (this.assessmentEnabled()) {
+      const outcome = await this.startAssessment(userId, false);
+      if (outcome === "limit") {
+        const status = await this.assessmentStatus(userId, this.now());
+        throw new ApiError(429, "profile_scoring_recalculation_limit", status.nextAvailableAt
+          ? `You've used all ${RECALCULATION_LIMIT} recalculations for this week. The next one is available ${status.nextAvailableAt}.`
+          : `You've used all ${RECALCULATION_LIMIT} recalculations for this week.`);
+      }
+    }
+    return this.get(userId);
+  }
+
+  /**
+   * First assessment for someone who has never had one, so a new user does not wait for the weekly batch. Called after
+   * onboarding completes and on the first score view; it counts as one of the user's weekly runs. Returns at once.
+   */
+  async autoAssessIfFirst(userId: string): Promise<void> {
+    if (!this.d.autoAssess || !this.assessmentEnabled()) return;
+    const now = this.now();
+    const usage = await this.d.runs!.usage(userId, now, RECALCULATION_WINDOW_MS);
+    if (usage.everAssessed || (usage.assessingUntil && usage.assessingUntil > now)) return;
+    // A failed automatic try is not repeated on every page view.
+    if (usage.autoTriedAt && now.getTime() - usage.autoTriedAt.getTime() < AUTO_RETRY_MS) return;
+    if ((await this.d.repo.semanticAssessments(userId)).length) return;
+    await this.startAssessment(userId, true);
+  }
+
+  private assessmentEnabled(): boolean { return Boolean(this.d.runs && this.d.aiService && this.config.v5Policy); }
+
+  /** Take a slot and start the run. "busy" = one is already in flight (nothing new is taken); "limit" = no slot left. */
+  private async startAssessment(userId: string, auto: boolean): Promise<"started" | "busy" | "limit"> {
+    const runs = this.d.runs!, now = this.now();
+    const usage = await runs.usage(userId, now, RECALCULATION_WINDOW_MS);
+    if (usage.assessingUntil && usage.assessingUntil > now) return "busy";
+    if (!(await runs.reserve(userId, now, RECALCULATION_LIMIT, RECALCULATION_WINDOW_MS, auto))) return "limit";
+    if (!(await runs.begin(userId, now, ASSESSMENT_RUN_TTL_MS))) { await runs.release(userId, now); return "busy"; }
+    const task = async () => {
+      let assessed = 0;
+      try {
+        assessed = (await this.refreshSemanticAssessments(userId)).assessed;
+        await this.calculate(userId, this.now());
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 404)) throw err;
+      } finally {
+        // A run that stored nothing (everything reused, no items, or every call failed) does not use up a slot.
+        if (assessed === 0) await runs.release(userId, now);
+        await runs.end(userId, assessed > 0);
+      }
+    };
+    if (this.d.background) this.d.background.run("profile-score-assess", task); else await task().catch(() => undefined);
+    return "started";
+  }
+
+  private async assessmentStatus(userId: string, now: Date): Promise<ProfileAssessmentStatus> {
+    if (!this.assessmentEnabled()) return { available: false, inProgress: false, limit: RECALCULATION_LIMIT, remaining: RECALCULATION_LIMIT, nextAvailableAt: null };
+    const usage = await this.d.runs!.usage(userId, now, RECALCULATION_WINDOW_MS);
+    const remaining = Math.max(0, RECALCULATION_LIMIT - usage.used);
+    return { available: true, inProgress: Boolean(usage.assessingUntil && usage.assessingUntil > now), limit: RECALCULATION_LIMIT, remaining,
+      nextAvailableAt: remaining === 0 && usage.oldest ? new Date(usage.oldest.getTime() + RECALCULATION_WINDOW_MS).toISOString() : null };
+  }
 
   async updateSettings(userId: string, patch: Partial<ProfileScoringSettings>): Promise<ProfileScoreResponse> {
     if (!(await this.d.users.findById(userId))) throw new ApiError(404, "user_not_found", "no such user");
@@ -194,17 +271,6 @@ export class ProfileScoringService {
       await this.d.repo.patchSettings(userId, settingsPatch, this.now());
     }
     return this.get(userId);
-  }
-
-  /**
-   * User-triggered refresh (e.g. right after a resume upload). Rate-limited; context is always derived
-   * server-side from stored data, never from the request, so a client cannot pick its own rubric.
-   */
-  async assessNow(userId: string): Promise<SemanticRefreshResult> {
-    if (!this.d.aiService || !this.config.v5Policy) throw new ApiError(503, "profile_scoring_assessment_unavailable", "Semantic profile assessment is not enabled.");
-    const limit = this.assessLimiter.hit(userId);
-    if (!limit.allowed) throw new ApiError(429, "profile_scoring_assessment_rate_limited", `Try again in ${Math.ceil(limit.retryAfterSeconds / 60)} minute(s).`);
-    return this.refreshSemanticAssessments(userId);
   }
 
   /**
@@ -538,7 +604,7 @@ export class ProfileScoringService {
       // Live decoration is ephemeral; historical snapshots retain their finalized weekly ranks.
       current = { ...doc.snapshot, rank: live?.rank ?? null, percentile: live?.percentile ?? null, cohortSize: live ? cohort.length : 0 };
     }
-    return { current, history: history.map((d) => d.snapshot), settings };
+    return { current, history: history.map((d) => d.snapshot), settings, assessment: await this.assessmentStatus(userId, now) };
   }
 
   private async cohort(level: EngineeringLevel, now: Date, configHash: string, version: string): Promise<Ranked[]> {

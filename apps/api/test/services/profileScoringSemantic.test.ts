@@ -44,14 +44,31 @@ function harness(options: { failAssessment?: boolean } = {}) {
     findSnapshot: async (id: string) => snapshots.get(id) ?? null, save: async (doc: Record<string, unknown>) => { snapshots.set(String(doc._id), doc); return doc; },
     history: async () => [], latestForWeek: async () => [],
   };
+  /** In-memory run ledger with the same contract as ProfileAssessmentRunRepository. */
+  const ledger = { runs: [] as Date[], assessingUntil: null as Date | null, everAssessed: false, autoTriedAt: null as Date | null };
+  const runs = {
+    usage: async (_id: string, now: Date, windowMs: number) => {
+      const live = ledger.runs.filter((at) => at.getTime() > now.getTime() - windowMs).sort((a, b) => a.getTime() - b.getTime());
+      return { used: live.length, oldest: live[0] ?? null, assessingUntil: ledger.assessingUntil, everAssessed: ledger.everAssessed, autoTriedAt: ledger.autoTriedAt };
+    },
+    reserve: async (_id: string, now: Date, limit: number, windowMs: number, auto: boolean) => {
+      ledger.runs = ledger.runs.filter((at) => at.getTime() > now.getTime() - windowMs);
+      if (ledger.runs.length >= limit) return false;
+      ledger.runs.push(now); if (auto) ledger.autoTriedAt = now; return true;
+    },
+    release: async (_id: string, at: Date) => { const i = ledger.runs.findIndex((x) => x.getTime() === at.getTime()); if (i >= 0) ledger.runs.splice(i, 1); },
+    begin: async (_id: string, now: Date, ttlMs: number) => { if (ledger.assessingUntil && ledger.assessingUntil > now) return false; ledger.assessingUntil = new Date(now.getTime() + ttlMs); return true; },
+    end: async (_id: string, assessed: boolean) => { ledger.assessingUntil = null; if (assessed) ledger.everAssessed = true; },
+  };
   const service = new ProfileScoringService({
+    runs, autoAssess: true,
     repo: repo as never, users: { findById: async () => ({ id: userId, name: "Asha Rao", email: "asha@example.com" }) } as never,
     profiles: { findByUserId: async () => profile } as never, fragments: { findByUserId: async () => [] } as never,
     github: { findByUserId: async () => null } as never, leetcode: { findByUserId: async () => null } as never,
     preferences: { get: async () => ({ privacy: { leaderboardVisibility: "name" }, updatedAt: asOf }) } as never,
     pseudonymKey: "k", schedulerEnabled: false, aiService: ai, companies: { findAll: async () => [] }, config: PROFILE_BETA_V5_SCORING_CONFIG, now: () => asOf,
   });
-  return { service, profile, semantic, companies, requests, companyCalls };
+  return { service, profile, semantic, companies, requests, companyCalls, ledger };
 }
 
 describe("semantic item assessment producer", () => {
@@ -119,8 +136,33 @@ describe("semantic item assessment producer", () => {
     expect(score.current?.components.find((c) => c.id === "projects")).toMatchObject({ status: "missing", role: "core", contribution: 0 });
   });
 
-  it("rate-limits user-triggered refreshes", async () => {
-    for (let i = 0; i < 3; i++) await h.service.assessNow(userId);
-    await expect(h.service.assessNow(userId)).rejects.toMatchObject({ status: 429, code: "profile_scoring_assessment_rate_limited" });
+  it("Recalculate assesses new items, then allows 3 runs per rolling week and says when the next frees up", async () => {
+    // Each run must have something new to assess, or it is not charged: edit the project between runs.
+    for (let i = 0; i < 3; i++) {
+      h.profile.projects[0]!.description = `A Redis-backed job queue, revision ${i}, with retries and dead-letter handling.`;
+      await h.service.recalculate(userId);
+    }
+    expect(h.ledger.runs).toHaveLength(3);
+    h.profile.projects[0]!.description = "A Redis-backed job queue, revision 4, with retries and dead-letter handling.";
+    await expect(h.service.recalculate(userId)).rejects.toMatchObject({ status: 429, code: "profile_scoring_recalculation_limit" });
+    const status = (await h.service.get(userId)).assessment;
+    expect(status).toMatchObject({ available: true, inProgress: false, limit: 3, remaining: 0 });
+    expect(status.nextAvailableAt).toBe(new Date(asOf.getTime() + 7 * 24 * 3_600_000).toISOString());
+  });
+
+  it("does not charge a Recalculate that had nothing new to assess", async () => {
+    await h.service.recalculate(userId);
+    await h.service.recalculate(userId);
+    expect(h.ledger.runs).toHaveLength(1);
+    expect((await h.service.get(userId)).assessment.remaining).toBe(2);
+  });
+
+  it("runs the first assessment once for a user who has never had one", async () => {
+    await h.service.autoAssessIfFirst(userId);
+    expect(h.semantic.size).toBe(2);
+    expect(h.ledger).toMatchObject({ everAssessed: true });
+    const calls = h.requests.length;
+    await h.service.autoAssessIfFirst(userId);
+    expect(h.requests.length).toBe(calls);
   });
 });

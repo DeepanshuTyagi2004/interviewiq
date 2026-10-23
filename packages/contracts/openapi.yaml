@@ -283,8 +283,13 @@ paths:
     post:
       operationId: recalculateProfileScore
       tags: [profile-scoring]
-      summary: Recalculate the signed-in user's profile score from local evidence.
-      description: Idempotent for the same week, configuration and local input fingerprint. No interview result changes.
+      summary: Recalculate the signed-in user's profile score; also re-runs the AI item assessment for new or changed items.
+      description: >
+        Starts the assessment in the background (unchanged items reuse their stored result) and returns at once with
+        `assessment.inProgress`; poll the GET until it clears. Limited to 3 runs per user per rolling 7 days, enforced
+        server-side (429 `profile_scoring_recalculation_limit`; `assessment.nextAvailableAt` says when the next frees up).
+        A run that stored no new assessment is not charged. Idempotent for the same week, configuration and local
+        input fingerprint. No interview result changes.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: false
@@ -299,40 +304,6 @@ paths:
               schema: { $ref: "#/components/schemas/ProfileScoreResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-  /api/v1/users/me/profile-score/assess:
-    post:
-      operationId: assessProfileItems
-      tags: [profile-scoring]
-      summary: Refresh semantic sub-feature assessments for changed projects, internships and roles (v5).
-      description: >
-        Calls the AI service once per new or edited item, judged relative to the user's rubric level, which is
-        derived server-side (the body must be empty). Unchanged items are reused. Results are bounded INFERRED
-        sub-features with verbatim quoted evidence; the deterministic engine combines them on the next read.
-        Never returns or stores an overall score. Rate-limited per user; the weekly batch runs it automatically.
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: false }
-      responses:
-        "200":
-          description: Refresh counts.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [assessed, reused, skipped, failed, budgetExhausted]
-                properties:
-                  assessed: { type: integer, minimum: 0 }
-                  reused: { type: integer, minimum: 0 }
-                  skipped: { type: integer, minimum: 0 }
-                  failed: { type: integer, minimum: 0 }
-                  budgetExhausted: { type: boolean }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "429": { description: Too many refreshes; retry later. }
-        "503": { description: Semantic assessment is not enabled (v5 policy and AI service required). }
   /api/v1/connections/platforms:
     get:
       operationId: listPlatformConnections
@@ -2465,13 +2436,26 @@ components:
             cohortSize: { type: integer, minimum: 0 }
     ProfileScoreResponse:
       type: object
-      required: [current, history, settings]
+      required: [current, history, settings, assessment]
       properties:
         current:
           nullable: true
           allOf: [{ $ref: "#/components/schemas/ProfileScoreSnapshot" }]
         history: { type: array, items: { $ref: "#/components/schemas/ProfileScoreSnapshot" } }
         settings: { $ref: "#/components/schemas/ProfileScoringSettings" }
+        assessment: { $ref: "#/components/schemas/ProfileAssessmentStatus" }
+    ProfileAssessmentStatus:
+      type: object
+      description: >
+        The AI assessment behind Recalculate. `remaining` counts runs left in the user's rolling 7 days
+        (the automatic first run counts); `nextAvailableAt` is when one frees up, only set when none is left.
+      required: [available, inProgress, limit, remaining, nextAvailableAt]
+      properties:
+        available: { type: boolean, description: False when assessments are not enabled; Recalculate is then deterministic only. }
+        inProgress: { type: boolean }
+        limit: { type: integer }
+        remaining: { type: integer, minimum: 0 }
+        nextAvailableAt: { type: string, format: date-time, nullable: true }
     ProfileLeaderboardResponse:
       type: object
       required: [level, algorithmVersion, week, total, entries]

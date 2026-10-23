@@ -84,11 +84,30 @@ describe("ProfileScoreCard", () => {
     render(<ProfileScoreCard />, { wrapper: scoringWrapper().wrapper });
     await screen.findByLabelText("Profile score: 73");
     await user.click(screen.getByRole("button", { name: "Recalculate profile score" }));
-    expect(await screen.findByText(/Waiting for a new snapshot/)).toBeInTheDocument();
+    expect(await screen.findByText(/Assessing your projects and experience/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Recalculating…" })).toBeDisabled();
     reject(new Error("Failed"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not recalculate profile score");
     expect(screen.getByRole("button", { name: "Recalculate profile score" })).toBeEnabled();
+  });
+
+  it("shows the assessing state, then how many recalculations are left or when the next one is available", async () => {
+    const assessing = { ...PROFILE_SCORE_FIXTURE, assessment: { available: true, inProgress: true, limit: 3, remaining: 2, nextAvailableAt: null } };
+    fetchMock.mockResolvedValue(assessing);
+    const first = render(<ProfileScoreCard />, { wrapper: scoringWrapper().wrapper });
+    expect(await screen.findByText(/Assessing your projects and experience/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recalculating…" })).toBeDisabled();
+    first.unmount();
+
+    fetchMock.mockResolvedValue({ ...PROFILE_SCORE_FIXTURE, assessment: { available: true, inProgress: false, limit: 3, remaining: 1, nextAvailableAt: null } });
+    const second = render(<ProfileScoreCard />, { wrapper: scoringWrapper().wrapper });
+    expect(await screen.findByText(/1 of 3 recalculations left this week/)).toBeInTheDocument();
+    second.unmount();
+
+    fetchMock.mockResolvedValue({ ...PROFILE_SCORE_FIXTURE, assessment: { available: true, inProgress: false, limit: 3, remaining: 0, nextAvailableAt: "2026-10-30T09:00:00.000Z" } });
+    render(<ProfileScoreCard />, { wrapper: scoringWrapper().wrapper });
+    expect(await screen.findByText(/No recalculations left this week\. The next one is available/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recalculate profile score" })).toBeDisabled();
   });
 
   it("refreshes score reads when source data refreshes without triggering a mutation", async () => {

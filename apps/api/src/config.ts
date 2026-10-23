@@ -91,6 +91,7 @@ const envSchema = z.object({
   PROFILE_SCORING_SCHEDULER_ENABLED: bool(true),
   /** Keep legacy v4 as the safe default; set v5 to activate enhanced CP/internship scoring. */
   // v5 (AI item assessment, platform-relative CP, open source) is the current policy; v4 only for replay.
+  PROFILE_SCORING_AUTO_ASSESS: bool(true),
   PROFILE_SCORING_POLICY: z.preprocess(emptyToUndefined, z.enum(["v4", "v5"]).default("v5")),
   /** v5 only: maximum LLM calls one scoring batch may spend on semantic item assessment. */
   PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(100_000).default(200)),
@@ -158,7 +159,7 @@ function toConfig(e: z.infer<typeof envSchema>) {
     },
     aiService: { baseUrl: stripTrailingSlash(e.AI_SERVICE_BASE_URL), timeoutMs: e.AI_SERVICE_TIMEOUT_MS },
     internalApiKey: e.INTERNAL_API_KEY,
-     profileScoring: { schedulerEnabled: e.PROFILE_SCORING_SCHEDULER_ENABLED, policy: e.PROFILE_SCORING_POLICY, semanticCallsPerBatch: e.PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH },
+     profileScoring: { schedulerEnabled: e.PROFILE_SCORING_SCHEDULER_ENABLED, policy: e.PROFILE_SCORING_POLICY, autoAssess: e.PROFILE_SCORING_AUTO_ASSESS, semanticCallsPerBatch: e.PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH },
     schedulerEnabled: e.SCHEDULER_ENABLED,
     blueprint: {
       reconcileIntervalMs: e.BLUEPRINT_RECONCILE_INTERVAL_MS,

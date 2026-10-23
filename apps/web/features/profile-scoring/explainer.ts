@@ -242,7 +242,7 @@ export const QUICK_WINS: { title: string; body: string; href: string; cta: strin
   },
   {
     title: "Recalculate after a change",
-    body: "Scores refresh weekly and after your sources change. You can also recalculate on demand.",
+    body: "Scores refresh weekly, and your first assessment runs as soon as you finish onboarding. After you change a project, role or source, press Recalculate: only new or changed items are re-assessed, and you get 3 recalculations per rolling week.",
     href: "/profile/score#your-score",
     cta: "See your breakdown",
   },

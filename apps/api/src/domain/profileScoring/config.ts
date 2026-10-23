@@ -264,6 +264,13 @@ export const V5_SCORING_CONFIG = PROFILE_BETA_V5_SCORING_CONFIG;
 
 export const CURRENT_SCORING_CONFIG = PROFILE_BETA_V5_SCORING_CONFIG;
 
+/**
+ * Bump when scoring CODE changes without a config change (a parser fix, a corrected rule). It is part of every
+ * input fingerprint, so snapshots cached under the old behaviour are recomputed on next read instead of being
+ * served stale until the week turns. Past snapshots stay in history untouched.
+ */
+export const SCORING_ENGINE_REVISION = "r2";
+
 export const linkedInProvider = (provider: unknown, version: string): "exa" | "firecrawl" | null =>
   provider === "exa" ? "exa" : provider === "firecrawl" && supportsLinkedIn(version) && version !== "profile-beta-v3" ? "firecrawl" : null;
 

@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Chip, PageHeader } from "@/components/ds";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
 import { BETA_NOTE, levelLabel, percent } from "../constants";
 import { HOW_STEPS, LEVEL_WEIGHTS, NOT_THIS, PART_GUIDE, QUICK_WINS, RULES, WEIGHT_COLUMNS } from "../explainer";
-import { useProfileScore, useRecalculateProfileScore } from "../hooks";
+import { useProfileScore } from "../hooks";
+import { RecalculateControl } from "./RecalculateControl";
 import type { ProfileScoreSnapshot } from "../types";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -69,7 +69,6 @@ function PartRow({ part }: { part: Part }) {
 }
 
 function YourScore({ current, level }: { current: ProfileScoreSnapshot | null | undefined; level: string | undefined }) {
-  const recalc = useRecalculateProfileScore();
   const parts = [...(current?.components ?? [])].filter((p) => p.weight > 0).sort((a, b) => b.weight - a.weight);
   const score = current?.score ?? null;
   return (
@@ -131,12 +130,10 @@ function YourScore({ current, level }: { current: ProfileScoreSnapshot | null | 
       ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Button variant="outline" size="sm" disabled={recalc.isPending} onClick={() => recalc.mutate()}>
-          {recalc.isPending ? "Recalculating…" : "Recalculate"}
-        </Button>
+        <RecalculateControl label="Recalculate" refresh={false} />
         <p className="m-0 text-xs text-ink-3">
           {current ? `Last calculated ${new Date(current.calculatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}. ` : ""}
-          Scores also refresh weekly and when your sources change.
+          Scores also refresh weekly. Recalculate re-assesses new or changed projects and experience.
         </p>
       </div>
     </div>

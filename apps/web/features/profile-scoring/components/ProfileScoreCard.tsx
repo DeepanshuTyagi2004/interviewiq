@@ -7,7 +7,8 @@ import { ArrowRight } from "lucide-react";
 import { ROUTES } from "@/lib/constants/shared";
 import { Switch } from "@/components/ui/switch";
 import { BETA_NOTE, levelLabel, percent } from "../constants";
-import { useProfileScore, useRecalculateProfileScore, useScoringSettings } from "../hooks";
+import { useProfileScore, useScoringSettings } from "../hooks";
+import { RecalculateControl } from "./RecalculateControl";
 
 const plainScoreValue = (value: number | null | undefined) => value == null ? "Unknown" : `${Math.round(value * 10) / 10}`;
 
@@ -32,7 +33,6 @@ export function ProfileScoreReadout() {
 
 export function ProfileScoreCard() {
   const query = useProfileScore();
-  const recalculate = useRecalculateProfileScore();
   const settings = useScoringSettings();
   const current = query.data?.current;
   return <Card as="section" aria-label="Beta profile score" title="Profile score" action={<Chip tone="outline">Beta</Chip>} bodyClassName="space-y-5">
@@ -61,7 +61,7 @@ export function ProfileScoreCard() {
         <Link href="/profile#profile-level" className="text-[13px] underline underline-offset-4 hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Edit engineering level in Profile details</Link>
       </div>
       <div className="flex items-center justify-between gap-3"><label htmlFor="profile-leaderboard-opt-in" className="text-sm">Opt in to level leaderboard</label>
-        <Switch id="profile-leaderboard-opt-in" checked={query.data.settings.leaderboardOptIn} disabled={settings.isPending || recalculate.isPending}
+        <Switch id="profile-leaderboard-opt-in" checked={query.data.settings.leaderboardOptIn} disabled={settings.isPending || Boolean(query.data.assessment?.inProgress)}
           onCheckedChange={(leaderboardOptIn) => settings.mutate({ leaderboardOptIn })} /></div>
       <p className="text-xs text-ink-2">{query.data.settings.leaderboardOptIn ? "Opted in. Privacy settings may hide your identity or exclude your profile; only eligible same-level peers are compared." : "Hidden from the leaderboard by default. Opt in to participate; privacy settings still apply."} Small or ineligible cohorts have no rank or percentile.</p>
       {current ? <>
@@ -69,12 +69,9 @@ export function ProfileScoreCard() {
           {[...new Set([...current.warnings, ...current.classification.warnings, ...current.eligibility.reasons])].map((warning) => <li key={warning}>{warning}</li>)}
         </ul> : null}
       </> : null}
-      <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" disabled={recalculate.isPending || settings.isPending}
-        onClick={() => recalculate.mutate()}>{recalculate.isPending ? "Recalculating…" : "Recalculate profile score"}</Button>
-        <Button size="sm" variant="ghost" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh</Button></div>
-      {recalculate.isPending ? <p role="status" className="text-xs text-ink-2">Recalculation requested. Waiting for a new snapshot…</p> : recalculate.isSuccess ? <p role="status" className="text-xs text-ink-2">Profile score refreshed.</p> : null}
+      <RecalculateControl disabled={settings.isPending} />
       {settings.isPending ? <p role="status" className="text-xs text-ink-2">Saving settings…</p> : null}
-      {settings.isError || recalculate.isError ? <p role="alert" className="text-sm text-destructive">{settings.isError ? "Could not save scoring settings." : "Could not recalculate profile score."} Please retry.</p> : null}
+      {settings.isError ? <p role="alert" className="text-sm text-destructive">Could not save scoring settings. Please retry.</p> : null}
     </>}
   </Card>;
 }

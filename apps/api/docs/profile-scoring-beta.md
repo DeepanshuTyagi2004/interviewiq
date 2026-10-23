@@ -393,14 +393,17 @@ a profile in the leaderboard. Source collection and AI inference are never trigg
 | Endpoint | Result |
 | --- | --- |
 | `GET /api/v1/users/me/profile-score` | Lazy assessment cache plus up to 52 stored snapshots and private settings |
-| `POST /api/v1/users/me/profile-score` | Explicit idempotent recalculation of the signed-in user |
+| `POST /api/v1/users/me/profile-score` | Recalculate: re-runs the AI item assessment for new or changed items in the background (3 runs per rolling 7 days, see `profile-scoring-v5.md`), then rescores. Idempotent for the same week, configuration and input |
 | `PATCH /api/v1/users/me/profile-score/settings` | Legacy nullable declared-level bridge to canonical profile level, plus leaderboard participation |
 | `GET /api/v1/profile-leaderboard?level=fresher&limit=25` | Current same-level eligible opt-in cohort; no evidence or user IDs |
 | `GET /api/v1/intelligence/diagnostics?userId=<uuid>` | ADMIN read-only replay, local source, formula and job checks |
 | `POST /api/v1/intelligence/profile-scoring/live` | ADMIN one-user run streamed as NDJSON: sources, every AI-service call, snapshot, every engine step, then the full trace |
 
-Mongo collections are `profile_score_snapshots`, `profile_scoring_settings`, `profile_scoring_jobs`
-and `profile_scoring_leases`. No scoring Postgres migration is needed. Normal startup creates the
+Mongo collections are `profile_score_snapshots`, `profile_scoring_settings`, `profile_scoring_jobs`,
+`profile_scoring_leases` and `profile_scoring_assessment_runs`. The snapshot fingerprint includes
+`SCORING_ENGINE_REVISION` (`domain/profileScoring/config.ts`): bump it when scoring code changes without a
+config change (a parser fix), so cached snapshots are recomputed on next read rather than served stale until
+the week turns. Stored assessments are part of the input, so new assessments always produce a new snapshot. No scoring Postgres migration is needed. Normal startup creates the
 Mongo indexes. Snapshot insertion is idempotent by user/week/config/local-input fingerprint;
 unchanged GET/POST calls preserve the first frozen `asOf` and do not fabricate changes. Profile,
 connection, privacy and scoring-setting revisions invalidate the current cache. Same-timestamp

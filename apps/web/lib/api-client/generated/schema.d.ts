@@ -150,31 +150,11 @@ export interface paths {
         get: operations["getProfileScore"];
         put?: never;
         /**
-         * Recalculate the signed-in user's profile score from local evidence.
-         * @description Idempotent for the same week, configuration and local input fingerprint. No interview result changes.
-         */
-        post: operations["recalculateProfileScore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/profile-score/assess": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh semantic sub-feature assessments for changed projects, internships and roles (v5).
-         * @description Calls the AI service once per new or edited item, judged relative to the user's rubric level, which is derived server-side (the body must be empty). Unchanged items are reused. Results are bounded INFERRED sub-features with verbatim quoted evidence; the deterministic engine combines them on the next read. Never returns or stores an overall score. Rate-limited per user; the weekly batch runs it automatically.
+         * Recalculate the signed-in user's profile score; also re-runs the AI item assessment for new or changed items.
+         * @description Starts the assessment in the background (unchanged items reuse their stored result) and returns at once with `assessment.inProgress`; poll the GET until it clears. Limited to 3 runs per user per rolling 7 days, enforced server-side (429 `profile_scoring_recalculation_limit`; `assessment.nextAvailableAt` says when the next frees up). A run that stored no new assessment is not charged. Idempotent for the same week, configuration and local input fingerprint. No interview result changes.
          *
          */
-        post: operations["assessProfileItems"];
+        post: operations["recalculateProfileScore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2167,6 +2147,18 @@ export interface components {
             current: components["schemas"]["ProfileScoreSnapshot"] | null;
             history: components["schemas"]["ProfileScoreSnapshot"][];
             settings: components["schemas"]["ProfileScoringSettings"];
+            assessment: components["schemas"]["ProfileAssessmentStatus"];
+        };
+        /** @description The AI assessment behind Recalculate. `remaining` counts runs left in the user's rolling 7 days (the automatic first run counts); `nextAvailableAt` is when one frees up, only set when none is left.
+         *      */
+        ProfileAssessmentStatus: {
+            /** @description False when assessments are not enabled; Recalculate is then deterministic only. */
+            available: boolean;
+            inProgress: boolean;
+            limit: number;
+            remaining: number;
+            /** Format: date-time */
+            nextAvailableAt: string | null;
         };
         ProfileLeaderboardResponse: {
             level: components["schemas"]["EngineeringLevel"];
@@ -4796,52 +4788,6 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-        };
-    };
-    assessProfileItems: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Refresh counts. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        assessed: number;
-                        reused: number;
-                        skipped: number;
-                        failed: number;
-                        budgetExhausted: boolean;
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            /** @description Too many refreshes; retry later. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Semantic assessment is not enabled (v5 policy and AI service required). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     listPlatformConnections: {

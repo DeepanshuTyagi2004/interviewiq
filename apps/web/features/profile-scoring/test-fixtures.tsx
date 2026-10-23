@@ -19,7 +19,8 @@ export const SCORE_FIXTURE: ProfileScoreSnapshot = {
   sources: [{ source: "RESUME", status: "available", fetchedAt: "2026-10-03T10:00:00Z", ageDays: 1, contentHash: "resume-hash" }],
   warnings: ["Self-reported evidence is provisional"], eligibility: { eligible: false, reasons: ["Cohort too small"] }, rank: null, percentile: null, cohortSize: 2,
 };
-export const PROFILE_SCORE_FIXTURE: ProfileScoreResponse = { current: SCORE_FIXTURE, history: [SCORE_FIXTURE], settings: { declaredLevel: null, leaderboardOptIn: false } };
+export const PROFILE_SCORE_FIXTURE: ProfileScoreResponse = { current: SCORE_FIXTURE, history: [SCORE_FIXTURE], settings: { declaredLevel: null, leaderboardOptIn: false },
+  assessment: { available: true, inProgress: false, limit: 3, remaining: 3, nextAvailableAt: null } };
 export const DIAGNOSTICS_FIXTURE: ProfileDiagnosticsResponse = {
   checkedAt: "2026-10-04T10:00:00Z", checks: [
     { id: "replay", label: "Snapshot replay", status: "pass", detail: "Frozen input is reproducible" },

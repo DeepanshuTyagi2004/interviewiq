@@ -102,6 +102,8 @@ export class CandidateProfileService {
     private readonly aiService: AiServiceClient,
     /** Compatibility read for the previous scoring-only choice; never supersedes an owned profile field. */
     private readonly legacyLevel?: (userId: string) => Promise<unknown>,
+    /** Called once when onboarding is completed (fire-and-forget; must not throw into the request). */
+    private readonly onOnboardingComplete?: (userId: string) => void,
   ) {}
 
   private async response(doc: CandidateProfileDoc, onboardingComplete: boolean): Promise<CandidateProfileResponse> {
@@ -207,6 +209,7 @@ export class CandidateProfileService {
     let onboardingComplete = user.onboardingComplete;
     if (req.complete && !onboardingComplete) {
       onboardingComplete = (await this.users.markOnboardingComplete(userId))?.onboardingComplete ?? true;
+      this.onOnboardingComplete?.(userId);
     }
     return this.response(saved, onboardingComplete);
   }

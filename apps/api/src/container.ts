@@ -61,7 +61,7 @@ import { ProfileService } from "./services/profileService.js";
 import { UserService } from "./services/userService.js";
 import { CompanyEnrichmentService } from "./services/companyEnrichment.js";
 import { JdFitService } from "./services/jdFit.js";
-import { ProfileScoringRepository } from "./repositories/profileScoring.js";
+import { ProfileAssessmentRunRepository, ProfileScoringRepository } from "./repositories/profileScoring.js";
 import { ProfileScoringService } from "./services/profileScoring.js";
 import { ProfileScoringJob } from "./jobs/profileScoring.js";
 import { LinkedInImportRepository } from "./repositories/linkedinImports.js";
@@ -175,7 +175,9 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
   );
   const rateLimiters = createAuthRateLimiters({ ...DEFAULT_AUTH_RATE_LIMITS, ...authRateLimits });
   const candidateProfiles = new CandidateProfileService(repos.candidateProfiles, repos.users, aiService,
-    async (userId) => (await repos.profileScoring.settings(userId)).declaredLevel);
+    async (userId) => (await repos.profileScoring.settings(userId)).declaredLevel,
+    // Onboarding done: start the first AI assessment now rather than at the weekly batch.
+    (userId) => void profileScoring.autoAssessIfFirst(userId).catch((err: unknown) => log.warn({ err }, "first profile assessment could not start")));
   const linkedin = new LinkedInImportService(repos.linkedinImports, repos.candidateProfiles, repos.fragments, repos.users, aiService, repos.validationControls);
   const profiles = new ProfileService(repos.users, repos.githubConnections, repos.leetcodeConnections, repos.fragments, githubCollector, repos.platformConnections);
   const profileScoring = new ProfileScoringService({
@@ -183,6 +185,7 @@ export function createContainer({ config, log, db, mongo, fetch: fetchImpl = glo
     github: repos.githubConnections, leetcode: repos.leetcodeConnections, platforms: repos.platformConnections, preferences, pseudonymKey: config.jwt.secret,
     schedulerEnabled: config.profileScoring.schedulerEnabled, aiService, companies: repos.companies,
     semanticCallsPerBatch: config.profileScoring.semanticCallsPerBatch,
+    runs: new ProfileAssessmentRunRepository(mongo), background, autoAssess: config.profileScoring.autoAssess,
     ...(config.profileScoring.policy === "v5" ? { config: CURRENT_SCORING_CONFIG } : {}),
   });
   const enrichment = new CompanyEnrichmentService(db, aiService);

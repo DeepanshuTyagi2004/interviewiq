@@ -2,7 +2,7 @@ import { type Collection, type Db, MongoClient } from "mongodb";
 import type { EducationDto, ExperienceDto, ProjectDto, ResumeLinksDto } from "../../domain/candidateProfile.js";
 import type { ProfileSource } from "../../domain/enums.js";
 import type { LinkedInImportDoc, LinkedInImportLockDoc } from "../../repositories/linkedinImports.js";
-import type { CompanyKnowledgeDoc, ProfileScoreDoc, ProfileScoringJobDoc, ProfileScoringLeaseDoc, ProfileScoringSettingsDoc, SemanticAssessmentDoc } from "../../repositories/profileScoring.js";
+import type { AssessmentRunsDoc, CompanyKnowledgeDoc, ProfileScoreDoc, ProfileScoringJobDoc, ProfileScoringLeaseDoc, ProfileScoringSettingsDoc, SemanticAssessmentDoc } from "../../repositories/profileScoring.js";
 import type { ValidationControlsDoc } from "../../repositories/validationControls.js";
 
 /**
@@ -106,6 +106,7 @@ export interface MongoCollections {
   profileScoringLeases: Collection<ProfileScoringLeaseDoc>;
   profileScoringSemantic: Collection<SemanticAssessmentDoc>;
   profileScoringCompanies: Collection<CompanyKnowledgeDoc>;
+  profileScoringAssessmentRuns: Collection<AssessmentRunsDoc>;
   linkedinImports: Collection<LinkedInImportDoc>;
   linkedinImportLocks: Collection<LinkedInImportLockDoc>;
   validationControls: Collection<ValidationControlsDoc>;
@@ -124,6 +125,7 @@ export function collections(db: Db): MongoCollections {
     profileScoringLeases: db.collection<ProfileScoringLeaseDoc>("profile_scoring_leases"),
     profileScoringSemantic: db.collection<SemanticAssessmentDoc>("profile_scoring_semantic_assessments"),
     profileScoringCompanies: db.collection<CompanyKnowledgeDoc>("profile_scoring_company_kb"),
+    profileScoringAssessmentRuns: db.collection<AssessmentRunsDoc>("profile_scoring_assessment_runs"),
     linkedinImports: db.collection<LinkedInImportDoc>("linkedin_import_drafts"),
     linkedinImportLocks: db.collection<LinkedInImportLockDoc>("linkedin_import_locks"),
     // The fixed singleton _id uses MongoDB's built-in unique _id index; no TTL/user ownership.

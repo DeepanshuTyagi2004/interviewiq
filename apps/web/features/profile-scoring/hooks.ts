@@ -24,7 +24,8 @@ export function useProfileScore() {
       }
     }
   }), [client]);
-  return useQuery({ queryKey: SCORE_KEYS.me, queryFn: getProfileScore });
+  // While the AI assessment runs in the background, poll until it clears and the new snapshot is there.
+  return useQuery({ queryKey: SCORE_KEYS.me, queryFn: getProfileScore, refetchInterval: (q) => q.state.data?.assessment?.inProgress ? 4000 : false });
 }
 
 export function useScoringSettings() {
@@ -40,7 +41,7 @@ export function useRecalculateProfileScore() {
   return useMutation({ mutationFn: recalculateProfileScore, onSuccess: (data) => {
     client.setQueryData(SCORE_KEYS.me, data);
     void client.invalidateQueries({ queryKey: SCORE_KEYS.all });
-  } });
+  }, onError: () => void client.invalidateQueries({ queryKey: SCORE_KEYS.all }) });
 }
 
 export function useProfileLeaderboard(level: EngineeringLevel, enabled = true) {

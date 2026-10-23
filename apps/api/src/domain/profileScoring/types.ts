@@ -286,10 +286,22 @@ export interface ProfileScoringSettings {
   leaderboardOptIn: boolean;
 }
 
+/** The AI assessment behind Recalculate: whether one is running and how many of the rolling-week runs are left. */
+export interface ProfileAssessmentStatus {
+  /** False when assessments are not enabled for this deployment (Recalculate is then deterministic only). */
+  available: boolean;
+  inProgress: boolean;
+  limit: number;
+  remaining: number;
+  /** When the next run frees up; null while at least one is left. */
+  nextAvailableAt: string | null;
+}
+
 export interface ProfileScoreResponse {
   current: ProfileScoreSnapshot | null;
   history: ProfileScoreSnapshot[];
   settings: ProfileScoringSettings;
+  assessment: ProfileAssessmentStatus;
 }
 
 export interface ProfileLeaderboardResponse {

@@ -234,9 +234,24 @@ famous one.
 
 ## Semantic producer (`services/profileScoring.ts`, `semantic.ts`)
 
-- Runs in the weekly scoring batch before each user's calculation (bounded by
-  `PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH`, default 200) and on `POST /users/me/profile-score/assess`
-  (empty body, 3 per hour per user). Rubric level and context are derived server-side.
+- Runs in three places, always with the rubric level and context derived server-side:
+  1. **The weekly scoring batch**, before each user's calculation (bounded by
+     `PROFILE_SCORING_SEMANTIC_CALLS_PER_BATCH`, default 200). Not counted against a user's runs below.
+  2. **Recalculate** (`POST /users/me/profile-score`, the button on the score card and the explainer): re-assesses
+     new or changed items (unchanged ones reuse their stored result), then rescores. It runs in the background:
+     the request returns at once with `assessment.inProgress: true` and the card polls until the new snapshot is
+     there.
+  3. **The first assessment** for a user who has never had one (none stored, none ever completed), started
+     when onboarding completes and, as a catch-all, on the first score view
+     (`PROFILE_SCORING_AUTO_ASSESS`, default true). A failed automatic try is not repeated for 6 hours.
+- **Limit (decided 2026-10-23): 3 runs per user in a rolling 7 days**, the automatic first run included. The
+  weekly batch is not counted. It is kept in Mongo (`profile_scoring_assessment_runs`, one document per user),
+  taken with one atomic upsert, so restarts and API replicas share it. A run that stored no new assessment
+  (everything reused, no items, or every call failed) gives its slot back. Over the limit: 429
+  `profile_scoring_recalculation_limit`; `GET /users/me/profile-score` returns `assessment`
+  (`available`, `inProgress`, `limit`, `remaining`, `nextAvailableAt`) so the UI can say how many are left or
+  when the next frees up. An in-flight marker expires after 10 minutes if its replica dies.
+- The former `POST /users/me/profile-score/assess` endpoint and its in-memory 3-per-hour limiter were removed.
 - One AI-service call per item (`/profile-scoring/assess`, prompt v5, Groq `openai/gpt-oss-120b` first, then
   `gpt-oss-20b`, Cloudflare and Google): the minimized item, the user's
   level, target role and years of experience, and that item type's feature rubric. The item's bullets
