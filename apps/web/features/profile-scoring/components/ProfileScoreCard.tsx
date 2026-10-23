@@ -3,6 +3,8 @@
 import { Card, Chip, Stat } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { ROUTES } from "@/lib/constants/shared";
 import { Switch } from "@/components/ui/switch";
 import { BETA_NOTE, levelLabel, percent } from "../constants";
 import { useProfileScore, useRecalculateProfileScore, useScoringSettings } from "../hooks";
@@ -35,6 +37,13 @@ export function ProfileScoreCard() {
   const current = query.data?.current;
   return <Card as="section" aria-label="Beta profile score" title="Profile score" action={<Chip tone="outline">Beta</Chip>} bodyClassName="space-y-5">
     <p className="m-0 text-[13px] leading-relaxed text-ink-2">{BETA_NOTE}</p>
+    <Link
+      href={ROUTES.profileScore}
+      className="inline-flex w-fit items-center gap-1.5 rounded-md text-[14px] font-medium underline underline-offset-4 outline-none hover:text-ink-2 focus-visible:ring-2 focus-visible:ring-brand"
+    >
+      How your score is calculated, and how to raise it
+      <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+    </Link>
     {query.isLoading ? <p role="status">Loading profile score…</p> : query.isError || !query.data ? <div>
       <p role="alert" className="text-sm text-destructive">Could not load profile score.</p>
       <Button variant="outline" size="sm" onClick={() => void query.refetch()}>Retry</Button>
