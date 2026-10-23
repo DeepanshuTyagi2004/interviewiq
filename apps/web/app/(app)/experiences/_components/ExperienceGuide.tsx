@@ -11,10 +11,10 @@ const PER_ROUND = [
 export function ExperienceGuide() {
   return (
     <Card tone="surface" title="What helps most" className="lg:sticky lg:top-[60px]">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3">
           <p className="m-0 text-[14px] font-medium">For each round, tell us</p>
-          <ol className="m-0 flex list-none flex-col gap-3 p-0">
+          <ol className="m-0 flex list-none flex-col gap-2 p-0">
             {PER_ROUND.map(([title, body], i) => (
               <li key={title} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5">
                 <span className="font-mono text-xs leading-5 text-ink-3">{String(i + 1).padStart(2, "0")}</span>
@@ -26,7 +26,7 @@ export function ExperienceGuide() {
             ))}
           </ol>
         </div>
-        <div className="flex flex-col gap-1 border-t border-line pt-5">
+        <div className="flex flex-col gap-1 border-t border-line pt-4">
           <p className="m-0 text-[14px] font-medium">Keep it descriptive</p>
           <p className="m-0 text-[13px] leading-[1.55] text-ink-2">
             Leave out interviewers’ names and anything confidential. Describe what happened, not who.

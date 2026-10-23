@@ -49,7 +49,7 @@ export function ExperienceForm() {
   return (
     <Card title="Your experience" flush>
       <form onSubmit={onSubmit} className="flex flex-col">
-        <div className="flex flex-col gap-6 px-4 py-5 sm:px-5">
+        <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="company" className="text-[13px] font-normal text-ink-2">
               Company
@@ -66,7 +66,7 @@ export function ExperienceForm() {
 
           <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
             <legend className="mb-2 p-0 text-[13px] text-ink-2">Level</legend>
-            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap">
+            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-1">
               {LEVELS.map((l) => {
                 const selected = level === l.value;
                 return (
@@ -102,10 +102,10 @@ export function ExperienceForm() {
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              rows={6}
+              rows={4}
               aria-describedby="content-hint"
               placeholder="Walk through each round: format (DSA / system design / behavioural), topics, problems asked, difficulty, whether hints were given, and the outcome if you know it."
-              className="min-h-[132px] leading-[1.55]"
+              className="min-h-[84px] leading-[1.55]"
             />
             <div id="content-hint" className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs">
               <span className="text-ink-3">
@@ -118,7 +118,7 @@ export function ExperienceForm() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3 sm:px-5">
           {justSubmitted ? (
             <p role="status" className="m-0 flex items-center gap-2 text-[13px]">
               <CheckCircle2 aria-hidden className="h-4 w-4" />

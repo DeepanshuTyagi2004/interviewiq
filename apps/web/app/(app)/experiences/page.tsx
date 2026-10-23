@@ -4,9 +4,8 @@ import { ExperienceGuide } from "./_components/ExperienceGuide";
 
 export default function ShareExperiencePage() {
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Share experience"
         title="Share an interview experience"
         description="Just interviewed somewhere? Share what happened — it helps build company-specific interview intelligence for everyone."
       />
