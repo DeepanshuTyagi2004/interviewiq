@@ -36,6 +36,7 @@ const RECALCULATION_WINDOW_MS = 7 * 24 * 3_600_000;
 /** An in-flight marker older than this belongs to a replica that died; the run may be started again. */
 const ASSESSMENT_RUN_TTL_MS = 10 * 60_000;
 const AUTO_RETRY_MS = 6 * 3_600_000;
+const FAILED_RUN_COOLDOWN_MS = 10 * 60_000;
 const nextWeek = (now: Date) => new Date(new Date(`${scoringWeek(now)}T00:00:00.000Z`).getTime() + 604_800_000).toISOString();
 const digest = (v: unknown) => sha256Hex(canonicalize(v));
 
@@ -58,7 +59,7 @@ interface Deps {
   /** Upper bound on LLM calls in one scoring batch (cost discipline). */
   semanticCallsPerBatch?: number;
   /** Per-user run ledger (rolling-week limit, in-flight marker). Without it Recalculate stays deterministic-only. */
-  runs?: Pick<ProfileAssessmentRunRepository, "usage" | "reserve" | "release" | "begin" | "end">;
+  runs?: Pick<ProfileAssessmentRunRepository, "usage" | "reserve" | "release" | "begin" | "end" | "extend" | "markAssessed">;
   /** Where assessments run so a request never waits on the model; without it they run inline. */
   background?: Pick<BackgroundTasks, "run">;
   /** First assessment for a user who has never had one (after onboarding, or the first score view). */
@@ -192,6 +193,9 @@ export class ProfileScoringService {
   async recalculate(userId: string): Promise<ProfileScoreResponse> {
     if (this.assessmentEnabled()) {
       const outcome = await this.startAssessment(userId, false);
+      if (outcome === "cooldown") {
+        throw new ApiError(429, "profile_scoring_recalculation_cooldown", "The last assessment could not be completed. Please try again in a few minutes; it did not use one of your recalculations.");
+      }
       if (outcome === "limit") {
         const status = await this.assessmentStatus(userId, this.now());
         throw new ApiError(429, "profile_scoring_recalculation_limit", status.nextAvailableAt
@@ -213,30 +217,34 @@ export class ProfileScoringService {
     if (usage.everAssessed || (usage.assessingUntil && usage.assessingUntil > now)) return;
     // A failed automatic try is not repeated on every page view.
     if (usage.autoTriedAt && now.getTime() - usage.autoTriedAt.getTime() < AUTO_RETRY_MS) return;
-    if ((await this.d.repo.semanticAssessments(userId)).length) return;
+    if ((await this.d.repo.semanticAssessments(userId)).length) { await this.d.runs!.markAssessed(userId); return; }
     await this.startAssessment(userId, true);
   }
 
   private assessmentEnabled(): boolean { return Boolean(this.d.runs && this.d.aiService && this.config.v5Policy); }
 
   /** Take a slot and start the run. "busy" = one is already in flight (nothing new is taken); "limit" = no slot left. */
-  private async startAssessment(userId: string, auto: boolean): Promise<"started" | "busy" | "limit"> {
+  private async startAssessment(userId: string, auto: boolean): Promise<"started" | "busy" | "limit" | "cooldown"> {
     const runs = this.d.runs!, now = this.now();
     const usage = await runs.usage(userId, now, RECALCULATION_WINDOW_MS);
     if (usage.assessingUntil && usage.assessingUntil > now) return "busy";
+    if (usage.cooldownUntil && usage.cooldownUntil > now) return "cooldown";
     if (!(await runs.reserve(userId, now, RECALCULATION_LIMIT, RECALCULATION_WINDOW_MS, auto))) return "limit";
     if (!(await runs.begin(userId, now, ASSESSMENT_RUN_TTL_MS))) { await runs.release(userId, now); return "busy"; }
     const task = async () => {
-      let assessed = 0;
+      let assessed = 0, failed = 0;
       try {
-        assessed = (await this.refreshSemanticAssessments(userId)).assessed;
+        // A long run (many items, slow free-tier providers) keeps its marker alive between model calls.
+        const result = await this.refreshSemanticAssessments(userId, { renew: async () => { await runs.extend(userId, new Date(this.now().getTime() + ASSESSMENT_RUN_TTL_MS)); return true; } });
+        assessed = result.assessed; failed = result.failed;
         await this.calculate(userId, this.now());
       } catch (err) {
         if (!(err instanceof ApiError && err.status === 404)) throw err;
       } finally {
         // A run that stored nothing (everything reused, no items, or every call failed) does not use up a slot.
         if (assessed === 0) await runs.release(userId, now);
-        await runs.end(userId, assessed > 0);
+        // When every call failed, hold new runs for a while so a failing provider chain is not retried in a loop.
+        await runs.end(userId, assessed > 0, assessed === 0 && failed > 0 ? new Date(this.now().getTime() + FAILED_RUN_COOLDOWN_MS) : null);
       }
     };
     if (this.d.background) this.d.background.run("profile-score-assess", task); else await task().catch(() => undefined);

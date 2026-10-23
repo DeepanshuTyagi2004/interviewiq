@@ -45,11 +45,11 @@ function harness(options: { failAssessment?: boolean } = {}) {
     history: async () => [], latestForWeek: async () => [],
   };
   /** In-memory run ledger with the same contract as ProfileAssessmentRunRepository. */
-  const ledger = { runs: [] as Date[], assessingUntil: null as Date | null, everAssessed: false, autoTriedAt: null as Date | null };
+  const ledger = { runs: [] as Date[], assessingUntil: null as Date | null, everAssessed: false, autoTriedAt: null as Date | null, cooldownUntil: null as Date | null };
   const runs = {
     usage: async (_id: string, now: Date, windowMs: number) => {
       const live = ledger.runs.filter((at) => at.getTime() > now.getTime() - windowMs).sort((a, b) => a.getTime() - b.getTime());
-      return { used: live.length, oldest: live[0] ?? null, assessingUntil: ledger.assessingUntil, everAssessed: ledger.everAssessed, autoTriedAt: ledger.autoTriedAt };
+      return { used: live.length, oldest: live[0] ?? null, assessingUntil: ledger.assessingUntil, everAssessed: ledger.everAssessed, autoTriedAt: ledger.autoTriedAt, cooldownUntil: ledger.cooldownUntil };
     },
     reserve: async (_id: string, now: Date, limit: number, windowMs: number, auto: boolean) => {
       ledger.runs = ledger.runs.filter((at) => at.getTime() > now.getTime() - windowMs);
@@ -58,7 +58,9 @@ function harness(options: { failAssessment?: boolean } = {}) {
     },
     release: async (_id: string, at: Date) => { const i = ledger.runs.findIndex((x) => x.getTime() === at.getTime()); if (i >= 0) ledger.runs.splice(i, 1); },
     begin: async (_id: string, now: Date, ttlMs: number) => { if (ledger.assessingUntil && ledger.assessingUntil > now) return false; ledger.assessingUntil = new Date(now.getTime() + ttlMs); return true; },
-    end: async (_id: string, assessed: boolean) => { ledger.assessingUntil = null; if (assessed) ledger.everAssessed = true; },
+    end: async (_id: string, assessed: boolean, cooldownUntil: Date | null = null) => { ledger.assessingUntil = null; ledger.cooldownUntil = cooldownUntil; if (assessed) ledger.everAssessed = true; },
+    extend: async (_id: string, until: Date) => { ledger.assessingUntil = until; },
+    markAssessed: async () => { ledger.everAssessed = true; },
   };
   const service = new ProfileScoringService({
     runs, autoAssess: true,
@@ -164,5 +166,15 @@ describe("semantic item assessment producer", () => {
     const calls = h.requests.length;
     await h.service.autoAssessIfFirst(userId);
     expect(h.requests.length).toBe(calls);
+  });
+
+  it("after a run in which every model call failed, holds new runs for a few minutes and does not charge a slot", async () => {
+    const failing = harness({ failAssessment: true });
+    await failing.service.recalculate(userId);
+    expect(failing.ledger.runs).toHaveLength(0);
+    expect(failing.ledger.cooldownUntil).not.toBeNull();
+    const calls = failing.requests.length;
+    await expect(failing.service.recalculate(userId)).rejects.toMatchObject({ status: 429, code: "profile_scoring_recalculation_cooldown" });
+    expect(failing.requests.length).toBe(calls);
   });
 });
