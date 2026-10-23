@@ -69,7 +69,7 @@ const THEMES: { value: AppTheme; label: string; icon: LucideIcon }[] = [
 
 const panel = "rounded-tile border-0 bg-popover p-1.5 shadow-float";
 const item =
-  "cursor-pointer gap-3 rounded-[10px] px-2.5 py-[7px] text-[13.5px] focus:bg-surface-2 focus:text-ink data-[state=open]:bg-surface-2 [&_svg]:text-ink-3 focus:[&_svg]:text-ink";
+  "cursor-pointer gap-3 rounded-[10px] px-2.5 py-[7px] text-[13.5px] max-sm:py-2.5 max-sm:text-[14.5px] focus:bg-surface-2 focus:text-ink data-[state=open]:bg-surface-2 [&_svg]:text-ink-3 focus:[&_svg]:text-ink";
 const groupLabel = "px-2.5 pb-1 pt-2 text-[12px] font-normal text-ink-3";
 const separator = "-mx-1.5 my-1.5 bg-line";
 const kbd = "ml-auto rounded-md border border-line px-1.5 py-0.5 font-mono text-xs leading-none text-ink-3";
@@ -138,7 +138,7 @@ export function AccountMenu({
         align={align}
         sideOffset={10}
         collisionPadding={12}
-        className={cn("w-[288px]", panel)}
+        className={cn("w-[288px] max-w-[calc(100vw-24px)]", panel)}
         onCloseAutoFocus={(e) => {
           const run = afterClose.current;
           if (!run) return;
@@ -161,8 +161,13 @@ export function AccountMenu({
             {email ? <p className="m-0 mt-0.5 truncate text-xs text-ink-3">{email}</p> : null}
           </div>
         </div>
-        <p className="m-0 mx-1 mb-1 rounded-[10px] bg-surface px-2.5 py-2 text-xs text-ink-2">
-          <StatusDot state={statusActive ? "active" : "idle"} label={<span className="truncate">{status}</span>} className="max-w-full" />
+        <p className="m-0 mx-1 mb-1 min-w-0 overflow-hidden rounded-[10px] bg-surface px-2.5 py-2 text-xs text-ink-2">
+          {/* Wraps instead of running past the panel: a long track ("Salescode · Software Developer") reads in full. */}
+          <StatusDot
+            state={statusActive ? "active" : "idle"}
+            label={<span className="block break-words leading-snug">{status}</span>}
+            className="flex w-full min-w-0 items-start whitespace-normal [&>span:first-child]:mt-[5px]"
+          />
         </p>
 
         <DropdownMenuSeparator className={separator} />
@@ -204,7 +209,8 @@ export function AccountMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger className={item}>
+            {/* Shortcuts mean nothing on a phone. */}
+            <DropdownMenuSubTrigger className={cn(item, "max-md:hidden")}>
               <Keyboard aria-hidden strokeWidth={1.6} />
               Keyboard shortcuts
             </DropdownMenuSubTrigger>

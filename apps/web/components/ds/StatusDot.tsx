@@ -36,7 +36,7 @@ export function StatusDot({ state, label, srOnly, className }: StatusDotProps) {
         data-motion={state === "live" ? "" : undefined}
         className={cn("h-1.5 w-1.5 flex-none rounded-full", DOT[state])}
       />
-      {label != null ? <span className={srOnly ? "sr-only" : undefined}>{label}</span> : null}
+      {label != null ? <span className={srOnly ? "sr-only" : "min-w-0"}>{label}</span> : null}
     </span>
   );
 }
