@@ -1,8 +1,7 @@
 import * as React from "react";
-import { HUES } from "./palette";
 import type { PersonaKind } from "./PersonaArt";
 
-export type GlyphVariant = "line" | "smoked" | "engraved" | "duotone";
+export type GlyphVariant = "line" | "smoked" | "engraved" | "duotone" | "etched";
 
 /** Precise 120-grid symbols, drawn as monoline paths (the weight of an SF Symbol). */
 const SYMBOLS: Record<PersonaKind, { main: string; detail?: string; fill?: string }> = {
@@ -38,13 +37,11 @@ const SYMBOLS: Record<PersonaKind, { main: string; detail?: string; fill?: strin
   },
 };
 
-const ORB_HUE: Record<PersonaKind, number> = { student: 0, campus: 1, professional: 3, hiring: 2, bootcamp: 5 };
-
 /**
- * Audience symbols: a thin-line glyph on a liquid-glass tile with a single small coloured orb as the
- * only accent. Four treatments (`variant`): ink line
- * on pearl, white line on smoked glass, an engraved letterpress glyph, and a duotone glyph with a
- * translucent glass fill. Decorative (aria-hidden).
+ * Audience symbols: a thin-line glyph on a liquid-glass tile, strictly monochrome. Five treatments
+ * (`variant`): ink line on pearl, white line on smoked glass, a deeply engraved glyph pressed into
+ * pearl, a duotone glyph with a graphite glass fill, and an etched glyph cut into smoked glass.
+ * Decorative (aria-hidden).
  */
 export function PersonaGlyph({
   kind,
@@ -59,9 +56,9 @@ export function PersonaGlyph({
 }) {
   const id = `gl-${variant}-${kind}`;
   const sym = SYMBOLS[kind];
-  const dark = variant === "smoked";
-  const [hi, mid, lo] = HUES[ORB_HUE[kind]].orb;
-  const stroke = dark ? "#FFFFFF" : variant === "engraved" ? "#DAD7D1" : `url(#${id}-ink)`;
+  const dark = variant === "smoked" || variant === "etched";
+  const engraved = variant === "engraved" || variant === "etched";
+  const stroke = variant === "etched" ? "#050504" : variant === "smoked" ? "#FFFFFF" : variant === "engraved" ? "#8A867F" : `url(#${id}-ink)`;
   const common = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
   const w = 2.6;
   return (
@@ -95,12 +92,6 @@ export function PersonaGlyph({
           <stop offset="0" stopColor="#2A2825" />
           <stop offset="1" stopColor="#57534D" />
         </linearGradient>
-        <radialGradient id={`${id}-orb`} cx=".32" cy=".26" r=".85">
-          <stop offset="0" stopColor="#fff" />
-          <stop offset=".3" stopColor={hi} />
-          <stop offset=".7" stopColor={mid} />
-          <stop offset="1" stopColor={lo} />
-        </radialGradient>
         <filter id={`${id}-lift`} x="-30%" y="-30%" width="160%" height="170%">
           <feDropShadow dx="0" dy="3" stdDeviation="2.4" floodColor={dark ? "#000" : "#2A2723"} floodOpacity={dark ? 0.5 : 0.22} />
         </filter>
@@ -115,16 +106,19 @@ export function PersonaGlyph({
       <rect x="1" y="1" width="118" height="118" rx="29" fill="none" stroke={`url(#${id}-rim)`} strokeWidth="2" />
 
       {/* the symbol */}
-      {variant === "engraved" ? (
-        <g {...common} strokeWidth={w + 0.4}>
-          <g transform="translate(0 1.4)" stroke="#fff" opacity=".95">
+      {engraved ? (
+        <g {...common} strokeWidth={w + 0.6}>
+          {/* lit lower lip of the cut */}
+          <g transform="translate(0 1.6)" stroke="#fff" opacity={variant === "etched" ? 0.38 : 0.95}>
             <path d={sym.main} />
             {sym.detail ? <path d={sym.detail} /> : null}
           </g>
-          <g transform="translate(0 -0.8)" stroke="#6B6862" opacity=".45">
+          {/* shadowed upper wall of the cut */}
+          <g transform="translate(0 -0.9)" stroke={variant === "etched" ? "#000" : "#3F3B35"} opacity={variant === "etched" ? 0.7 : 0.6}>
             <path d={sym.main} />
             {sym.detail ? <path d={sym.detail} /> : null}
           </g>
+          {/* the floor of the cut */}
           <g stroke={stroke}>
             <path d={sym.main} />
             {sym.detail ? <path d={sym.detail} /> : null}
@@ -138,7 +132,7 @@ export function PersonaGlyph({
               {sym.detail ? <path d={sym.detail} /> : null}
             </g>
           ) : null}
-          {variant === "duotone" && sym.fill ? <path d={sym.fill} fill="#fff" fillOpacity=".55" stroke="none" /> : null}
+          {variant === "duotone" && sym.fill ? <path d={sym.fill} fill="#2A2825" fillOpacity=".12" stroke="none" /> : null}
           <g {...common} stroke={stroke} strokeWidth={w}>
             <path d={sym.main} />
             {sym.detail ? <path d={sym.detail} /> : null}
@@ -146,10 +140,6 @@ export function PersonaGlyph({
         </g>
       )}
 
-      {/* the one accent: a coloured orb */}
-      <g filter={`url(#${id}-lift)`}>
-        <circle cx="93" cy="29" r="7" fill={`url(#${id}-orb)`} />
-      </g>
     </svg>
   );
 }
