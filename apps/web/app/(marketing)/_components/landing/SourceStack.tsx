@@ -1,15 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { BriefcaseBusiness, Code2, FileText, GitBranch, Globe, type LucideIcon } from "lucide-react";
 import { GlyphTile } from "@/components/ds";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 import { SOURCE_STACK } from "./content";
 
 const ROTATE_MS = 2000;
-/** Art hue per source (0 azure, 1 violet, 3 amber, 4 emerald, 7 graphite). */
-const TONE: Record<string, number> = { Resume: 1, GitHub: 7, LeetCode: 3, LinkedIn: 0, Portfolio: 4 };
+/** A drawn icon per source (no brand logos). */
+const ICON: Record<string, LucideIcon> = { Resume: FileText, GitHub: GitBranch, LeetCode: Code2, LinkedIn: BriefcaseBusiness, Portfolio: Globe };
 
 /**
  * Hero illustration: a vertical carousel of source cards. The centred card is "Connected" and
@@ -51,8 +53,8 @@ export function SourceStack() {
                 zIndex: 10 - distance,
               }}
             >
-              <GlyphTile tone={TONE[source.name] ?? 0} size={52} className="h-10 w-10 text-xs font-semibold sm:h-[52px] sm:w-[52px] sm:text-[13px]">
-                {source.icon}
+              <GlyphTile size={52} className="h-10 w-10 sm:h-[52px] sm:w-[52px]">
+                {React.createElement(ICON[source.name] ?? Globe, { className: "h-5 w-5 sm:h-6 sm:w-6", strokeWidth: 1.6 })}
               </GlyphTile>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-lg font-semibold tracking-[-0.03em] sm:text-2xl">{source.name}</span>

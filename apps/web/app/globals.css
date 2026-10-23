@@ -118,6 +118,29 @@
   }
 
   .dark {
+    /* Re-derive the semantic tokens here so a nested `.dark` scope (the ink stage) resolves them
+       to dark values, not the ones inherited from the light root. */
+    --background: var(--page);
+    --foreground: var(--ink);
+    --card: var(--page);
+    --card-foreground: var(--ink);
+    --popover: var(--page);
+    --popover-foreground: var(--ink);
+    --primary: var(--ink);
+    --primary-foreground: var(--page);
+    --secondary: var(--stone);
+    --secondary-foreground: var(--ink);
+    --muted: var(--surface);
+    --muted-foreground: var(--ink-3);
+    --accent: var(--surface-2);
+    --accent-foreground: var(--ink);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--brand);
+    --faint: var(--ink-3);
+    --frame: var(--surface);
+    --panel: var(--surface);
+
     --page: 30 10% 4%;
     --surface: 30 6% 10%;
     --surface-2: 30 5% 15%;
@@ -450,6 +473,60 @@
     .iq-glass-card,
     .iq-stage,
     .iq-glass-btn {
+      background: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  /* Liquid-glass icon tile (visionOS-style): a translucent plate with a lit top edge, a specular
+     sheen across the upper half, a pooled shadow underneath and a champagne glow it refracts.
+     Pair with a glyph drawn twice: a soft champagne copy offset below, then the ink glyph. */
+  .iq-glass-tile {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(120% 90% at 20% 0%, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0) 60%),
+      linear-gradient(155deg, hsl(0 0% 100% / 0.8), hsl(40 40% 96% / 0.5) 55%, hsl(38 30% 86% / 0.7));
+    -webkit-backdrop-filter: blur(14px) saturate(1.7);
+    backdrop-filter: blur(14px) saturate(1.7);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 1),
+      inset 0 -1.5px 2px hsl(34 30% 40% / 0.2),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.75),
+      0 0 0 0.5px hsl(30 20% 20% / 0.14),
+      0 10px 22px -10px hsl(34 45% 30% / 0.55),
+      0 2px 4px -1px hsl(30 20% 20% / 0.12);
+  }
+  .iq-glass-tile::before {
+    content: "";
+    position: absolute;
+    inset: 5% 9% auto 9%;
+    height: 44%;
+    border-radius: inherit;
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.75), hsl(0 0% 100% / 0));
+    pointer-events: none;
+    z-index: 0;
+  }
+  .iq-glass-tile > * {
+    position: relative;
+    z-index: 1;
+  }
+  .dark .iq-glass-tile {
+    background:
+      radial-gradient(120% 90% at 20% 0%, hsl(0 0% 100% / 0.28), hsl(0 0% 100% / 0) 60%),
+      linear-gradient(155deg, hsl(0 0% 100% / 0.2), hsl(0 0% 100% / 0.05) 60%, hsl(36 30% 60% / 0.1));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.45),
+      inset 0 -1.5px 2px hsl(0 0% 0% / 0.4),
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.14),
+      0 0 0 0.5px hsl(0 0% 100% / 0.1),
+      0 10px 22px -10px hsl(0 0% 0% / 0.8);
+  }
+  .dark .iq-glass-tile::before {
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.22), hsl(0 0% 100% / 0));
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .iq-glass-tile {
       background: hsl(var(--card));
       -webkit-backdrop-filter: none;
       backdrop-filter: none;

@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { GlyphTile, hueIndex } from "@/components/ds";
+import { PersonaArt, type PersonaKind } from "@/components/ds";
 import { PERSONAS } from "./content";
 
 /** Column width (296) + trailing gap (24) — one carousel step. */
 const STEP_PX = 320;
 const SWIPE_THRESHOLD_PX = 40;
+
+/** Which drawn scene each audience gets. */
+const KIND: Record<string, PersonaKind> = { ST: "student", TPO: "campus", PR: "professional", CO: "hiring", BC: "bootcamp" };
 
 /**
  * "Who it's for" carousel. Steps one card at a time; the last reachable index adapts to how many
@@ -61,9 +64,7 @@ export function PersonaCarousel() {
               aria-label={`${i + 1} of ${PERSONAS.length}: ${p.who}`}
               className="mr-6 flex min-h-[320px] flex-[0_0_296px] flex-col gap-3.5 border-l border-line-2 pl-6"
             >
-              <GlyphTile tone={p.featured ? 0 : hueIndex(p.mono)} size={88} className="text-[30px] font-semibold tracking-[-0.04em]">
-                {p.mono}
-              </GlyphTile>
+              <PersonaArt kind={KIND[p.mono] ?? "student"} size={104} className="drop-shadow-[0_14px_16px_rgba(90,69,38,0.28)]" />
               <h3 className="m-0 text-xl font-semibold tracking-[-0.02em]">{p.who}</h3>
               <p className="m-0 -mt-2 text-sm text-ink-3">{p.role}</p>
               <p className="m-0 text-sm leading-[1.5] text-muted-foreground">{p.body}</p>

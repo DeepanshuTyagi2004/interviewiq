@@ -1,7 +1,12 @@
+import * as React from "react";
 import { cn } from "@/lib/utils/cn";
-import { GlyphTile, hueIndex } from "@/components/ds";
+import { Building2, Code2, MessagesSquare, PlayCircle, type LucideIcon } from "lucide-react";
+import { GlyphTile } from "@/components/ds";
 import { MonoPill, type MonoPillTone } from "@/components/patterns";
 import { RESEARCH_ROUNDS, RESEARCH_SOURCES, type RoundState } from "./content";
+
+/** Drawn icon per shared source (forum, coding site, company reviews, video). */
+const SOURCE_ICON: Record<string, LucideIcon> = { "r/": MessagesSquare, LC: Code2, GD: Building2, YT: PlayCircle };
 
 const PILL: Record<RoundState, MonoPillTone> = { passed: "soft", next: "brand", locked: "ghost" };
 
@@ -16,8 +21,8 @@ export function ResearchPanel() {
           SOURCES
         </span>
         {RESEARCH_SOURCES.map((s) => (
-          <GlyphTile key={s} tone={hueIndex(s)} size={36} className="text-xs font-semibold">
-            {s}
+          <GlyphTile key={s} size={36}>
+            {React.createElement(SOURCE_ICON[s] ?? Code2, { className: "h-[18px] w-[18px]", strokeWidth: 1.7 })}
           </GlyphTile>
         ))}
       </div>

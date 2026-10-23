@@ -40,7 +40,7 @@ function NavLink({
       className={cn(
         "flex items-center rounded-[10px] text-[14px] transition-colors duration-150",
         FOCUS,
-        collapsed ? "h-10 w-10 justify-center" : "gap-[11px] px-2.5 py-2",
+        collapsed ? "h-10 w-10 justify-center" : "gap-[11px] px-2.5 py-2 [@media(max-height:860px)]:py-1.5",
         active ? "bg-card font-medium text-ink shadow-ring" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
       )}
     >
@@ -95,7 +95,7 @@ export function Sidebar({ collapsed = false, groups, level, readiness, account, 
               collapsed ? (
                 <div role="separator" className="mx-auto my-2.5 h-px w-6 bg-line" />
               ) : (
-                <p className="m-0 px-2.5 pb-1.5 pt-[18px] text-[12.5px] text-ink-3">{group.label}</p>
+                <p className="m-0 px-2.5 pb-1.5 pt-[18px] text-[12.5px] text-ink-3 [@media(max-height:860px)]:pt-3">{group.label}</p>
               )
             ) : null}
             <ul
@@ -122,7 +122,12 @@ export function Sidebar({ collapsed = false, groups, level, readiness, account, 
             <SegmentBar segments={READINESS_SEGMENTS} filled={filledSegments(readiness)} />
           </div>
         )}
-        {collapsed ? null : <SidebarInvite />}
+        {/* The invite card needs a tall window; below that the nav takes the room instead. */}
+        {collapsed ? null : (
+          <div className="hidden [@media(min-height:1000px)]:block">
+            <SidebarInvite />
+          </div>
+        )}
         <NavLink item={HELP_NAV} active={helpActive} collapsed={collapsed} onNavigate={onNavigate} />
 
         <div className={cn("mt-1.5 border-t border-line pt-2", collapsed ? "flex w-full justify-center" : "")}>

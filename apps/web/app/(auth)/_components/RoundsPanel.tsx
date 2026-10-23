@@ -1,11 +1,16 @@
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
+import { Code2, Network, Terminal, UsersRound, type LucideIcon } from "lucide-react";
 import { GlyphTile, Orb } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
+
+/** A drawn icon per round type, in order. */
+const ROUND_ICONS: LucideIcon[] = [Code2, Terminal, Network, UsersRound];
 
 const ROUNDS = [
   { n: "01", title: "Online Assessment", meta: `Coding · ${ROUND_MINUTES_LABEL} · medium` },
@@ -33,7 +38,7 @@ export function RoundsPanel() {
       {/* The interviewer: a glass orb with a soft halo, shown where the panel is tall enough. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[12%] hidden -translate-x-1/2 [@media(min-width:1024px)_and_(min-height:780px)]:block"
+        className="pointer-events-none absolute left-1/2 top-[7%] hidden -translate-x-1/2 [@media(min-width:1024px)_and_(min-height:780px)]:block"
       >
         <span
           className="absolute -inset-10 rounded-full blur-2xl"
@@ -62,8 +67,8 @@ export function RoundsPanel() {
                 zIndex: 10 - distance,
               }}
             >
-              <GlyphTile tone={[0, 1, 5, 2][i % 4]} size={48} className="h-10 w-10 text-xs font-semibold sm:h-12 sm:w-12">
-                {round.n}
+              <GlyphTile size={48} className="h-10 w-10 sm:h-12 sm:w-12">
+                {React.createElement(ROUND_ICONS[i % ROUND_ICONS.length], { className: "h-5 w-5 sm:h-[22px] sm:w-[22px]", strokeWidth: 1.6 })}
               </GlyphTile>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold tracking-[-0.025em] sm:text-[19px]">{round.title}</span>
