@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils/cn";
+import { GlyphTile, hueIndex } from "@/components/ds";
 import { MonoPill, type MonoPillTone } from "@/components/patterns";
 import { RESEARCH_ROUNDS, RESEARCH_SOURCES, type RoundState } from "./content";
 
@@ -15,12 +16,9 @@ export function ResearchPanel() {
           SOURCES
         </span>
         {RESEARCH_SOURCES.map((s) => (
-          <span
-            key={s}
-            className="flex h-[36px] w-[36px] items-center justify-center rounded-xl bg-surface text-xs font-semibold"
-          >
+          <GlyphTile key={s} tone={hueIndex(s)} size={36} className="text-xs font-semibold">
             {s}
-          </span>
+          </GlyphTile>
         ))}
       </div>
       <span aria-hidden className="h-8 w-px bg-line-4" />

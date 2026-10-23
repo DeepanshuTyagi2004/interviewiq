@@ -321,12 +321,18 @@
       transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
       box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   }
+  .dark .iq-card {
+    background: hsl(var(--surface));
+  }
   .iq-card:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-float);
   }
   @media (prefers-reduced-motion: reduce) {
-    .iq-card:hover {
+    .dark .iq-card {
+    background: hsl(var(--surface));
+  }
+  .iq-card:hover {
       transform: none;
     }
   }
@@ -691,13 +697,17 @@
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
 }
+@keyframes iq-orb-think {
+  0%, 100% { filter: saturate(1) brightness(1); }
+  50% { filter: saturate(1.5) brightness(1.08); }
+}
 @keyframes iq-orb-speak {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
 .iq-orb-breathing { animation: iq-orb-breathe 4s ease-in-out infinite; }
 .iq-orb-listening { animation: iq-orb-breathe 6s ease-in-out infinite; }
-.iq-orb-thinking { animation: iq-spin 7s linear infinite; }
+.iq-orb-thinking { animation: iq-orb-think 3s ease-in-out infinite; }
 .iq-orb-speaking { animation: iq-orb-speak 0.9s ease-in-out infinite; }
 
 /* ---- Bars mascot (components/mascot/BarsMascot.tsx, spec 5.6) ---------------------------

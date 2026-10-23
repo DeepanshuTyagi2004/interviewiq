@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Orb } from "@/components/ds";
 import { Waveform } from "@/components/visualizations/Waveform";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
@@ -62,14 +63,7 @@ export function InterviewDemo() {
   return (
     <div className="flex w-full max-w-[400px] flex-col items-center gap-4">
       <div className="flex flex-col items-center gap-2 text-center">
-        <span
-          aria-hidden
-          className="h-11 w-11 rounded-full shadow-[0_6px_20px_rgba(0,0,0,.15)]"
-          style={{
-            background:
-              "radial-gradient(circle at 35% 30%, #fff, hsl(var(--faint)) 45%, hsl(var(--foreground)) 85%)",
-          }}
-        />
+        <Orb variant={0} size={56} state={reduced ? "still" : "speaking"} />
         <p className="m-0 text-[17px]">Round 2 · Problem Solving</p>
         <Waveform bars={34} height={22} animated={!reduced} className="text-foreground" />
       </div>

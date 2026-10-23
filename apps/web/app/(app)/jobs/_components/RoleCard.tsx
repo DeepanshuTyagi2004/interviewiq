@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { JdSummary } from "@/features/jobs";
-import { Orb } from "@/components/ds";
+import { CompanyMark } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/lib/constants/shared";
 import { DepthMeter } from "./DepthMeter";
@@ -26,7 +26,7 @@ export function RoleCard({ jd, fit = null, fitLoading = false }: { jd: JdSummary
         href={`${ROUTES.jobs}/${jd.id}`}
         className="group/role relative flex flex-1 items-start gap-4 rounded-card bg-surface p-5 shadow-ring outline-none transition-transform duration-200 ease-iq hover:-translate-y-[3px] focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       >
-        <Orb seed={jd.company} size={34} className="mt-0.5" />
+        <CompanyMark seed={jd.company} name={jd.companyName ?? jd.company} size={42} className="mt-0.5" />
         <span className="min-w-0 flex-1">
           <span title={jd.title} className="line-clamp-2 break-words font-display text-[17px] font-normal leading-snug tracking-[-0.02em]">{jd.title}</span>
           <span className="mt-1 block truncate text-[13px] text-ink-3">{sub}</span>

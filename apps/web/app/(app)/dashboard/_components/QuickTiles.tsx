@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarPlus, Code, Link2, MessageSquare, Route, Search, type LucideIcon } from "lucide-react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useJds, type JdSummary } from "@/features/jobs";
+import { GlyphTile } from "@/components/ds";
 import { ROUTES } from "@/lib/constants/shared";
 
 const FIND_STATIC = "Browse every role";
@@ -22,15 +23,17 @@ interface Tile {
   title: string;
   hint: string;
   Icon: LucideIcon;
+  /** Which of the eight art hues the glyph tile uses. */
+  tone: number;
 }
 
 const TILES: Tile[] = [
-  { key: "schedule", href: ROUTES.interviews, title: "Schedule round", hint: "Book your next mock", Icon: CalendarPlus },
-  { key: "find", href: ROUTES.jobs, title: "Find a role", hint: FIND_STATIC, Icon: Search },
-  { key: "track", href: ROUTES.loops, title: "Start a track", hint: "A company's full loop", Icon: Route },
-  { key: "sources", href: ROUTES.connections, title: "Connect sources", hint: "GitHub, LeetCode…", Icon: Link2 },
-  { key: "practice", href: ROUTES.practice, title: "Practice", hint: "From your gaps", Icon: Code },
-  { key: "share", href: ROUTES.shareExperience, title: "Share experience", hint: "Help others prep", Icon: MessageSquare },
+  { key: "schedule", href: ROUTES.interviews, title: "Schedule round", hint: "Book your next mock", Icon: CalendarPlus, tone: 0 },
+  { key: "find", href: ROUTES.jobs, title: "Find a role", hint: FIND_STATIC, Icon: Search, tone: 5 },
+  { key: "track", href: ROUTES.loops, title: "Start a track", hint: "A company's full loop", Icon: Route, tone: 1 },
+  { key: "sources", href: ROUTES.connections, title: "Connect sources", hint: "GitHub, LeetCode…", Icon: Link2, tone: 4 },
+  { key: "practice", href: ROUTES.practice, title: "Practice", hint: "From your gaps", Icon: Code, tone: 3 },
+  { key: "share", href: ROUTES.shareExperience, title: "Share experience", hint: "Help others prep", Icon: MessageSquare, tone: 2 },
 ];
 
 /** Six quick-start tiles. Only "Find a role" carries a live number, from the roles list. */
@@ -44,19 +47,15 @@ export function QuickTiles() {
       aria-label="Quick start"
       className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6"
     >
-      {tiles.map(({ key, href, title, hint, Icon }, i) => (
+      {tiles.map(({ key, href, title, hint, Icon, tone }, i) => (
         <li key={key} className="iq-fade-up min-w-0" style={{ "--i": i } as React.CSSProperties}>
           <Link
             href={href}
-            className="group block h-full rounded-tile bg-surface p-3.5 shadow-ring outline-none transition-[transform,background-color] duration-200 ease-iq hover:-translate-y-0.5 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group block h-full rounded-card bg-card p-3.5 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <span className="relative mb-3 grid h-[74px] place-items-center overflow-hidden rounded-xl bg-background shadow-ring">
-              <span
-                aria-hidden
-                className="absolute -right-8 -top-8 h-[90px] w-[90px] rounded-full bg-surface-2 opacity-70 blur-[18px]"
-              />
-              <Icon aria-hidden className="relative h-6 w-6 text-ink" strokeWidth={1.5} />
-            </span>
+            <GlyphTile tone={tone} size={52} className="mb-3 transition-transform duration-300 ease-iq group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+              <Icon aria-hidden className="h-6 w-6" strokeWidth={1.7} />
+            </GlyphTile>
             <span className="block truncate text-[13.5px] font-medium" title={title}>
               {title}
             </span>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card, EmptyState, SectionHeader, SegmentBar } from "@/components/ds";
+import { Card, CompanyMark, EmptyState, SectionHeader, SegmentBar } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { readinessLabel, readinessSummary, useLoops, type Loop } from "@/features/loops";
@@ -83,12 +83,7 @@ export function ReadinessCard({ className }: { className?: string }) {
                       href={`${ROUTES.loops}/${l.id}`}
                       className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
-                      <span
-                        aria-hidden
-                        className="grid h-10 w-10 flex-none place-items-center rounded-[11px] bg-surface font-display text-[15px] font-semibold uppercase shadow-ring"
-                      >
-                        {company.trim().charAt(0) || "?"}
-                      </span>
+                      <CompanyMark seed={l.jd?.company ?? company} name={company} size={40} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium" title={trackName(l)}>
                           {trackName(l)}

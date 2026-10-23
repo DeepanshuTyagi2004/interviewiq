@@ -50,7 +50,7 @@ export function UpNextCard({
     return (
       <div className={cn("flex flex-col", className)}>
         <SectionHeader title="Up next" />
-        <Card tone="stone" aria-label="Up next" className="min-h-[260px] flex-1 justify-center">
+        <Card tone="stage" aria-label="Up next" className="min-h-[260px] flex-1 justify-center">
           <EmptyState
             title="No round booked yet"
             hint="Pick a company and role to see its real interview process, then book round one."
@@ -80,7 +80,7 @@ export function UpNextCard({
   return (
     <div className={cn("flex flex-col", className)}>
       <SectionHeader title="Up next" actions={<Chip>{whenLabel(session.scheduledAt, now)}</Chip>} />
-      <Card tone="stone" aria-label="Up next" className="relative min-h-[260px] flex-1 overflow-hidden">
+      <Card tone="stage" aria-label="Up next" className="relative min-h-[260px] flex-1 overflow-hidden">
         <Orb
           seed={session.id}
           size={320}

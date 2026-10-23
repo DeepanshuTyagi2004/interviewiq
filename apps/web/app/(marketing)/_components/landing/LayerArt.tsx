@@ -1,10 +1,12 @@
 /**
- * The three animated line illustrations on the "How it works" cards. Deterministic geometry,
- * token colours, decorative only. Each animated node carries `data-motion` so reduced-motion
+ * The three animated illustrations on the "How it works" cards: glass sheets, orbits around a
+ * glass orb, and a radial equaliser. Monochrome ink; the orb is the one colour. Deterministic
+ * geometry, decorative only. Each animated node carries `data-motion` so reduced-motion
  * users get a still frame.
  */
+import { Orb } from "@/components/ds";
+
 const INK = "hsl(var(--foreground))";
-const ON_INK = "hsl(var(--primary-foreground))";
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
@@ -32,7 +34,8 @@ function StackArt() {
               top: -48 + 28 - i * 20,
               transform: "rotateX(60deg) rotateZ(45deg)",
               borderColor: INK,
-              background: i === 3 ? INK : ON_INK,
+              background: i === 3 ? "linear-gradient(135deg,#3d3d41,#161618)" : "hsl(var(--card))",
+              boxShadow: "0 6px 16px -10px rgb(0 0 0/.35)",
             }}
           />
         </div>
@@ -68,7 +71,7 @@ function OrbitArt() {
           ) : null}
         </div>
       ))}
-      <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-[10px]">YOU</span>
+      <Orb variant={0} size={44} state="breathing" className="absolute left-1/2 top-1/2 -ml-[22px] -mt-[22px]" />
     </Frame>
   );
 }

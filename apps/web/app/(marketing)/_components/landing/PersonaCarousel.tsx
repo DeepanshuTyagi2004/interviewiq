@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils/cn";
+import { GlyphTile, hueIndex } from "@/components/ds";
 import { PERSONAS } from "./content";
 
-/** Card width (300) + trailing gap (28) — one carousel step. */
-const STEP_PX = 328;
+/** Card width (300) + trailing gap (20) — one carousel step. */
+const STEP_PX = 320;
 const SWIPE_THRESHOLD_PX = 40;
 
 /**
@@ -61,15 +61,9 @@ export function PersonaCarousel() {
               className="iq-card mr-5 flex min-h-[340px] flex-[0_0_300px] flex-col gap-3.5 p-6"
             >
               <p className="iq-eyebrow m-0">{p.role}</p>
-              <span
-                aria-hidden
-                className={cn(
-                  "flex h-[88px] w-[88px] items-center justify-center rounded-[22px] text-[30px] font-semibold tracking-[-0.04em]",
-                  p.featured ? "bg-brand text-brand-foreground" : "bg-surface-2 text-foreground",
-                )}
-              >
+              <GlyphTile tone={p.featured ? 0 : hueIndex(p.mono)} size={88} className="text-[30px] font-semibold tracking-[-0.04em]">
                 {p.mono}
-              </span>
+              </GlyphTile>
               <h3 className="m-0 text-xl font-semibold tracking-[-0.02em]">{p.who}</h3>
               <p className="m-0 text-sm leading-[1.5] text-muted-foreground">{p.body}</p>
               <p className="m-0 mt-auto text-xs font-semibold tracking-[0.05em]">{p.status}</p>

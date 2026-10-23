@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { GlyphTile } from "@/components/ds";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 import { SOURCE_STACK } from "./content";
 
 const ROTATE_MS = 2000;
+/** Art hue per source (0 azure, 1 violet, 3 amber, 4 emerald, 7 graphite). */
+const TONE: Record<string, number> = { Resume: 1, GitHub: 7, LeetCode: 3, LinkedIn: 0, Portfolio: 4 };
 
 /**
  * Hero illustration: a vertical carousel of source cards. The centred card is "Connected" and
@@ -48,9 +51,9 @@ export function SourceStack() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[14px] bg-primary text-xs font-semibold text-primary-foreground sm:h-[52px] sm:w-[52px] sm:text-[13px]">
+              <GlyphTile tone={TONE[source.name] ?? 0} size={52} className="h-10 w-10 text-xs font-semibold sm:h-[52px] sm:w-[52px] sm:text-[13px]">
                 {source.icon}
-              </span>
+              </GlyphTile>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-lg font-semibold tracking-[-0.03em] sm:text-2xl">{source.name}</span>
                 <span className="block truncate text-xs text-faint sm:text-[12.5px]">{source.detail}</span>

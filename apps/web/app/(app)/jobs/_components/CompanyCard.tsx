@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Card, Chip, Orb } from "@/components/ds";
+import { Card, Chip, CompanyMark } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
@@ -60,7 +60,7 @@ function CardActions({ entry, onShowRoles }: CompanyCardProps) {
   );
 }
 
-/** One company in the library grid: orb, name, status chip, role count, data depth and actions on hover or focus. */
+/** One company in the library grid: monogram, name, status chip, role count, data depth and actions on hover or focus. */
 export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
   const headingId = `company-${entry.slug}`;
   // "4 of 52 roles researched" only says something new when it differs from "52 roles · 4 live".
@@ -70,14 +70,14 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
   return (
     <Card
       as="article"
-      tone="surface"
+      tone="default"
       interactive
       aria-labelledby={headingId}
       className="group relative min-h-[176px] focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 focus-within:ring-offset-background"
       bodyClassName="flex h-full flex-col gap-3.5"
     >
       <div className="flex items-start gap-3">
-        <Orb seed={entry.slug} size={40} />
+        <CompanyMark seed={entry.slug} name={entry.name} size={44} />
         <div className="min-w-0 flex-1">
           <h2
             id={headingId}

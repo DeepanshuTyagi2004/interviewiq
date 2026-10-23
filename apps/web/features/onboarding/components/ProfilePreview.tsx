@@ -3,6 +3,7 @@
 import { useWatch, type Control } from "react-hook-form";
 import { GraduationCap, MapPin } from "lucide-react";
 import { useProfile } from "@/features/profile";
+import { GlyphTile, Orb, hueIndex } from "@/components/ds";
 import { PROVIDERS } from "@/app/(app)/connections/_components/providers";
 import { cn } from "@/lib/utils/cn";
 import { initialsOf } from "@/lib/utils/format";
@@ -62,7 +63,7 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
   ].filter((m): m is string => Boolean(m));
 
   return (
-    <aside aria-label="Profile preview" className={cn("min-w-0 flex-col gap-4 rounded-lg bg-panel p-5 sm:p-6", className)}>
+    <aside aria-label="Profile preview" className={cn("iq-stage min-w-0 flex-col gap-4 p-5 sm:p-6", className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="iq-eyebrow m-0 font-normal">Profile preview</h2>
         <span className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.08em] text-faint">
@@ -71,14 +72,14 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
         </span>
       </div>
 
-      <div className="flex flex-none flex-col overflow-hidden rounded-[14px] bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,.2)]">
+      <div className="flex flex-none flex-col overflow-hidden rounded-[22px] bg-card shadow-float">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
-            <span
-              aria-hidden
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-primary text-base text-primary-foreground"
-            >
-              {initialsOf(fullName)}
+            <span aria-hidden className="relative grid h-12 w-12 flex-none place-items-center">
+              <Orb seed={fullName.trim() || "you"} size={48} className="absolute inset-0" />
+              <span className="relative text-base font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/.4)]">
+                {initialsOf(fullName)}
+              </span>
             </span>
             <div className="min-w-0 pt-0.5">
               <p className="m-0 truncate text-base tracking-[-0.01em]">{fullName.trim() || "Your name"}</p>
@@ -175,12 +176,9 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {sources.map((s) => (
                 <li key={s.source} className="flex min-w-0 items-center gap-2.5 text-[13px]">
-                  <span
-                    aria-hidden
-                    className="flex h-6 w-6 flex-none items-center justify-center rounded-[8px] bg-primary font-mono text-[9.5px] text-primary-foreground"
-                  >
+                  <GlyphTile tone={hueIndex(s.code)} size={26} className="text-[11px] font-semibold">
                     {s.code}
-                  </span>
+                  </GlyphTile>
                   <span>{s.label}</span>
                   {s.handle ? <span className="min-w-0 truncate font-mono text-xs text-faint">{s.handle}</span> : null}
                 </li>

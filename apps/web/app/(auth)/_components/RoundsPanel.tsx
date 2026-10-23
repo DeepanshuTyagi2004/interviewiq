@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ROUND_MINUTES_LABEL } from "@/lib/constants/interview";
+import { GlyphTile, Orb } from "@/components/ds";
 import { cn } from "@/lib/utils/cn";
 import { useInterval } from "@/lib/hooks/useInterval";
 import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
@@ -29,6 +30,17 @@ export function RoundsPanel() {
       className="iq-stage m-3 flex min-h-[420px] min-w-0 flex-none flex-col lg:min-h-0 lg:flex-1"
     >
       <p className="iq-eyebrow m-0 p-5 sm:p-7">What you&apos;ll practise</p>
+      {/* The interviewer: a glass orb with a soft halo, shown where the panel is tall enough. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[12%] hidden -translate-x-1/2 [@media(min-width:1024px)_and_(min-height:780px)]:block"
+      >
+        <span
+          className="absolute -inset-10 rounded-full blur-2xl"
+          style={{ background: "radial-gradient(circle,hsl(var(--aurora-2)/.55),transparent 66%)" }}
+        />
+        <Orb variant={1} size={92} state={reduced ? "still" : "breathing"} className="relative" />
+      </div>
       <div aria-hidden className="relative mx-auto w-[min(420px,88%)] flex-1 [--step:58px] sm:[--step:66px]">
         {ROUNDS.map((round, i) => {
           let offset = i - active;
@@ -50,9 +62,9 @@ export function RoundsPanel() {
                 zIndex: 10 - distance,
               }}
             >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[14px] bg-primary text-xs font-semibold text-primary-foreground sm:h-12 sm:w-12">
+              <GlyphTile tone={[0, 1, 5, 2][i % 4]} size={48} className="h-10 w-10 text-xs font-semibold sm:h-12 sm:w-12">
                 {round.n}
-              </span>
+              </GlyphTile>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold tracking-[-0.025em] sm:text-[19px]">{round.title}</span>
                 <span className="block truncate text-xs text-faint sm:text-[12.5px]">{round.meta}</span>

@@ -12,3 +12,6 @@ export { Kbd } from "./Kbd";
 export { Count } from "./Count";
 export { ComingSoon, type ComingSoonProps } from "./ComingSoon";
 export { CompanyArt, type CompanyArtProps } from "./CompanyArt";
+export { CompanyMark, markInitials, type CompanyMarkProps } from "./CompanyMark";
+export { GlyphTile, type GlyphTileProps } from "./GlyphTile";
+export { HUES, HUE_COUNT, hueIndex, tileBackground, type Hue, type HueIndex } from "./palette";

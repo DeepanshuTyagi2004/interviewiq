@@ -1,27 +1,39 @@
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
+import { HUES, hueIndex, type HueIndex } from "./palette";
 
 export type OrbState = "still" | "breathing" | "listening" | "thinking" | "speaking";
-export type OrbVariantIndex = 0 | 1 | 2 | 3;
+export type OrbVariantIndex = HueIndex;
 
-/** Stable, non-cryptographic string hash (FNV-1a) mod 4. The empty string is 0. */
+/** Stable hash of a seed onto one of the eight orb hues. The empty string is 0. */
 export function orbVariant(seed: string): OrbVariantIndex {
-  if (!seed) return 0;
-  let h = 0x811c9dc5;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return ((h >>> 0) % 4) as OrbVariantIndex;
+  return hueIndex(seed);
 }
 
-// Orb gradients are the one place literal colours are allowed (plan exception); all greyscale.
-const GRADIENTS: Record<OrbVariantIndex, string> = {
-  0: "radial-gradient(circle at 30% 28%,#fff 0,#d9d9d6 18%,#8d8b86 48%,#2b2a28 78%,#0d0d0c 100%)",
-  1: "radial-gradient(circle at 70% 25%,#f4f4f2 0,#b9b7b1 25%,#5b5955 55%,#141413 90%)",
-  2: "radial-gradient(circle at 35% 70%,#fafaf9 0,#cfcdc8 22%,#76746f 52%,#1c1b1a 88%)",
-  3: "radial-gradient(circle at 62% 66%,#ededeb 0,#c4c2bd 20%,#6a6863 50%,#191918 86%)",
-};
+/** A glass sphere: a soft body gradient, a deep pool low right, a specular highlight and a rim. */
+/** Orbs use the seven colour hues; graphite is for tiles only (a grey orb reads as disabled). */
+const ORB_HUES = HUES.slice(0, 7);
+
+function orbBackground(index: number): string {
+  const [hi, mid, lo] = ORB_HUES[index % ORB_HUES.length].orb;
+  return [
+    "radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%)",
+    `radial-gradient(circle at 80% 88%,${lo} 0,transparent 58%)`,
+    `radial-gradient(circle at 18% 82%,${hi} 0,transparent 52%)`,
+    `linear-gradient(150deg,${hi},${mid} 52%,${lo})`,
+  ].join(",");
+}
+
+function orbShadow(index: number, size: number): string {
+  const mid = ORB_HUES[index % ORB_HUES.length].orb[1];
+  const s = (n: number) => `${Math.max(0.5, +(size * n).toFixed(1))}px`;
+  return [
+    `inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`,
+    `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`,
+    `inset 0 0 0 0.5px rgb(255 255 255/.25)`,
+    `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}b3`,
+  ].join(",");
+}
 
 const MOTION: Record<OrbState, string | undefined> = {
   still: undefined,
@@ -41,7 +53,7 @@ export interface OrbProps {
   className?: string;
 }
 
-/** Greyscale voice-orb: the signature decoration (avatars, interviewer, track and result rows). */
+/** Glass orb in one of eight hues: the signature decoration (avatars, interviewer, empty states). */
 export function Orb({ seed, variant, size = 32, state = "still", className }: OrbProps) {
   const v = variant ?? orbVariant(seed ?? "");
   const motion = MOTION[state];
@@ -50,12 +62,8 @@ export function Orb({ seed, variant, size = 32, state = "still", className }: Or
       aria-hidden
       data-motion={motion ? "" : undefined}
       data-orb={v}
-      className={cn(
-        "inline-block flex-none rounded-full shadow-[inset_0_0_0_0.5px_hsl(var(--foreground)/0.2)]",
-        motion,
-        className,
-      )}
-      style={{ width: size, height: size, background: GRADIENTS[v] }}
+      className={cn("inline-block flex-none rounded-full", motion, className)}
+      style={{ width: size, height: size, background: orbBackground(v), boxShadow: orbShadow(v, size) }}
     />
   );
 }
