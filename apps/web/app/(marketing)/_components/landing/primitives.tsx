@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { buttonVariants } from "@/components/ui/button";
 import type { ListItem } from "./content";
@@ -41,6 +42,7 @@ export function OutlineLink({
       className={cn(buttonVariants({ variant: "strong" }), "h-10 self-start px-5 text-sm", className)}
     >
       {children}
+      <ArrowRight aria-hidden />
     </Link>
   );
 }

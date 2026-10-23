@@ -140,7 +140,7 @@ function Palette({ items, onClose }: { items: AppNavItem[]; onClose: () => void 
               setActive(0);
             }}
             onKeyDown={onKeyDown}
-            className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink caret-ink outline-none placeholder:text-ink-3"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink caret-ink outline-none placeholder:text-placeholder"
           />
           <Kbd>Esc</Kbd>
         </div>

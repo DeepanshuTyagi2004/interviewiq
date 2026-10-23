@@ -38,7 +38,32 @@ export function ReadinessTimeline() {
         </p>
       </div>
 
-      <figure data-reveal className="iq-stage m-0 mt-10 p-3 sm:px-9 sm:py-10">
+      {/* Phones: one card per role with a segmented progress bar; the chart below needs width. */}
+      <ul data-reveal className="m-0 mt-10 flex list-none flex-col gap-3 p-0 sm:hidden">
+        {TRACKS.map((track) => {
+          const m = /^(\d+)\s*\/\s*(\d+)$/.exec(track.label);
+          const cleared = m ? Number(m[1]) : 0;
+          const total = m ? Number(m[2]) : SEGMENTS;
+          return (
+            <li key={track.role} className="iq-glass-card p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{track.role}</p>
+                <p className="m-0 flex-none text-xs text-ink-3">{track.level}</p>
+              </div>
+              <div className="mt-3 flex items-center gap-1.5" aria-hidden>
+                {Array.from({ length: total }, (_, i) => (
+                  <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < cleared ? "bg-foreground" : "bg-line-2")} />
+                ))}
+              </div>
+              <p className="m-0 mt-2.5 text-[13px] text-muted-foreground">
+                {m ? `${cleared} of ${total} rounds cleared` : "Standalone practice, not counted toward readiness"}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+
+      <figure data-reveal className="iq-stage m-0 mt-10 hidden p-3 sm:block sm:px-9 sm:py-10">
         <figcaption className="sr-only">Example readiness timeline for four target roles</figcaption>
         <div
           tabIndex={0}

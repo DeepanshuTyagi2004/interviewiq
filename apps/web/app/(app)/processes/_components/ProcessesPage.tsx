@@ -33,7 +33,7 @@ export function ProcessesPage() {
           placeholder="Search by name, level, company or role"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-3"
+          className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-placeholder"
         />
       </label>
 

@@ -29,6 +29,7 @@ module.exports = {
   				'2': 'hsl(var(--ink-2))',
   				'3': 'hsl(var(--ink-3))'
   			},
+  			placeholder: 'hsl(var(--placeholder))',
   			frame: 'hsl(var(--frame))',
   			panel: 'hsl(var(--panel))',
   			faint: {

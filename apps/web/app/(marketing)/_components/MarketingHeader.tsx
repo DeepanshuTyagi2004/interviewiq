@@ -23,11 +23,6 @@ export function MarketingHeader() {
           {HEADER_LINKS.map((link) => (
             <Link key={link.label} href={link.href} className="text-ink-2 transition-colors hover:text-foreground">
               {link.label}
-              {link.menu ? (
-                <span aria-hidden className="ml-1 text-xs text-faint">
-                  ⌄
-                </span>
-              ) : null}
             </Link>
           ))}
         </nav>

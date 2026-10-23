@@ -70,6 +70,8 @@
     --frame: var(--surface);
     --panel: var(--surface);
     --faint: var(--ink-3);
+    /* Placeholder: a hint, not content: about 3:1 on white. */
+    --placeholder: 40 4% 62%;
     --faint-2: 40 6% 62%;
     --line-2: 38 14% 84%;
     --line-3: 38 12% 78%;
@@ -168,6 +170,7 @@
     --glass-sheen: 0 0% 100% / 0.12;
     --glass-shadow: 30 30% 2% / 0.6;
 
+    --placeholder: 38 4% 38%;
     --faint-2: 30 4% 38%;
     --line-2: 30 5% 21%;
     --line-3: 30 5% 25%;
@@ -265,6 +268,11 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  /* Every input, textarea and search box: placeholders read as hints, not as typed text. */
+  ::placeholder {
+    color: hsl(var(--placeholder));
+    opacity: 1;
   }
   ::selection {
     background: hsl(var(--foreground) / 0.16);

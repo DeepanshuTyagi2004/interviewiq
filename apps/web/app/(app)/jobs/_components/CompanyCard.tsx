@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
 import { Card, Chip, CompanyMark } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/shared";
@@ -53,7 +53,7 @@ function CardActions({ entry, onShowRoles }: CompanyCardProps) {
           onClick={() => onShowRoles(entry.slug)}
         >
           Choose from {cta.count} roles
-          <ArrowRight aria-hidden />
+          <ArrowDown aria-hidden />
         </Button>
       )}
     </div>

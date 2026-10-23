@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils/cn";
 import { NodePalette } from "./NodePalette";
 import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel, normalizeLegacyLevel, type EngineeringLevel } from "@/lib/constants/engineering-levels";
 
-const field = "h-10 w-full rounded-full bg-background px-4 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50";
-const area = "w-full rounded-2xl bg-background px-4 py-2.5 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const field = "h-10 w-full rounded-full bg-background px-4 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-placeholder focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50";
+const area = "w-full rounded-2xl bg-background px-4 py-2.5 text-[13px] shadow-ring outline-none transition-[box-shadow] duration-150 placeholder:text-placeholder focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="iq-eyebrow">{children}</span>;

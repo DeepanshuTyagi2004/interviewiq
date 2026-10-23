@@ -156,7 +156,7 @@ export const HighlightsEditor = forwardRef<HTMLTextAreaElement, HighlightsEditor
           placeholder={placeholder}
           aria-describedby={describedBy}
           spellCheck
-          className="block max-h-[22rem] w-full resize-none overflow-y-auto bg-transparent px-3 py-2 font-mono text-[13px] leading-[1.6] text-foreground outline-none placeholder:font-sans placeholder:text-faint"
+          className="block max-h-[22rem] w-full resize-none overflow-y-auto bg-transparent px-3 py-2 font-mono text-[13px] leading-[1.6] text-foreground outline-none placeholder:font-sans placeholder:text-placeholder"
         />
       ) : (
         <div className="min-h-[96px] px-3 py-2.5" aria-live="polite">

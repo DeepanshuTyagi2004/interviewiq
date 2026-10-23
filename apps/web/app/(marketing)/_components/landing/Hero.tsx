@@ -56,20 +56,14 @@ export function Hero() {
   );
 }
 
-/** "Researched for" company wordmarks — the launch company in ink, the rest faded. */
+/** "Researched for" company wordmarks, all in the same strong ink. */
 export function CompanyLogos() {
   return (
     <section id="companies" className={cn(CONTAINER, "scroll-mt-16 pb-6 pt-20")}>
       <p className="iq-eyebrow m-0 text-center">Real interview processes, researched for</p>
       <ul className="m-0 mt-8 flex list-none flex-wrap items-center justify-center gap-x-8 gap-y-5 p-0 sm:gap-x-14">
-        {COMPANIES.map((name, i) => (
-          <li
-            key={name}
-            className={cn(
-              "font-display text-lg font-semibold tracking-[-0.03em] sm:text-[24px]",
-              i === 0 ? "text-foreground" : "text-ink-3/70",
-            )}
-          >
+        {COMPANIES.map((name) => (
+          <li key={name} className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-[24px]">
             {name}
           </li>
         ))}

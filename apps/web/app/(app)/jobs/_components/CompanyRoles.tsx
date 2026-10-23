@@ -110,7 +110,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
               placeholder="Search by title, technology, level or specialization"
               value={searchText}
               onChange={(e) => { setSearchText(e.target.value); update({ q: e.target.value }); }}
-              className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-3"
+              className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-placeholder"
             />
           </label>
           <label className="flex flex-none items-center gap-2 text-[13px] text-ink-2">

@@ -79,7 +79,7 @@ export function SkillsInput({ value, onChange, onBlur, id }: SkillsInputProps) {
         }}
         placeholder="+ Add skill"
         aria-label="Add a skill"
-        className="h-8 w-32 rounded-full border border-dashed border-line-4 bg-card px-2.5 text-[13px] text-foreground outline-none placeholder:text-faint focus:border-faint"
+        className="h-8 w-32 rounded-full border border-dashed border-line-4 bg-card px-2.5 text-[13px] text-foreground outline-none placeholder:text-placeholder focus:border-faint"
       />
     </div>
   );

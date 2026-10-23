@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormProvider, useWatch } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -238,6 +238,7 @@ export function OnboardingWizard() {
               <div className={cn("flex w-full flex-wrap items-center gap-2.5", STEP_WIDTH)}>
                 {step > 0 ? (
                   <Button type="button" variant="outline" className="h-11 px-[18px]" onClick={() => void back()} disabled={busy}>
+                    <ArrowLeft aria-hidden />
                     Back
                   </Button>
                 ) : null}
