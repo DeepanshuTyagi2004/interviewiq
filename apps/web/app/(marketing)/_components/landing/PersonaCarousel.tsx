@@ -102,9 +102,9 @@ function CarouselButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-card text-sm text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
+      className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center p-0 rounded-full bg-card text-sm text-foreground shadow-ring transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-35 disabled:hover:bg-card"
     >
-      <span aria-hidden className="flex items-center justify-center">
+      <span aria-hidden className="flex items-center justify-center [&>svg]:block">
         {children}
       </span>
     </button>
