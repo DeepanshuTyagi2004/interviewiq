@@ -212,7 +212,7 @@
     </div></div></div>
   <div class="layer" id="c4"><div class="chap" style="top:250px"><div class="num">04 / 07</div><h2 class="disp" data-k>Book a round.<br>*It gets ready.*</h2>
     <p id="c4p1">Pick a slot. Each mock round runs 30 to 45 minutes.</p>
-    <p id="c4p2" style="position:absolute;margin-top:0">Your interviewer is prepared from your profile and the role. Questions chosen for this company and round, never ones you’ve had. You see a briefing, never the questions.</p></div>
+    <p id="c4p2" style="position:absolute;margin-top:0">Prepared from your profile and the role. Fresh questions for this company and round. You see a briefing, never the questions.</p></div>
     <div class="abs card" id="prepCard" style="left:1290px;top:560px;width:470px;padding:26px 30px">
       <div style="font-size:20px;font-weight:600">Preparing your interviewer</div>
       <div id="prepSteps"></div>
@@ -224,7 +224,7 @@
     <div class="callout" id="k3" style="left:1260px;top:640px"><span class="tile mono">{ }</span><div>A shared code editor<small>Your code is read live as you write</small></div></div>
     <div class="callout" id="k4" style="left:80px;top:700px"><span class="tile">↗</span><div>It adapts as you go<small>Hints when you’re stuck. Harder follow-ups when you’re flying.</small></div></div>
     <div class="callout" id="k5" style="left:1250px;top:300px"><span class="tile">✎</span><div>And a whiteboard<small>For diagrams and designs</small></div></div>
-    <div class="callout" id="k6" style="left:90px;top:760px"><span class="tile">⛉</span><div>Proctored like the real thing<small>Full screen and screen share, every switch counted. The camera check runs on your device: nothing is recorded or sent.</small></div></div>
+    <div class="callout" id="k6" style="left:90px;top:760px"><span class="tile">⛉</span><div>Proctored like the real thing<small>Full screen, screen shared, every switch counted. The camera check stays on your device.</small></div></div>
     <div class="callout" id="k7" style="left:1290px;top:780px"><span class="tile">◐</span><div>Light or dark<small>Whatever you focus best in</small></div></div>
     <div class="abs" id="speech" style="left:250px;top:880px;width:900px;padding:18px 26px;border-radius:999px;display:flex;gap:18px;align-items:center;background:rgba(20,19,18,.86);color:var(--dink);box-shadow:0 0 0 .5px rgba(255,255,255,.14),0 24px 50px -20px #000">
       <span class="orb" id="spOrb" style="position:relative;width:34px;height:34px;flex:none"></span><span id="spBars" style="display:flex;gap:3px;align-items:center;height:30px;flex:none"></span><span id="spText" style="font-size:21px;white-space:nowrap"></span></div>
@@ -429,10 +429,19 @@ const LV = ['Getting started', 'Progressing', 'Nearly ready', 'Interview-ready']
 const lvEls = LV.map((n, i) => { const d = document.createElement('div'); d.className = 'lvl'; d.style.left = (i * 1240 / 3) + 'px'; d.innerHTML = `<div class="d"></div><div class="l">${n}</div>`; $('ladder').appendChild(d); return d; });
 
 let ROOM = [1100, 520];
-function setup() { render(5.3); const r = $('roomWord').getBoundingClientRect(); ROOM = [r.left + r.width * 0.42, r.top + r.height * 0.55]; }
+function setup() { renderSrc(5.3); const r = $('roomWord').getBoundingClientRect(); ROOM = [r.left + r.width * 0.42, r.top + r.height * 0.55]; }
 
-/* ================= RENDER ================= */
-function render(t) {
+/* ================= RETIME =================
+   The choreography is authored on a 120 s source timeline; the film plays each section faster
+   ([source start, source end, speed]) so it moves quickly while every line still holds long enough to read. */
+const SPEED = [[0, 6, 1.5], [6, 12.3, 1.6], [12.3, 19, 1.8], [19, 25.3, 1.6], [25.3, 29.6, 1.5], [29.6, 37, 1.6], [37, 46, 1.45], [46, 113, 1.6], [113, 120, 1.45]];
+const FILM_START = []; { let f = 0; SPEED.forEach(([a, b, v]) => { FILM_START.push(f); f += (b - a) / v; }); FILM_START.push(f); }
+const FILM_LENGTH = FILM_START[FILM_START.length - 1];
+function toSource(tf) { for (let i = 0; i < SPEED.length; i++) { const [a, b, v] = SPEED[i]; if (tf < FILM_START[i + 1] || i === SPEED.length - 1) return Math.min(b, a + (tf - FILM_START[i]) * v); } return 120; }
+function render(tf) { renderSrc(toSource(tf)); }
+
+/* ================= RENDER (source time) ================= */
+function renderSrc(t) {
   /* ---- dark coverage: circle reveals (the dark-mode hints) ---- */
   let dr = 0, dx = 960, dy = 540;
   if (t >= 5.55 && t < 12.6) { dx = ROOM[0]; dy = ROOM[1]; dr = t < 6.5 ? lerp(0, 2300, eIn(P(t, 5.55, 6.5))) : t < 11.8 ? 2300 : lerp(2300, 0, eIO(P(t, 11.8, 12.6))); if (t >= 11.8) { dx = 960; dy = 480; } }
@@ -660,7 +669,7 @@ function render(t) {
   $('fade').style.opacity = 1 - P(t, 0, 0.35);
   $('black').style.opacity = P(t, 119.7, 120.0);
 }
-window.setup = setup; window.render = render;
+window.setup = setup; window.render = render; window.FILM_LENGTH = FILM_LENGTH;
 </script>
 </body>
 </html>
