@@ -27,7 +27,7 @@ async function page(b, theme) {
     }
     // Hide the TanStack Query devtools launcher (the bottom-right circle) for captures.
     const st = document.createElement('style');
-    st.textContent = '.tsqd-parent-container,.tsqd-open-btn-container,[aria-label="Open Tanstack query devtools"],[class*="tsqd"],nextjs-portal{display:none!important}';
+    st.textContent = '.tsqd-parent-container,.tsqd-open-btn-container,[aria-label="Open Tanstack query devtools"],[class*="tsqd"],nextjs-portal{display:none!important}[data-orb]{background:radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%),radial-gradient(circle at 80% 88%,#8C7249 0,transparent 58%),radial-gradient(circle at 18% 82%,#FFF3DE 0,transparent 52%),linear-gradient(150deg,#FFF3DE,#D9C29B 52%,#8C7249)!important;box-shadow:inset 0 -4px 9px rgb(0 0 0/.2),inset 0 2px 3px rgb(255 255 255/.6),inset 0 0 0 .5px rgb(255 255 255/.25),0 7px 18px -6px #D9C29B99!important}';
     document.addEventListener('DOMContentLoaded', () => document.head.appendChild(st));
   }, [fx.THEME_KEY, theme]);
   await ctx.route('http://localhost:3000/api/v1/**', async (route) => {

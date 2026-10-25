@@ -226,7 +226,6 @@ function rise(el, t, a, dur = 0.8, dist = 26) { const x = eExp(P(t, a, a + dur))
 function popIn(el, t, a, dur = 0.55, s = 1.6, extra = '') { const x = back(P(t, a, a + dur), s); el.style.opacity = cl(P(t, a, a + 0.15)); el.style.transform = `${extra} scale(${x})`; }
 
 /* Glass orb: the exact gradient recipe from components/ds/Orb.tsx. */
-const VIOLET = ['#E4CCFF', '#9A6BFF', '#5B2BC0'], AZURE = ['#BFE0FF', '#4F8CFF', '#2230C8'], ROSE = ['#FFC6D9', '#FF5C8A', '#B3205E'];
 function orbStyle(el, size, hue) {
   const [hi, mid, lo] = hue; el.style.width = el.style.height = size + 'px';
   el.style.background = ['radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%)',
@@ -235,7 +234,8 @@ function orbStyle(el, size, hue) {
   const s = (n) => `${Math.max(0.5, +(size * n).toFixed(1))}px`;
   el.style.boxShadow = [`inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`, `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`, 'inset 0 0 0 0.5px rgb(255 255 255/.25)', `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}99`].join(',');
 }
-const orb = $('orb'); orbStyle(orb, 260, VIOLET); orbStyle($('orb3'), 150, VIOLET); orbStyle($('readyOrb'), 24, AZURE);
+const GOLD = ['#FFF3DE', '#D9C29B', '#8C7249']; /* the app icon's orb (app/icon.svg) */
+const orb = $('orb'); orbStyle(orb, 260, GOLD); orbStyle($('orb3'), 150, GOLD); orbStyle($('readyOrb'), 24, GOLD);
 
 /* Warm aurora pools: --aurora-* (dark: 34 30% 26%, 30 8% 22%, 24 30% 24%; light: 38 45% 84%, 40 8% 78%, 28 40% 88%). */
 const DP = [{ c: '86,70,46', x: 500, y: 250, r: 1300 }, { c: '61,57,52', x: 1450, y: 300, r: 1200 }, { c: '80,58,43', x: 1100, y: 900, r: 1300 }];
