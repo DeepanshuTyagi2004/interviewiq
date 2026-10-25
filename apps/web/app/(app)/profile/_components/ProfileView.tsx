@@ -14,14 +14,13 @@ import {
   SkillsSection,
 } from "./details/sections";
 import { IdentityCard } from "./IdentityCard";
-import { LogoutButton } from "./LogoutButton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { ResumeFileRow } from "./ResumeFileRow";
 import { SourceSignalCards } from "./SourceSignalCards";
 import { Chip, Orb } from "@/components/ds";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { levelLabel } from "@/lib/constants/engineering-levels";
-import { ProfileScoreCard, ProfileScoreReadout } from "@/features/profile-scoring";
+import { ProfileScoreCard } from "@/features/profile-scoring";
 
 /** A profile column. Below `lg` it dissolves (`contents`) so its cards join the single column in their `order`. */
 function Column({ children }: { children: React.ReactNode }) {
@@ -61,6 +60,8 @@ export function ProfileView() {
   const details = candidate.data;
   const name = data.user.name ?? details?.fullName ?? null;
   const headline = data.user.headline ?? details?.headline ?? null;
+  // Without a resume, uploading one is the most useful thing on this page: put it near the top.
+  const noResume = candidate.isSuccess && !details?.resumeFilename;
 
   return (
     <div>
@@ -83,7 +84,6 @@ export function ProfileView() {
             )}
           </div>
         </div>
-        <ProfileScoreReadout />
       </header>
 
       <DetailsProvider>
@@ -92,15 +92,11 @@ export function ProfileView() {
             <Cell order="order-1">
               <IdentityCard skills={data.mostUsedSkills} />
             </Cell>
-            <Cell order="order-2">
-              <ProfileScoreCard />
-            </Cell>
-            <Cell order="order-3">
-              <AchievementsSection />
-            </Cell>
-            <Cell order="order-11">
-              <ResumeFileRow />
-            </Cell>
+            {noResume ? (
+              <Cell order="order-1">
+                <ResumeFileRow />
+              </Cell>
+            ) : null}
             <Cell order="order-2">
               <div id="profile-level"><ContactSection /></div>
             </Cell>
@@ -110,6 +106,17 @@ export function ProfileView() {
             <Cell order="order-6">
               <SkillsSection />
             </Cell>
+            <Cell order="order-7">
+              <AchievementsSection />
+            </Cell>
+            <Cell order="order-8">
+              <ProfileScoreCard />
+            </Cell>
+            {noResume ? null : (
+              <Cell order="order-11">
+                <ResumeFileRow />
+              </Cell>
+            )}
             <Cell order="order-10">
               <ConnectedSourcesCard profile={data} />
             </Cell>
@@ -124,11 +131,6 @@ export function ProfileView() {
             </Cell>
             <Cell order="order-9">
               <SourceSignalCards profile={data} />
-            </Cell>
-            <Cell order="order-12">
-              <div className="pt-2">
-                <LogoutButton />
-              </div>
             </Cell>
           </Column>
         </div>

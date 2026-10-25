@@ -13,6 +13,7 @@ const roles: JdSummary[] = [
   { id: "real", company: "example", companyName: "Example", title: "Real role", role: "backend", level: "sde2", specialization: null, dataAvailability: "available", dataConfidence: "medium", ctcMaxLpa: 50, yoeMin: 2 },
   { id: "template", practiceTemplate: true, company: "example", companyName: "Example", title: "[Practice template] Simulated role", role: "backend", level: "sde2", specialization: null, dataAvailability: "rich", dataConfidence: "high", ctcMaxLpa: 99, yoeMin: 0 },
 ];
+vi.mock("./fitEvidence", () => ({ useHasFitEvidence: () => true }));
 vi.mock("@/features/jobs", () => ({
   useJds: () => ({ data: roles, isSuccess: true }),
   useJdFitList: () => state.fit,

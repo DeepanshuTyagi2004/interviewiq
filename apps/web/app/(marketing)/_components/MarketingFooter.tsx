@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/layout/Logo";
+import { ROUTES } from "@/lib/constants/shared";
 import { FOOTER_COLUMNS } from "./nav";
 
 /** Quiet glass footer: the mark and wordmark, legal links and four link columns. */
@@ -11,12 +12,12 @@ export function MarketingFooter() {
           <Logo href="/" className="w-fit" wordmarkClassName="text-[22px]" />
           <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
             <span className="text-foreground">InterviewIQ © 2026</span>
-            <a href="#" className="w-fit text-muted-foreground hover:text-foreground">
+            <Link href={ROUTES.privacy} className="w-fit text-muted-foreground hover:text-foreground">
               Privacy Policy
-            </a>
-            <a href="#" className="w-fit text-muted-foreground hover:text-foreground">
+            </Link>
+            <Link href={ROUTES.terms} className="w-fit text-muted-foreground hover:text-foreground">
               Terms
-            </a>
+            </Link>
           </div>
         </div>
         <nav

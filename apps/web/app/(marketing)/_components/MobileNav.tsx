@@ -50,7 +50,7 @@ export function MobileNav({ className }: { className?: string }) {
             </Link>
           </SheetClose>
           <SheetClose asChild>
-            <Link href="/#universities" className={cn(buttonVariants({ variant: "strong", size: "lg" }), "w-full")}>
+            <Link href={ROUTES.contact} className={cn(buttonVariants({ variant: "strong", size: "lg" }), "w-full")}>
               Book a demo
             </Link>
           </SheetClose>

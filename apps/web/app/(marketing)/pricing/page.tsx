@@ -12,7 +12,7 @@ const WHO = [
   {
     eyebrow: "STUDENTS AND PROFESSIONALS",
     title: "Sign up and start practising",
-    body: "Create a profile from your resume, pick a company and role, and book round one of its real process. Plans are still being finalised; you can practise today.",
+    body: "Create a profile from your resume, pick a company and role, and see its real interview process, round by round. Mock interviews are opening to accounts in stages during the beta.",
     cta: { label: "Start for free", href: ROUTES.signup },
   },
   {
@@ -28,10 +28,10 @@ export default function PricingPage() {
   return (
     <section className={`${CONTAINER} flex flex-col gap-10 py-16 sm:py-24`}>
       <div className="flex max-w-[640px] flex-col gap-4">
-        <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">Plans are being finalised.</h1>
+        <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">Free while we&apos;re in beta.</h1>
         <p className="m-0 text-[16px] leading-[1.55] text-muted-foreground">
-          Until they are, nothing here is paywalled. Students sign up and practise; colleges get a pilot scoped with them. When plans go
-          live they will be on this page first.
+          Nothing is paywalled. Students and professionals sign up free; colleges get a pilot scoped with them. When paid plans
+          arrive, they&apos;ll be on this page first.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">

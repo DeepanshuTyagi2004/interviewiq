@@ -9,11 +9,11 @@ export interface NavLink {
 
 /** Header links. Anchors are root-relative so they work from every marketing page. */
 export const HEADER_LINKS: NavLink[] = [
-  { label: "Product", href: "/#product", menu: true },
-  { label: "Solutions", href: "/#how", menu: true },
-  { label: "Universities", href: "/#universities" },
+  { label: "How it works", href: "/#how" },
+  { label: "Features", href: "/#product" },
+  { label: "For colleges", href: ROUTES.forColleges },
+  { label: "Pricing", href: ROUTES.pricing },
   { label: "FAQ", href: "/#faq" },
-  { label: "Companies", href: "/#companies" },
 ];
 
 export const FOOTER_COLUMNS: { title: string; links: NavLink[] }[] = [
@@ -28,6 +28,7 @@ export const FOOTER_COLUMNS: { title: string; links: NavLink[] }[] = [
   {
     title: "Product",
     links: [
+      { label: "How it works", href: "/#how" },
       { label: "Company research", href: "/#product" },
       { label: "Interview", href: "/#interview" },
       { label: "Debrief", href: "/#debrief" },
@@ -46,7 +47,7 @@ export const FOOTER_COLUMNS: { title: string; links: NavLink[] }[] = [
     title: "Company",
     links: [
       { label: "About", href: ROUTES.about },
-      { label: "Careers", href: ROUTES.contact },
+      { label: "Pricing", href: ROUTES.pricing },
       { label: "Contact", href: ROUTES.contact },
     ],
   },

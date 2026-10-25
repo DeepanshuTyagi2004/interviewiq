@@ -10,14 +10,8 @@ export interface ProviderMeta {
   live: boolean;
 }
 
+// Resume first (enough on its own), then LeetCode: our first users have strong LeetCode and thin GitHub.
 export const PROVIDERS: ProviderMeta[] = [
-  {
-    source: "GITHUB",
-    label: "GitHub",
-    code: "GH",
-    description: "Languages, repos, contributions and external PRs.",
-    live: true,
-  },
   {
     source: "RESUME",
     label: "Resume",
@@ -30,6 +24,13 @@ export const PROVIDERS: ProviderMeta[] = [
     label: "LeetCode",
     code: "LC",
     description: "Solved problems by difficulty and topic.",
+    live: true,
+  },
+  {
+    source: "GITHUB",
+    label: "GitHub",
+    code: "GH",
+    description: "Languages, repos, contributions and external PRs.",
     live: true,
   },
   {

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Chip, EmptyState, Orb, SectionHeader } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,9 +56,7 @@ export function RecentInterviews({ sessions, isLoading, isError, now = new Date(
             title="No results yet"
             hint="Every round you finish shows up here with its score and debrief."
           >
-            {interviewBlocked ? (
-              <InterviewAccessNote />
-            ) : (
+            {interviewBlocked ? null : (
               <Button asChild variant="secondary">
                 <Link href={ROUTES.interviews}>Schedule a round</Link>
               </Button>

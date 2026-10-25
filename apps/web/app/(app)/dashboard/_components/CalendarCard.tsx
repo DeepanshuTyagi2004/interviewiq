@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, SectionHeader, StatusDot } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { levelLabel } from "@/lib/constants/engineering-levels";
@@ -71,7 +70,7 @@ export interface CalendarCardProps {
  * between months.
  */
 export function CalendarCard({ sessions, now = new Date(), className }: CalendarCardProps) {
-  const { canInterview, interviewBlocked } = useCurrentUser();
+  const { canInterview } = useCurrentUser();
   const today = dayKey(now);
   const [view, setView] = useState(() => startOfMonth(now));
   const [selected, setSelected] = useState(() => now);
@@ -258,8 +257,6 @@ export function CalendarCard({ sessions, now = new Date(), className }: Calendar
                 {joinable ? "Enter room" : "Book a round"}
               </RoomLink>
             </Button>
-          ) : interviewBlocked ? (
-            <InterviewAccessNote />
           ) : null}
         </div>
       </Card>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
-import type { CurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useCurrentUser, type CurrentUser } from "@/lib/hooks/useCurrentUser";
 import { ConnectionsGrid } from "@/app/(app)/connections/_components/ConnectionsGrid";
 import { emptyCandidateForm, useCandidateForm } from "../form";
 import { guessLevelFromResume } from "../level-guess";
@@ -69,6 +69,7 @@ export function OnboardingWizard() {
   const draft = useSaveCandidateProfile();
   const finishSave = useSaveCandidateProfile();
   const existing = useCandidateProfile();
+  const { user } = useCurrentUser();
 
   // The step the candidate chose (or was on before a reload / OAuth redirect). Until they move,
   // a saved draft starts them on Profile, a fresh account on Resume.
@@ -88,6 +89,13 @@ export function OnboardingWizard() {
       seeded.current = true;
     }
   }, [existing.data, form]);
+
+  // The name and email given at sign-up fill any blank, so nobody types them twice.
+  useEffect(() => {
+    if (!user || existing.isLoading) return;
+    if (!form.getValues("fullName").trim() && user.name?.trim()) form.setValue("fullName", user.name.trim());
+    if (!form.getValues("email").trim() && user.email) form.setValue("email", user.email);
+  }, [user, existing.isLoading, existing.data, form]);
 
   const [resumeFilename, resumeLinkedInUrl, level] = useWatch({
     control: form.control,
@@ -123,7 +131,12 @@ export function OnboardingWizard() {
     const chosen = form.getValues("level");
     const guess = guessLevelFromResume(parsedForm.experience, parsedForm.education);
     const keep = chosen !== "" && chosen !== levelGuess;
-    form.reset({ ...parsedForm, level: keep ? chosen : (guess ?? chosen) });
+    form.reset({
+      ...parsedForm,
+      fullName: parsedForm.fullName || form.getValues("fullName"),
+      email: parsedForm.email || form.getValues("email"),
+      level: keep ? chosen : (guess ?? chosen),
+    });
     setLevelGuess(keep ? null : guess);
     // Parsed data wins — a slower initial GET /candidate-profile must not clobber it.
     seeded.current = true;

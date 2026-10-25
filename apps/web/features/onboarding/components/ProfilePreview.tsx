@@ -117,14 +117,6 @@ export function ProfilePreview({ control, target, className }: ProfilePreviewPro
               ) : null}
             </ul>
           ) : null}
-
-          <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-panel px-3 py-2.5">
-            <span className="text-[11.5px] text-faint">Interview score</span>
-            <span className="text-lg leading-none tracking-[-0.04em] text-faint">
-              <span aria-hidden>—</span>
-              <span className="sr-only">Not scored yet</span>
-            </span>
-          </div>
         </div>
 
         <Section label="Experience" count={roles.length}>

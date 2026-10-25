@@ -32,7 +32,7 @@ export function MarketingHeader() {
             Log in
           </Link>
           <Link
-            href="/#universities"
+            href={ROUTES.contact}
             className={cn(buttonVariants({ variant: "strong" }), "hidden h-[34px] px-[13px] text-[13.5px] lg:inline-flex")}
           >
             Book a demo

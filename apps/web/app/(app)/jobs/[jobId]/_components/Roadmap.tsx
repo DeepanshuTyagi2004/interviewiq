@@ -14,6 +14,7 @@ import { InsightsTab } from "./InsightsTab";
 import { MatchTab } from "./MatchTab";
 import { ProcessTab } from "./ProcessTab";
 import { RoadmapHeader } from "./RoadmapHeader";
+import { useHasFitEvidence } from "@/app/(app)/jobs/_components/fitEvidence";
 import { hasPublishedDetails, PublishedDetails } from "./PublishedDetails";
 
 function RoadmapSkeleton() {
@@ -42,6 +43,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
   const jd = useJd(jdId);
   useBreadcrumbNames({ company: jd.data?.companyName, companySlug: jd.data?.company, role: jd.data?.title });
   const fit = useJdFit(jdId);
+  const hasFitEvidence = useHasFitEvidence();
   const companies = useJobCompanies();
 
   if (jd.isLoading) {
@@ -74,7 +76,7 @@ export function Roadmap({ jdId }: { jdId: string }) {
   return (
     <div>
       {/* The top bar already shows "Companies / {company} / {role}" (set through useBreadcrumbNames above). */}
-      <RoadmapHeader jd={data} headquarters={headquarters} fit={fit.data ?? null} />
+      <RoadmapHeader jd={data} headquarters={headquarters} fit={hasFitEvidence ? (fit.data ?? null) : null} noFitEvidence={!hasFitEvidence} />
 
       {/* About and Role details sit in a right column from 1280px and stack below the tabs under that. */}
       <div className={cn("mt-9 grid items-start gap-x-10 gap-y-10", hasPublishedDetails(data) && "xl:grid-cols-[minmax(0,1fr)_340px]")}>

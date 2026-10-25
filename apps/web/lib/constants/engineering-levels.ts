@@ -13,6 +13,24 @@ export const ENGINEERING_LEVEL_OPTIONS = [
   { value: "distinguished", label: "Distinguished" },
 ] satisfies { value: EngineeringLevel; label: string }[];
 
+/** One plain line per level for pickers, so students and switchers can place themselves. Rough guides, not rules. */
+export const ENGINEERING_LEVEL_HINTS: Record<EngineeringLevel, string> = {
+  intern: "Still studying",
+  fresher: "Final year or new grad",
+  sde1: "About 1-3 years of work",
+  sde2: "About 3-5 years",
+  sde3: "About 5-8 years, senior",
+  staff: "Leads work across teams",
+  principal: "Sets direction for an org",
+  distinguished: "Company-wide technical leader",
+};
+
+/** Options labelled "Fresher · Final year or new grad". */
+export const ENGINEERING_LEVEL_OPTIONS_WITH_HINTS = ENGINEERING_LEVEL_OPTIONS.map((option) => ({
+  ...option,
+  label: `${option.label} · ${ENGINEERING_LEVEL_HINTS[option.value]}`,
+}));
+
 export function isEngineeringLevel(value: unknown): value is EngineeringLevel {
   return typeof value === "string" && ENGINEERING_LEVEL_OPTIONS.some((option) => option.value === value);
 }

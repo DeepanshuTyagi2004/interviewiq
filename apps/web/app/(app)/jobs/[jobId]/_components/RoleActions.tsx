@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Loader2, Star } from "lucide-react";
+import { Copy, Loader2, MoreHorizontal, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { JdDetail } from "@/features/jobs";
 import { useConfirmLoop, useCreateProcess, useJdLoopStatus, useOfficialProcess, useProcesses, useToggleTarget } from "@/features/loops";
 import { ApiFetchError } from "@/lib/api-client/errors";
@@ -60,7 +61,7 @@ export function useRoleTrack(jd: JdDetail) {
   return { official, status, confirm, create, toggle, mine, loopId, targeted, hasRounds, confirmProcess, duplicate };
 }
 
-/** The hero's actions: Open / Start track, Duplicate & customise, Add to targets / Watching. */
+/** The hero's actions: Open / Start track as the one button; Duplicate & customise and Add to targets in a More menu. */
 export function RoleActions({ jd }: { jd: JdDetail }) {
   const { status, confirm, create, toggle, loopId, targeted, hasRounds, confirmProcess, duplicate } = useRoleTrack(jd);
   return (
@@ -75,19 +76,32 @@ export function RoleActions({ jd }: { jd: JdDetail }) {
           {jd.practiceTemplate ? "Start practice track" : "Start suggested track"}
         </Button>
       )}
-      <Button variant="secondary" disabled={!hasRounds || !isEngineeringLevel(jd.level) || create.isPending} onClick={duplicate}>
-        {create.isPending ? <Loader2 aria-hidden className="animate-spin" /> : <Copy aria-hidden />}
-        Duplicate &amp; customise
-      </Button>
-      <Button
-        variant="ghost"
-        disabled={toggle.isPending || status.isLoading}
-        aria-pressed={targeted}
-        onClick={() => toggle.mutate({ jdId: jd.id, targeted }, { onError: () => toast.error("Couldn't update your targets.") })}
-      >
-        <Star aria-hidden className={targeted ? "fill-current" : undefined} />
-        {targeted ? "Watching" : "Add to targets"}
-      </Button>
+      {targeted ? (
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-3">
+          <Star aria-hidden className="h-3.5 w-3.5 fill-current" />
+          Watching
+        </span>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="More actions">
+            {create.isPending || toggle.isPending ? <Loader2 aria-hidden className="animate-spin" /> : <MoreHorizontal aria-hidden />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem disabled={!hasRounds || !isEngineeringLevel(jd.level) || create.isPending} onSelect={duplicate}>
+            <Copy aria-hidden />
+            Duplicate &amp; customise
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={toggle.isPending || status.isLoading}
+            onSelect={() => toggle.mutate({ jdId: jd.id, targeted }, { onError: () => toast.error("Couldn't update your targets.") })}
+          >
+            <Star aria-hidden className={targeted ? "fill-current" : undefined} />
+            {targeted ? "Stop watching" : "Add to targets"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

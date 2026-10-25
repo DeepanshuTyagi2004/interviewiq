@@ -12,6 +12,7 @@ import { useBreadcrumbNames } from "@/components/layout/app-shell/Breadcrumbs";
 import { useJdFitList, useJds, useJobCompanies } from "@/features/jobs";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
+import { useHasFitEvidence } from "./fitEvidence";
 import { RoleCard } from "./RoleCard";
 import { groupByLevel, levelLabel, plural, specializationLabel, specializationsOf } from "./library";
 import {
@@ -46,6 +47,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
   const companies = useJobCompanies();
   const jds = useJds({ company: slug });
   const fit = useJdFitList({ company: slug });
+  const hasFitEvidence = useHasFitEvidence();
   const [showAllStack, setShowAllStack] = useState(false);
   const [moreFilters, setMoreFilters] = useState<boolean | null>(null);
 
@@ -222,7 +224,7 @@ export function CompanyRoles({ slug }: { slug: string }) {
             <section key={g.level} aria-label={`${g.label} · ${plural(g.jds.length, "role")}`}>
               <SectionHeader title={g.label} actions={<span className="text-[13px] text-ink-3">{plural(g.jds.length, "role")}</span>} />
               <ul className="m-0 grid list-none gap-3 p-0 [grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr))]">
-                {g.jds.map((jd) => <RoleCard key={jd.id} jd={jd} fit={fitById.get(jd.id) ?? null} fitLoading={fit.isLoading} />)}
+                {g.jds.map((jd) => <RoleCard key={jd.id} jd={jd} fit={hasFitEvidence ? (fitById.get(jd.id) ?? null) : null} fitLoading={hasFitEvidence && fit.isLoading} />)}
               </ul>
             </section>
           ))}

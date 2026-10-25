@@ -3,8 +3,10 @@ import { isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 import { useState } from "react";
 import { CalendarIcon, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ROUTES } from "@/lib/constants/shared";
 import { toast } from "sonner";
-import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
+import { INTERVIEW_ACCESS_TEXT } from "@/components/auth/InterviewAccessNote";
 import { Card } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -183,6 +185,26 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
   const days = Array.from({ length: DAY_CHIPS }, (_, i) => addDays(today, i));
   const laterDate = date && !days.some((d) => sameDay(date, d)) ? date : undefined;
 
+  // Without interview access a greyed-out form looks broken: say why, and what to do meanwhile.
+  if (interviewBlocked) {
+    return (
+      <Card tone="stone" title="Book a round" className="gap-[18px] p-5 sm:p-[26px]">
+        <p className="m-0 text-[14px] leading-[1.55] text-ink-2">
+          {INTERVIEW_ACCESS_TEXT}. While you wait, explore each company&apos;s process and fill in your profile, so your
+          interviewer is ready when you are.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href={ROUTES.contact}>Request access</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={ROUTES.jobs}>Browse companies</Link>
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card
       tone="stone"
@@ -237,7 +259,7 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         />
         <label className="flex w-fit max-w-full cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] text-ink-2">
           <Checkbox className="mt-px" checked={withTemplates} onCheckedChange={(v) => setWithTemplates(v === true)} />
-          <span>Include practice templates (simulated processes that never count towards readiness)</span>
+          <span>Show practice templates (practice only, not counted towards readiness)</span>
         </label>
       </label>
 
@@ -356,10 +378,8 @@ export function BookingForm({ initialJobDescriptionId, initialRoundType }: Booki
         </p>
       )}
 
-      {interviewBlocked ? <InterviewAccessNote /> : null}
       <Button
         disabled={!canSubmit || !canInterview}
-        title={!interviewBlocked ? undefined : "Ask an admin for interview access"}
         onClick={mode === "now" ? submitNow : submitSchedule}
         size="lg" className="w-full text-[14px]"
       >

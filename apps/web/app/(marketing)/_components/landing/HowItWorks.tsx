@@ -12,11 +12,10 @@ export function HowItWorks() {
           data-reveal
           className="iq-h2 text-center text-[clamp(32px,4vw,56px)]"
         >
-          One process. Three steps.
+          How it works
         </h2>
         <p className="m-0 mt-3.5 max-w-[460px] text-center text-[17px] leading-[1.5] text-muted-foreground">
-          Research shapes the interview. The interview drives the debrief. Every debrief makes the next attempt
-          sharper.
+          Learn the company&apos;s process. Practise it out loud. Get feedback, then go again.
         </p>
         <div className="mt-12 w-full max-w-[1040px]">
           <ol className="m-0 grid list-none grid-cols-1 gap-y-12 p-0 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-0">

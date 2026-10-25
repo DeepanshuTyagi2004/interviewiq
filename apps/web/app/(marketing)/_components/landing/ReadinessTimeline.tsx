@@ -34,7 +34,7 @@ export function ReadinessTimeline() {
           Track how ready you are, role by role
         </h2>
         <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-muted-foreground">
-          Readiness rises as you clear rounds of the official process — from getting started to interview-ready.
+          Clear each round of a company&apos;s process to go from Getting started to Interview-ready.
         </p>
       </div>
 

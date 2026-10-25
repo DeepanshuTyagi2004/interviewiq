@@ -14,6 +14,7 @@ vi.mock("./ProcessFlow", () => ({ ProcessFlow: () => null }));
 vi.mock("./RoleActions", () => ({ RoleActions: () => null }));
 
 const hooks = vi.hoisted(() => ({ jd: null as JdDetail | null }));
+vi.mock("@/app/(app)/jobs/_components/fitEvidence", () => ({ useHasFitEvidence: () => true }));
 vi.mock("@/features/jobs", async (original) => ({ ...(await original<typeof import("@/features/jobs")>()), useJd: () => ({ data: hooks.jd, isLoading: false, isError: false }), useJdFit: () => ({ data: undefined, isLoading: false, isError: false, refetch: () => undefined }), useJobCompanies: () => ({ data: [] }) }));
 
 // Candidate API shape: generated DTO, with the exact manual enrichmentBrief round keys.
@@ -48,7 +49,8 @@ describe("published company and role details", () => {
     expect(rounds.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["Round 1: Architecture deep dive", "Round 2: Team discussion"]);
     expect(rounds.getByText("System Design · 75 min · Discuss trade-offs · hard")).toBeInTheDocument();
     expect(rounds.getByRole("link", { name: "Book this round: Architecture deep dive" })).toHaveAttribute("href", "/interviews?jd=jd-1&round=system-design");
-    expect(screen.getByText(/Reviewed and published by an InterviewIQ admin/)).toBeInTheDocument();
+    // The header already says "Admin-verified process", so the bottom card is not repeated.
+    expect(screen.queryByText(/Reviewed and published by an InterviewIQ admin/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Built from interview experiences/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Reported in/)).not.toBeInTheDocument();
     expect(screen.getByText(/2 sources/)).toBeInTheDocument();

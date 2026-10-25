@@ -40,10 +40,10 @@ export function breadcrumbsForPath(pathname: string, names: BreadcrumbNames = {}
     ];
   }
   if (seg[0] === "loops" && seg[1] && seg.length === 2) {
-    return [{ label: "Tracks", href: ROUTES.loops }, { label: names.track ?? "Track" }];
+    return [{ label: "My tracks", href: ROUTES.loops }, { label: names.track ?? "Track" }];
   }
   if (seg[0] === "processes" && seg[1] && seg.length === 2) {
-    return [{ label: "Processes", href: ROUTES.processes }, { label: names.process ?? "Process" }];
+    return [{ label: "Custom processes", href: `${ROUTES.loops}?tab=processes` }, { label: names.process ?? "Process" }];
   }
   if (seg[0] === "interviews" && seg[1] && seg.length === 2) {
     return [{ label: "Interviews", href: ROUTES.interviews }, { label: "Interview" }];

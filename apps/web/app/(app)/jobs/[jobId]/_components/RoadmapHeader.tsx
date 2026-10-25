@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ROUTES } from "@/lib/constants/shared";
 import { CompanyArt, SegmentBar } from "@/components/ds";
 import type { JdDetail } from "@/features/jobs";
 import { levelLabel, plural, specializationLabel } from "@/app/(app)/jobs/_components/library";
@@ -44,13 +46,15 @@ export interface RoadmapHeaderProps {
   headquarters?: string | null;
   /** The user's match for this JD; omitted while loading or when it failed. */
   fit?: MatchFit | null;
+  /** The profile has nothing to match yet: invite the user to add some instead of showing 0%. */
+  noFitEvidence?: boolean;
 }
 
 /**
  * The hero: company art, "Company · JD title", the meta line, the match chip, the readiness state and the
  * actions. The top bar already shows the breadcrumb.
  */
-export function RoadmapHeader({ jd, headquarters, fit = null }: RoadmapHeaderProps) {
+export function RoadmapHeader({ jd, headquarters, fit = null, noFitEvidence = false }: RoadmapHeaderProps) {
   const gap = fit ? levelGapText(fit.levelGap, jd.level) : null;
   const title = `${jd.companyName} · ${jd.title}`;
   const hasRounds = (jd.interviewProcess?.rounds ?? []).length > 0;
@@ -68,6 +72,13 @@ export function RoadmapHeader({ jd, headquarters, fit = null }: RoadmapHeaderPro
               <MatchPill fit={fit} />
               {gap}
             </div>
+          ) : noFitEvidence ? (
+            <p className="m-0 mt-3 text-[12.5px] text-ink-3">
+              <Link href={ROUTES.connections} className="underline underline-offset-4 hover:text-foreground">
+                Add your resume or a coding profile
+              </Link>{" "}
+              to see how well you match this role.
+            </p>
           ) : null}
         </div>
       </div>
@@ -77,7 +88,7 @@ export function RoadmapHeader({ jd, headquarters, fit = null }: RoadmapHeaderPro
       </div>
       {hasRounds && !jd.practiceTemplate ? (
         <p className="m-0 mt-3 max-w-2xl text-[12.5px] leading-[1.5] text-ink-3">
-          Only the unedited suggested process counts towards your mock-interview readiness for this role. A customised process is standalone practice: fully analysed, but not counted.
+          Only this suggested process counts towards your readiness. A customised copy is practice only.
         </p>
       ) : null}
     </header>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ROUTES } from "@/lib/constants/shared";
 import { CONTAINER, OutlineLink } from "../_components/landing/primitives";
-import { Universities } from "../_components/landing/Universities";
 
 export const metadata: Metadata = {
   title: "For colleges — InterviewIQ",
@@ -17,7 +16,7 @@ const STEPS: [string, string][] = [
 export default function ForCollegesPage() {
   return (
     <>
-      <section className={`${CONTAINER} flex flex-col gap-10 pt-16 sm:pt-24`}>
+      <section className={`${CONTAINER} flex flex-col gap-10 py-16 sm:py-24`}>
         <div className="flex max-w-[680px] flex-col gap-4">
           <h1 className="m-0 text-[clamp(34px,4vw,56px)] font-normal leading-[1.02] tracking-[-0.035em]">
             Every student gets a real rehearsal before the real thing.
@@ -45,9 +44,6 @@ export default function ForCollegesPage() {
           ))}
         </ol>
       </section>
-      <div className="pb-16 sm:pb-24">
-        <Universities />
-      </div>
     </>
   );
 }

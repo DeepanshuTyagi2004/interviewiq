@@ -19,13 +19,14 @@ const throwing = {
 };
 
 describe("navGroupsFor", () => {
-  it("has no admin group for a student, and the five main items in order", () => {
+  it("has no admin group for a student, and the main items in order", () => {
     const groups = navGroupsFor(false);
     expect(groups.map((g) => g.id)).toEqual(["main", "build", "you"]);
     expect(groups[0]!.label).toBeNull();
-    expect(groups[0]!.items.map((i) => i.label)).toEqual(["Home", "Companies", "Tracks", "Interviews", "Practice"]);
-    expect(groups[1]!.items.map((i) => i.label)).toEqual(["Processes", "Share experience"]);
-    expect(groups[2]!.items.map((i) => i.label)).toEqual(["Profile", "Connections", "Leaderboard"]);
+    // Custom processes and the leaderboard are search-only: reached from My tracks and the Profile score card.
+    expect(groups[0]!.items.map((i) => i.label)).toEqual(["Home", "Companies", "My tracks", "Interviews"]);
+    expect(groups[1]!.items.map((i) => i.label)).toEqual(["Share experience"]);
+    expect(groups[2]!.items.map((i) => i.label)).toEqual(["Profile", "Connections"]);
   });
 
   it("adds the admin group last for admins", () => {
@@ -52,8 +53,8 @@ describe("breadcrumbsForPath", () => {
   it("falls back to generic names while the page's data is loading", () => {
     expect(breadcrumbsForPath("/jobs/abc").map((c) => c.label)).toEqual(["Companies", "Company", "Role"]);
     expect(breadcrumbsForPath("/jobs/c/meesho").map((c) => c.label)).toEqual(["Companies", "Company"]);
-    expect(breadcrumbsForPath("/loops/x").map((c) => c.label)).toEqual(["Tracks", "Track"]);
-    expect(breadcrumbsForPath("/processes/x", { process: "My loop" }).map((c) => c.label)).toEqual(["Processes", "My loop"]);
+    expect(breadcrumbsForPath("/loops/x").map((c) => c.label)).toEqual(["My tracks", "Track"]);
+    expect(breadcrumbsForPath("/processes/x", { process: "My loop" }).map((c) => c.label)).toEqual(["Custom processes", "My loop"]);
   });
 
   it("labels interview screens and settings tabs", () => {

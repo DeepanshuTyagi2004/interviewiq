@@ -53,8 +53,11 @@ export function ProfileScoreCard() {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-line pt-5 text-[13px]">
         <div><dt className="text-ink-3">Scored for level</dt><dd className="m-0 mt-1">{levelLabel(current?.level)}</dd></div>
         <div><dt className="text-ink-3">Coverage</dt><dd className="m-0 mt-1 font-mono tabular-nums">{current ? percent(current.coverage) : "Unknown"}</dd></div>
-        <div><dt className="text-ink-3">Rank / percentile</dt><dd className="m-0 mt-1 font-mono tabular-nums">{current?.percentile == null ? "Unavailable" : current.rank ?? "Unavailable"} / {current?.percentile == null ? "Unavailable" : `${current.percentile.toFixed(1)}%`}</dd></div>
-        <div><dt className="text-ink-3">Cohort size</dt><dd className="m-0 mt-1 font-mono tabular-nums">{current?.cohortSize ?? "Unavailable"}</dd></div>
+        {/* Rank and cohort only mean something once there is a score. */}
+        {current?.score != null ? <>
+          <div><dt className="text-ink-3">Rank / percentile</dt><dd className="m-0 mt-1 font-mono tabular-nums">{current.percentile == null ? "Unavailable" : current.rank ?? "Unavailable"} / {current.percentile == null ? "Unavailable" : `${current.percentile.toFixed(1)}%`}</dd></div>
+          <div><dt className="text-ink-3">Cohort size</dt><dd className="m-0 mt-1 font-mono tabular-nums">{current.cohortSize ?? "Unavailable"}</dd></div>
+        </> : null}
       </dl>
       <div className="space-y-2"><p className="m-0 text-[13px] text-ink-3">Declared engineering level</p>
         <p className="m-0 text-sm">{levelLabel(query.data.settings.declaredLevel)}</p>
@@ -63,11 +66,16 @@ export function ProfileScoreCard() {
       <div className="flex items-center justify-between gap-3"><label htmlFor="profile-leaderboard-opt-in" className="text-sm">Opt in to level leaderboard</label>
         <Switch id="profile-leaderboard-opt-in" checked={query.data.settings.leaderboardOptIn} disabled={settings.isPending || Boolean(query.data.assessment?.inProgress)}
           onCheckedChange={(leaderboardOptIn) => settings.mutate({ leaderboardOptIn })} /></div>
-      <p className="text-xs text-ink-2">{query.data.settings.leaderboardOptIn ? "Opted in. Privacy settings may hide your identity or exclude your profile; only eligible same-level peers are compared." : "Hidden from the leaderboard by default. Opt in to participate; privacy settings still apply."} Small or ineligible cohorts have no rank or percentile.</p>
+      <p className="text-xs text-ink-2">{query.data.settings.leaderboardOptIn ? "Opted in. Privacy settings may hide your identity or exclude your profile; only eligible same-level peers are compared." : "Hidden from the leaderboard by default. Opt in to participate; privacy settings still apply."} Small or ineligible cohorts have no rank or percentile.{" "}
+        <Link href={ROUTES.leaderboard} className="underline underline-offset-4 hover:text-foreground">View the leaderboard</Link></p>
       {current ? <>
-        {[...current.warnings, ...current.classification.warnings, ...current.eligibility.reasons].length ? <ul className="space-y-1 pl-4 text-xs text-ink-2">
-          {[...new Set([...current.warnings, ...current.classification.warnings, ...current.eligibility.reasons])].map((warning) => <li key={warning}>{warning}</li>)}
-        </ul> : null}
+        {[...current.warnings, ...current.classification.warnings, ...current.eligibility.reasons].length ? <details className="group text-xs text-ink-2">
+          {/* The engine's notes are long and technical: one click away rather than in every visitor's face. */}
+          <summary className="cursor-pointer select-none text-[13px] text-ink-3 hover:text-foreground">Calculation notes</summary>
+          <ul className="mt-2 space-y-1 pl-4">
+            {[...new Set([...current.warnings, ...current.classification.warnings, ...current.eligibility.reasons])].map((warning) => <li key={warning}>{warning}</li>)}
+          </ul>
+        </details> : null}
       </> : null}
       <RecalculateControl disabled={settings.isPending} />
       {settings.isPending ? <p role="status" className="text-xs text-ink-2">Saving settings…</p> : null}

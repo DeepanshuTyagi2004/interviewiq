@@ -29,11 +29,10 @@ const TILES: Tile[] = [
   { key: "find", href: ROUTES.jobs, title: "Find a role", hint: FIND_STATIC, icon: "find" },
   { key: "track", href: ROUTES.loops, title: "Start a track", hint: "A company's full loop", icon: "track" },
   { key: "sources", href: ROUTES.connections, title: "Connect sources", hint: "GitHub, LeetCode…", icon: "sources" },
-  { key: "practice", href: ROUTES.practice, title: "Practice", hint: "From your gaps", icon: "practice" },
   { key: "share", href: ROUTES.shareExperience, title: "Share experience", hint: "Help others prep", icon: "share" },
 ];
 
-/** Six quick-start tiles. Only "Find a role" carries a live number, from the roles list. */
+/** Quick-start tiles (four or five, sharing the row on wide screens). Only "Find a role" carries a live number, from the roles list. */
 export function QuickTiles() {
   const jds = useJds();
   const { interviewBlocked } = useCurrentUser();
@@ -42,10 +41,10 @@ export function QuickTiles() {
   return (
     <ul
       aria-label="Quick start"
-      className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6"
+      className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:flex"
     >
       {tiles.map(({ key, href, title, hint, icon }, i) => (
-        <li key={key} className="iq-fade-up min-w-0" style={{ "--i": i } as React.CSSProperties}>
+        <li key={key} className="iq-fade-up min-w-0 lg:flex-1" style={{ "--i": i } as React.CSSProperties}>
           <Link
             href={href}
             className="group block h-full rounded-card bg-card p-3.5 shadow-ring outline-none transition-[transform,box-shadow] duration-300 ease-iq hover:-translate-y-0.5 hover:shadow-float focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none motion-reduce:hover:translate-y-0"

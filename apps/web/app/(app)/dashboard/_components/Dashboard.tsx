@@ -17,7 +17,8 @@ import { isJoinable } from "@/features/interview/presentation";
 
 /**
  * Signed-in home, from top to bottom: header, quick-start tiles, up next beside readiness, the
- * calendar beside this week, recent results and the researched processes. The app shell supplies
+ * calendar beside this week, recent results and the researched processes. A new account with
+ * nothing booked or tracked sees the companies under the tiles and no empty calendar or results. The app shell supplies
  * the page width and padding.
  */
 export function Dashboard() {
@@ -32,6 +33,8 @@ export function Dashboard() {
 
   // With nothing booked, point at the loop that has a round ready to book.
   const ready = (loops.data ?? []).find((l) => l.status === "active" && l.progress.nextNodeIds.length > 0);
+  // A brand-new account has nothing booked or tracked yet: lead with the companies, the first step.
+  const isNew = sessions.isSuccess && loops.isSuccess && all.length === 0 && (loops.data ?? []).length === 0;
 
   return (
     <div className="flex min-w-0 flex-col">
@@ -55,22 +58,30 @@ export function Dashboard() {
         <QuickTiles />
       </div>
 
+      {isNew ? <CompaniesCarousel title="Start here: pick a company" className="mb-11" /> : null}
+
       <div className="mb-11 grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
         <UpNextCard session={next} />
         <ReadinessCard />
       </div>
 
-      <div className="mb-11 grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <CalendarCard sessions={all} />
-        <WeekAgenda sessions={all} />
-      </div>
+      {/* The calendar, this week and results are all empty until the first booking. */}
+      {isNew ? null : (
+        <>
+          <div className="mb-11 grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
+            <CalendarCard sessions={all} />
+            <WeekAgenda sessions={all} />
+          </div>
 
-      <RecentInterviews
-        sessions={recent}
-        isLoading={sessions.isLoading}
-        isError={sessions.isError}      />
+          <RecentInterviews
+            sessions={recent}
+            isLoading={sessions.isLoading}
+            isError={sessions.isError}
+          />
+        </>
+      )}
 
-      <CompaniesCarousel />
+      {isNew ? null : <CompaniesCarousel />}
     </div>
   );
 }

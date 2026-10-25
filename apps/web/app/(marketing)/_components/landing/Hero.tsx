@@ -34,8 +34,8 @@ export function Hero() {
               <span className="text-ink-3">actually walking into</span>
             </h1>
             <p className="iq-intro m-0 mt-6 max-w-[540px] text-pretty text-[19px] leading-[1.45] text-ink-2 [--i:2] sm:text-[21px]">
-              Spend less time guessing, more time practising — with an AI interviewer that knows your resume and
-              your target company&apos;s real process.
+              Mock interviews with an AI interviewer that knows your resume and runs your target company&apos;s real
+              process, round by round.
             </p>
             <p className="iq-intro m-0 mt-4 text-[13px] text-ink-3 [--i:3]">Free to start, no card required</p>
             <div className="iq-intro mt-6 flex w-full [--i:4]">
@@ -47,9 +47,12 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="iq-intro iq-stage relative flex h-[420px] items-center justify-center [--i:5] sm:h-[580px]">
+        <div className="iq-intro iq-stage relative flex h-[420px] items-center justify-center [--i:5] sm:h-[460px]">
           <p className="iq-eyebrow absolute left-6 top-6 m-0 sm:left-9 sm:top-8">Connected sources</p>
           <SourceStack />
+          <p className="absolute inset-x-6 bottom-6 m-0 text-center text-[15px] leading-[1.45] text-muted-foreground sm:bottom-8">
+            Add your resume, GitHub or LeetCode. Your interviewer asks about your own work.
+          </p>
         </div>
       </div>
     </section>

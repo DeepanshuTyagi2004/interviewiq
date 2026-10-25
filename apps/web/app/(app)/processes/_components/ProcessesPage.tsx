@@ -10,13 +10,12 @@ import { ProcessList } from "./ProcessList";
 /** `/processes`: create interview processes and manage the ones you've saved. */
 export function ProcessesPage() {
   const [creating, setCreating] = useState(false);
-  const [query, setQuery] = useState("");
 
   return (
     <div>
       <PageHeader
         eyebrow="Interview processes"
-        title="Your processes"
+        title="Custom processes"
         description="Build an interview process for any level: add, remove and connect rounds, then start a track from it. Custom processes are standalone practice and never count towards readiness."
         actions={
           <Button onClick={() => setCreating(true)}>
@@ -24,8 +23,29 @@ export function ProcessesPage() {
           </Button>
         }
       />
+      <ProcessesPanel creating={creating} onCreatingChange={setCreating} className="mt-8" />
+    </div>
+  );
+}
 
-      <label className="mt-8 flex h-11 min-w-0 items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-background">
+/**
+ * Search, the saved processes and the create dialog: the body of /processes and of the Custom
+ * processes tab on My tracks.
+ */
+export function ProcessesPanel({
+  creating,
+  onCreatingChange,
+  className,
+}: {
+  creating: boolean;
+  onCreatingChange: (open: boolean) => void;
+  className?: string;
+}) {
+  const [query, setQuery] = useState("");
+
+  return (
+    <div className={className}>
+      <label className="flex h-11 min-w-0 items-center gap-2.5 rounded-full bg-background px-4 shadow-ring transition-shadow focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 focus-within:ring-offset-background">
         <Search aria-hidden className="h-4 w-4 flex-none text-ink-3" />
         <input
           type="search"
@@ -38,10 +58,10 @@ export function ProcessesPage() {
       </label>
 
       <div className="mt-6">
-        <ProcessList query={query} onCreate={() => setCreating(true)} />
+        <ProcessList query={query} onCreate={() => onCreatingChange(true)} />
       </div>
 
-      <CreateProcessDialog open={creating} onOpenChange={setCreating} />
+      <CreateProcessDialog open={creating} onOpenChange={onCreatingChange} />
     </div>
   );
 }

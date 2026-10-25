@@ -30,7 +30,7 @@ export interface TopBarProps {
 
 /**
  * 60px sticky bar: sidebar toggle and breadcrumbs, a pill search in the middle, then Feedback,
- * Help, notifications and the avatar orb. The theme switch lives in the account menu.
+ * notifications and the avatar orb (Help is in the sidebar and the account menu). The theme switch lives in the account menu.
  */
 export function TopBar({ pathname, names, sidebarId, sidebarExpanded, onToggleSidebar, onOpenSearch, account }: TopBarProps) {
   return (
@@ -78,9 +78,6 @@ export function TopBar({ pathname, names, sidebarId, sidebarExpanded, onToggleSi
         </button>
         <Link href={ROUTES.contact} className={cn(pill, "hidden xl:inline-flex", FOCUS)}>
           Feedback
-        </Link>
-        <Link href={ROUTES.help} className={cn(pill, "hidden xl:inline-flex", FOCUS)}>
-          Help
         </Link>
         <Popover>
           <PopoverTrigger aria-label="Notifications" className={cn(pill, "w-9 px-0", FOCUS)}>

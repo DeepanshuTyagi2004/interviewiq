@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Card, EmptyState, SectionHeader, StatusDot } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { levelLabel } from "@/lib/constants/engineering-levels";
@@ -50,9 +49,7 @@ export function WeekAgenda({
             title="Nothing this week"
             hint="Rounds you book for the next seven days show up here."
           >
-            {interviewBlocked ? (
-              <InterviewAccessNote />
-            ) : (
+            {interviewBlocked ? null : (
               <Button asChild variant="secondary">
                 <Link href={ROUTES.interviews}>Book a round</Link>
               </Button>

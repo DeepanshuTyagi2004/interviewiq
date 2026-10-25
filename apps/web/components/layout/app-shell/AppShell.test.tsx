@@ -58,8 +58,8 @@ describe("AppShell", () => {
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("link", { name: "Companies" })).toHaveAttribute("href", "/jobs");
-    expect(within(nav).getByRole("link", { name: "Processes" })).toHaveAttribute("href", "/processes");
-    expect(within(nav).getByRole("link", { name: "Leaderboard" })).toHaveAttribute("href", "/leaderboard");
+    expect(within(nav).getByRole("link", { name: "My tracks" })).toHaveAttribute("href", "/loops");
+    expect(within(nav).queryByRole("link", { name: "Practice" })).toBeNull();
     expect(screen.getByText("No official track started yet")).toBeInTheDocument();
     expect(within(screen.getByLabelText("Sidebar")).getByRole("link", { name: "Help" })).toHaveAttribute("href", "/help");
     expect(within(screen.getByLabelText("Sidebar")).getByRole("button", { name: /account menu/i })).toHaveTextContent("Aarav Sharma");

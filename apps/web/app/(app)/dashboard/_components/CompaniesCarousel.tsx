@@ -28,17 +28,17 @@ export function researchedCompanies(
     .map((c) => ({ slug: c.slug, name: c.name, roles: live.get(c.slug) ?? 0 }));
 }
 
-export function CompaniesCarousel() {
+export function CompaniesCarousel({ title = "Researched processes", className = "mt-11" }: { title?: string; className?: string }) {
   const companies = useJobCompanies();
   const jds = useJds();
   const list = researchedCompanies(companies.data, jds.data);
   if (list.length === 0) return null;
 
   return (
-    <section aria-label="Researched processes" className="mt-11">
+    <section aria-label={title} className={className}>
       <Carousel
         label="researched processes"
-        header={<SectionHeader title="Researched processes" href={ROUTES.jobs} className="mb-0" />}
+        header={<SectionHeader title={title} href={ROUTES.jobs} className="mb-0" />}
       >
         {list.map((c) => (
           <li key={c.slug} className="w-[min(86vw,358px)]">

@@ -154,7 +154,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-surface p-6 text-center">
         <p className="m-0 text-sm">{missing ? "This process doesn't exist." : "Couldn't load this process."}</p>
-        <Button asChild variant="outline" size="sm"><Link href={ROUTES.processes}>Back to my processes</Link></Button>
+        <Button asChild variant="outline" size="sm"><Link href={`${ROUTES.loops}?tab=processes`}>Back to my processes</Link></Button>
       </div>
     );
   }
@@ -254,7 +254,7 @@ export function ProcessEditor({ processId }: { processId: string }) {
   function leave() {
     if (update.isPending || confirm.isPending) return;
     if (dirty) { setAction("leave"); return; }
-    router.push(ROUTES.processes);
+    router.push(`${ROUTES.loops}?tab=processes`);
   }
 
   const canSave = dirty && problems.length === 0 && nameOk && !update.isPending;

@@ -53,23 +53,18 @@ export function HeroSignup() {
         </button>
       </form>
       <p className="m-0 text-xs text-faint">or</p>
-      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-        <button type="button" onClick={() => login()} className={lineButton}>
-          Sign up with Google
-        </button>
-        <Link href={ROUTES.signup} className={lineButton}>
-          Start with your resume
-        </Link>
-      </div>
+      <button type="button" onClick={() => login()} className={lineButton}>
+        Sign up with Google
+      </button>
       <p className="m-0 text-xs text-faint">
         By signing up, I agree to InterviewIQ&apos;s{" "}
-        <a href="#" className="text-muted-foreground underline">
+        <Link href={ROUTES.terms} className="text-muted-foreground underline">
           Terms
-        </a>{" "}
+        </Link>{" "}
         and{" "}
-        <a href="#" className="text-muted-foreground underline">
+        <Link href={ROUTES.privacy} className="text-muted-foreground underline">
           Privacy Policy
-        </a>
+        </Link>
         .
       </p>
     </div>

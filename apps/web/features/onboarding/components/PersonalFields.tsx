@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/patterns";
 import type { CandidateFormValues } from "../form";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { ENGINEERING_LEVEL_OPTIONS, isEngineeringLevel } from "@/lib/constants/engineering-levels";
+import { ENGINEERING_LEVEL_OPTIONS_WITH_HINTS, isEngineeringLevel } from "@/lib/constants/engineering-levels";
 
 /**
  * Personal details (also reused in profile edit). Reads the shared RHF context. Onboarding hides
@@ -24,7 +24,7 @@ export function PersonalFields({ showTargetRole = true, levelHint }: { showTarge
     <div className="iq-fields">
       <div className="iq-grid gap-4" data-cols="3">
         <FormField label="Engineering level" error={errors.level?.message} hint={levelHint ?? "Your current level, independent of your target role"}>
-          <CustomSelect label="Engineering level" value={watch("level")} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setValue("level", value, { shouldDirty: true, shouldValidate: true }); }} />
+          <CustomSelect label="Engineering level" value={watch("level")} options={[{ value: "", label: "Choose a level" }, ...ENGINEERING_LEVEL_OPTIONS_WITH_HINTS]} onValueChange={(value) => { if (isEngineeringLevel(value) || value === "") setValue("level", value, { shouldDirty: true, shouldValidate: true }); }} />
         </FormField>
         <FormField
           label="Full name"

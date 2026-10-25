@@ -89,13 +89,13 @@ export function SignUpForm() {
       </p>
       <p className="m-0 text-center text-[11.5px] text-faint">
         By signing up, I agree to the{" "}
-        <a href="#" className="text-muted-foreground underline">
+        <Link href={ROUTES.terms} className="text-muted-foreground underline">
           Terms
-        </a>{" "}
+        </Link>{" "}
         and{" "}
-        <a href="#" className="text-muted-foreground underline">
+        <Link href={ROUTES.privacy} className="text-muted-foreground underline">
           Privacy Policy
-        </a>
+        </Link>
         .
       </p>
     </>

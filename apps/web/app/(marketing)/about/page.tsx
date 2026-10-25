@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 import { ROUTES } from "@/lib/constants/shared";
 import { CONTAINER, OutlineLink } from "../_components/landing/primitives";
 
@@ -22,10 +25,8 @@ export default function AboutPage() {
           Interview practice is scarce, expensive and inconsistent. It shouldn&apos;t be.
         </h1>
         <p className="m-0 text-[16px] leading-[1.55] text-muted-foreground">
-          Most engineers walk into their first real interviews without ever having rehearsed one. Peer mock interviews are hard to
-          find and uneven; problem sets don&apos;t talk back. InterviewIQ gives every candidate unlimited, company-specific, spoken
-          mock interviews with an interviewer who knows their background, starting with students in India preparing for campus
-          placements, and working engineers preparing for a switch.
+          Most engineers walk into their first real interview without ever rehearsing one. InterviewIQ gives every candidate
+          spoken, company-specific mock interviews with an interviewer who knows their background.
         </p>
       </div>
       <dl className="m-0 grid gap-x-10 gap-y-8 md:grid-cols-2">
@@ -37,9 +38,9 @@ export default function AboutPage() {
         ))}
       </dl>
       <div className="flex flex-wrap gap-3">
-        <OutlineLink href={ROUTES.signup} className="h-10 px-[18px]">
+        <Link href={ROUTES.signup} className={cn(buttonVariants(), "h-10 px-[18px]")}>
           Start for free
-        </OutlineLink>
+        </Link>
         <OutlineLink href={ROUTES.forColleges} className="h-10 px-[18px]">
           For colleges
         </OutlineLink>

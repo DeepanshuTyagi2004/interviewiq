@@ -119,14 +119,14 @@ function YourScore({ current, level }: { current: ProfileScoreSnapshot | null | 
       ) : null}
 
       {current && [...current.warnings, ...current.eligibility.reasons].length ? (
-        <div className="mt-2 border-t border-line pt-4">
-          <p className="m-0 text-[13px] font-medium">Notes from your last calculation</p>
+        <details className="mt-2 border-t border-line pt-4">
+          <summary className="cursor-pointer select-none text-[13px] font-medium hover:text-ink-2">Notes from your last calculation</summary>
           <ul className="m-0 mt-2 list-disc space-y-1 pl-5 text-[13px] leading-[1.5] text-ink-2">
             {[...new Set([...current.warnings, ...current.eligibility.reasons])].map((w) => (
               <li key={w}>{w}</li>
             ))}
           </ul>
-        </div>
+        </details>
       ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

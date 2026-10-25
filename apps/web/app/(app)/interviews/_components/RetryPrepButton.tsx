@@ -2,7 +2,7 @@
 
 import { RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import { InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
+import { INTERVIEW_ACCESS_TEXT, InterviewAccessNote } from "@/components/auth/InterviewAccessNote";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
@@ -38,7 +38,7 @@ export function RetryPrepButton({
           onError: (err) =>
             toast.error(
               err instanceof ApiFetchError && err.code === "interview_access_required"
-                ? "Ask an admin for interview access"
+                ? INTERVIEW_ACCESS_TEXT
                 : err instanceof ApiFetchError && err.status === 429
                   ? err.message
                   : "Couldn't retry prep. Please try again.",

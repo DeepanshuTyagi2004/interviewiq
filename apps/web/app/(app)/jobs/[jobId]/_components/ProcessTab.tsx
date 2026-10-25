@@ -41,6 +41,7 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
   let interviewNo = 0;
   return (
     <>
+      {interviewBlocked ? <InterviewAccessNote className="mb-3" /> : null}
       <ProcessFlow jd={jd} />
 
       <h2 className="m-0 mb-3.5 mt-10 font-display text-[18px] font-medium tracking-[-0.01em]">Round details</h2>
@@ -57,14 +58,15 @@ export function ProcessTab({ jd }: { jd: JdDetail }) {
         ))}
       </ol>
 
-      <Card as="div" tone="stone" className="mt-4">
-        <p className="m-0 text-[15px] font-medium">{jd.practiceTemplate ? "Practice template" : verified ? "Admin-verified process" : "Suggested process"}</p>
-        <p className="m-0 mt-1 text-[13px] leading-[1.55] text-ink-2">
-          {jd.practiceTemplate ? "Simulated practice rounds, not verified company interview research. " : verified ? "Reviewed and published by an InterviewIQ admin using the linked sources. " : confidence === "low" ? "Built from limited shared data, so treat it as a rough guide. " : "Built from interview experiences candidates share. "}
-          Duplicate it to add, remove or reorder rounds. A customised process is standalone practice: fully analysed, but
-          not counted towards readiness.
-        </p>
-      </Card>
+      {/* An admin-verified process already says so in the header; the other kinds still need their caveat. */}
+      {verified && !jd.practiceTemplate ? null : (
+        <Card as="div" tone="stone" className="mt-4">
+          <p className="m-0 text-[15px] font-medium">{jd.practiceTemplate ? "Practice template" : "Suggested process"}</p>
+          <p className="m-0 mt-1 text-[13px] leading-[1.55] text-ink-2">
+            {jd.practiceTemplate ? "Simulated practice rounds, not verified company interview research." : confidence === "low" ? "Built from limited shared data, so treat it as a rough guide." : "Built from interview experiences candidates share."}
+          </p>
+        </Card>
+      )}
     </>
   );
 }

@@ -92,7 +92,7 @@ describe("profile detail sections", () => {
     await user.click(screen.getByRole("button", { name: "Edit contact" }));
     await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
     expect(screen.getAllByRole("option")).toHaveLength(9);
-    await user.click(screen.getByRole("option", { name: "Principal" }));
+    await user.click(screen.getByRole("option", { name: /^Principal/ }));
     await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
     expect(sent()).toMatchObject({ level: "principal", fullName: base.fullName, experience: base.experience, skills: base.skills });
   });
@@ -107,7 +107,7 @@ describe("profile detail sections", () => {
     expect(m.mutate).not.toHaveBeenCalled();
     expect(screen.getByText("Choose your engineering level")).toBeInTheDocument();
     await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
-    await user.click(screen.getByRole("option", { name: "Intern" }));
+    await user.click(screen.getByRole("option", { name: /^Intern/ }));
     await user.click(within(card("Contact")).getByRole("button", { name: "Save" }));
     expect(sent().level).toBe("intern");
   });

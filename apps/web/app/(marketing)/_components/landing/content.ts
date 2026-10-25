@@ -15,7 +15,8 @@ export const SOURCE_STACK = [
   { icon: "PF", name: "Portfolio", detail: "3 projects · 1 deployed API" },
 ] as const;
 
-export const COMPANIES = ["Meesho", "Flipkart", "Razorpay", "Swiggy", "CRED", "PhonePe", "Zepto", "Groww"];
+/** Companies in the live catalogue (apps/api/scripts/catalogue): only names a user can actually pick. */
+export const COMPANIES = ["Google", "Amazon", "Microsoft", "Razorpay", "Swiggy", "CRED", "Zerodha", "Infosys"];
 
 /** Where the research engine reads interview experiences from. */
 export const RESEARCH_SOURCES = ["r/", "LC", "GD", "YT"];
@@ -29,20 +30,20 @@ export const RESEARCH_ROUNDS: { n: string; title: string; status: string; state:
 ];
 
 export const LIST_RESEARCH: ListItem[] = [
-  { icon: "compass", b: "Company research", t: "from experiences candidates share, filtered by country, level and role" },
-  { icon: "route", b: "Round-by-round roadmaps", t: "with topics, difficulty and interviewer style" },
-  { icon: "link", b: "Source-linked insights", t: "so you know how much data is behind every page" },
+  { icon: "compass", b: "Real interview stories", t: "from candidates, by country, level and role" },
+  { icon: "route", b: "Every round mapped", t: "with its topics, difficulty and interviewer style" },
+  { icon: "link", b: "Sources shown", t: "so you know how much data is behind each page" },
 ];
 
 export const LIST_INTERVIEW: ListItem[] = [
-  { icon: "mic", b: "Voice interviewer", t: "that builds on your own resume and projects" },
-  { icon: "code", b: "Code editor and whiteboard", t: "read live as you work" },
-  { icon: "refresh", b: "Adaptive difficulty", t: "— hints when stuck, harder follow-ups when flying" },
+  { icon: "mic", b: "Spoken, like the real thing", t: "and built on your own resume and projects" },
+  { icon: "code", b: "Code editor and whiteboard", t: "that the interviewer follows as you work" },
+  { icon: "refresh", b: "Adjusts to you", t: "with hints when you're stuck and harder questions when you're not" },
 ];
 
 export const LIST_DEBRIEF: ListItem[] = [
-  { icon: "list", b: "Question breakdown", t: "with what you said next to a strong answer" },
-  { icon: "gauge", b: "Eight live signals", t: "including clarity, hesitation and filler words" },
+  { icon: "list", b: "Question by question", t: "your answer next to a strong one" },
+  { icon: "gauge", b: "How you said it", t: "including clarity, hesitation and filler words" },
   { icon: "unlock", b: "Pass to unlock", t: "the next round, or retake after 1–2 weeks" },
 ];
 
@@ -72,9 +73,9 @@ export const DEBRIEF_DIFF: [sign: string, text: string, kind: DiffKind][] = [
 export const LEARN_NEXT = ["Distributed counters", "Token bucket", "Thinking aloud"];
 
 export const LAYERS = [
-  { key: "research", title: "Research", body: "The company’s real process for your role, round by round.", tags: ["Rounds", "Difficulty", "Red flags"] },
-  { key: "interview", title: "Interview", body: "A spoken, proctored round that builds on your background.", tags: ["Voice", "Code", "Whiteboard"] },
-  { key: "debrief", title: "Debrief", body: "Scores, strong answers and what to study next.", tags: ["Breakdown", "Signals", "Learn next"] },
+  { key: "research", title: "1. Learn the process", body: "See the company’s real interview for your role, round by round.", tags: ["Rounds", "Difficulty", "Red flags"] },
+  { key: "interview", title: "2. Practise out loud", body: "A spoken mock round with an AI interviewer that knows your background.", tags: ["Voice", "Code", "Whiteboard"] },
+  { key: "debrief", title: "3. Get feedback", body: "Your score, strong answers and what to study next.", tags: ["Breakdown", "Signals", "Learn next"] },
 ] as const;
 
 export const WEEKS = ["SEP 01", "SEP 08", "SEP 15", "SEP 22", "SEP 29", "OCT 06", "OCT 13", "OCT 20"];
@@ -89,13 +90,6 @@ export const TRACKS: { role: string; level: string; left: string; width: string;
   { role: "Practice · DSA", level: "Doesn’t count", left: "8%", width: "84%", done: 0, label: "Custom", tone: "custom" },
 ];
 
-export const FEATURES = [
-  { icon: "compass", title: "Built on the real process", body: "Rounds, topics and difficulty researched from real candidate experiences." },
-  { icon: "user", title: "Personal by default", body: "Questions come from your resume and projects — nothing to memorise." },
-  { icon: "refresh", title: "Adapts in real time", body: "Hints, harder follow-ups and course-correction, like a real interviewer." },
-  { icon: "gauge", title: "Readiness you can trust", body: "Pass marks, cooldowns and proctoring make every level mean something." },
-];
-
 export const UNIVERSITY_POINTS: [title: string, body: string][] = [
   ["Batch readiness at a glance", "See every student’s readiness level for the companies coming to campus, and where the batch needs help."],
   ["Aligned to your placement calendar", "Prioritise the processes of the companies visiting this season."],
@@ -106,16 +100,18 @@ export const UNIVERSITY_POINTS: [title: string, body: string][] = [
 export const PERSONAS = [
   { role: "STUDENTS", mono: "ST", who: "Campus placements", body: "Rehearse the exact process of the companies coming to your campus.", status: "AVAILABLE NOW", featured: true },
   { role: "PLACEMENT CELLS", mono: "TPO", who: "Universities", body: "Unlimited realistic practice for the whole batch, with readiness at a glance.", status: "PILOT · FALL 2026", featured: false },
-  { role: "PROFESSIONALS", mono: "PR", who: "Job switchers", body: "Focused, company-specific mock interviews that fit a working week.", status: "COMING SOON", featured: false },
-  { role: "COMPANIES", mono: "CO", who: "Hiring teams", body: "A shortlist of candidates who have already cleared your process.", status: "LATER", featured: false },
-  { role: "BOOTCAMPS", mono: "BC", who: "Training partners", body: "Give learners real interview rehearsal at the end of every track.", status: "LATER", featured: false },
+  { role: "PROFESSIONALS", mono: "PR", who: "Job switchers", body: "Focused, company-specific mock interviews that fit a working week.", status: "AVAILABLE NOW", featured: false },
 ];
 
 export const FAQS: [q: string, a: string][] = [
-  ["Is interview-ready a certification?", "No. It is always shown as readiness from mock interviews on InterviewIQ — never a certification or an endorsement by the company."],
-  ["Which companies can I practise for?", "We launched with Meesho, and the research engine is building more companies and roles continuously. Each company page shows how much data is behind it."],
+  ["Is it free?", "Yes. It's free while we're in beta, and nothing needs a card. When paid plans arrive, the pricing page will show them first."],
+  ["Can I take a mock interview right away?", "Interviews are opening in stages during the beta. Everyone can build a profile and explore every company's process today; if your account doesn't have interview access yet, request it from the contact page."],
+  ["What do I need to start?", "Just your resume, or fill in your profile by hand. GitHub, LeetCode and other coding profiles are optional extras."],
+  ["How long is a round?", "30 to 45 minutes. You speak out loud, and use a code editor or whiteboard when the round needs one."],
+  ["Which companies can I practise for?", "Every company in the library, with new ones added all the time. Each company page shows how much data is behind it."],
   ["What happens if I don’t pass a round?", "You get the full debrief, then retake after 1–2 weeks — enough time to act on the feedback."],
   ["Can I change the rounds?", "Yes. Edited rounds become standalone practice with full analysis, but don’t count towards readiness."],
   ["Do I need GitHub or LeetCode?", "No. A resume is enough to start; connected sources just give the interviewer more of your own work to ask about."],
   ["How is it proctored?", "Interviews run full-screen. Leaving full-screen or switching tabs pauses the round until you return."],
+  ["Is interview-ready a certification?", "No. It shows readiness from mock interviews on InterviewIQ. It is never a certification or an endorsement by the company."],
 ];

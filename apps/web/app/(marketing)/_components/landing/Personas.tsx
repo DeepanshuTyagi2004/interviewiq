@@ -9,10 +9,10 @@ export function Personas() {
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="flex max-w-[520px] flex-col gap-3.5">
           <h2 data-reveal className="iq-h2">
-            Mock interviews, whenever you&apos;re ready
+            Who it&apos;s for
           </h2>
           <p className="m-0 text-[15px] leading-[1.5] text-muted-foreground">
-            No waiting for a senior, a coach or a slot. Unlimited practice, on your schedule.
+            Practise whenever you like. No waiting for a senior, a coach or a free slot.
           </p>
         </div>
       </div>

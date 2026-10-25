@@ -55,8 +55,11 @@ export function UpNextCard({
             title="No round booked yet"
             hint="Pick a company and role to see its real interview process, then book round one."
           >
+            {/* Without interview access the greeting explains why once; here, point at the step they can take. */}
             {interviewBlocked ? (
-              <InterviewAccessNote />
+              <Button asChild variant="outline">
+                <Link href={ROUTES.jobs}>Browse companies</Link>
+              </Button>
             ) : (
               <Button asChild>
                 <Link href={ROUTES.interviews}>Schedule a round</Link>

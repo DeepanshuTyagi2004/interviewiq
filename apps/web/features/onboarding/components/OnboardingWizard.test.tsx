@@ -32,6 +32,7 @@ const m = vi.hoisted(() => ({
   search: "",
   parsed: null as CandidateProfileResponse | null,
   gridProps: [] as Record<string, unknown>[],
+  user: null as { name: string; email: string } | null,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -42,6 +43,7 @@ vi.mock("../hooks", () => ({
   useCandidateProfile: () => m.existing,
   useSaveCandidateProfile: () => ({ mutateAsync: m.mutateAsync, mutate: m.mutate, isPending: false }),
 }));
+vi.mock("@/lib/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ user: m.user }) }));
 vi.mock("@/features/profile", () => ({ useProfile: () => ({ data: { sources: [] } }) }));
 vi.mock("@/app/(app)/connections/_components/ConnectionsGrid", () => ({
   ConnectionsGrid: (props: Record<string, unknown>) => {
@@ -78,7 +80,7 @@ describe("OnboardingWizard", () => {
     expect(m.mutateAsync).not.toHaveBeenCalled();
     await user.click(screen.getByRole("combobox", { name: "Engineering level" }));
     expect(screen.getAllByRole("option")).toHaveLength(9);
-    await user.click(screen.getByRole("option", { name: "Distinguished" }));
+    await user.click(screen.getByRole("option", { name: /^Distinguished/ }));
     await user.click(continueButton());
     await waitFor(() => expect(m.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ level: "distinguished", complete: false })));
   });
@@ -98,6 +100,7 @@ describe("OnboardingWizard", () => {
     m.search = "";
     m.parsed = null;
     m.gridProps = [];
+    m.user = null;
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -169,5 +172,14 @@ describe("OnboardingWizard", () => {
     expect(m.mutate.mock.calls[0][0]).toMatchObject({ complete: true, level: "sde2" });
     expect(m.replace).toHaveBeenCalledWith("/dashboard");
     expect(sessionStorage.getItem("iq-onboarding-step")).toBeNull();
+  });
+
+  it("fills the name and email given at sign-up into a fresh profile", async () => {
+    const user = userEvent.setup();
+    m.user = { name: "Riya Verma", email: "riya@example.com" };
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /continue without resume/i }));
+    expect(await screen.findByDisplayValue("Riya Verma")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("riya@example.com")).toBeInTheDocument();
   });
 });

@@ -4,7 +4,6 @@ import { Card, Chip, CompanyMark } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/shared";
 import { cn } from "@/lib/utils/cn";
-import { DepthMeter } from "./DepthMeter";
 import { cardCta, researchedCount, researchedLine, rolesLine, type CompanyEntry } from "./library";
 
 export interface CompanyCardProps {
@@ -104,7 +103,7 @@ export function CompanyCard({ entry, onShowRoles }: CompanyCardProps) {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        {templatesOnly ? <span className="text-[13px] text-ink-2">Practice template</span> : <DepthMeter availability={entry.availability} />}
+        {templatesOnly ? <span className="text-[13px] text-ink-2">Practice template</span> : null}
         {researched ? <p className="m-0 text-[13px] text-ink-3">{researched}</p> : null}
       </div>
 

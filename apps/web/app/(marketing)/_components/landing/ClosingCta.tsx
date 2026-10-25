@@ -37,11 +37,10 @@ export function ClosingCta() {
             data-reveal
             className="iq-h2 text-[clamp(34px,4.4vw,60px)] leading-[1.04]"
           >
-            It&apos;s time to rehearse the real interview, not random questions
+            Rehearse the real interview, not random questions
           </h2>
           <p className="m-0 max-w-[400px] text-[17px] leading-[1.5] text-ink-2">
-            Everything you need to walk in prepared — the company&apos;s process, a real interviewer, and a debrief after
-            every round.
+            The company&apos;s process, an interviewer that talks back, and clear feedback after every round.
           </p>
           <CtaSignup />
         </div>
