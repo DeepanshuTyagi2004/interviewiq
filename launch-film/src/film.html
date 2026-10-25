@@ -7,201 +7,275 @@
   @font-face { font-family: "Jakarta"; src: url(fonts/jakarta.woff2) format("woff2"); font-weight: 200 800; }
   @font-face { font-family: "InterUI"; src: url(fonts/inter.woff2) format("woff2"); font-weight: 100 900; }
   @font-face { font-family: "GMono"; src: url(fonts/geistmono.woff2) format("woff2"); font-weight: 100 900; }
-  :root {
-    /* InterviewIQ tokens (apps/web/app/globals.css) */
-    --l-page: #ffffff; --l-surface: #f4f1ec; --l-surface2: #ebe6dd; --l-line: #e5e0d7; --l-ink: #1b1a18; --l-ink2: #43403b; --l-ink3: #6b675f;
-    --d-page: #0b0a09; --d-surface: #1b1917; --d-surface2: #282624; --d-line: #2e2b29; --d-ink: #f3f1ec; --d-ink2: #cdc8c0; --d-ink3: #958f86;
-  }
+  /* InterviewIQ tokens (apps/web/app/globals.css): warm monochrome, hue only in the gold orb. */
+  :root { --ink: #1b1a18; --ink2: #43403b; --ink3: #6b675f; --faint: #aaa49a; --line: #e5e0d7; --surface: #f4f1ec; --surface2: #ebe6dd;
+          --dpage: #0b0a09; --dink: #f3f1ec; --dink3: #958f86; --gold: #d9c29b; --gold2: #e8d5ae; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--d-page); }
-  body { font-family: "InterUI", sans-serif; color: var(--d-ink); -webkit-font-smoothing: antialiased; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #fff; }
+  body { font-family: "InterUI", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
   .disp { font-family: "Jakarta", sans-serif; font-weight: 700; letter-spacing: -0.035em; line-height: 1.06; }
   .mono { font-family: "GMono", monospace; }
-  #stage { position: absolute; inset: 0; overflow: hidden; perspective: 2400px; }
+  #stage { position: absolute; inset: 0; overflow: hidden; perspective: 2200px; }
   .abs { position: absolute; }
   .layer { position: absolute; inset: 0; visibility: hidden; transform-style: preserve-3d; }
-  .w { display: inline-block; white-space: pre; will-change: transform, opacity, filter; }
-  .g3d { color: var(--d-ink3); }
-  .g3l { color: var(--l-ink3); }
-  .eyebrow { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
-
+  .w { display: inline-block; white-space: pre; }
+  .g { color: var(--faint); }
+  .dk .g { color: var(--dink3); }
+  .eyebrow { font-size: 15px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--ink3); }
   .pool { position: absolute; border-radius: 50%; }
-  #light { position: absolute; inset: 0; background: var(--l-page); }
-  #grain { position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay; pointer-events: none; }
-  #vig { position: absolute; inset: 0; background: radial-gradient(130% 95% at 50% 45%, transparent 55%, rgba(0,0,0,.6)); pointer-events: none; }
-
+  #dark { position: absolute; inset: 0; background: var(--dpage); clip-path: circle(0px at 50% 50%); }
+  #grain { position: absolute; inset: 0; opacity: .045; mix-blend-mode: multiply; pointer-events: none; }
   .orb { position: absolute; border-radius: 50%; }
-  #ring { position: absolute; width: 0; height: 0; }
-  #ring i { position: absolute; left: -1.5px; width: 3px; border-radius: 3px; background: var(--d-ink); transform-origin: 50% 0; }
-  #disk { position: absolute; border-radius: 50%; background: var(--l-page); }
 
-  .caption { position: absolute; left: 50%; top: 880px; transform: translateX(-50%); padding: 16px 28px; border-radius: 999px; white-space: nowrap;
-    background: hsl(30 5% 14% / .66); box-shadow: inset 0 1px 0 rgb(255 255 255/.1), 0 0 0 .5px rgb(255 255 255/.12), 0 18px 40px -20px rgb(0 0 0/.8);
-    font-size: 25px; display: flex; gap: 16px; align-items: center; }
-  .caption .who { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--d-ink3); }
-
-  /* light glass cards (site .iq-card + shadow-float) */
-  .card { background: #fff; color: var(--l-ink); border-radius: 22px;
-    box-shadow: inset 0 1px 0 rgb(255 255 255/.8), 0 0 0 .5px rgb(0 0 0/.06), 0 2px 4px rgb(0 0 0/.04), 0 14px 32px -10px rgb(0 0 0/.14), 0 40px 80px -32px rgb(0 0 0/.22); }
+  .card { background: #fff; border-radius: 22px; color: var(--ink);
+    box-shadow: inset 0 1px 0 rgb(255 255 255/.8), 0 0 0 .5px rgb(0 0 0/.07), 0 2px 4px rgb(0 0 0/.04), 0 14px 32px -10px rgb(0 0 0/.14), 0 40px 80px -32px rgb(0 0 0/.2); }
+  .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    box-shadow: inset 0 1px 0 rgb(255 255 255/.8), 0 0 0 .5px rgb(0 0 0/.08), 0 24px 50px -20px rgb(0 0 0/.25); border-radius: 22px; }
   .tile { width: 54px; height: 54px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 15px; flex: none;
     background: radial-gradient(90% 70% at 14% 0%,rgb(255 255 255/.22),transparent 62%), linear-gradient(150deg,#3b3834,#151311);
     box-shadow: inset 0 1px 0 rgb(255 255 255/.2),inset 0 0 0 .5px rgb(255 255 255/.1),0 6px 14px -8px rgb(0 0 0/.5); }
-  .src { position: absolute; left: 0; top: 0; width: 620px; height: 104px; padding: 0 26px; display: flex; align-items: center; gap: 20px; }
-  .src .nm { font-size: 23px; font-weight: 600; letter-spacing: -0.01em; }
-  .src .dt { font-size: 16.5px; color: var(--l-ink3); margin-top: 3px; }
-  .src .ok { margin-left: auto; font-size: 14px; font-weight: 500; border-radius: 999px; padding: 7px 14px; }
-  .wire { position: absolute; height: 2px; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(27,26,24,.0), rgba(27,26,24,.35)); }
-  .spark { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #1b1a18; box-shadow: 0 0 0 4px rgba(27,26,24,.08); }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 7px 14px; font-size: 15px; font-weight: 500; background: var(--surface); color: var(--ink2); }
+  .pill { display: inline-flex; align-items: center; gap: 12px; border-radius: 999px; padding: 16px 30px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
 
-  #marquee { position: absolute; top: 300px; left: 0; white-space: nowrap; display: flex; gap: 96px; }
-  #marquee span { font-size: 96px; display: inline-block; color: var(--l-ink); }
-
-  /* app windows */
-  .win { position: absolute; border-radius: 20px; overflow: hidden; transform-origin: 50% 50%; }
-  .win .bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13.5px; position: relative; z-index: 2; }
-  .win .bar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
-  .win .bar span { position: absolute; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 8px; }
-  .win.dark { background: var(--d-page); box-shadow: 0 0 0 .5px rgb(255 255 255/.16), 0 50px 120px -30px rgb(0 0 0/.9), 0 0 160px -40px rgba(199,160,105,.35); }
-  .win.dark .bar { background: #121110; border-bottom: 1px solid var(--d-line); color: var(--d-ink3); } .win.dark .bar i { background: #34312e; } .win.dark .bar span { background: #1d1b19; }
-  .win.light { background: #fff; box-shadow: 0 0 0 .5px rgb(0 0 0/.08), 0 40px 100px -30px rgb(0 0 0/.35), 0 14px 32px -10px rgb(0 0 0/.14); }
-  .win.light .bar { background: #f7f5f1; border-bottom: 1px solid var(--l-line); color: var(--l-ink3); } .win.light .bar i { background: #e2ddd5; } .win.light .bar span { background: #eeeae3; }
-  .vp { position: absolute; left: 0; right: 0; top: 38px; bottom: 0; overflow: hidden; }
+  /* S1 */
+  .ln1 { position: absolute; left: 220px; font-size: 76px; white-space: nowrap; }
+  .ln1 .tick { display: inline-block; width: 22px; height: 22px; border-radius: 50%; margin-right: 26px; vertical-align: 10px; background: var(--ink); }
+  /* S3 posts */
+  .post { position: absolute; left: 0; top: 0; width: 380px; padding: 18px 20px; display: flex; gap: 14px; align-items: flex-start; font-size: 19px; line-height: 1.35; }
+  .post .tile { width: 40px; height: 40px; border-radius: 11px; font-size: 13px; }
+  .post small { display: block; font-size: 13px; color: var(--ink3); margin-top: 5px; }
+  /* windows */
+  .win { position: absolute; left: 0; top: 0; width: 1440px; height: 938px; border-radius: 22px; overflow: hidden; background: #fff; transform-origin: 50% 50%;
+    box-shadow: 0 0 0 .5px rgb(0 0 0/.1), 0 50px 110px -30px rgb(0 0 0/.38), 0 16px 34px -12px rgb(0 0 0/.16); }
+  .win .bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13.5px; background: #f7f5f1; border-bottom: 1px solid var(--line); color: var(--ink3); position: relative; z-index: 3; }
+  .win .bar i { width: 12px; height: 12px; border-radius: 50%; display: block; background: #e2ddd5; }
+  .win .bar span { position: absolute; left: 50%; transform: translateX(-50%); padding: 4px 18px; border-radius: 8px; background: #eeeae3; }
+  .vp { position: absolute; left: 0; right: 0; top: 38px; height: 900px; overflow: hidden; background: #fff; }
   .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-  .cam img { position: absolute; left: 0; top: 0; display: block; }
-
-  .callout { position: absolute; padding: 16px 22px; border-radius: 20px; font-size: 19px; font-weight: 500; white-space: nowrap; display: flex; gap: 14px; align-items: center; }
-  .callout.dk { background: hsl(30 5% 12% / .86); color: var(--d-ink); box-shadow: inset 0 1px 0 rgb(255 255 255/.12), 0 0 0 .5px rgb(255 255 255/.14), 0 30px 60px -20px rgb(0 0 0/.8); }
-  .callout.lt { background: rgba(255,255,255,.92); color: var(--l-ink); box-shadow: inset 0 1px 0 #fff, 0 0 0 .5px rgb(0 0 0/.08), 0 24px 50px -18px rgb(0 0 0/.3); }
-  .callout small { display: block; font-size: 14px; font-weight: 400; margin-top: 3px; opacity: .65; }
-  .ic { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
-  .hl { position: absolute; border-radius: 14px; pointer-events: none; }
-
-  .pill { display: inline-flex; align-items: center; gap: 12px; border-radius: 999px; padding: 18px 32px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .cam img { display: block; width: 1440px; }
+  .callout { position: absolute; padding: 18px 22px; border-radius: 20px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; display: flex; gap: 16px; align-items: center; color: var(--ink);
+    background: rgba(255,255,255,.95); box-shadow: inset 0 1px 0 #fff, 0 0 0 .5px rgb(0 0 0/.08), 0 30px 60px -18px rgb(0 0 0/.45); }
+  .callout small { display: block; font-size: 16px; font-weight: 400; margin-top: 4px; color: var(--ink3); letter-spacing: 0; white-space: normal; max-width: 420px; }
+  .callout .tile { width: 46px; height: 46px; border-radius: 13px; }
+  #cursor { position: absolute; left: 0; top: 0; width: 34px; height: 40px; z-index: 50; filter: drop-shadow(0 6px 10px rgba(0,0,0,.3)); }
+  #ripple { position: absolute; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; border: 3px solid var(--ink); z-index: 49; }
+  /* HUD */
+  #hud { position: absolute; left: 140px; right: 140px; top: 46px; height: 60px; z-index: 40; }
+  .seg { position: absolute; top: 0; height: 3px; border-radius: 3px; background: rgba(27,26,24,.12); overflow: hidden; }
+  .seg b { position: absolute; inset: 0; background: var(--ink); transform-origin: 0 50%; }
+  .seglab { position: absolute; top: 14px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+  /* chapter text */
+  .chap { position: absolute; left: 130px; width: 520px; }
+  .chap .num { font-family: "GMono", monospace; font-size: 18px; color: var(--ink3); letter-spacing: .08em; }
+  .chap h2 { margin-top: 14px; font-size: 68px; }
+  .chap p { margin-top: 22px; font-size: 25px; line-height: 1.45; color: var(--ink2); }
+  .feat { display: flex; gap: 16px; align-items: flex-start; font-size: 23px; line-height: 1.35; margin-top: 16px; }
+  .feat i { width: 26px; height: 26px; border-radius: 50%; flex: none; margin-top: 2px; background: var(--ink); display: flex; align-items: center; justify-content: center; }
+  .feat i:after { content: ""; width: 9px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px,-1px); }
+  .node3 { position: absolute; width: 360px; height: 330px; padding: 30px; text-align: center; }
+  .node3 h3 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; font-family: "Jakarta"; margin-top: 18px; }
+  .node3 p { font-size: 17px; color: var(--ink3); margin-top: 8px; line-height: 1.45; }
+  .node3 .chips { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+  .node3 .chips span { font-size: 13px; padding: 5px 11px; border-radius: 999px; background: var(--surface); color: var(--ink2); }
+  .src { position: absolute; left: 0; top: 0; padding: 14px 18px 14px 14px; display: flex; gap: 14px; align-items: center; white-space: nowrap; }
+  .src b { font-size: 19px; font-weight: 600; } .src small { display: block; font-size: 14px; color: var(--ink3); margin-top: 2px; }
+  .syn { position: absolute; left: 1010px; top: 250px; width: 780px; padding: 34px 38px; }
+  .syn h4 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); margin-top: 22px; font-weight: 600; }
+  .syn h4:first-of-type { margin-top: 0; }
+  .synrow { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; margin-top: 12px; font-size: 21px; }
+  .synrow em { font-style: normal; font-size: 15px; color: var(--ink3); text-align: right; }
+  .step { display: flex; gap: 14px; align-items: center; font-size: 19px; margin-top: 13px; color: var(--ink3); }
+  .step i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px #cfc9bf; flex: none; position: relative; }
+  .lvl { position: absolute; top: 0; transform: translateX(-50%); text-align: center; width: 320px; }
+  .lvl .d { width: 26px; height: 26px; border-radius: 50%; margin: 0 auto; background: #fff; box-shadow: 0 0 0 2px #cfc9bf; }
+  .lvl .l { margin-top: 24px; font-size: 25px; font-weight: 600; letter-spacing: -0.02em; }
+  .who { position: absolute; top: 430px; width: 470px; height: 310px; padding: 40px 36px; }
+  .who h3 { font-family: "Jakarta"; font-size: 34px; letter-spacing: -0.025em; margin-top: 28px; }
+  .who p { font-size: 20px; line-height: 1.45; color: var(--ink3); margin-top: 12px; }
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="pools"></div>
-  <div id="light"><div id="lpools"></div></div>
+  <div id="lpools"></div>
+  <div id="dark"><div id="dpools"></div><div id="dust"></div></div>
 
-  <!-- S1: kinetic type (dark) -->
+  <!-- ============ ACT I: THE PROBLEM ============ -->
   <div class="layer" id="s1">
-    <div class="abs disp" id="s1t" style="left:0;right:0;top:350px;text-align:center;font-size:132px">
-      <div><span class="w">Every </span><span class="w">offer </span><span class="w">starts </span><span class="w">with</span></div>
-      <div><span class="w g3d">one </span><span class="w g3d">conversation.</span></div>
+    <div class="ln1 disp" id="l1"><span class="tick"></span><span id="cnt">0</span> problems solved.</div>
+    <div class="ln1 disp" id="l2"><span class="tick"></span>Every interview experience, read.</div>
+    <div class="ln1 disp" id="l3"><span class="tick"></span>Three system-design playlists, watched.</div>
+    <div class="abs disp" id="s1big" data-k style="left:0;right:0;top:390px;text-align:center;font-size:118px">And you’ve still never been<br>in *the* <span class="w" id="roomWord">room.</span></div>
+  </div>
+
+  <div class="layer dk" id="s2" style="color:var(--dink)">
+    <div class="abs disp" id="s2a" style="left:0;right:0;top:300px;text-align:center;font-size:64px;color:var(--dink3)">Real interview practice is</div>
+    <div class="abs" id="slot" style="left:0;right:0;top:390px;height:190px;overflow:hidden;text-align:center">
+      <div class="disp sw" style="position:absolute;left:0;right:0;font-size:170px">scarce.</div>
+      <div class="disp sw" style="position:absolute;left:0;right:0;font-size:170px">expensive.</div>
+      <div class="disp sw" style="position:absolute;left:0;right:0;font-size:170px">generic.</div>
+    </div>
+    <div class="abs" style="left:0;right:0;top:640px;height:50px;text-align:center;font-size:30px;color:var(--dink3)">
+      <div class="sub2" style="position:absolute;left:0;right:0">Seniors are busy. Mentors are hard to find.</div>
+      <div class="sub2" style="position:absolute;left:0;right:0">Good coaching costs money most students don’t have.</div>
+      <div class="sub2" style="position:absolute;left:0;right:0">It rarely looks like how <span style="color:var(--dink)">your</span> target company interviews.</div>
     </div>
   </div>
 
-  <div id="disk"></div>
-  <div class="orb" id="orb"></div>
-  <div id="ring"></div>
-
-  <!-- S2: interviewer (dark) -->
-  <div class="layer" id="s2">
-    <div class="abs" id="s2e" style="left:0;right:0;top:640px;text-align:center"><span class="eyebrow" style="color:var(--d-ink3)">Your AI interviewer</span></div>
-    <div class="abs disp" id="s2t" style="left:0;right:0;top:690px;text-align:center;font-size:92px">
-      <span class="w">Meet </span><span class="w">Asha. </span><span class="w g3d">She </span><span class="w g3d">listens.</span>
+  <div class="layer" id="s3" style="perspective:1600px">
+    <div id="posts" style="position:absolute;inset:0;transform-style:preserve-3d"></div>
+    <div class="abs glass" id="s3card" style="left:330px;top:390px;width:1260px;padding:44px 50px;text-align:center">
+      <div class="disp" data-k id="s3t" style="font-size:72px">The real process is scattered<br>*across a hundred posts.*</div>
     </div>
-    <div class="caption" id="cap"><span class="who">Asha · speaking</span><span id="capw"></span></div>
   </div>
 
-  <!-- S3: sources (light) -->
-  <div class="layer" id="s3" style="color:var(--l-ink)">
-    <div class="abs" style="left:190px;top:150px"><span class="eyebrow g3l" id="s3e">Connected sources</span></div>
-    <div class="abs disp" id="s3t" style="left:186px;top:196px;font-size:96px">
-      <div><span class="w">It </span><span class="w">already</span></div>
-      <div><span class="w g3l">knows </span><span class="w g3l">you.</span></div>
+  <div class="layer" id="s4">
+    <div class="abs card" id="solo" style="left:200px;top:250px;width:720px;height:520px;overflow:hidden">
+      <div style="height:54px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px;gap:10px;font-size:15px;color:var(--ink3)"><span class="chip" style="padding:4px 12px;font-size:13px">solution.py</span><span style="margin-left:auto" class="mono" id="soloClock">00:00</span></div>
+      <pre class="mono" id="soloCode" style="padding:24px 28px;font-size:21px;line-height:1.7;color:var(--ink2)"></pre>
     </div>
-    <div class="abs" id="s3sub" style="left:190px;top:440px;width:560px;font-size:28px;line-height:1.45;color:var(--l-ink2)">Every question is built from your résumé, your repos and the problems you’ve already solved.</div>
-    <div id="wires"></div>
-    <div id="cards"></div>
-    <div class="orb" id="orb3"></div>
+    <div class="abs disp" data-k id="s4t" style="left:1010px;top:330px;font-size:84px">Solo practice<br>never asks<br>*you why.*</div>
+    <div class="abs" id="bub1" style="left:520px;top:300px;font-size:40px;padding:26px 36px;border-radius:34px 34px 34px 8px;background:var(--surface);color:var(--ink2)">So, how did it go?</div>
+    <div class="abs" id="bub2" style="left:960px;top:430px;font-size:40px;padding:26px 36px;border-radius:34px 34px 8px 34px;background:var(--ink);color:#fff">…I think okay?</div>
+    <div class="abs disp" id="no1" style="left:0;width:640px;top:640px;text-align:center;font-size:76px">No score.</div>
+    <div class="abs disp" id="no2" style="left:640px;width:640px;top:640px;text-align:center;font-size:76px">No reason.</div>
+    <div class="abs disp" id="no3" style="left:1280px;width:640px;top:640px;text-align:center;font-size:76px">No next step.</div>
   </div>
 
-  <!-- S4: companies + process (light) -->
-  <div class="layer" id="s4" style="color:var(--l-ink)">
-    <div id="marquee" class="disp"></div>
-    <div class="abs disp" id="s4t" style="left:190px;top:330px;font-size:96px">
-      <div><span class="w">Their </span><span class="w">real</span></div>
-      <div><span class="w">process.</span></div>
-      <div><span class="w g3l">Round </span><span class="w g3l">by </span><span class="w g3l">round.</span></div>
-    </div>
-    <div class="abs" id="s4sub" style="left:192px;top:700px;width:560px;font-size:26px;line-height:1.45;color:var(--l-ink2)">Researched from interview experiences candidates share, filtered by company, level and role.</div>
-    <div class="abs card" id="proc" style="left:1010px;top:190px;width:700px;height:645px;overflow:hidden;border-radius:30px">
-      <img src="img/process.png" style="width:700px;height:645px;display:block">
-    </div>
-    <div class="hl" id="procHl" style="left:1036px;top:362px;width:636px;height:68px;box-shadow:0 0 0 3px #1b1a18"></div>
-  </div>
-
-  <!-- S5: live room (dark) -->
   <div class="layer" id="s5">
-    <div class="abs disp" id="s5t" style="left:0;right:0;top:430px;text-align:center;font-size:140px">
-      <span class="w">Then </span><span class="w">it </span><span class="w g3d">interviews </span><span class="w g3d">you.</span>
-    </div>
-    <div class="win dark" id="w5" style="left:240px;top:90px;width:1440px;height:938px">
-      <div class="bar"><i></i><i></i><i></i><span>interviewiq · Interview room</span></div>
-      <div class="vp">
-        <div class="cam" id="cam5">
-          <img src="img/dark_live_start.png" id="i5a" style="width:1440px;height:900px">
-          <img src="img/dark_live_code.png" id="i5b" style="width:1440px;height:900px;opacity:0">
-          <img src="img/light_live_code.png" id="i5c" style="width:1440px;height:900px;clip-path:inset(0 100% 0 0)">
-        </div>
-        <div id="wipeLine" class="abs" style="top:0;bottom:0;width:3px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 24px 6px rgba(255,240,215,.6);opacity:0"></div>
-      </div>
-    </div>
-    <div class="callout dk" id="c1" style="left:120px;top:250px"><div class="ic" style="background:#2b2825"><svg width="20" height="24" viewBox="0 0 20 24" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linecap="round"><rect x="6" y="1" width="8" height="14" rx="4"/><path d="M2 11a8 8 0 0016 0M10 19v4"/></svg></div><div>A voice interview<small>Speaks, listens, adapts in real time</small></div></div>
-    <div class="callout dk" id="c2" style="left:1300px;top:700px"><div class="ic" style="background:#2b2825"><svg width="22" height="18" viewBox="0 0 22 18" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4L2 9l5 5M15 4l5 5-5 5"/></svg></div><div>Code + whiteboard, read live<small>Hints when stuck, harder follow-ups when flying</small></div></div>
-    <div class="callout dk" id="c3" style="left:1230px;top:120px"><div class="ic" style="background:#2b2825"><svg width="20" height="22" viewBox="0 0 20 22" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linejoin="round"><path d="M10 1l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V4z"/></svg></div><div>Proctored, on-device<small>Every screen switch is counted</small></div></div>
-    <div class="abs" id="themeTag" style="left:0;right:0;top:1010px;text-align:center"><span class="eyebrow" id="themeTxt" style="color:var(--d-ink3)">Light · Dark</span></div>
+    <div class="abs disp" data-k id="s5t" style="left:0;right:0;top:390px;text-align:center;font-size:104px">So most people rehearse<br>*in the one interview that counts.*</div>
   </div>
 
-  <!-- S6: report (light) -->
-  <div class="layer" id="s6" style="color:var(--l-ink)">
-    <div class="abs" style="left:150px;top:200px"><span class="eyebrow g3l" id="s6e">The debrief</span></div>
-    <div class="abs disp" id="s6t" style="left:146px;top:246px;font-size:88px">
-      <div><span class="w">Every </span><span class="w">answer,</span></div>
-      <div><span class="w g3l">scored </span><span class="w g3l">and</span></div>
-      <div><span class="w g3l">explained.</span></div>
+  <!-- ============ ACT II: WHAT IS INTERVIEWIQ ============ -->
+  <div class="layer" id="s6">
+    <svg class="abs" id="orbits" width="1920" height="1080" style="left:0;top:0">
+      <g id="ringG" transform="translate(960 470)"></g>
+    </svg>
+    <div class="abs" id="logoRow" style="left:0;right:0;top:330px;display:flex;justify-content:center;align-items:center;gap:36px">
+      <img src="icon.svg" id="logoIcon" style="width:160px;height:160px;border-radius:40px;box-shadow:0 30px 70px -20px rgba(140,114,73,.55)">
+      <div class="disp" id="wordmark" style="font-size:160px;letter-spacing:-0.05em">InterviewIQ</div>
     </div>
-    <div class="abs" id="s6sub" style="left:150px;top:600px;width:520px;font-size:25px;line-height:1.45;color:var(--l-ink2)">What you said next to a strong answer, the topics to study, and a score you can trace to the moment.</div>
-    <div class="win light" id="w6" style="left:760px;top:110px;width:1080px;height:860px">
-      <div class="bar"><i></i><i></i><i></i><span>interviewiq · Report</span></div>
-      <div class="vp"><div class="cam" id="cam6"><img src="img/light_report_tall.png" style="width:1440px;height:2070px"></div></div>
+    <div class="abs disp" data-k id="s6tag" style="left:0;right:0;top:600px;text-align:center;font-size:62px">Rehearse the interview you’re *actually walking into.*</div>
+  </div>
+  <div class="orb" id="bigOrb"></div>
+
+  <div class="layer" id="s7">
+    <div class="abs disp" id="def" style="left:200px;top:230px;font-size:80px;line-height:1.16">
+      <div data-k id="d1">An AI interviewer that <span class="w hlw">knows </span><span class="w hlw">you,</span></div>
+      <div data-k id="d2">runs your target company’s <span class="w hlw">real </span><span class="w hlw">process,</span></div>
+      <div data-k id="d3">and shows you <span class="w hlw">how </span><span class="w hlw">to </span><span class="w hlw">get </span><span class="w hlw">better.</span></div>
     </div>
-    <div class="callout lt" id="c6" style="left:620px;top:780px"><div class="ic" style="background:#1b1a18;color:#fff;font-weight:700;font-size:18px">8.4</div><div>Passed · round 3 unlocked<small>Pass mark 7.2, fixed when you booked</small></div></div>
+    <svg class="abs" width="1920" height="1080" style="left:0;top:0"><path id="flowPath" fill="none" stroke="#1b1a18" stroke-width="2.5" stroke-linecap="round"/><path id="loopPath" fill="none" stroke="#1b1a18" stroke-width="2" stroke-dasharray="8 10" stroke-linecap="round" opacity=".45"/></svg>
+    <div class="abs card node3" id="nR" style="left:200px;top:420px"><svg width="120" height="96" viewBox="0 0 120 96" id="artR"></svg><h3>Research</h3><p>The company’s real process for your role, round by round.</p><div class="chips"><span>Rounds</span><span>Difficulty</span><span>Red flags</span></div></div>
+    <div class="abs card node3" id="nI" style="left:780px;top:420px"><div style="height:96px;position:relative" id="artI"></div><h3>Interview</h3><p>A spoken, proctored round that builds on your background.</p><div class="chips"><span>Voice</span><span>Code</span><span>Whiteboard</span></div></div>
+    <div class="abs card node3" id="nD" style="left:1360px;top:420px"><svg width="120" height="96" viewBox="0 0 120 96" id="artD"></svg><h3>Debrief</h3><p>Scores, strong answers and what to study next.</p><div class="chips"><span>Breakdown</span><span>Signals</span><span>Learn next</span></div></div>
+    <div class="abs orb" id="runner" style="width:22px;height:22px"></div>
+    <div class="abs" id="loopLab" style="left:0;right:0;top:850px;text-align:center;font-size:24px;color:var(--ink3)">Every debrief makes the next attempt sharper.</div>
+    <div class="abs disp" data-k id="s7h" style="left:0;right:0;top:160px;text-align:center;font-size:76px">One process. *Three steps.*</div>
   </div>
 
-  <!-- S7: readiness (light) -->
-  <div class="layer" id="s7" style="color:var(--l-ink)">
-    <div class="abs disp" id="s7t" style="left:0;right:0;top:150px;text-align:center;font-size:96px">
-      <span class="w">From </span><span class="w">practice </span><span class="w g3l">to </span><span class="w g3l">ready.</span>
+  <!-- ============ ACT III: HOW IT WORKS ============ -->
+  <div id="hud"></div>
+
+  <!-- C1 profile -->
+  <div class="layer" id="c1">
+    <div class="chap" style="top:250px" id="c1t"><div class="num">01 / 07</div><h2 class="disp" data-k>It starts<br>*with you.*</h2>
+      <p id="c1p">Upload your résumé and your profile fills itself in. Connect GitHub, LeetCode and other coding profiles if you like: all optional.</p></div>
+    <div id="srcs"></div>
+    <div class="orb" id="pOrb"></div>
+    <div class="abs card syn" id="syn">
+      <h4>Most used skills</h4>
+      <div class="synrow"><b>Go</b><em>GitHub 41% · résumé claimed</em></div>
+      <div class="synrow"><b>Python</b><em>LeetCode preferred · résumé claimed</em></div>
+      <div class="synrow"><b>Kafka</b><em>GitHub order-tracking-svc · internship</em></div>
+      <h4>Crucial achievements</h4>
+      <div class="synrow"><b>Smart India Hackathon 2025 finalist</b><em>résumé</em></div>
+      <h4>Noticeable things</h4>
+      <div class="synrow"><b>412 problems solved · 78 Easy, 268 Medium, 66 Hard</b><em>LeetCode</em></div>
     </div>
-    <div class="abs card" id="rd" style="left:200px;top:380px;width:1520px;height:399px;overflow:hidden;border-radius:26px">
-      <img src="img/readiness.png" id="rdImg" style="width:1520px;height:399px;display:block">
-      <div id="rdMask" class="abs" style="top:56px;bottom:0;right:0;background:#fff"></div>
-    </div>
-    <div class="abs" style="left:0;right:0;top:850px;text-align:center"><span class="pill" id="ready" style="background:#1b1a18;color:#fff"><span class="orb" id="readyOrb" style="position:relative;width:24px;height:24px"></span>Interview-ready · Meesho SDE I mock process</span></div>
+    <div class="abs" id="evid" style="left:1010px;top:850px;font-size:22px;color:var(--ink3)">Every claim carries its evidence. Your interviewer reads all of it.</div>
   </div>
 
-  <!-- S8: end card (dark) -->
-  <div class="layer" id="s8">
-    <div class="abs" id="logo" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:34px">
-      <img src="icon.svg" id="logoIcon" style="width:150px;height:150px;border-radius:38px;box-shadow:0 30px 80px -20px rgba(232,213,174,.35)">
-      <div class="disp" id="wordmark" style="font-size:150px;letter-spacing:-0.05em">InterviewIQ</div>
-    </div>
-    <div class="abs disp" id="tag" style="left:0;right:0;top:560px;text-align:center;font-size:64px;font-weight:700">
-      <span class="w">Rehearse </span><span class="w">the </span><span class="w">interview </span><span class="w">you’re </span><span class="w g3d">actually </span><span class="w g3d">walking </span><span class="w g3d">into.</span>
-    </div>
-    <div class="abs" id="tag2" style="left:0;right:0;top:700px;text-align:center"><span class="pill" style="background:var(--d-ink);color:var(--d-page);font-size:22px;padding:14px 28px">Start free</span><span style="margin-left:22px;font-size:20px;color:var(--d-ink3)">No card required</span></div>
+  <!-- persistent product window (C2–C6) -->
+  <div class="win" id="win">
+    <div class="bar"><i></i><i></i><i></i><span id="winTitle">interviewiq</span></div>
+    <div class="vp" id="vp"></div>
+    <div class="abs" id="wipe" style="top:38px;bottom:0;width:4px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 30px 8px rgba(232,213,174,.7);opacity:0;z-index:4"></div>
   </div>
 
-  <svg id="grain" width="1920" height="1080"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7"/></filter><rect width="100%" height="100%" filter="url(#nz)"/></svg>
-  <div id="vig"></div>
-  <div class="abs" id="flash" style="inset:0;background:#fff;opacity:0"></div>
-  <div class="abs" id="black" style="inset:0;background:#000;opacity:1"></div>
+  <div class="layer" id="c2"><div class="chap" style="top:270px"><div class="num">02 / 07</div><h2 class="disp" data-k>Pick a company.<br>*Then a role.*</h2>
+    <p>Every role comes with its real interview process, and how closely your profile matches it: skills, round topics, domain and experience.</p></div></div>
+  <div class="layer" id="c3"><div class="chap" style="left:1270px;width:520px;top:250px"><div class="num">03 / 07</div><h2 class="disp" data-k>Their process<br>*becomes your track.*</h2>
+    <p id="c3p">Rounds, topics and difficulty, researched from interview experiences candidates share. You clear it one round at a time.</p>
+    <div id="c3cards" style="margin-top:30px">
+      <div class="card" id="c3a" style="padding:20px 24px;display:flex;gap:16px;align-items:center"><span class="tile" style="width:44px;height:44px">✓</span><div><b style="font-size:20px">Suggested process</b><div style="font-size:16px;color:var(--ink3);margin-top:3px">Counts toward your readiness</div></div></div>
+      <div class="card" id="c3b" style="padding:20px 24px;display:flex;gap:16px;align-items:center;margin-top:14px;box-shadow:0 0 0 1.5px #d8d2c8"><span class="tile" style="width:44px;height:44px;background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px #cfc9bf">✎</span><div><b style="font-size:20px">Edited process</b><div style="font-size:16px;color:var(--ink3);margin-top:3px">Standalone practice: fully analysed, not counted</div></div></div>
+    </div></div></div>
+  <div class="layer" id="c4"><div class="chap" style="top:250px"><div class="num">04 / 07</div><h2 class="disp" data-k>Book a round.<br>*It gets ready.*</h2>
+    <p id="c4p1">Pick a slot. Each mock round runs 30 to 45 minutes.</p>
+    <p id="c4p2" style="position:absolute;margin-top:0">Your interviewer is prepared from your profile and the role. Questions chosen for this company and round, never ones you’ve had. You see a briefing, never the questions.</p></div>
+    <div class="abs card" id="prepCard" style="left:1290px;top:560px;width:470px;padding:26px 30px">
+      <div style="font-size:20px;font-weight:600">Preparing your interviewer</div>
+      <div id="prepSteps"></div>
+    </div></div>
+  <div class="layer" id="c5">
+    <div class="abs" id="c5t" style="left:140px;top:118px;display:flex;align-items:baseline;gap:22px"><span class="mono" style="font-size:18px;color:var(--dink3)">05 / 07</span><span class="disp" style="font-size:44px;color:var(--dink)">The interview. <span style="color:var(--dink3)">Spoken, live, proctored.</span></span></div>
+    <div class="callout" id="k1" style="left:60px;top:300px"><span class="tile">◉</span><div>A spoken interview<small>A new interviewer persona every round</small></div></div>
+    <div class="callout" id="k2" style="left:1290px;top:240px"><span class="tile">”</span><div>Think aloud freely<small>It answers when you ask it directly</small></div></div>
+    <div class="callout" id="k3" style="left:1260px;top:640px"><span class="tile mono">{ }</span><div>A shared code editor<small>Your code is read live as you write</small></div></div>
+    <div class="callout" id="k4" style="left:80px;top:700px"><span class="tile">↗</span><div>It adapts as you go<small>Hints when you’re stuck. Harder follow-ups when you’re flying.</small></div></div>
+    <div class="callout" id="k5" style="left:1250px;top:300px"><span class="tile">✎</span><div>And a whiteboard<small>For diagrams and designs</small></div></div>
+    <div class="callout" id="k6" style="left:90px;top:760px"><span class="tile">⛉</span><div>Proctored like the real thing<small>Full screen and screen share, every switch counted. The camera check runs on your device: nothing is recorded or sent.</small></div></div>
+    <div class="callout" id="k7" style="left:1290px;top:780px"><span class="tile">◐</span><div>Light or dark<small>Whatever you focus best in</small></div></div>
+    <div class="abs" id="speech" style="left:250px;top:880px;width:900px;padding:18px 26px;border-radius:999px;display:flex;gap:18px;align-items:center;background:rgba(20,19,18,.86);color:var(--dink);box-shadow:0 0 0 .5px rgba(255,255,255,.14),0 24px 50px -20px #000">
+      <span class="orb" id="spOrb" style="position:relative;width:34px;height:34px;flex:none"></span><span id="spBars" style="display:flex;gap:3px;align-items:center;height:30px;flex:none"></span><span id="spText" style="font-size:21px;white-space:nowrap"></span></div>
+  </div>
+  <div class="layer" id="c6"><div class="chap" style="top:220px"><div class="num">06 / 07</div><h2 class="disp" data-k>A debrief,<br>*not just a number.*</h2>
+    <div id="feats" style="margin-top:26px"></div></div>
+    <div class="abs" id="graders" style="left:140px;top:820px;width:560px;height:150px"></div></div>
+  <div class="layer" id="c7">
+    <div class="chap" style="top:200px;width:900px"><div class="num">07 / 07</div><h2 class="disp" data-k style="font-size:72px">Pass to unlock. *Clear every round.*</h2></div>
+    <div class="abs" id="gate" style="left:140px;top:500px;width:1640px;height:300px"></div>
+    <div class="abs" id="ladder" style="left:340px;top:520px;width:1240px;height:200px">
+      <div class="abs" style="left:0;top:12px;width:1240px;height:3px;background:#ddd7cd;border-radius:3px"></div>
+      <div class="abs" id="lfill" style="left:0;top:12px;width:1240px;height:3px;background:var(--ink);border-radius:3px;transform-origin:0 0"></div>
+    </div>
+    <div class="abs" style="left:0;right:0;top:770px;text-align:center"><span class="pill" id="ready" style="background:var(--ink);color:#fff"><span class="orb" id="readyOrb" style="position:relative;width:24px;height:24px"></span>Interview-ready · Meesho SDE I mock process</span></div>
+    <div class="abs" id="fine" style="left:0;right:0;top:880px;text-align:center;font-size:19px;color:var(--ink3)">Readiness from mock interviews on the unedited process. Never a certificate or a company endorsement.</div>
+  </div>
+
+  <!-- ============ ACT IV ============ -->
+  <div class="layer" id="s15">
+    <div class="abs disp" data-k id="s15t" style="left:0;right:0;top:200px;text-align:center;font-size:80px">Built for everyone *walking into one.*</div>
+    <div class="who card" id="w1" style="left:190px"><span class="tile"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M2 9l11-5 11 5-11 5z"/><path d="M7 11.5V17c0 1.6 2.7 3 6 3s6-1.4 6-3v-5.5"/></svg></span><h3>Students</h3><p>Rehearse the exact process of the companies coming to your campus.</p></div>
+    <div class="who card" id="w2" style="left:725px"><span class="tile"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><rect x="3" y="8" width="20" height="14" rx="3"/><path d="M9 8V5.5A1.5 1.5 0 0110.5 4h5A1.5 1.5 0 0117 5.5V8M3 14h20"/></svg></span><h3>Professionals</h3><p>Company-specific preparation for a job switch, around your job.</p></div>
+    <div class="who card" id="w3" style="left:1260px"><span class="tile"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M3 10l10-6 10 6zM5 10v10M10 10v10M16 10v10M21 10v10M3 22h20"/></svg></span><h3>Placement cells</h3><p>Every student’s readiness for the companies coming to campus, at a glance.</p></div>
+  </div>
+  <div class="layer" id="s16">
+    <div class="abs" id="eRow" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:34px">
+      <img src="icon.svg" id="eIcon" style="width:150px;height:150px;border-radius:38px;box-shadow:0 30px 70px -20px rgba(140,114,73,.55)">
+      <div class="disp" id="eWord" style="font-size:150px;letter-spacing:-0.05em">InterviewIQ</div>
+    </div>
+    <div class="abs disp" data-k id="eTag" style="left:0;right:0;top:560px;text-align:center;font-size:60px">Rehearse the interview you’re *actually walking into.*</div>
+    <div class="abs" id="eCta" style="left:0;right:0;top:700px;text-align:center"><span class="pill" style="background:var(--ink);color:#fff;font-size:24px;padding:16px 32px">Start free</span><span style="margin-left:24px;font-size:21px;color:var(--ink3)">No card required</span></div>
+  </div>
+
+  <div class="abs" id="endDark" style="inset:0;background:var(--dpage);z-index:45;visibility:hidden">
+    <div class="abs" id="edPools" style="inset:0"></div>
+    <div class="abs" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:34px">
+      <img src="icon.svg" style="width:150px;height:150px;border-radius:38px;box-shadow:0 30px 80px -20px rgba(232,213,174,.35)">
+      <div class="disp" style="font-size:150px;letter-spacing:-0.05em;color:var(--dink)">InterviewIQ</div></div>
+    <div class="abs disp" style="left:0;right:0;top:560px;text-align:center;font-size:60px;color:var(--dink)">Rehearse the interview you’re <span style="color:var(--dink3)">actually walking into.</span></div>
+    <div class="abs" style="left:0;right:0;top:700px;text-align:center"><span class="pill" style="background:var(--dink);color:var(--dpage);font-size:24px;padding:16px 32px">Start free</span><span style="margin-left:24px;font-size:21px;color:var(--dink3)">No card required</span></div>
+  </div>
+  <svg id="cursor" viewBox="0 0 34 40"><path d="M4 3l24 17-11 2-6 11z" fill="#1b1a18" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg>
+  <div id="ripple"></div>
+  <svg id="grain" width="1920" height="1080"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="11"/></filter><rect width="100%" height="100%" filter="url(#nz)"/></svg>
+  <div class="abs" id="fade" style="inset:0;background:#fff;opacity:1;z-index:60"></div>
+  <div class="abs" id="black" style="inset:0;background:#000;opacity:0;z-index:61"></div>
 </div>
 
 <script>
+/* ---------------- math ---------------- */
 const $ = (id) => document.getElementById(id);
 const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const P = (t, a, b) => cl((t - a) / (b - a));
@@ -213,180 +287,378 @@ const eIO5 = (x) => (x < 0.5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2);
 const eIn = (x) => x * x * x;
 const back = (x, s = 1.70158) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
 const noise = (x, s = 0) => (Math.sin(x * 1.7 + s) + Math.sin(x * 3.1 + s * 2.3) * 0.6 + Math.sin(x * 5.3 + s * 0.7) * 0.35) / 1.95;
+const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 const show = (el, o) => { el.style.opacity = o; el.style.visibility = o <= 0.002 ? 'hidden' : 'visible'; };
-const win = (t, a, b, fi = 0.3, fo = 0.3) => Math.min(P(t, a, a + fi), 1 - P(t, b - fo, b));
-
-function words(el, t, start, stagger = 0.08, dur = 0.8, dist = 46) {
-  el.querySelectorAll('.w').forEach((w, i) => {
-    const x = eExp(P(t, start + i * stagger, start + i * stagger + dur));
-    w.style.opacity = x; w.style.transform = `translateY(${(1 - x) * dist}px)`; w.style.filter = `blur(${(1 - x) * 14}px)`;
-  });
-}
-function rise(el, t, a, dur = 0.8, dist = 26) { const x = eExp(P(t, a, a + dur)); el.style.opacity = x; el.style.transform = `translateY(${(1 - x) * dist}px)`; el.style.filter = `blur(${(1 - x) * 8}px)`; return x; }
-function popIn(el, t, a, dur = 0.55, s = 1.6, extra = '') { const x = back(P(t, a, a + dur), s); el.style.opacity = cl(P(t, a, a + 0.15)); el.style.transform = `${extra} scale(${x})`; }
-
-/* Glass orb: the exact gradient recipe from components/ds/Orb.tsx. */
-function orbStyle(el, size, hue) {
-  const [hi, mid, lo] = hue; el.style.width = el.style.height = size + 'px';
-  el.style.background = ['radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%)',
-    `radial-gradient(circle at 80% 88%,${lo} 0,transparent 58%)`, `radial-gradient(circle at 18% 82%,${hi} 0,transparent 52%)`,
-    `linear-gradient(150deg,${hi},${mid} 52%,${lo})`].join(',');
-  const s = (n) => `${Math.max(0.5, +(size * n).toFixed(1))}px`;
-  el.style.boxShadow = [`inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`, `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`, 'inset 0 0 0 0.5px rgb(255 255 255/.25)', `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}99`].join(',');
-}
-const GOLD = ['#FFF3DE', '#D9C29B', '#8C7249']; /* the app icon's orb (app/icon.svg) */
-const orb = $('orb'); orbStyle(orb, 260, GOLD); orbStyle($('orb3'), 150, GOLD); orbStyle($('readyOrb'), 24, GOLD);
-
-/* Warm aurora pools: --aurora-* (dark: 34 30% 26%, 30 8% 22%, 24 30% 24%; light: 38 45% 84%, 40 8% 78%, 28 40% 88%). */
-const DP = [{ c: '86,70,46', x: 500, y: 250, r: 1300 }, { c: '61,57,52', x: 1450, y: 300, r: 1200 }, { c: '80,58,43', x: 1100, y: 900, r: 1300 }];
-const LP = [{ c: '232,214,184', x: 450, y: 150, r: 1400 }, { c: '205,201,194', x: 1500, y: 250, r: 1200 }, { c: '240,224,206', x: 1000, y: 950, r: 1300 }];
-const mk = (host, list, a) => list.map((p) => { const d = document.createElement('div'); d.className = 'pool'; d.style.width = d.style.height = p.r + 'px';
-  d.style.background = `radial-gradient(circle, rgba(${p.c},${a}) 0%, rgba(${p.c},${a * 0.35}) 38%, transparent 68%)`; host.appendChild(d); return d; });
-const dpools = mk($('pools'), DP, 0.9), lpools = mk($('lpools'), LP, 0.75);
-
-const RN = 132, ringBars = [];
-for (let i = 0; i < RN; i++) { const b = document.createElement('i'); $('ring').appendChild(b); ringBars.push(b); }
-const CAP = "Hi, I'm Asha. Thanks for joining today — think out loud, and ask me anything that's unclear.".split(' ');
-$('capw').innerHTML = CAP.map((w) => `<span class="cw">${w} </span>`).join('');
-
-const SOURCES = [['CV', 'Résumé', 'B.Tech CSE · 2 internships · parsed'], ['GH', 'GitHub', 'order-tracking-svc · Go · Kafka'],
-  ['LC', 'LeetCode', '412 solved · weak: sliding window'], ['CF', 'Codeforces', 'Specialist · 31 contests'], ['IN', 'LinkedIn', 'Backend intern · logistics startup']];
-const cards = SOURCES.map(([i, n, d]) => { const c = document.createElement('div'); c.className = 'src card';
-  c.innerHTML = `<div class="tile mono">${i}</div><div><div class="nm">${n}</div><div class="dt">${d}</div></div><div class="ok">Connected</div>`; $('cards').appendChild(c); return c; });
-const wires = SOURCES.map(() => { const w = document.createElement('div'); w.className = 'wire'; $('wires').appendChild(w); const s = document.createElement('div'); s.className = 'spark'; $('wires').appendChild(s); return [w, s]; });
-
-const COS = ['Flipkart', 'Razorpay', 'Swiggy', 'PhonePe', 'Meesho', 'CRED', 'Zepto', 'Groww', 'Zomato'], MI = 4;
-const coEls = COS.map((n) => { const s = document.createElement('span'); s.textContent = n; $('marquee').appendChild(s); return s; });
-let mC = 0;
-function setup() { const r = $('marquee').getBoundingClientRect(), m = coEls[MI].getBoundingClientRect(); mC = m.left - r.left + m.width / 2; }
-
-/* Camera inside a window viewport: centre (cx, cy) of the 1440-wide image at zoom z. */
-function aim(cam, vw, vh, cx, cy, z) { cam.style.transform = `translate(${vw / 2 - cx * z}px, ${vh / 2 - cy * z}px) scale(${z})`; }
-const key = (t, frames) => { // frames: [time, cx, cy, z] eased between keys
+const win01 = (t, a, b, fi = 0.3, fo = 0.3) => Math.min(P(t, a, a + fi), 1 - P(t, b - fo, b));
+const key = (t, frames) => {
   if (t <= frames[0][0]) return frames[0].slice(1);
   for (let i = 0; i < frames.length - 1; i++) { const [a, ...A] = frames[i], [b, ...B] = frames[i + 1];
     if (t <= b) { const x = eIO5(P(t, a, b)); return A.map((v, k) => lerp(v, B[k], x)); } }
   return frames[frames.length - 1].slice(1);
 };
 
+/* Word split: text in [data-k] becomes .w spans; *grey words* get .g. Existing .w spans are kept. */
+function kinetic(el) {
+  const out = []; let grey = false;
+  el.childNodes.forEach((n) => {
+    if (n.nodeType === 3) {
+      n.nodeValue.split(/(\*|\s+)/).forEach((p) => { if (p === '*') { grey = !grey; return; } if (!p) return;
+        if (/^\s+$/.test(p)) { if (out.length && typeof out[out.length - 1] === 'string') out[out.length - 1] += ' '; else out.push(' '); return; }
+        out.push(`<span class="w${grey ? ' g' : ''}">${p}</span>`); });
+    } else if (n.nodeName === 'BR') out.push('<br>'); else out.push(n.outerHTML);
+  });
+  // attach trailing spaces into the preceding word so wrapping/spacing stays natural
+  el.innerHTML = out.join('').replace(/<\/span> /g, ' </span>');
+}
+function words(el, t, start, stagger = 0.07, dur = 0.8, dist = 50) {
+  el.querySelectorAll('.w').forEach((w, i) => { const x = eExp(P(t, start + i * stagger, start + i * stagger + dur));
+    w.style.opacity = x; w.style.transform = `translateY(${(1 - x) * dist}px)`; w.style.filter = x > 0.995 ? 'none' : `blur(${(1 - x) * 14}px)`; });
+}
+function rise(el, t, a, dur = 0.8, dist = 28) { const x = eExp(P(t, a, a + dur)); el.style.opacity = x; el.style.transform = `translateY(${(1 - x) * dist}px)`; el.style.filter = x > 0.995 ? 'none' : `blur(${(1 - x) * 8}px)`; return x; }
+function out(el, t, a, b, dy = -40, s = 1) { const x = eIn(P(t, a, b)); if (x <= 0) return 1; el.style.opacity = 1 - x; el.style.filter = `blur(${x * 16}px)`; el.style.transform = `translateY(${dy * x}px) scale(${1 + (s - 1) * x})`; return 1 - x; }
+function pop(el, t, a, dur = 0.55, s = 1.6) { const x = back(P(t, a, a + dur), s); el.style.opacity = cl(P(t, a, a + 0.15)); el.style.transform = `scale(${x})`; return x; }
+
+/* Glass orb in the brand gold (app/icon.svg), with the recipe from components/ds/Orb.tsx. */
+const GOLD = ['#FFF3DE', '#D9C29B', '#8C7249'];
+function orbStyle(el, size) { const [hi, mid, lo] = GOLD; el.style.width = el.style.height = size + 'px';
+  el.style.background = ['radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%)', `radial-gradient(circle at 80% 88%,${lo} 0,transparent 58%)`,
+    `radial-gradient(circle at 18% 82%,${hi} 0,transparent 52%)`, `linear-gradient(150deg,${hi},${mid} 52%,${lo})`].join(',');
+  const s = (n) => `${Math.max(0.5, +(size * n).toFixed(1))}px`;
+  el.style.boxShadow = [`inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`, `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`, 'inset 0 0 0 0.5px rgb(255 255 255/.25)', `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}aa`].join(','); }
+
+/* ---------------- background ---------------- */
+const LP = [{ c: '232,214,184', x: 380, y: 120, r: 1400 }, { c: '214,208,198', x: 1550, y: 260, r: 1200 }, { c: '240,224,206', x: 1000, y: 980, r: 1400 }];
+const DP = [{ c: '86,70,46', x: 500, y: 250, r: 1300 }, { c: '61,57,52', x: 1450, y: 300, r: 1200 }, { c: '80,58,43', x: 1100, y: 900, r: 1300 }];
+const mkPools = (host, list, a) => list.map((p) => { const d = document.createElement('div'); d.className = 'pool'; d.style.width = d.style.height = p.r + 'px';
+  d.style.background = `radial-gradient(circle, rgba(${p.c},${a}) 0%, rgba(${p.c},${a * 0.35}) 38%, transparent 68%)`; host.appendChild(d); return d; });
+const lpools = mkPools($('lpools'), LP, 0.7), dpools = mkPools($('dpools'), DP, 0.9); mkPools($('edPools'), DP, 0.8).forEach((d, i) => { d.style.transform = `translate(${DP[i].x - DP[i].r / 2}px,${DP[i].y - DP[i].r / 2}px)`; });
+const dust = Array.from({ length: 70 }, (_, i) => { const d = document.createElement('div'); d.className = 'abs'; const s = 2 + rnd(i) * 3;
+  d.style.cssText += `width:${s}px;height:${s}px;border-radius:50%;background:rgba(232,213,174,${0.25 + rnd(i + 9) * 0.5})`; $('dust').appendChild(d); return d; });
+
+/* ---------------- builders ---------------- */
+document.querySelectorAll('[data-k]').forEach(kinetic);
+
+const POSTS = [['r/', 'R2 was LLD. Design a parking lot?', 'Reddit'], ['LC', 'OA: 3 questions in 90 minutes', 'LeetCode Discuss'], ['GD', 'They grilled me on my internship project', 'Glassdoor'],
+  ['r/', 'Was it 3 rounds or 4? Depends who you ask', 'Reddit'], ['YT', 'HM round was mostly about ownership', 'YouTube'], ['LC', 'Sliding window came up twice', 'LeetCode Discuss'],
+  ['GD', 'The bar is higher for SDE II', 'Glassdoor'], ['r/', 'No idea what round 3 covers', 'Reddit'], ['YT', 'System design for freshers?? Really?', 'YouTube'],
+  ['GD', 'Rejected. No feedback at all.', 'Glassdoor'], ['LC', 'Interviewer wanted me to think aloud', 'LeetCode Discuss'], ['LC', 'Two problems in 45 minutes', 'LeetCode Discuss'],
+  ['r/', 'Asked to optimise it to O(n)', 'Reddit'], ['GD', 'Behavioural questions inside the coding round', 'Glassdoor'], ['YT', 'Kafka questions, because of my résumé', 'YouTube'], ['r/', 'Is the OA even proctored?', 'Reddit']];
+const posts = POSTS.map(([g, tx, src], i) => { const d = document.createElement('div'); d.className = 'post card';
+  d.innerHTML = `<span class="tile mono">${g}</span><div>${tx}<small>${src}</small></div>`; $('posts').appendChild(d);
+  const col = i % 4, row = Math.floor(i / 4);
+  return { el: d, x: -40 + col * 500 + (rnd(i) - 0.5) * 160, y: 60 + row * 260 + (rnd(i + 3) - 0.5) * 90, z: -60 - rnd(i + 7) * 380, r: (rnd(i + 5) - 0.5) * 16, ry: (rnd(i + 2) - 0.5) * 40 }; });
+
+const SOLO = 'def max_window(s, k):\n    count = {}\n    left = best = 0\n    for right, ch in enumerate(s):\n        count[ch] = count.get(ch, 0) + 1\n        while len(count) > k:\n            ...';
+
+// Act II orbit rings
+const RINGS = [[300, 92, 0], [360, 120, 40], [430, 150, -35]];
+const ringEls = RINGS.map(([rx, ry, rot]) => { const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('transform', `rotate(${rot})`);
+  const e = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse'); e.setAttribute('rx', rx); e.setAttribute('ry', ry); e.setAttribute('fill', 'none'); e.setAttribute('stroke', '#1b1a18'); e.setAttribute('stroke-width', '1.6'); e.setAttribute('opacity', '.22');
+  const len = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry))); e.setAttribute('stroke-dasharray', len); e.setAttribute('stroke-dashoffset', len);
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); dot.setAttribute('r', 7); dot.setAttribute('fill', '#1b1a18');
+  g.appendChild(e); g.appendChild(dot); $('ringG').appendChild(g); return { g, e, dot, len, rx, ry }; });
+orbStyle($('bigOrb'), 240); orbStyle($('runner'), 22); orbStyle($('readyOrb'), 24); orbStyle($('spOrb'), 34);
+
+// Act II node art
+(() => { // research: stacked layers
+  const s = $('artR'); for (let i = 0; i < 4; i++) { const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); const y = 60 - i * 13;
+    p.setAttribute('d', `M60 ${y - 18} L104 ${y} L60 ${y + 18} L16 ${y} Z`); p.setAttribute('fill', i === 3 ? '#1b1a18' : '#fff'); p.setAttribute('stroke', '#1b1a18'); p.setAttribute('stroke-width', '2'); p.setAttribute('class', 'lay'); s.appendChild(p); }
+  const d = $('artD'); for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2; const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const r1 = 18, r2 = 30 + (i % 3) * 8; l.setAttribute('x1', 60 + Math.cos(a) * r1); l.setAttribute('y1', 48 + Math.sin(a) * r1); l.setAttribute('x2', 60 + Math.cos(a) * r2); l.setAttribute('y2', 48 + Math.sin(a) * r2);
+    l.setAttribute('stroke', '#1b1a18'); l.setAttribute('stroke-width', '2'); l.setAttribute('stroke-linecap', 'round'); l.setAttribute('class', 'ray'); d.appendChild(l); }
+  const io = document.createElement('div'); io.className = 'orb'; orbStyle(io, 56); io.style.left = '122px'; io.style.top = '20px'; $('artI').appendChild(io);
+  const ring = document.createElement('div'); ring.className = 'abs'; ring.style.cssText = 'left:100px;top:6px;width:100px;height:84px;border-radius:50%;border:1.5px solid rgba(27,26,24,.35)'; ring.id = 'artIring'; $('artI').appendChild(ring);
+})();
+
+// C1 sources
+const SRC = [['CV', 'Résumé', 'Parsed into your profile'], ['GH', 'GitHub', 'Languages, repos, contributions'], ['LC', 'LeetCode', 'Solved, topics, contests'], ['CF', 'Codeforces', 'Rating and contests'],
+  ['AC', 'AtCoder', 'Contest history'], ['CC', 'CodeChef', 'Rating and contests'], ['TUF', 'takeUforward', 'Progress and linked handles'], ['IN', 'LinkedIn PDF', 'Profile sections']];
+const srcEls = SRC.map(([g, n, d]) => { const e = document.createElement('div'); e.className = 'src card'; e.innerHTML = `<span class="tile mono" style="width:44px;height:44px;font-size:12px">${g}</span><div><b>${n}</b><small>${d}</small></div>`; $('srcs').appendChild(e); return e; });
+orbStyle($('pOrb'), 130);
+
+// HUD
+const CH = [['Profile', 46.0, 56.0], ['Role', 56.0, 65.6], ['Process', 65.6, 73.6], ['Book', 73.6, 82.0], ['Interview', 82.0, 96.0], ['Debrief', 96.0, 105.6], ['Readiness', 105.6, 113.0]];
+const hudSegs = CH.map(([n], i) => { const w = 1640 / 7 - 14; const s = document.createElement('div'); s.className = 'seg'; s.style.left = i * (1640 / 7) + 'px'; s.style.width = w + 'px'; s.innerHTML = '<b></b>';
+  const l = document.createElement('div'); l.className = 'seglab'; l.style.left = i * (1640 / 7) + 'px'; l.textContent = n; $('hud').appendChild(s); $('hud').appendChild(l); return [s, l]; });
+
+// Window layers
+const LAYERS = { jobs: 1500, roles: 1500, jd_match: 1500, jd_process: 1500, track: 1500, book: 1500, prep: 1500, briefing: 1500, live_start: 1500, live_code: 1500, live_board: 1500, live_dark: 1500, report: 5400 };
+const L = {};
+Object.entries(LAYERS).forEach(([n, h]) => { const c = document.createElement('div'); c.className = 'cam'; c.style.opacity = 0; c.innerHTML = `<img src="img/${n}.jpg">`; $('vp').appendChild(c);
+  L[n] = { cam: c, h: h * 0.6, tx: 0, ty: 0, z: 1 }; });
+L.live_dark.cam.style.opacity = 1; L.live_dark.cam.style.clipPath = 'inset(0 100% 0 0)';
+/* Aim a layer's camera at (fx, fy) of its image at zoom z, clamped so the viewport never shows past the image. */
+function aim(n, fx, fy, z) { const l = L[n]; const W = 1440 * z, H = l.h * z;
+  let tx = 720 - fx * W, ty = 450 - fy * H; tx = cl(tx, 1440 - W, 0); ty = cl(ty, 900 - H, 0);
+  l.tx = tx; l.ty = ty; l.z = z; l.cam.style.transform = `translate(${tx}px,${ty}px) scale(${z})`; }
+const W = { x: 960, y: 540, s: 1, rx: 0, ry: 0 };
+function setWin(x, y, s, ry = 0, rx = 0, o = 1, blur = 0) { Object.assign(W, { x, y, s, rx, ry }); const w = $('win');
+  w.style.transform = `translate(${x - 720}px,${y - 469}px) rotateY(${ry}deg) rotateX(${rx}deg) scale(${s})`; w.style.opacity = o; w.style.visibility = o > 0.002 ? 'visible' : 'hidden'; w.style.filter = blur ? `blur(${blur}px)` : 'none'; }
+/* Stage position of a point (fx, fy) on a layer's image, given the current window and camera (rotation ignored). */
+function stagePt(n, fx, fy) { const l = L[n]; const lx = l.tx + fx * 1440 * l.z, ly = 38 + l.ty + fy * l.h * l.z; return [W.x + (lx - 720) * W.s, W.y + (ly - 469) * W.s]; }
+function layerOps(t, spec) { Object.keys(L).forEach((n) => { if (n !== 'live_dark') L[n].cam.style.opacity = 0; }); spec.forEach(([n, a, b, fi = 0.35]) => { const o = Math.min(P(t, a, a + fi), b === null ? 1 : 1 - P(t, b, b + fi)); if (o > 0) L[n].cam.style.opacity = o; }); }
+
+// C4 prep steps (the real stage labels from the session page)
+const PREP = ['Reading the job description', 'Choosing your questions', 'Preparing the interviewer’s notes', 'Meeting your interviewer', 'Tailoring the interview to you', 'Planning the conversation', 'Final checks'];
+const prepEls = PREP.map((p) => { const d = document.createElement('div'); d.className = 'step'; d.innerHTML = `<i></i><span>${p}</span>`; $('prepSteps').appendChild(d); return d; });
+// C5 speech bars
+const spBars = Array.from({ length: 14 }, () => { const b = document.createElement('i'); b.style.cssText = 'display:block;width:3px;border-radius:3px;background:#f3f1ec'; $('spBars').appendChild(b); return b; });
+const SPEECH = 'Hi! Thanks for joining today. Take a minute to read the problem, then tell me how you’d approach it.';
+// C6 features
+const FEATS = ['Two independent graders; a third breaks ties', 'Every point tied to a moment you said', 'What you said, next to a strong answer', 'Topics to study, with practice to match', 'Delivery from your words and timing; no audio analysed', 'Disagree? Ask for a re-check. It never lowers your score.'];
+const featEls = FEATS.map((f) => { const d = document.createElement('div'); d.className = 'feat'; d.innerHTML = `<i></i><span>${f}</span>`; $('feats').appendChild(d); return d; });
+const gr = (() => { const g = $('graders'); const mk = (x, lab) => { const w = document.createElement('div'); w.className = 'abs'; w.style.cssText = `left:${x}px;top:0;text-align:center;width:150px`;
+  const o = document.createElement('div'); o.className = 'orb'; o.style.position = 'relative'; o.style.margin = '0 auto'; orbStyle(o, 64); w.appendChild(o);
+  const t = document.createElement('div'); t.style.cssText = 'margin-top:10px;font-size:16px;color:var(--ink3)'; t.textContent = lab; w.appendChild(t); g.appendChild(w); return w; };
+  const a = mk(0, 'Grader A · 8.3'), b = mk(170, 'Grader B · 8.5'); const s = document.createElement('div'); s.className = 'abs disp'; s.style.cssText = 'left:360px;top:-6px;font-size:84px'; s.innerHTML = '8.4<span style="font-size:30px;color:var(--ink3)"> / 10</span>'; g.appendChild(s); return { a, b, s }; })();
+// C7 gating rows + ladder
+const gate = (() => { const g = $('gate'); const row = (y, lab) => { const r = document.createElement('div'); r.className = 'abs'; r.style.cssText = `left:0;top:${y}px;width:1640px;height:120px`;
+  r.innerHTML = `<div class="abs" style="left:0;top:22px;font-size:20px;color:var(--ink3);width:300px">${lab}</div>
+    <div class="abs" style="left:320px;top:34px;width:820px;height:10px;border-radius:10px;background:#ebe6dd"></div>
+    <div class="abs fill" style="left:320px;top:34px;width:820px;height:10px;border-radius:10px;background:var(--ink);transform-origin:0 50%"></div>
+    <div class="abs" style="left:${320 + 820 * 0.72 - 1}px;top:18px;width:2px;height:42px;background:var(--ink)"></div>
+    <div class="abs mono" style="left:${320 + 820 * 0.72 - 60}px;top:66px;width:120px;text-align:center;font-size:15px;color:var(--ink3)">pass mark 7.2</div>
+    <div class="abs disp val" style="left:1170px;top:6px;font-size:52px">0.0</div>
+    <div class="abs res" style="left:1300px;top:14px"></div>`; g.appendChild(r); return r; };
+  const a = row(0, 'Round 2 · Problem Solving'), b = row(150, 'Another attempt');
+  a.querySelector('.res').innerHTML = '<span class="pill" style="background:var(--ink);color:#fff;font-size:20px;padding:12px 22px">Passed · round 3 unlocked</span>';
+  b.querySelector('.res').innerHTML = '<span class="pill" style="background:#fff;color:var(--ink);font-size:20px;padding:12px 22px;box-shadow:inset 0 0 0 1.5px #cfc9bf">Retake after a 7 or 14 day cooldown</span>';
+  const note = document.createElement('div'); note.className = 'abs'; note.style.cssText = 'left:320px;top:-56px;font-size:20px;color:var(--ink3)'; note.textContent = 'The pass mark is fixed when you book. The server enforces it.'; g.appendChild(note);
+  return { a, b, note }; })();
+const LV = ['Getting started', 'Progressing', 'Nearly ready', 'Interview-ready'];
+const lvEls = LV.map((n, i) => { const d = document.createElement('div'); d.className = 'lvl'; d.style.left = (i * 1240 / 3) + 'px'; d.innerHTML = `<div class="d"></div><div class="l">${n}</div>`; $('ladder').appendChild(d); return d; });
+
+let ROOM = [1100, 520];
+function setup() { render(5.3); const r = $('roomWord').getBoundingClientRect(); ROOM = [r.left + r.width * 0.42, r.top + r.height * 0.55]; }
+
+/* ================= RENDER ================= */
 function render(t) {
-  /* ---- theme: dark 0-6, light 6-13, dark 13-20.4, light 20.4-27.8, dark end ---- */
-  const lightA = Math.min(P(t, 5.95, 6.0), 1 - P(t, 13.0, 13.05));
-  const lightB = Math.min(P(t, 20.35, 20.7), 1 - eIO(P(t, 27.7, 28.1)));
-  const L = Math.max(lightA, lightB);
-  $('light').style.opacity = L;
-  dpools.forEach((d, i) => { const p = DP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.3 + i * 2) * 170 - p.r / 2}px,${p.y + Math.cos(t * 0.24 + i) * 120 - p.r / 2}px) scale(${1 + 0.12 * Math.sin(t * 0.45 + i)})`;
-    d.style.opacity = cl(P(t, 0.3, 3.2) * 0.7 + 0.3 * P(t, 2.8, 3.4)); });
-  lpools.forEach((d, i) => { const p = LP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.3 + i * 2) * 150 - p.r / 2}px,${p.y + Math.cos(t * 0.25 + i) * 100 - p.r / 2}px)`; });
-  $('vig').style.opacity = 1 - L * 0.9; $('grain').style.opacity = 0.045 + L * 0.015;
+  /* ---- dark coverage: circle reveals (the dark-mode hints) ---- */
+  let dr = 0, dx = 960, dy = 540;
+  if (t >= 5.55 && t < 12.6) { dx = ROOM[0]; dy = ROOM[1]; dr = t < 6.5 ? lerp(0, 2300, eIn(P(t, 5.55, 6.5))) : t < 11.8 ? 2300 : lerp(2300, 0, eIO(P(t, 11.8, 12.6))); if (t >= 11.8) { dx = 960; dy = 480; } }
+  if (t >= 81.9 && t < 96.6) { dx = 960; dy = 600; dr = t < 82.8 ? lerp(0, 2300, eIO(P(t, 81.9, 82.8))) : t < 95.7 ? 2300 : lerp(2300, 0, eIO(P(t, 95.7, 96.6))); if (t >= 95.7) { dx = 1240; dy = 560; } }
+  $('dark').style.clipPath = `circle(${dr}px at ${dx}px ${dy}px)`;
+  lpools.forEach((d, i) => { const p = LP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.21 + i * 2) * 180 - p.r / 2}px,${p.y + Math.cos(t * 0.17 + i) * 120 - p.r / 2}px) scale(${1 + 0.1 * Math.sin(t * 0.3 + i)})`; });
+  dpools.forEach((d, i) => { const p = DP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.3 + i * 2) * 170 - p.r / 2}px,${p.y + Math.cos(t * 0.24 + i) * 120 - p.r / 2}px)`; });
+  if (dr > 0) dust.forEach((d, i) => { const x = (rnd(i) * 2100 + t * (8 + rnd(i + 1) * 18)) % 2100 - 90, y = (rnd(i + 4) * 1200 - t * (4 + rnd(i + 2) * 10) + 1200 * 4) % 1200 - 60; d.style.transform = `translate(${x}px,${y}px)`; });
 
-  /* ---- S1 ---- */
-  { const el = $('s1'); show(el, t < 3.05 ? 1 : 0); words($('s1t'), t, 0.3, 0.12, 0.95, 60);
-    const x = eIn(P(t, 2.45, 3.0)); $('s1t').style.filter = `blur(${x * 26}px)`; $('s1t').style.transform = `scale(${1 + 0.22 * x})`; $('s1t').style.opacity = 1 - x; }
+  /* =========== S1: what candidates already do (light) =========== */
+  { const el = $('s1'); show(el, t < 6.6 ? 1 : 0);
+    const lines = [[$('l1'), 0.4], [$('l2'), 1.55], [$('l3'), 2.7]];
+    lines.forEach(([e, a], i) => { const x = eExp(P(t, a, a + 0.8)); const after = lines.filter(([, b]) => b > a && t > b).length;
+      const lift = lines.slice(i + 1).reduce((s, [, b]) => s + eIO(P(t, b, b + 0.6)), 0);
+      const y = 640 - lift * 118; const fadeG = cl(lift); e.style.top = y + 'px';
+      e.style.opacity = x * lerp(1, 0.32, fadeG) * (1 - eIn(P(t, 3.75, 4.25)));
+      e.style.transform = `translateY(${(1 - x) * 60 - eIn(P(t, 3.75, 4.25)) * 80}px) scale(${lerp(1, 0.86, fadeG)})`; e.style.transformOrigin = '0 50%';
+      e.style.filter = `blur(${(1 - x) * 12 + eIn(P(t, 3.75, 4.25)) * 14}px)`;
+      e.querySelector('.tick').style.transform = `scale(${back(P(t, a + 0.25, a + 0.65), 2)})`; });
+    $('cnt').textContent = Math.round(eQ(P(t, 0.45, 1.4)) * 412);
+    words($('s1big'), t, 4.05, 0.075, 0.8, 60);
+    const zx = eIn(P(t, 5.0, 6.3)); $('s1big').style.transform = `scale(${1 + zx * 2.2})`; $('s1big').style.transformOrigin = `${ROOM[0]}px ${ROOM[1] - 390}px`; }
 
-  /* ---- shared orb S2, ending in the light disk (match cut to S3) ---- */
-  { let size = 0, cx = 960, cy = 400, o = 0;
-    if (t >= 2.5 && t < 6.05) { const g = back(P(t, 2.6, 3.4), 1.5); size = 260 * g; o = P(t, 2.6, 2.8);
-      const speak = t > 4.1 && t < 5.4; size *= 1 + (speak ? 0.04 * Math.abs(noise(t * 7, 1)) : 0.01 * Math.sin(t * 3));
-      size *= 1 - 0.1 * eIn(P(t, 5.45, 5.7)); }
-    orb.style.visibility = o > 0.002 ? 'visible' : 'hidden'; orb.style.opacity = o;
-    orb.style.left = cx - 130 + 'px'; orb.style.top = cy - 130 + 'px'; orb.style.transform = `scale(${size / 260})`;
-    // the light disk grows out of the orb and becomes the page
-    const dk = $('disk'); const dx = eIn(P(t, 5.55, 6.0)); const R = lerp(0, 2400, dx);
-    dk.style.visibility = dx > 0 && t < 6.05 ? 'visible' : 'hidden'; dk.style.left = cx - R + 'px'; dk.style.top = cy - R + 'px'; dk.style.width = dk.style.height = 2 * R + 'px';
-    const ringO = Math.min(P(t, 3.1, 3.6), 1 - P(t, 5.4, 5.7)); const ring = $('ring');
-    ring.style.visibility = ringO > 0.002 ? 'visible' : 'hidden'; ring.style.opacity = ringO; ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
-    const talk = t > 4.1 && t < 5.5 ? 1 : 0.22;
-    ringBars.forEach((b, i) => { const h = 5 + talk * 52 * Math.pow(Math.abs(noise(t * 7.5 + i * 0.41, i * 0.13) * noise(t * 3.1 + i * 0.09, 2)), 0.75) + 3 * Math.sin(t * 2 + i * 0.25);
-      const grow = eExp(P(t, 3.1 + (i % 33) * 0.008, 3.8)); b.style.height = Math.max(2, h * grow) + 'px';
-      b.style.transform = `rotate(${(i / RN) * 360 + t * 8}deg) translateY(${172}px)`; b.style.opacity = 0.25 + 0.75 * cl(h / 50); }); }
+  /* =========== S2: the problem (dark) =========== */
+  { const el = $('s2'); show(el, win01(t, 6.0, 12.3, 0.4, 0.5));
+    rise($('s2a'), t, 6.4, 0.9);
+    const sw = el.querySelectorAll('.sw'), sb = el.querySelectorAll('.sub2'); const T0 = [6.8, 8.55, 10.3];
+    sw.forEach((w, i) => { const a = T0[i]; const inn = eExp(P(t, a, a + 0.7)); const o = i < 2 ? eIO(P(t, T0[i + 1] - 0.05, T0[i + 1] + 0.45)) : eIn(P(t, 11.8, 12.3));
+      w.style.transform = `translateY(${(1 - inn) * 190 - o * 190}px) rotateX(${(1 - inn) * -60 + o * 60}deg)`; w.style.opacity = inn * (1 - o); w.style.filter = `blur(${(1 - inn) * 10 + o * 10}px)`; });
+    sb.forEach((w, i) => { const a = T0[i] + 0.25; const inn = eExp(P(t, a, a + 0.7)); const o = i < 2 ? eIn(P(t, T0[i + 1] - 0.1, T0[i + 1] + 0.2)) : eIn(P(t, 11.8, 12.2));
+      w.style.opacity = inn * (1 - o); w.style.transform = `translateY(${(1 - inn) * 20}px)`; }); }
 
-  /* ---- S2 ---- */
-  { const el = $('s2'); show(el, win(t, 3.0, 5.75, 0.05, 0.3)); rise($('s2e'), t, 3.2); words($('s2t'), t, 3.3, 0.1, 0.8);
-    const cap = $('cap'); const co = eQ(P(t, 3.95, 4.3)); cap.style.opacity = co; cap.style.transform = `translateX(-50%) translateY(${(1 - co) * 24}px)`;
-    const k = cl((t - 4.1) / 1.4) * CAP.length;
-    cap.querySelectorAll('.cw').forEach((w, i) => { w.style.opacity = 0.2 + 0.8 * cl(k - i); }); }
+  /* =========== S3: scattered posts (light, 3D) =========== */
+  { const el = $('s3'); show(el, win01(t, 12.2, 19.5, 0.2, 0.1));
+    const whip = eIn(P(t, 18.7, 19.4));
+    posts.forEach((p, i) => { const a = 12.3 + (i % 8) * 0.08 + Math.floor(i / 8) * 0.25; const x = eQ(P(t, a, a + 1.4));
+      const conf = (i === 3 || i === 11) ? P(t, 16.6, 16.9) : 0; const dim = P(t, 16.6, 17.2) * (conf ? 0 : 0.6);
+      const dz = lerp(-2600, p.z, x) + (t - a) * 30;
+      p.el.style.transform = `translate3d(${p.x + Math.sin(t * 0.6 + i) * 18 - whip * 2600}px,${p.y + Math.cos(t * 0.5 + i) * 14}px,${dz}px) rotateZ(${p.r + Math.sin(t * 0.4 + i) * 2}deg) rotateY(${p.ry * (1 - x * 0.6)}deg)`;
+      p.el.style.opacity = x * (1 - dim); p.el.style.filter = `blur(${(1 - x) * 12 + whip * 8 + dim * 2}px)`;
+      p.el.style.boxShadow = conf ? `0 0 0 ${3 * conf}px #1b1a18, 0 30px 60px -20px rgba(0,0,0,.4)` : ''; });
+    const c = $('s3card'); const ci = eExp(P(t, 13.4, 14.3)); c.style.opacity = ci * (1 - whip); c.style.transform = `translateX(${-whip * 2600}px) scale(${0.92 + 0.08 * ci})`;
+    words($('s3t'), t, 13.6, 0.07, 0.8); }
 
-  /* ---- S3 sources (light) ---- */
-  { const el = $('s3'); show(el, win(t, 6.0, 9.75, 0.05, 0.35));
-    rise($('s3e'), t, 6.15); words($('s3t'), t, 6.2, 0.09, 0.8); rise($('s3sub'), t, 6.7);
-    const ox = 1720, oy = 560; const o3 = $('orb3'); const oi = back(P(t, 6.5, 7.2), 1.6);
-    const pulse = 1 + 0.06 * Math.max(0, Math.sin((t - 7.6) * 9)) * P(t, 7.6, 7.8) * (1 - P(t, 8.9, 9.2));
-    o3.style.left = ox - 75 + 'px'; o3.style.top = oy - 75 + 'px'; o3.style.transform = `scale(${oi * pulse})`;
-    const ex = eIn(P(t, 9.4, 9.75));
-    cards.forEach((c, i) => { const x = eExp(P(t, 6.45 + i * 0.12, 7.4 + i * 0.12));
-      const tx = 900 + (1 - x) * 240; const ty = 255 + i * 128 + (1 - x) * 60;
-      c.style.transform = `translate(${tx}px,${ty}px) rotateY(${(1 - x) * -38}deg) rotateX(${(1 - x) * 14}deg) scale(${1 - ex * 0.05})`;
-      c.style.opacity = x * (1 - ex); c.style.filter = `blur(${(1 - x) * 12}px)`;
-      const on = P(t, 7.55 + i * 0.22, 7.7 + i * 0.22); const ok = c.querySelector('.ok');
-      ok.style.background = on > 0.5 ? '#1b1a18' : '#f4f1ec'; ok.style.color = on > 0.5 ? '#fff' : '#6b675f'; ok.textContent = on > 0.5 ? 'Connected' : 'Connecting…';
-      const [w, s] = wires[i]; const sx = 1520, sy = ty + 52; const len = Math.hypot(ox - 75 - sx + 40, oy - sy); const ang = Math.atan2(oy - sy, ox - 70 - sx) * 180 / Math.PI;
-      const wp = eIO(P(t, 7.5 + i * 0.22, 8.0 + i * 0.22));
-      w.style.left = sx + 'px'; w.style.top = sy + 'px'; w.style.width = len + 'px'; w.style.transform = `rotate(${ang}deg) scaleX(${wp})`; w.style.opacity = (1 - ex);
-      const sp = P(t, 7.6 + i * 0.22, 8.2 + i * 0.22); s.style.left = lerp(sx, ox - 70, eIO(sp)) + 'px'; s.style.top = lerp(sy, oy, eIO(sp)) + 'px'; s.style.opacity = Math.sin(sp * Math.PI) * (1 - ex); });
-    $('s3t').style.opacity = 1 - ex; $('s3sub').style.opacity *= 1 - ex; o3.style.opacity = 1 - ex; }
+  /* =========== S4: solo practice, vague feedback =========== */
+  { const el = $('s4'); show(el, win01(t, 18.8, 25.5, 0.05, 0.4));
+    const enter = eQ(P(t, 18.8, 19.6)); const leave = eIO(P(t, 21.4, 22.0));
+    const so = $('solo'); so.style.transform = `translateX(${(1 - enter) * 2400 - leave * 1400}px) rotateY(${(1 - enter) * -20}deg)`; so.style.opacity = 1 - leave;
+    $('soloCode').textContent = SOLO.slice(0, Math.round(eIO(P(t, 19.4, 21.3)) * SOLO.length)); $('soloClock').textContent = '00:' + String(Math.floor(cl(t - 19.2, 0, 59) * 9) % 60).padStart(2, '0');
+    words($('s4t'), t, 19.5, 0.08, 0.7); $('s4t').style.transform = `translateX(${(1 - enter) * 2400 - leave * 1400}px)`; $('s4t').style.opacity = 1 - leave;
+    const b1 = $('bub1'), b2 = $('bub2'); const x1 = back(P(t, 21.8, 22.3), 1.6), x2 = back(P(t, 22.5, 23.0), 1.6); const bo = eIn(P(t, 24.9, 25.4));
+    b1.style.opacity = cl(P(t, 21.8, 21.95)) * (1 - bo); b1.style.transform = `scale(${x1}) translateY(${-bo * 60}px)`; b1.style.transformOrigin = '0 100%';
+    b2.style.opacity = cl(P(t, 22.5, 22.65)) * (1 - bo); b2.style.transform = `scale(${x2}) translateY(${-bo * 60}px)`; b2.style.transformOrigin = '100% 100%';
+    [['no1', 23.3], ['no2', 23.7], ['no3', 24.1]].forEach(([id, a]) => { const e = $(id); const s = lerp(1.6, 1, eExp(P(t, a, a + 0.35))); const shake = Math.sin((t - a) * 60) * 6 * (1 - P(t, a, a + 0.3)) * (t > a ? 1 : 0);
+      e.style.opacity = cl(P(t, a, a + 0.12)) * (1 - bo); e.style.transform = `scale(${s}) translateX(${shake}px)`; e.style.filter = `blur(${(1 - P(t, a, a + 0.2)) * 6}px)`; }); }
 
-  /* ---- S4 companies + process (light) ---- */
-  { const el = $('s4'); show(el, win(t, 9.7, 13.05, 0.05, 0.05));
-    const mq = $('marquee'); const slide = eQ(P(t, 9.7, 10.9)); const lift = eIO(P(t, 11.0, 11.5));
-    mq.style.transformOrigin = `${mC}px 50%`;
-    mq.style.transform = `translateX(${960 - mC + (1 - slide) * 1600}px) translateY(${lift * -420}px) scale(${1 - 0.3 * lift})`;
-    const focus = eQ(P(t, 10.6, 11.0));
-    coEls.forEach((c, i) => { const isM = i === MI; const ent = eExp(P(t, 9.7 + i * 0.04, 10.5 + i * 0.04));
-      c.style.opacity = (isM ? 1 : lerp(1, 0.14, focus)) * ent * (1 - lift); c.style.filter = `blur(${(1 - ent) * 12 + (isM ? 0 : focus * 2)}px)`; c.style.transform = isM ? `scale(${1 + 0.1 * focus})` : 'none'; });
-    words($('s4t'), t, 11.25, 0.08, 0.75); rise($('s4sub'), t, 11.75);
-    const pc = $('proc'); const pi = eExp(P(t, 11.35, 12.3)); const pex = eIn(P(t, 12.6, 13.05));
-    pc.style.opacity = pi; pc.style.transform = `translateY(${(1 - pi) * 160}px) rotateY(${(1 - pi) * -26}deg) rotateX(${(1 - pi) * 10}deg) scale(${(0.92 + 0.08 * pi) * (1 + pex * 2.2)})`;
-    pc.style.transformOrigin = '30% 40%';
-    const hl = $('procHl'); const hx = eExp(P(t, 12.05, 12.4)); hl.style.opacity = hx * (1 - pex) * (0.65 + 0.35 * Math.sin(t * 8)); hl.style.transform = `scale(${1.06 - 0.06 * hx})`;
-    $('s4t').style.opacity = 1 - pex; $('s4sub').style.opacity *= 1 - pex; }
+  /* =========== S5: the cost, then collapse to a point =========== */
+  { const el = $('s5'); show(el, win01(t, 25.3, 30.0, 0.05, 0.1)); words($('s5t'), t, 25.45, 0.08, 0.8);
+    const ws = $('s5t').querySelectorAll('.w'); const c = eIn(P(t, 28.1, 29.2));
+    if (c > 0) ws.forEach((w, i) => { const k = eIn(P(t, 28.1 + (i % 6) * 0.04, 29.0 + (i % 6) * 0.04));
+      const dx2 = 960 - (w.offsetLeft + w.offsetWidth / 2), dy2 = 80 - (w.offsetTop + w.offsetHeight / 2);
+      w.style.transform = `translate(${dx2 * k}px, ${dy2 * k}px) scale(${1 - k})`; w.style.opacity = 1 - k * k; }); }
 
-  $('flash').style.opacity = 0.9 * Math.exp(-Math.pow((t - 13.02) * 10, 2)) + 0.7 * Math.exp(-Math.pow((t - 20.4) * 10, 2));
+  /* =========== S6: the reveal =========== */
+  const bo = $('bigOrb');
+  { let size = 0, ox = 960, oy = 470, o = 0;
+    if (t >= 28.9 && t < 37.2) { size = lerp(0, 16, eQ(P(t, 28.9, 29.3))); if (t > 29.6) size = lerp(16, 240, back(P(t, 29.6, 30.6), 1.4));
+      o = 1; size *= 1 + 0.012 * Math.sin(t * 3);
+      const m = eIO5(P(t, 32.4, 33.3)); size = lerp(size, 0, m); ox = lerp(960, 960, m); }
+    bo.style.visibility = size > 0.5 && o ? 'visible' : 'hidden'; bo.style.left = ox - 120 + 'px'; bo.style.top = oy - 120 + 'px'; bo.style.transform = `scale(${size / 240})`; }
+  { const el = $('s6'); show(el, win01(t, 29.4, 37.3, 0.1, 0.5));
+    ringEls.forEach((r, i) => { const d = eIO(P(t, 30.0 + i * 0.18, 31.4 + i * 0.18)); r.e.setAttribute('stroke-dashoffset', r.len * (1 - d));
+      const a = t * (0.9 - i * 0.25) + i * 2; r.dot.setAttribute('cx', Math.cos(a) * r.rx); r.dot.setAttribute('cy', Math.sin(a) * r.ry); r.dot.setAttribute('opacity', d);
+      const sp = 1 + eIO5(P(t, 32.3, 33.4)) * 1.6; r.g.setAttribute('transform', `rotate(${RINGS[i][2] + (t - 30) * (i % 2 ? -5 : 5)}) scale(${sp})`); });
+    $('orbits').style.opacity = 1 - eIn(P(t, 32.6, 33.6));
+    const li = back(P(t, 32.9, 33.6), 1.8); $('logoIcon').style.transform = `scale(${li}) rotate(${(1 - li) * -14}deg)`; $('logoIcon').style.opacity = cl(P(t, 32.9, 33.05));
+    const wm = eExp(P(t, 33.1, 34.1)); $('wordmark').style.opacity = wm; $('wordmark').style.filter = `blur(${(1 - wm) * 18}px)`; $('wordmark').style.letterSpacing = `${-0.05 + (1 - wm) * 0.12}em`;
+    words($('s6tag'), t, 34.0, 0.06, 0.8, 36);
+    const z = eIn(P(t, 36.6, 37.3)); $('logoRow').style.transform = `scale(${1 + z * 2.5})`; $('logoRow').style.filter = `blur(${z * 20}px)`; $('s6tag').style.opacity = 1 - z; }
 
-  /* ---- S5 live room (dark) ---- */
-  { const el = $('s5'); show(el, win(t, 13.0, 20.45, 0.05, 0.05)); words($('s5t'), t, 13.1, 0.11, 0.75, 60);
-    const hx = eIn(P(t, 14.05, 14.5)); $('s5t').style.filter = `blur(${hx * 22}px)`; $('s5t').style.transform = `translateY(${-hx * 80}px) scale(${1 - hx * 0.1})`; $('s5t').style.opacity = 1 - hx;
-    const w = $('w5'); const wi = eExp(P(t, 14.15, 15.4)); const out = eIn(P(t, 19.95, 20.45));
-    w.style.opacity = P(t, 14.15, 14.4) * (1 - out);
-    w.style.transform = `translateY(${(1 - wi) * 560}px) rotateX(${(1 - wi) * 38}deg) scale(${(0.84 + 0.16 * wi) * (1 - out * 0.35)})`; w.style.filter = `blur(${out * 16}px)`;
-    // camera: wide → conversation → code → wide for the theme wipe
-    const [cx, cy, z] = key(t, [[15.2, 720, 450, 1], [16.0, 190, 230, 2.05], [16.9, 190, 250, 2.1], [17.7, 640, 420, 1.42], [18.4, 700, 430, 1.38], [18.9, 720, 450, 1]]);
-    aim($('cam5'), 1440, 900, cx, cy, z);
-    $('i5b').style.opacity = P(t, 17.1, 17.5);
-    const wp = eIO(P(t, 18.85, 19.75)); $('i5c').style.clipPath = `inset(0 ${(1 - wp) * 100}% 0 0)`;
-    const wl = $('wipeLine'); wl.style.left = wp * 1440 + 'px'; wl.style.opacity = wp > 0 && wp < 1 ? 1 : 0;
-    const call = (id, a, b, dx) => { const c = $(id); const x = back(P(t, a, a + 0.55), 1.4); const e = eIn(P(t, b - 0.3, b));
-      c.style.opacity = cl(P(t, a, a + 0.15)) * (1 - e); c.style.transform = `translateX(${(1 - x) * dx}px) scale(${0.9 + 0.1 * x})`; };
-    call('c1', 15.7, 17.1, -60); call('c2', 17.55, 18.85, 60); call('c3', 15.0, 16.0, 60);
-    const tt = $('themeTag'); tt.style.opacity = Math.min(P(t, 18.9, 19.2), 1 - P(t, 19.8, 20.0));
-    $('themeTxt').innerHTML = `<span style="color:${wp > 0.5 ? '#f3f1ec' : '#958f86'}">Light</span> &nbsp;·&nbsp; <span style="color:${wp < 0.5 ? '#f3f1ec' : '#958f86'}">Dark</span>`; }
+  /* =========== S7: definition + three steps =========== */
+  { const el = $('s7'); show(el, win01(t, 37.0, 46.3, 0.1, 0.2));
+    const D = [[$('d1'), 37.2], [$('d2'), 38.3], [$('d3'), 39.4]];
+    D.forEach(([e, a]) => { words(e, t, a, 0.07, 0.75); e.querySelectorAll('.w').forEach((w) => { if (!w.classList.contains('hlw')) w.style.color = lerp(0, 1, P(t, 40.4, 40.9)) > 0.5 ? '#b1aba1' : ''; }); });
+    const dout = eIO5(P(t, 41.4, 42.2)); $('def').style.transform = `translateY(${-dout * 120}px) scale(${1 - dout * 0.2})`; $('def').style.opacity = 1 - dout; $('def').style.filter = `blur(${dout * 12}px)`;
+    words($('s7h'), t, 41.9, 0.07, 0.8);
+    const nodes = [[$('nR'), 42.3, 380], [$('nI'), 42.55, 960], [$('nD'), 42.8, 1540]]; const ex = eIn(P(t, 45.7, 46.3));
+    nodes.forEach(([n, a], i) => { const x = eExp(P(t, a, a + 0.9)); const fl = eIn(P(t, 45.6 + i * 0.08, 46.2 + i * 0.08));
+      n.style.opacity = x * (1 - fl); n.style.transform = `translateY(${(1 - x) * 120}px) rotateX(${(1 - x) * 30}deg) rotateY(${fl * 80}deg)`; });
+    // flow line between nodes + return loop
+    const fp = $('flowPath'); fp.setAttribute('d', 'M560 585 L780 585 M1140 585 L1360 585'); const fl = 440; fp.setAttribute('stroke-dasharray', `${fl / 2} ${fl}`);
+    const d1 = eIO(P(t, 43.2, 43.9)); fp.style.strokeDasharray = `${220 * d1} 1000`; fp.style.opacity = 1 - ex;
+    const lp = $('loopPath'); lp.setAttribute('d', 'M1540 760 C1540 860 380 860 380 760'); const ll = 1300; const d2 = eIO(P(t, 44.3, 45.2)); lp.setAttribute('stroke-dasharray', `8 10`); lp.style.clipPath = `inset(0 ${(1 - d2) * 100}% 0 0)`; lp.style.opacity = 0.45 * (1 - ex);
+    $('loopLab').style.opacity = eQ(P(t, 44.8, 45.3)) * (1 - ex);
+    // runner orb travelling the loop
+    const rn = $('runner'); const k = (t - 43.4) / 2.2; let rx2 = 0, ry2 = 0; const ph = ((k % 1) + 1) % 1;
+    if (ph < 0.5) { const q = eIO(ph * 2); rx2 = lerp(560, 1360, q); ry2 = 585; } else { const q = eIO((ph - 0.5) * 2); const u = q; rx2 = Math.pow(1 - u, 3) * 1540 + 3 * Math.pow(1 - u, 2) * u * 1540 + 3 * (1 - u) * u * u * 380 + u * u * u * 380; ry2 = Math.pow(1 - u, 3) * 760 + 3 * Math.pow(1 - u, 2) * u * 860 + 3 * (1 - u) * u * u * 860 + u * u * u * 760; }
+    rn.style.left = rx2 - 11 + 'px'; rn.style.top = ry2 - 11 + 'px'; rn.style.opacity = P(t, 43.4, 43.6) * (1 - ex);
+    el.querySelectorAll('.lay').forEach((l, i) => { l.style.transform = `translateY(${Math.sin(t * 2 + i) * 2}px)`; });
+    el.querySelectorAll('.ray').forEach((r, i) => { r.style.opacity = 0.35 + 0.65 * Math.abs(Math.sin(t * 2 + i * 0.4)); });
+    $('artIring').style.transform = `rotate(${t * 40}deg)`;
+    $('s7h').style.opacity = 1 - ex; }
 
-  /* ---- S6 report (light) ---- */
-  { const el = $('s6'); show(el, win(t, 20.4, 25.05, 0.05, 0.35));
-    rise($('s6e'), t, 20.5); words($('s6t'), t, 20.55, 0.08, 0.75); rise($('s6sub'), t, 21.1);
-    const w = $('w6'); const wi = eExp(P(t, 20.6, 21.6));
-    w.style.opacity = wi; w.style.transform = `translateX(${(1 - wi) * 300}px) rotateY(${(1 - wi) * -24}deg) scale(${0.94 + 0.06 * wi})`;
-    const [cx, cy, z] = key(t, [[20.6, 470, 440, 1.75], [21.9, 470, 450, 1.75], [22.7, 760, 600, 0.82], [23.4, 800, 900, 0.82], [24.3, 960, 1330, 1.12]]);
-    aim($('cam6'), 1080, 822, cx, cy, z);
-    const c6 = $('c6'); const x = back(P(t, 21.6, 22.15), 1.5); c6.style.opacity = cl(P(t, 21.6, 21.75)) * (1 - P(t, 23.2, 23.5)); c6.style.transform = `translateY(${(1 - x) * 40}px) scale(${0.9 + 0.1 * x})`;
-    const ex = eIn(P(t, 24.7, 25.05)); el.style.filter = `blur(${ex * 10}px)`; }
+  /* =========== HUD (chapters) =========== */
+  { const h = $('hud'); const o = win01(t, 46.0, 113.0, 0.5, 0.5); h.style.opacity = o; h.style.visibility = o > 0 ? 'visible' : 'hidden';
+    const dk = t > 82.6 && t < 95.9; h.style.color = dk ? '#f3f1ec' : '#1b1a18';
+    hudSegs.forEach(([s, l], i) => { const [, a, b] = CH[i]; const f = P(t, a, b); s.querySelector('b').style.transform = `scaleX(${f})`; s.style.background = dk ? 'rgba(255,255,255,.18)' : 'rgba(27,26,24,.12)';
+      s.querySelector('b').style.background = dk ? '#f3f1ec' : '#1b1a18'; l.style.opacity = t >= a && t < b ? 1 : 0.38; }); }
 
-  /* ---- S7 readiness (light) ---- */
-  { const el = $('s7'); show(el, win(t, 25.0, 27.95, 0.05, 0.3)); words($('s7t'), t, 25.05, 0.09, 0.75);
-    const rd = $('rd'); const ri = eExp(P(t, 25.2, 26.0)); rd.style.opacity = ri; rd.style.transform = `translateY(${(1 - ri) * 80}px) rotateX(${(1 - ri) * 16}deg)`;
-    const m = eIO(P(t, 25.6, 26.9)); $('rdMask').style.left = lerp(230, 1520, m) + 'px';
-    popIn($('ready'), t, 26.85, 0.5, 1.8); }
+  /* =========== C1: profile =========== */
+  { const el = $('c1'); show(el, win01(t, 46.0, 56.2, 0.1, 0.5));
+    words($('c1t').querySelector('h2'), t, 46.3, 0.08, 0.8); rise($('c1t').querySelector('.num'), t, 46.2); rise($('c1p'), t, 46.9);
+    const oc = [1350, 560]; const toSyn = eIO5(P(t, 50.6, 51.5));
+    orbStyle($('pOrb'), 130); const po = $('pOrb'); const pi = back(P(t, 46.8, 47.6), 1.6); po.style.left = lerp(oc[0], 1080, toSyn) - 65 + 'px'; po.style.top = lerp(oc[1], 250, toSyn) - 65 + 'px';
+    po.style.transform = `scale(${pi * lerp(1, 0.0, toSyn)})`; po.style.opacity = 1 - toSyn;
+    srcEls.forEach((e, i) => { const a = 47.0 + i * 0.16; const x = eExp(P(t, a, a + 0.9)); const ang = (i / SRC.length) * Math.PI * 2 + t * 0.25;
+      const R = 300 * lerp(1, 0.0, toSyn); const px = oc[0] + Math.cos(ang) * R * 1.25, py = oc[1] + Math.sin(ang) * R * 0.9;
+      const w = e.offsetWidth, hgt = e.offsetHeight; e.style.transform = `translate(${px - w / 2 + (1 - x) * 600}px,${py - hgt / 2}px) scale(${lerp(0.9, 0.4, toSyn)})`;
+      e.style.opacity = x * (1 - toSyn); e.style.filter = `blur(${(1 - x) * 10}px)`; });
+    const sy = $('syn'); const si = eExp(P(t, 51.1, 52.0)); sy.style.opacity = si; sy.style.transform = `translateY(${(1 - si) * 60}px) scale(${0.96 + 0.04 * si})`;
+    sy.querySelectorAll('h4, .synrow').forEach((r, i) => { const x = eExp(P(t, 51.5 + i * 0.22, 52.2 + i * 0.22)); r.style.opacity = x; r.style.transform = `translateX(${(1 - x) * 30}px)`; });
+    sy.querySelectorAll('.synrow em').forEach((r, i) => { const x = P(t, 52.0 + i * 0.4, 52.4 + i * 0.4); r.style.background = `rgba(232,213,174,${0.45 * Math.sin(x * Math.PI)})`; r.style.borderRadius = '6px'; });
+    rise($('evid'), t, 53.6); const ex = eIn(P(t, 55.6, 56.2)); if (ex > 0) { sy.style.transform = `translateX(${ex * 300}px)`; sy.style.opacity = 1 - ex; } }
 
-  /* ---- S8 end (dark) ---- */
-  { const el = $('s8'); show(el, t > 28.0 ? 1 : 0);
-    const li = back(P(t, 28.05, 28.65), 1.8); $('logoIcon').style.transform = `scale(${li}) rotate(${(1 - li) * -12}deg)`; $('logoIcon').style.opacity = cl(P(t, 28.05, 28.2));
-    const wm = eExp(P(t, 28.2, 29.0)); $('wordmark').style.opacity = wm; $('wordmark').style.filter = `blur(${(1 - wm) * 16}px)`;
-    $('wordmark').style.transform = `translateX(${(1 - wm) * -40}px)`; $('wordmark').style.letterSpacing = `${-0.05 + (1 - wm) * 0.1}em`;
-    words($('tag'), t, 28.55, 0.06, 0.7, 30); rise($('tag2'), t, 29.05, 0.6); }
+  /* =========== product window: C2–C6 =========== */
+  { let x = 1240, y = 590, s = 0.76, ry = -6, rx = 0, o = 0, blur = 0;
+    if (t >= 55.9 && t < 106.2) {
+      o = 1;
+      const kf = key(t, [
+        [55.9, 1800, 640, 0.6, -40, 8], [56.9, 1265, 590, 0.76, -6, 0], [64.8, 1270, 590, 0.76, -3, 0],   // C2 right
+        [65.8, 720, 590, 0.76, 6, 0], [73.0, 730, 590, 0.76, 3, 0],                                         // C3 left
+        [73.9, 1265, 590, 0.76, -5, 0], [81.4, 1270, 590, 0.76, -3, 0],                                     // C4 right
+        [82.6, 960, 640, 0.9, 0, 0], [95.4, 960, 640, 0.92, 0, 0],                                          // C5 centre, big
+        [96.4, 1270, 600, 0.76, -5, 0], [105.4, 1270, 600, 0.76, -3, 0], [106.2, 1270, -300, 0.7, 0, 30] ]); // C6 right, exit up
+      [x, y, s, ry, rx] = kf; o = P(t, 55.9, 56.3) * (1 - P(t, 105.8, 106.2)); blur = (1 - P(t, 55.9, 56.6)) * 14 + P(t, 105.6, 106.2) * 14; }
+    setWin(x, y, s, ry, rx, o, blur);
+    layerOps(t, [['jobs', 56.0, 58.6], ['roles', 58.6, 61.1], ['jd_match', 61.1, 63.5], ['jd_process', 63.5, 65.7], ['track', 65.7, 73.8], ['book', 73.8, 76.7], ['prep', 76.7, 79.4],
+      ['briefing', 79.4, 82.1], ['live_start', 82.1, 85.0], ['live_code', 85.0, 89.4], ['live_board', 89.4, 92.6], ['live_code', 92.6, 95.9], ['report', 95.9, null]]);
+    // cameras
+    aim('jobs', ...key(t, [[56.4, 0.5, 0.4, 1], [57.9, 0.31, 0.36, 1.7]]));
+    aim('roles', ...key(t, [[58.6, 0.5, 0.45, 1.25], [59.4, 0.5, 0.45, 1.0], [60.6, 0.86, 0.68, 2.0]]));
+    aim('jd_match', ...key(t, [[61.1, 0.29, 0.47, 2.1], [62.2, 0.36, 0.55, 1.6], [63.3, 0.45, 0.8, 1.45]]));
+    aim('jd_process', ...key(t, [[63.5, 0.5, 0.4, 1.0], [64.6, 0.45, 0.62, 1.55]]));
+    aim('track', ...key(t, [[65.7, 0.5, 0.3, 1.0], [67.0, 0.42, 0.27, 1.9], [68.4, 0.48, 0.62, 1.7], [70.2, 0.7, 0.63, 1.7], [71.6, 0.55, 0.6, 1.15]]));
+    aim('book', ...key(t, [[73.8, 0.5, 0.5, 1.0], [74.6, 0.5, 0.52, 2.15], [76.2, 0.5, 0.56, 2.2]]));
+    aim('prep', ...key(t, [[76.7, 0.43, 0.5, 1.5], [79.0, 0.35, 0.62, 1.6]]));
+    aim('briefing', ...key(t, [[79.4, 0.5, 0.4, 1.0], [80.4, 0.42, 0.42, 1.75], [82.0, 0.42, 0.44, 1.8]]));
+    aim('live_start', ...key(t, [[82.1, 0.5, 0.5, 1.0], [83.3, 0.5, 0.5, 1.0], [84.3, 0.14, 0.18, 2.4], [85.0, 0.25, 0.15, 2.0]]));
+    aim('live_code', ...key(t, [[85.0, 0.4, 0.25, 1.7], [86.4, 0.45, 0.42, 1.55], [88.6, 0.45, 0.45, 1.35], [89.4, 0.5, 0.5, 1.0], [92.6, 0.5, 0.5, 1.0], [95.9, 0.5, 0.5, 1.0]]));
+    aim('live_board', ...key(t, [[89.4, 0.5, 0.5, 1.0], [90.4, 0.58, 0.3, 1.5], [92.6, 0.5, 0.4, 1.2]]));
+    aim('live_dark', 0.5, 0.5, 1.0);
+    aim('report', ...key(t, [[95.9, 0.33, 0.12, 1.9], [97.6, 0.33, 0.13, 1.9], [98.6, 0.5, 0.12, 1.0], [99.6, 0.62, 0.255, 1.2], [100.9, 0.62, 0.43, 1.35], [102.3, 0.62, 0.47, 1.35], [103.4, 0.62, 0.66, 1.3], [104.6, 0.62, 0.8, 1.35]]));
+    // dark-mode wipe in the live room
+    const wp = eIO(P(t, 92.7, 93.7)), wb = eIO(P(t, 95.0, 95.6)); const wv = Math.max(0, wp - wb);
+    L.live_dark.cam.style.clipPath = `inset(0 ${(1 - wv) * 100}% 0 0)`; L.live_dark.cam.style.opacity = t > 92.5 && t < 95.7 ? 1 : 0;
+    $('wipe').style.left = (wp < 1 ? wp : 1 - wb) * 1440 + 'px'; $('wipe').style.opacity = (wp > 0 && wp < 1) || (wb > 0 && wb < 1) ? 1 : 0;
+    const bar = $('win').querySelector('.bar'); const bd = wv; bar.style.background = bd > 0.5 ? '#121110' : '#f7f5f1'; bar.style.borderColor = bd > 0.5 ? '#2e2b29' : '';
+    $('winTitle').textContent = t < 65.7 ? 'interviewiq · Companies' : t < 73.8 ? 'interviewiq · Tracks' : t < 82.1 ? 'interviewiq · Interviews' : t < 95.9 ? 'interviewiq · Interview room' : 'interviewiq · Report'; }
 
-  $('black').style.opacity = Math.max(1 - P(t, 0, 0.3), P(t, 29.8, 30.0));
-  const drift = `translate(${Math.sin(t * 0.4) * 5}px, ${Math.cos(t * 0.33) * 4}px)`;
-  ['s1', 's2', 's3', 's4', 's6', 's7', 's8'].forEach((id) => { if (id !== 's6' || true) $(id).style.transform = drift; });
+  /* cursor (clicks inside the window) */
+  { let cx = -100, cy = -100, co = 0, click = -1;
+    const path = [ // [t, layer, fx, fy]
+      [57.0, 'jobs', 0.55, 0.62], [58.1, 'jobs', 0.31, 0.36], [59.4, 'roles', 0.7, 0.75], [60.4, 'roles', 0.86, 0.69],
+      [74.4, 'book', 0.6, 0.6], [75.2, 'book', 0.5, 0.57], [75.9, 'book', 0.62, 0.676]];
+    const clicks = [58.15, 60.45, 75.25, 75.95];
+    if ((t > 56.8 && t < 61.1) || (t > 74.2 && t < 76.6)) { co = 1; let a = path[0], b = path[0];
+      for (let i = 0; i < path.length - 1; i++) if (t >= path[i][0] && t <= path[i + 1][0] && path[i][1] === path[i + 1][1]) { a = path[i]; b = path[i + 1]; }
+      if (t > path[path.length - 1][0]) a = b = path[path.length - 1];
+      if (t < 74.4 && t > 60.4) a = b = path[3]; if (t >= 74.2 && t < 74.4) a = b = path[4];
+      const q = a === b ? 1 : eIO5(P(t, a[0], b[0])); const pa = stagePt(a[1], a[2], a[3]), pb = stagePt(b[1], b[2], b[3]);
+      cx = lerp(pa[0], pb[0], q); cy = lerp(pa[1], pb[1], q); clicks.forEach((c) => { if (t >= c && t < c + 0.5) click = (t - c) / 0.5; }); }
+    const cu = $('cursor'); cu.style.transform = `translate(${cx - 4}px,${cy - 3}px) scale(${click >= 0 ? 1 - 0.15 * Math.sin(click * Math.PI) : 1})`; cu.style.opacity = co;
+    const rp = $('ripple'); rp.style.left = cx + 'px'; rp.style.top = cy + 'px'; rp.style.opacity = click >= 0 ? 1 - click : 0; rp.style.transform = `scale(${0.3 + click * 1.2})`; }
+
+  /* =========== C2–C4 text =========== */
+  { const el = $('c2'); show(el, win01(t, 56.0, 65.7, 0.1, 0.4)); words(el.querySelector('h2'), t, 56.3, 0.08, 0.8); rise(el.querySelector('.num'), t, 56.2); rise(el.querySelector('p'), t, 57.0); }
+  { const el = $('c3'); show(el, win01(t, 65.7, 73.8, 0.1, 0.4)); words(el.querySelector('h2'), t, 65.9, 0.08, 0.8); rise(el.querySelector('.num'), t, 65.8); rise($('c3p'), t, 66.6);
+    rise($('c3a'), t, 69.4); rise($('c3b'), t, 69.8); const hl = P(t, 70.6, 71.0); $('c3a').style.boxShadow = hl > 0 ? `0 0 0 ${2.5 * hl}px #1b1a18, 0 14px 32px -10px rgba(0,0,0,.14)` : ''; }
+  { const el = $('c4'); show(el, win01(t, 73.8, 82.1, 0.1, 0.3)); words(el.querySelector('h2'), t, 74.0, 0.08, 0.8); rise(el.querySelector('.num'), t, 73.9);
+    rise($('c4p1'), t, 74.6); const sw = eIO(P(t, 77.0, 77.5)); $('c4p1').style.opacity = 1 - sw; $('c4p1').style.opacity *= P(t, 74.6, 75.2);
+    const p2 = $('c4p2'); const x2 = eExp(P(t, 77.3, 78.1)); p2.style.opacity = x2; p2.style.transform = `translateY(${(1 - x2) * 26 - 0}px)`; p2.style.top = $('c4p1').offsetTop + 'px';
+    const pc = $('prepCard'); const pi = back(P(t, 76.9, 77.5), 1.4); pc.style.opacity = cl(P(t, 76.9, 77.05)) * (1 - eIn(P(t, 79.2, 79.6))); pc.style.transform = `scale(${pi}) rotateX(${(1 - cl(pi)) * 20}deg)`;
+    prepEls.forEach((s, i) => { const d = t > 77.4 + i * 0.25; const act = !d && t > 77.4 + (i - 1) * 0.25; s.style.color = d ? '#1b1a18' : act ? '#43403b' : '#aaa49a';
+      s.querySelector('i').style.cssText = d ? 'background:#1b1a18;box-shadow:none' : act ? `box-shadow:inset 0 0 0 2px #1b1a18;transform:rotate(${t * 400}deg);border-top-color:transparent` : ''; }); }
+
+  /* =========== C5: interview callouts =========== */
+  { const el = $('c5'); show(el, win01(t, 82.3, 96.0, 0.2, 0.4)); rise($('c5t'), t, 82.6);
+    const call = (id, a, b, dx) => { const c = $(id); const x = back(P(t, a, a + 0.55), 1.4); const e = eIn(P(t, b - 0.3, b)); c.style.opacity = cl(P(t, a, a + 0.15)) * (1 - e); c.style.transform = `translateX(${(1 - x) * dx}px) scale(${0.9 + 0.1 * x})`; };
+    call('k1', 83.2, 86.4, -80); call('k2', 84.6, 87.6, 80); call('k3', 86.6, 89.4, 80); call('k4', 87.2, 91.4, -80); call('k5', 89.8, 92.6, 80); call('k6', 91.8, 95.6, -80); call('k7', 93.0, 95.6, 80);
+    const sp = $('speech'); const si = eExp(P(t, 82.9, 83.5)); const so = eIn(P(t, 85.7, 86.1)); sp.style.opacity = si * (1 - so); sp.style.transform = `translateY(${(1 - si) * 40}px)`;
+    const ws = SPEECH.split(' '); const k = cl((t - 83.2) / 2.4) * ws.length; $('spText').innerHTML = ws.map((w, i) => `<span style="opacity:${0.25 + 0.75 * cl(k - i)}">${w}</span>`).join(' ');
+    spBars.forEach((b, i) => { b.style.height = (4 + (t > 83.2 && t < 85.6 ? 22 * Math.abs(noise(t * 9 + i * 0.7, i)) : 0)) + 'px'; }); }
+
+  /* =========== C6: debrief =========== */
+  { const el = $('c6'); show(el, win01(t, 96.0, 105.8, 0.2, 0.4)); words(el.querySelector('h2'), t, 96.3, 0.08, 0.8); rise(el.querySelector('.num'), t, 96.2);
+    const FT = [97.0, 99.4, 100.8, 102.3, 103.4, 104.4];
+    featEls.forEach((f, i) => { const x = eExp(P(t, FT[i], FT[i] + 0.7)); const cur = t >= FT[i] && (i === FT.length - 1 || t < FT[i + 1]); f.style.opacity = x * (cur ? 1 : 0.42); f.style.transform = `translateX(${(1 - x) * 40}px)`; });
+    const g = gr; const gi = eExp(P(t, 97.2, 97.9)); const merge = eIO5(P(t, 98.0, 98.8)); const gout = eIn(P(t, 99.1, 99.5));
+    g.a.style.opacity = gi * (1 - merge) ; g.b.style.opacity = gi * (1 - merge); g.a.style.transform = `translateX(${merge * 300}px) scale(${1 - merge * 0.5})`; g.b.style.transform = `translateX(${merge * 130}px) scale(${1 - merge * 0.5})`;
+    g.s.style.opacity = eExp(P(t, 98.5, 99.0)) * (1 - gout); g.s.style.transform = `scale(${back(P(t, 98.5, 99.0), 1.6)})`; $('graders').style.opacity = 1; }
+
+  /* =========== C7: gating + readiness =========== */
+  { const el = $('c7'); show(el, win01(t, 105.6, 113.2, 0.2, 0.4)); words(el.querySelector('h2'), t, 105.9, 0.08, 0.8); rise(el.querySelector('.num'), t, 105.8);
+    const gi = eExp(P(t, 106.3, 107.0)); const gout = eIO(P(t, 109.0, 109.5)); $('gate').style.opacity = gi * (1 - gout); $('gate').style.transform = `translateY(${(1 - gi) * 40 - gout * 60}px)`;
+    rise(gate.note, t, 106.5); gate.note.style.opacity *= 1;
+    [[gate.a, 106.6, 0.84], [gate.b, 107.4, 0.61]].forEach(([r, a, v]) => { const f = eQ(P(t, a, a + 1.0)); r.querySelector('.fill').style.transform = `scaleX(${f * v})`; r.querySelector('.val').textContent = (f * v * 10).toFixed(1);
+      const res = r.querySelector('.res'); const x = back(P(t, a + 1.0, a + 1.45), 1.6); res.style.opacity = cl(P(t, a + 1.0, a + 1.15)); res.style.transform = `scale(${x})`; });
+    gate.b.style.opacity = 0.75;
+    const lad = $('ladder'); const li = eExp(P(t, 109.4, 110.1)); lad.style.opacity = li; lad.style.transform = `translateY(${(1 - li) * 50}px)`;
+    const f = eIO(P(t, 109.9, 111.6)); $('lfill').style.transform = `scaleX(${f})`;
+    lvEls.forEach((d, i) => { const reached = f * 3 >= i - 0.001; const pp = back(P(t, 109.9 + i * 0.56, 110.2 + i * 0.56), 2.4);
+      d.querySelector('.d').style.cssText = reached ? `background:#1b1a18;box-shadow:0 0 0 ${i === 3 ? 9 : 0}px rgba(27,26,24,.12);transform:scale(${pp * (i === 3 ? 1.3 : 1)})` : ''; d.querySelector('.l').style.color = reached ? '#1b1a18' : '#b0a99e'; });
+    pop($('ready'), t, 111.6, 0.5, 1.8); rise($('fine'), t, 112.0, 0.6); }
+
+  /* =========== ACT IV =========== */
+  { const el = $('s15'); show(el, win01(t, 112.9, 117.2, 0.2, 0.4)); words($('s15t'), t, 113.0, 0.07, 0.8);
+    [['w1', 113.5], ['w2', 113.7], ['w3', 113.9]].forEach(([id, a], i) => { const e = $(id); const x = eExp(P(t, a, a + 1.0)); const o = eIn(P(t, 116.6 + i * 0.08, 117.2));
+      e.style.opacity = x * (1 - o); e.style.transform = `translateY(${(1 - x) * 160 - o * 80}px) rotateX(${(1 - x) * 40}deg)`; }); }
+  { const el = $('s16'); show(el, t > 117.0 ? 1 : 0);
+    const li = back(P(t, 117.1, 117.7), 1.8); $('eIcon').style.transform = `scale(${li}) rotate(${(1 - li) * -12}deg)`; $('eIcon').style.opacity = cl(P(t, 117.1, 117.25));
+    const wm = eExp(P(t, 117.3, 118.1)); $('eWord').style.opacity = wm; $('eWord').style.filter = `blur(${(1 - wm) * 16}px)`; $('eWord').style.letterSpacing = `${-0.05 + (1 - wm) * 0.1}em`;
+    words($('eTag'), t, 117.6, 0.05, 0.7, 30); rise($('eCta'), t, 118.2, 0.6); }
+
+  { const ed = $('endDark'); const r = lerp(0, 2300, eIO(P(t, 118.7, 119.4))); ed.style.visibility = r > 0 ? 'visible' : 'hidden'; ed.style.clipPath = `circle(${r}px at 1300px 380px)`; }
+  $('fade').style.opacity = 1 - P(t, 0, 0.35);
+  $('black').style.opacity = P(t, 119.7, 120.0);
 }
 window.setup = setup; window.render = render;
 </script>

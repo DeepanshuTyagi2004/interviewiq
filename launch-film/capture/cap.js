@@ -25,6 +25,9 @@ async function page(b, theme) {
       md.getUserMedia = async (c) => { const s = c && c.audio ? await gum({ audio: c.audio }) : new MediaStream();
         if (c && c.video) { const v = canvasStream(cam); v.getVideoTracks().forEach((tr) => s.addTrack(tr)); } return s; };
     }
+    // The interviewer has no fixed name (a new persona every round): strip the dev mock's self-introduction.
+    new MutationObserver(() => { const w = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
+      let n; while ((n = w.nextNode())) if (n.nodeValue.includes("I'm Asha")) n.nodeValue = n.nodeValue.replace("Hi, I'm Asha. ", 'Hi! '); }).observe(document, { subtree: true, childList: true, characterData: true });
     // Hide the TanStack Query devtools launcher (the bottom-right circle) for captures.
     const st = document.createElement('style');
     st.textContent = '.tsqd-parent-container,.tsqd-open-btn-container,[aria-label="Open Tanstack query devtools"],[class*="tsqd"],nextjs-portal{display:none!important}[data-orb]{background:radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%),radial-gradient(circle at 80% 88%,#8C7249 0,transparent 58%),radial-gradient(circle at 18% 82%,#FFF3DE 0,transparent 52%),linear-gradient(150deg,#FFF3DE,#D9C29B 52%,#8C7249)!important;box-shadow:inset 0 -4px 9px rgb(0 0 0/.2),inset 0 2px 3px rgb(255 255 255/.6),inset 0 0 0 .5px rgb(255 255 255/.25),0 7px 18px -6px #D9C29B99!important}';

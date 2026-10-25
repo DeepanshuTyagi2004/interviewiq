@@ -1,0 +1,394 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>InterviewIQ Launch Film</title>
+<style>
+  @font-face { font-family: "Jakarta"; src: url(fonts/jakarta.woff2) format("woff2"); font-weight: 200 800; }
+  @font-face { font-family: "InterUI"; src: url(fonts/inter.woff2) format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: "GMono"; src: url(fonts/geistmono.woff2) format("woff2"); font-weight: 100 900; }
+  :root {
+    /* InterviewIQ tokens (apps/web/app/globals.css) */
+    --l-page: #ffffff; --l-surface: #f4f1ec; --l-surface2: #ebe6dd; --l-line: #e5e0d7; --l-ink: #1b1a18; --l-ink2: #43403b; --l-ink3: #6b675f;
+    --d-page: #0b0a09; --d-surface: #1b1917; --d-surface2: #282624; --d-line: #2e2b29; --d-ink: #f3f1ec; --d-ink2: #cdc8c0; --d-ink3: #958f86;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--d-page); }
+  body { font-family: "InterUI", sans-serif; color: var(--d-ink); -webkit-font-smoothing: antialiased; }
+  .disp { font-family: "Jakarta", sans-serif; font-weight: 700; letter-spacing: -0.035em; line-height: 1.06; }
+  .mono { font-family: "GMono", monospace; }
+  #stage { position: absolute; inset: 0; overflow: hidden; perspective: 2400px; }
+  .abs { position: absolute; }
+  .layer { position: absolute; inset: 0; visibility: hidden; transform-style: preserve-3d; }
+  .w { display: inline-block; white-space: pre; will-change: transform, opacity, filter; }
+  .g3d { color: var(--d-ink3); }
+  .g3l { color: var(--l-ink3); }
+  .eyebrow { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+
+  .pool { position: absolute; border-radius: 50%; }
+  #light { position: absolute; inset: 0; background: var(--l-page); }
+  #grain { position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay; pointer-events: none; }
+  #vig { position: absolute; inset: 0; background: radial-gradient(130% 95% at 50% 45%, transparent 55%, rgba(0,0,0,.6)); pointer-events: none; }
+
+  .orb { position: absolute; border-radius: 50%; }
+  #ring { position: absolute; width: 0; height: 0; }
+  #ring i { position: absolute; left: -1.5px; width: 3px; border-radius: 3px; background: var(--d-ink); transform-origin: 50% 0; }
+  #disk { position: absolute; border-radius: 50%; background: var(--l-page); }
+
+  .caption { position: absolute; left: 50%; top: 880px; transform: translateX(-50%); padding: 16px 28px; border-radius: 999px; white-space: nowrap;
+    background: hsl(30 5% 14% / .66); box-shadow: inset 0 1px 0 rgb(255 255 255/.1), 0 0 0 .5px rgb(255 255 255/.12), 0 18px 40px -20px rgb(0 0 0/.8);
+    font-size: 25px; display: flex; gap: 16px; align-items: center; }
+  .caption .who { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--d-ink3); }
+
+  /* light glass cards (site .iq-card + shadow-float) */
+  .card { background: #fff; color: var(--l-ink); border-radius: 22px;
+    box-shadow: inset 0 1px 0 rgb(255 255 255/.8), 0 0 0 .5px rgb(0 0 0/.06), 0 2px 4px rgb(0 0 0/.04), 0 14px 32px -10px rgb(0 0 0/.14), 0 40px 80px -32px rgb(0 0 0/.22); }
+  .tile { width: 54px; height: 54px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 15px; flex: none;
+    background: radial-gradient(90% 70% at 14% 0%,rgb(255 255 255/.22),transparent 62%), linear-gradient(150deg,#3b3834,#151311);
+    box-shadow: inset 0 1px 0 rgb(255 255 255/.2),inset 0 0 0 .5px rgb(255 255 255/.1),0 6px 14px -8px rgb(0 0 0/.5); }
+  .src { position: absolute; left: 0; top: 0; width: 620px; height: 104px; padding: 0 26px; display: flex; align-items: center; gap: 20px; }
+  .src .nm { font-size: 23px; font-weight: 600; letter-spacing: -0.01em; }
+  .src .dt { font-size: 16.5px; color: var(--l-ink3); margin-top: 3px; }
+  .src .ok { margin-left: auto; font-size: 14px; font-weight: 500; border-radius: 999px; padding: 7px 14px; }
+  .wire { position: absolute; height: 2px; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(27,26,24,.0), rgba(27,26,24,.35)); }
+  .spark { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #1b1a18; box-shadow: 0 0 0 4px rgba(27,26,24,.08); }
+
+  #marquee { position: absolute; top: 300px; left: 0; white-space: nowrap; display: flex; gap: 96px; }
+  #marquee span { font-size: 96px; display: inline-block; color: var(--l-ink); }
+
+  /* app windows */
+  .win { position: absolute; border-radius: 20px; overflow: hidden; transform-origin: 50% 50%; }
+  .win .bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13.5px; position: relative; z-index: 2; }
+  .win .bar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .win .bar span { position: absolute; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 8px; }
+  .win.dark { background: var(--d-page); box-shadow: 0 0 0 .5px rgb(255 255 255/.16), 0 50px 120px -30px rgb(0 0 0/.9), 0 0 160px -40px rgba(199,160,105,.35); }
+  .win.dark .bar { background: #121110; border-bottom: 1px solid var(--d-line); color: var(--d-ink3); } .win.dark .bar i { background: #34312e; } .win.dark .bar span { background: #1d1b19; }
+  .win.light { background: #fff; box-shadow: 0 0 0 .5px rgb(0 0 0/.08), 0 40px 100px -30px rgb(0 0 0/.35), 0 14px 32px -10px rgb(0 0 0/.14); }
+  .win.light .bar { background: #f7f5f1; border-bottom: 1px solid var(--l-line); color: var(--l-ink3); } .win.light .bar i { background: #e2ddd5; } .win.light .bar span { background: #eeeae3; }
+  .vp { position: absolute; left: 0; right: 0; top: 38px; bottom: 0; overflow: hidden; }
+  .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .cam img { position: absolute; left: 0; top: 0; display: block; }
+
+  .callout { position: absolute; padding: 16px 22px; border-radius: 20px; font-size: 19px; font-weight: 500; white-space: nowrap; display: flex; gap: 14px; align-items: center; }
+  .callout.dk { background: hsl(30 5% 12% / .86); color: var(--d-ink); box-shadow: inset 0 1px 0 rgb(255 255 255/.12), 0 0 0 .5px rgb(255 255 255/.14), 0 30px 60px -20px rgb(0 0 0/.8); }
+  .callout.lt { background: rgba(255,255,255,.92); color: var(--l-ink); box-shadow: inset 0 1px 0 #fff, 0 0 0 .5px rgb(0 0 0/.08), 0 24px 50px -18px rgb(0 0 0/.3); }
+  .callout small { display: block; font-size: 14px; font-weight: 400; margin-top: 3px; opacity: .65; }
+  .ic { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .hl { position: absolute; border-radius: 14px; pointer-events: none; }
+
+  .pill { display: inline-flex; align-items: center; gap: 12px; border-radius: 999px; padding: 18px 32px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="pools"></div>
+  <div id="light"><div id="lpools"></div></div>
+
+  <!-- S1: kinetic type (dark) -->
+  <div class="layer" id="s1">
+    <div class="abs disp" id="s1t" style="left:0;right:0;top:350px;text-align:center;font-size:132px">
+      <div><span class="w">Every </span><span class="w">offer </span><span class="w">starts </span><span class="w">with</span></div>
+      <div><span class="w g3d">one </span><span class="w g3d">conversation.</span></div>
+    </div>
+  </div>
+
+  <div id="disk"></div>
+  <div class="orb" id="orb"></div>
+  <div id="ring"></div>
+
+  <!-- S2: interviewer (dark) -->
+  <div class="layer" id="s2">
+    <div class="abs" id="s2e" style="left:0;right:0;top:640px;text-align:center"><span class="eyebrow" style="color:var(--d-ink3)">Your AI interviewer</span></div>
+    <div class="abs disp" id="s2t" style="left:0;right:0;top:690px;text-align:center;font-size:92px">
+      <span class="w">Meet </span><span class="w">Asha. </span><span class="w g3d">She </span><span class="w g3d">listens.</span>
+    </div>
+    <div class="caption" id="cap"><span class="who">Asha · speaking</span><span id="capw"></span></div>
+  </div>
+
+  <!-- S3: sources (light) -->
+  <div class="layer" id="s3" style="color:var(--l-ink)">
+    <div class="abs" style="left:190px;top:150px"><span class="eyebrow g3l" id="s3e">Connected sources</span></div>
+    <div class="abs disp" id="s3t" style="left:186px;top:196px;font-size:96px">
+      <div><span class="w">It </span><span class="w">already</span></div>
+      <div><span class="w g3l">knows </span><span class="w g3l">you.</span></div>
+    </div>
+    <div class="abs" id="s3sub" style="left:190px;top:440px;width:560px;font-size:28px;line-height:1.45;color:var(--l-ink2)">Every question is built from your résumé, your repos and the problems you’ve already solved.</div>
+    <div id="wires"></div>
+    <div id="cards"></div>
+    <div class="orb" id="orb3"></div>
+  </div>
+
+  <!-- S4: companies + process (light) -->
+  <div class="layer" id="s4" style="color:var(--l-ink)">
+    <div id="marquee" class="disp"></div>
+    <div class="abs disp" id="s4t" style="left:190px;top:330px;font-size:96px">
+      <div><span class="w">Their </span><span class="w">real</span></div>
+      <div><span class="w">process.</span></div>
+      <div><span class="w g3l">Round </span><span class="w g3l">by </span><span class="w g3l">round.</span></div>
+    </div>
+    <div class="abs" id="s4sub" style="left:192px;top:700px;width:560px;font-size:26px;line-height:1.45;color:var(--l-ink2)">Researched from interview experiences candidates share, filtered by company, level and role.</div>
+    <div class="abs card" id="proc" style="left:1010px;top:190px;width:700px;height:645px;overflow:hidden;border-radius:30px">
+      <img src="img/process.png" style="width:700px;height:645px;display:block">
+    </div>
+    <div class="hl" id="procHl" style="left:1036px;top:362px;width:636px;height:68px;box-shadow:0 0 0 3px #1b1a18"></div>
+  </div>
+
+  <!-- S5: live room (dark) -->
+  <div class="layer" id="s5">
+    <div class="abs disp" id="s5t" style="left:0;right:0;top:430px;text-align:center;font-size:140px">
+      <span class="w">Then </span><span class="w">it </span><span class="w g3d">interviews </span><span class="w g3d">you.</span>
+    </div>
+    <div class="win dark" id="w5" style="left:240px;top:90px;width:1440px;height:938px">
+      <div class="bar"><i></i><i></i><i></i><span>interviewiq · Interview room</span></div>
+      <div class="vp">
+        <div class="cam" id="cam5">
+          <img src="img/dark_live_start.png" id="i5a" style="width:1440px;height:900px">
+          <img src="img/dark_live_code.png" id="i5b" style="width:1440px;height:900px;opacity:0">
+          <img src="img/light_live_code.png" id="i5c" style="width:1440px;height:900px;clip-path:inset(0 100% 0 0)">
+        </div>
+        <div id="wipeLine" class="abs" style="top:0;bottom:0;width:3px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 24px 6px rgba(255,240,215,.6);opacity:0"></div>
+      </div>
+    </div>
+    <div class="callout dk" id="c1" style="left:120px;top:250px"><div class="ic" style="background:#2b2825"><svg width="20" height="24" viewBox="0 0 20 24" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linecap="round"><rect x="6" y="1" width="8" height="14" rx="4"/><path d="M2 11a8 8 0 0016 0M10 19v4"/></svg></div><div>A voice interview<small>Speaks, listens, adapts in real time</small></div></div>
+    <div class="callout dk" id="c2" style="left:1300px;top:700px"><div class="ic" style="background:#2b2825"><svg width="22" height="18" viewBox="0 0 22 18" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4L2 9l5 5M15 4l5 5-5 5"/></svg></div><div>Code + whiteboard, read live<small>Hints when stuck, harder follow-ups when flying</small></div></div>
+    <div class="callout dk" id="c3" style="left:1230px;top:120px"><div class="ic" style="background:#2b2825"><svg width="20" height="22" viewBox="0 0 20 22" fill="none" stroke="#f3f1ec" stroke-width="2" stroke-linejoin="round"><path d="M10 1l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V4z"/></svg></div><div>Proctored, on-device<small>Every screen switch is counted</small></div></div>
+    <div class="abs" id="themeTag" style="left:0;right:0;top:1010px;text-align:center"><span class="eyebrow" id="themeTxt" style="color:var(--d-ink3)">Light · Dark</span></div>
+  </div>
+
+  <!-- S6: report (light) -->
+  <div class="layer" id="s6" style="color:var(--l-ink)">
+    <div class="abs" style="left:150px;top:200px"><span class="eyebrow g3l" id="s6e">The debrief</span></div>
+    <div class="abs disp" id="s6t" style="left:146px;top:246px;font-size:88px">
+      <div><span class="w">Every </span><span class="w">answer,</span></div>
+      <div><span class="w g3l">scored </span><span class="w g3l">and</span></div>
+      <div><span class="w g3l">explained.</span></div>
+    </div>
+    <div class="abs" id="s6sub" style="left:150px;top:600px;width:520px;font-size:25px;line-height:1.45;color:var(--l-ink2)">What you said next to a strong answer, the topics to study, and a score you can trace to the moment.</div>
+    <div class="win light" id="w6" style="left:760px;top:110px;width:1080px;height:860px">
+      <div class="bar"><i></i><i></i><i></i><span>interviewiq · Report</span></div>
+      <div class="vp"><div class="cam" id="cam6"><img src="img/light_report_tall.png" style="width:1440px;height:2070px"></div></div>
+    </div>
+    <div class="callout lt" id="c6" style="left:620px;top:780px"><div class="ic" style="background:#1b1a18;color:#fff;font-weight:700;font-size:18px">8.4</div><div>Passed · round 3 unlocked<small>Pass mark 7.2, fixed when you booked</small></div></div>
+  </div>
+
+  <!-- S7: readiness (light) -->
+  <div class="layer" id="s7" style="color:var(--l-ink)">
+    <div class="abs disp" id="s7t" style="left:0;right:0;top:150px;text-align:center;font-size:96px">
+      <span class="w">From </span><span class="w">practice </span><span class="w g3l">to </span><span class="w g3l">ready.</span>
+    </div>
+    <div class="abs card" id="rd" style="left:200px;top:380px;width:1520px;height:399px;overflow:hidden;border-radius:26px">
+      <img src="img/readiness.png" id="rdImg" style="width:1520px;height:399px;display:block">
+      <div id="rdMask" class="abs" style="top:56px;bottom:0;right:0;background:#fff"></div>
+    </div>
+    <div class="abs" style="left:0;right:0;top:850px;text-align:center"><span class="pill" id="ready" style="background:#1b1a18;color:#fff"><span class="orb" id="readyOrb" style="position:relative;width:24px;height:24px"></span>Interview-ready · Meesho SDE I mock process</span></div>
+  </div>
+
+  <!-- S8: end card (dark) -->
+  <div class="layer" id="s8">
+    <div class="abs" id="logo" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:34px">
+      <img src="icon.svg" id="logoIcon" style="width:150px;height:150px;border-radius:38px;box-shadow:0 30px 80px -20px rgba(232,213,174,.35)">
+      <div class="disp" id="wordmark" style="font-size:150px;letter-spacing:-0.05em">InterviewIQ</div>
+    </div>
+    <div class="abs disp" id="tag" style="left:0;right:0;top:560px;text-align:center;font-size:64px;font-weight:700">
+      <span class="w">Rehearse </span><span class="w">the </span><span class="w">interview </span><span class="w">you’re </span><span class="w g3d">actually </span><span class="w g3d">walking </span><span class="w g3d">into.</span>
+    </div>
+    <div class="abs" id="tag2" style="left:0;right:0;top:700px;text-align:center"><span class="pill" style="background:var(--d-ink);color:var(--d-page);font-size:22px;padding:14px 28px">Start free</span><span style="margin-left:22px;font-size:20px;color:var(--d-ink3)">No card required</span></div>
+  </div>
+
+  <svg id="grain" width="1920" height="1080"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7"/></filter><rect width="100%" height="100%" filter="url(#nz)"/></svg>
+  <div id="vig"></div>
+  <div class="abs" id="flash" style="inset:0;background:#fff;opacity:0"></div>
+  <div class="abs" id="black" style="inset:0;background:#000;opacity:1"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, b) => cl((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const eExp = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const eQ = (x) => 1 - Math.pow(1 - x, 4);
+const eIO = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eIO5 = (x) => (x < 0.5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2);
+const eIn = (x) => x * x * x;
+const back = (x, s = 1.70158) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const noise = (x, s = 0) => (Math.sin(x * 1.7 + s) + Math.sin(x * 3.1 + s * 2.3) * 0.6 + Math.sin(x * 5.3 + s * 0.7) * 0.35) / 1.95;
+const show = (el, o) => { el.style.opacity = o; el.style.visibility = o <= 0.002 ? 'hidden' : 'visible'; };
+const win = (t, a, b, fi = 0.3, fo = 0.3) => Math.min(P(t, a, a + fi), 1 - P(t, b - fo, b));
+
+function words(el, t, start, stagger = 0.08, dur = 0.8, dist = 46) {
+  el.querySelectorAll('.w').forEach((w, i) => {
+    const x = eExp(P(t, start + i * stagger, start + i * stagger + dur));
+    w.style.opacity = x; w.style.transform = `translateY(${(1 - x) * dist}px)`; w.style.filter = `blur(${(1 - x) * 14}px)`;
+  });
+}
+function rise(el, t, a, dur = 0.8, dist = 26) { const x = eExp(P(t, a, a + dur)); el.style.opacity = x; el.style.transform = `translateY(${(1 - x) * dist}px)`; el.style.filter = `blur(${(1 - x) * 8}px)`; return x; }
+function popIn(el, t, a, dur = 0.55, s = 1.6, extra = '') { const x = back(P(t, a, a + dur), s); el.style.opacity = cl(P(t, a, a + 0.15)); el.style.transform = `${extra} scale(${x})`; }
+
+/* Glass orb: the exact gradient recipe from components/ds/Orb.tsx. */
+function orbStyle(el, size, hue) {
+  const [hi, mid, lo] = hue; el.style.width = el.style.height = size + 'px';
+  el.style.background = ['radial-gradient(circle at 30% 22%,rgb(255 255 255/.92) 0,rgb(255 255 255/.35) 13%,transparent 32%)',
+    `radial-gradient(circle at 80% 88%,${lo} 0,transparent 58%)`, `radial-gradient(circle at 18% 82%,${hi} 0,transparent 52%)`,
+    `linear-gradient(150deg,${hi},${mid} 52%,${lo})`].join(',');
+  const s = (n) => `${Math.max(0.5, +(size * n).toFixed(1))}px`;
+  el.style.boxShadow = [`inset 0 -${s(0.09)} ${s(0.18)} rgb(0 0 0/.2)`, `inset 0 ${s(0.035)} ${s(0.06)} rgb(255 255 255/.6)`, 'inset 0 0 0 0.5px rgb(255 255 255/.25)', `0 ${s(0.14)} ${s(0.36)} -${s(0.12)} ${mid}99`].join(',');
+}
+const GOLD = ['#FFF3DE', '#D9C29B', '#8C7249']; /* the app icon's orb (app/icon.svg) */
+const orb = $('orb'); orbStyle(orb, 260, GOLD); orbStyle($('orb3'), 150, GOLD); orbStyle($('readyOrb'), 24, GOLD);
+
+/* Warm aurora pools: --aurora-* (dark: 34 30% 26%, 30 8% 22%, 24 30% 24%; light: 38 45% 84%, 40 8% 78%, 28 40% 88%). */
+const DP = [{ c: '86,70,46', x: 500, y: 250, r: 1300 }, { c: '61,57,52', x: 1450, y: 300, r: 1200 }, { c: '80,58,43', x: 1100, y: 900, r: 1300 }];
+const LP = [{ c: '232,214,184', x: 450, y: 150, r: 1400 }, { c: '205,201,194', x: 1500, y: 250, r: 1200 }, { c: '240,224,206', x: 1000, y: 950, r: 1300 }];
+const mk = (host, list, a) => list.map((p) => { const d = document.createElement('div'); d.className = 'pool'; d.style.width = d.style.height = p.r + 'px';
+  d.style.background = `radial-gradient(circle, rgba(${p.c},${a}) 0%, rgba(${p.c},${a * 0.35}) 38%, transparent 68%)`; host.appendChild(d); return d; });
+const dpools = mk($('pools'), DP, 0.9), lpools = mk($('lpools'), LP, 0.75);
+
+const RN = 132, ringBars = [];
+for (let i = 0; i < RN; i++) { const b = document.createElement('i'); $('ring').appendChild(b); ringBars.push(b); }
+const CAP = "Hi, I'm Asha. Thanks for joining today — think out loud, and ask me anything that's unclear.".split(' ');
+$('capw').innerHTML = CAP.map((w) => `<span class="cw">${w} </span>`).join('');
+
+const SOURCES = [['CV', 'Résumé', 'B.Tech CSE · 2 internships · parsed'], ['GH', 'GitHub', 'order-tracking-svc · Go · Kafka'],
+  ['LC', 'LeetCode', '412 solved · weak: sliding window'], ['CF', 'Codeforces', 'Specialist · 31 contests'], ['IN', 'LinkedIn', 'Backend intern · logistics startup']];
+const cards = SOURCES.map(([i, n, d]) => { const c = document.createElement('div'); c.className = 'src card';
+  c.innerHTML = `<div class="tile mono">${i}</div><div><div class="nm">${n}</div><div class="dt">${d}</div></div><div class="ok">Connected</div>`; $('cards').appendChild(c); return c; });
+const wires = SOURCES.map(() => { const w = document.createElement('div'); w.className = 'wire'; $('wires').appendChild(w); const s = document.createElement('div'); s.className = 'spark'; $('wires').appendChild(s); return [w, s]; });
+
+const COS = ['Flipkart', 'Razorpay', 'Swiggy', 'PhonePe', 'Meesho', 'CRED', 'Zepto', 'Groww', 'Zomato'], MI = 4;
+const coEls = COS.map((n) => { const s = document.createElement('span'); s.textContent = n; $('marquee').appendChild(s); return s; });
+let mC = 0;
+function setup() { const r = $('marquee').getBoundingClientRect(), m = coEls[MI].getBoundingClientRect(); mC = m.left - r.left + m.width / 2; }
+
+/* Camera inside a window viewport: centre (cx, cy) of the 1440-wide image at zoom z. */
+function aim(cam, vw, vh, cx, cy, z) { cam.style.transform = `translate(${vw / 2 - cx * z}px, ${vh / 2 - cy * z}px) scale(${z})`; }
+const key = (t, frames) => { // frames: [time, cx, cy, z] eased between keys
+  if (t <= frames[0][0]) return frames[0].slice(1);
+  for (let i = 0; i < frames.length - 1; i++) { const [a, ...A] = frames[i], [b, ...B] = frames[i + 1];
+    if (t <= b) { const x = eIO5(P(t, a, b)); return A.map((v, k) => lerp(v, B[k], x)); } }
+  return frames[frames.length - 1].slice(1);
+};
+
+function render(t) {
+  /* ---- theme: dark 0-6, light 6-13, dark 13-20.4, light 20.4-27.8, dark end ---- */
+  const lightA = Math.min(P(t, 5.95, 6.0), 1 - P(t, 13.0, 13.05));
+  const lightB = Math.min(P(t, 20.35, 20.7), 1 - eIO(P(t, 27.7, 28.1)));
+  const L = Math.max(lightA, lightB);
+  $('light').style.opacity = L;
+  dpools.forEach((d, i) => { const p = DP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.3 + i * 2) * 170 - p.r / 2}px,${p.y + Math.cos(t * 0.24 + i) * 120 - p.r / 2}px) scale(${1 + 0.12 * Math.sin(t * 0.45 + i)})`;
+    d.style.opacity = cl(P(t, 0.3, 3.2) * 0.7 + 0.3 * P(t, 2.8, 3.4)); });
+  lpools.forEach((d, i) => { const p = LP[i]; d.style.transform = `translate(${p.x + Math.sin(t * 0.3 + i * 2) * 150 - p.r / 2}px,${p.y + Math.cos(t * 0.25 + i) * 100 - p.r / 2}px)`; });
+  $('vig').style.opacity = 1 - L * 0.9; $('grain').style.opacity = 0.045 + L * 0.015;
+
+  /* ---- S1 ---- */
+  { const el = $('s1'); show(el, t < 3.05 ? 1 : 0); words($('s1t'), t, 0.3, 0.12, 0.95, 60);
+    const x = eIn(P(t, 2.45, 3.0)); $('s1t').style.filter = `blur(${x * 26}px)`; $('s1t').style.transform = `scale(${1 + 0.22 * x})`; $('s1t').style.opacity = 1 - x; }
+
+  /* ---- shared orb S2, ending in the light disk (match cut to S3) ---- */
+  { let size = 0, cx = 960, cy = 400, o = 0;
+    if (t >= 2.5 && t < 6.05) { const g = back(P(t, 2.6, 3.4), 1.5); size = 260 * g; o = P(t, 2.6, 2.8);
+      const speak = t > 4.1 && t < 5.4; size *= 1 + (speak ? 0.04 * Math.abs(noise(t * 7, 1)) : 0.01 * Math.sin(t * 3));
+      size *= 1 - 0.1 * eIn(P(t, 5.45, 5.7)); }
+    orb.style.visibility = o > 0.002 ? 'visible' : 'hidden'; orb.style.opacity = o;
+    orb.style.left = cx - 130 + 'px'; orb.style.top = cy - 130 + 'px'; orb.style.transform = `scale(${size / 260})`;
+    // the light disk grows out of the orb and becomes the page
+    const dk = $('disk'); const dx = eIn(P(t, 5.55, 6.0)); const R = lerp(0, 2400, dx);
+    dk.style.visibility = dx > 0 && t < 6.05 ? 'visible' : 'hidden'; dk.style.left = cx - R + 'px'; dk.style.top = cy - R + 'px'; dk.style.width = dk.style.height = 2 * R + 'px';
+    const ringO = Math.min(P(t, 3.1, 3.6), 1 - P(t, 5.4, 5.7)); const ring = $('ring');
+    ring.style.visibility = ringO > 0.002 ? 'visible' : 'hidden'; ring.style.opacity = ringO; ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
+    const talk = t > 4.1 && t < 5.5 ? 1 : 0.22;
+    ringBars.forEach((b, i) => { const h = 5 + talk * 52 * Math.pow(Math.abs(noise(t * 7.5 + i * 0.41, i * 0.13) * noise(t * 3.1 + i * 0.09, 2)), 0.75) + 3 * Math.sin(t * 2 + i * 0.25);
+      const grow = eExp(P(t, 3.1 + (i % 33) * 0.008, 3.8)); b.style.height = Math.max(2, h * grow) + 'px';
+      b.style.transform = `rotate(${(i / RN) * 360 + t * 8}deg) translateY(${172}px)`; b.style.opacity = 0.25 + 0.75 * cl(h / 50); }); }
+
+  /* ---- S2 ---- */
+  { const el = $('s2'); show(el, win(t, 3.0, 5.75, 0.05, 0.3)); rise($('s2e'), t, 3.2); words($('s2t'), t, 3.3, 0.1, 0.8);
+    const cap = $('cap'); const co = eQ(P(t, 3.95, 4.3)); cap.style.opacity = co; cap.style.transform = `translateX(-50%) translateY(${(1 - co) * 24}px)`;
+    const k = cl((t - 4.1) / 1.4) * CAP.length;
+    cap.querySelectorAll('.cw').forEach((w, i) => { w.style.opacity = 0.2 + 0.8 * cl(k - i); }); }
+
+  /* ---- S3 sources (light) ---- */
+  { const el = $('s3'); show(el, win(t, 6.0, 9.75, 0.05, 0.35));
+    rise($('s3e'), t, 6.15); words($('s3t'), t, 6.2, 0.09, 0.8); rise($('s3sub'), t, 6.7);
+    const ox = 1720, oy = 560; const o3 = $('orb3'); const oi = back(P(t, 6.5, 7.2), 1.6);
+    const pulse = 1 + 0.06 * Math.max(0, Math.sin((t - 7.6) * 9)) * P(t, 7.6, 7.8) * (1 - P(t, 8.9, 9.2));
+    o3.style.left = ox - 75 + 'px'; o3.style.top = oy - 75 + 'px'; o3.style.transform = `scale(${oi * pulse})`;
+    const ex = eIn(P(t, 9.4, 9.75));
+    cards.forEach((c, i) => { const x = eExp(P(t, 6.45 + i * 0.12, 7.4 + i * 0.12));
+      const tx = 900 + (1 - x) * 240; const ty = 255 + i * 128 + (1 - x) * 60;
+      c.style.transform = `translate(${tx}px,${ty}px) rotateY(${(1 - x) * -38}deg) rotateX(${(1 - x) * 14}deg) scale(${1 - ex * 0.05})`;
+      c.style.opacity = x * (1 - ex); c.style.filter = `blur(${(1 - x) * 12}px)`;
+      const on = P(t, 7.55 + i * 0.22, 7.7 + i * 0.22); const ok = c.querySelector('.ok');
+      ok.style.background = on > 0.5 ? '#1b1a18' : '#f4f1ec'; ok.style.color = on > 0.5 ? '#fff' : '#6b675f'; ok.textContent = on > 0.5 ? 'Connected' : 'Connecting…';
+      const [w, s] = wires[i]; const sx = 1520, sy = ty + 52; const len = Math.hypot(ox - 75 - sx + 40, oy - sy); const ang = Math.atan2(oy - sy, ox - 70 - sx) * 180 / Math.PI;
+      const wp = eIO(P(t, 7.5 + i * 0.22, 8.0 + i * 0.22));
+      w.style.left = sx + 'px'; w.style.top = sy + 'px'; w.style.width = len + 'px'; w.style.transform = `rotate(${ang}deg) scaleX(${wp})`; w.style.opacity = (1 - ex);
+      const sp = P(t, 7.6 + i * 0.22, 8.2 + i * 0.22); s.style.left = lerp(sx, ox - 70, eIO(sp)) + 'px'; s.style.top = lerp(sy, oy, eIO(sp)) + 'px'; s.style.opacity = Math.sin(sp * Math.PI) * (1 - ex); });
+    $('s3t').style.opacity = 1 - ex; $('s3sub').style.opacity *= 1 - ex; o3.style.opacity = 1 - ex; }
+
+  /* ---- S4 companies + process (light) ---- */
+  { const el = $('s4'); show(el, win(t, 9.7, 13.05, 0.05, 0.05));
+    const mq = $('marquee'); const slide = eQ(P(t, 9.7, 10.9)); const lift = eIO(P(t, 11.0, 11.5));
+    mq.style.transformOrigin = `${mC}px 50%`;
+    mq.style.transform = `translateX(${960 - mC + (1 - slide) * 1600}px) translateY(${lift * -420}px) scale(${1 - 0.3 * lift})`;
+    const focus = eQ(P(t, 10.6, 11.0));
+    coEls.forEach((c, i) => { const isM = i === MI; const ent = eExp(P(t, 9.7 + i * 0.04, 10.5 + i * 0.04));
+      c.style.opacity = (isM ? 1 : lerp(1, 0.14, focus)) * ent * (1 - lift); c.style.filter = `blur(${(1 - ent) * 12 + (isM ? 0 : focus * 2)}px)`; c.style.transform = isM ? `scale(${1 + 0.1 * focus})` : 'none'; });
+    words($('s4t'), t, 11.25, 0.08, 0.75); rise($('s4sub'), t, 11.75);
+    const pc = $('proc'); const pi = eExp(P(t, 11.35, 12.3)); const pex = eIn(P(t, 12.6, 13.05));
+    pc.style.opacity = pi; pc.style.transform = `translateY(${(1 - pi) * 160}px) rotateY(${(1 - pi) * -26}deg) rotateX(${(1 - pi) * 10}deg) scale(${(0.92 + 0.08 * pi) * (1 + pex * 2.2)})`;
+    pc.style.transformOrigin = '30% 40%';
+    const hl = $('procHl'); const hx = eExp(P(t, 12.05, 12.4)); hl.style.opacity = hx * (1 - pex) * (0.65 + 0.35 * Math.sin(t * 8)); hl.style.transform = `scale(${1.06 - 0.06 * hx})`;
+    $('s4t').style.opacity = 1 - pex; $('s4sub').style.opacity *= 1 - pex; }
+
+  $('flash').style.opacity = 0.9 * Math.exp(-Math.pow((t - 13.02) * 10, 2)) + 0.7 * Math.exp(-Math.pow((t - 20.4) * 10, 2));
+
+  /* ---- S5 live room (dark) ---- */
+  { const el = $('s5'); show(el, win(t, 13.0, 20.45, 0.05, 0.05)); words($('s5t'), t, 13.1, 0.11, 0.75, 60);
+    const hx = eIn(P(t, 14.05, 14.5)); $('s5t').style.filter = `blur(${hx * 22}px)`; $('s5t').style.transform = `translateY(${-hx * 80}px) scale(${1 - hx * 0.1})`; $('s5t').style.opacity = 1 - hx;
+    const w = $('w5'); const wi = eExp(P(t, 14.15, 15.4)); const out = eIn(P(t, 19.95, 20.45));
+    w.style.opacity = P(t, 14.15, 14.4) * (1 - out);
+    w.style.transform = `translateY(${(1 - wi) * 560}px) rotateX(${(1 - wi) * 38}deg) scale(${(0.84 + 0.16 * wi) * (1 - out * 0.35)})`; w.style.filter = `blur(${out * 16}px)`;
+    // camera: wide → conversation → code → wide for the theme wipe
+    const [cx, cy, z] = key(t, [[15.2, 720, 450, 1], [16.0, 190, 230, 2.05], [16.9, 190, 250, 2.1], [17.7, 640, 420, 1.42], [18.4, 700, 430, 1.38], [18.9, 720, 450, 1]]);
+    aim($('cam5'), 1440, 900, cx, cy, z);
+    $('i5b').style.opacity = P(t, 17.1, 17.5);
+    const wp = eIO(P(t, 18.85, 19.75)); $('i5c').style.clipPath = `inset(0 ${(1 - wp) * 100}% 0 0)`;
+    const wl = $('wipeLine'); wl.style.left = wp * 1440 + 'px'; wl.style.opacity = wp > 0 && wp < 1 ? 1 : 0;
+    const call = (id, a, b, dx) => { const c = $(id); const x = back(P(t, a, a + 0.55), 1.4); const e = eIn(P(t, b - 0.3, b));
+      c.style.opacity = cl(P(t, a, a + 0.15)) * (1 - e); c.style.transform = `translateX(${(1 - x) * dx}px) scale(${0.9 + 0.1 * x})`; };
+    call('c1', 15.7, 17.1, -60); call('c2', 17.55, 18.85, 60); call('c3', 15.0, 16.0, 60);
+    const tt = $('themeTag'); tt.style.opacity = Math.min(P(t, 18.9, 19.2), 1 - P(t, 19.8, 20.0));
+    $('themeTxt').innerHTML = `<span style="color:${wp > 0.5 ? '#f3f1ec' : '#958f86'}">Light</span> &nbsp;·&nbsp; <span style="color:${wp < 0.5 ? '#f3f1ec' : '#958f86'}">Dark</span>`; }
+
+  /* ---- S6 report (light) ---- */
+  { const el = $('s6'); show(el, win(t, 20.4, 25.05, 0.05, 0.35));
+    rise($('s6e'), t, 20.5); words($('s6t'), t, 20.55, 0.08, 0.75); rise($('s6sub'), t, 21.1);
+    const w = $('w6'); const wi = eExp(P(t, 20.6, 21.6));
+    w.style.opacity = wi; w.style.transform = `translateX(${(1 - wi) * 300}px) rotateY(${(1 - wi) * -24}deg) scale(${0.94 + 0.06 * wi})`;
+    const [cx, cy, z] = key(t, [[20.6, 470, 440, 1.75], [21.9, 470, 450, 1.75], [22.7, 760, 600, 0.82], [23.4, 800, 900, 0.82], [24.3, 960, 1330, 1.12]]);
+    aim($('cam6'), 1080, 822, cx, cy, z);
+    const c6 = $('c6'); const x = back(P(t, 21.6, 22.15), 1.5); c6.style.opacity = cl(P(t, 21.6, 21.75)) * (1 - P(t, 23.2, 23.5)); c6.style.transform = `translateY(${(1 - x) * 40}px) scale(${0.9 + 0.1 * x})`;
+    const ex = eIn(P(t, 24.7, 25.05)); el.style.filter = `blur(${ex * 10}px)`; }
+
+  /* ---- S7 readiness (light) ---- */
+  { const el = $('s7'); show(el, win(t, 25.0, 27.95, 0.05, 0.3)); words($('s7t'), t, 25.05, 0.09, 0.75);
+    const rd = $('rd'); const ri = eExp(P(t, 25.2, 26.0)); rd.style.opacity = ri; rd.style.transform = `translateY(${(1 - ri) * 80}px) rotateX(${(1 - ri) * 16}deg)`;
+    const m = eIO(P(t, 25.6, 26.9)); $('rdMask').style.left = lerp(230, 1520, m) + 'px';
+    popIn($('ready'), t, 26.85, 0.5, 1.8); }
+
+  /* ---- S8 end (dark) ---- */
+  { const el = $('s8'); show(el, t > 28.0 ? 1 : 0);
+    const li = back(P(t, 28.05, 28.65), 1.8); $('logoIcon').style.transform = `scale(${li}) rotate(${(1 - li) * -12}deg)`; $('logoIcon').style.opacity = cl(P(t, 28.05, 28.2));
+    const wm = eExp(P(t, 28.2, 29.0)); $('wordmark').style.opacity = wm; $('wordmark').style.filter = `blur(${(1 - wm) * 16}px)`;
+    $('wordmark').style.transform = `translateX(${(1 - wm) * -40}px)`; $('wordmark').style.letterSpacing = `${-0.05 + (1 - wm) * 0.1}em`;
+    words($('tag'), t, 28.55, 0.06, 0.7, 30); rise($('tag2'), t, 29.05, 0.6); }
+
+  $('black').style.opacity = Math.max(1 - P(t, 0, 0.3), P(t, 29.8, 30.0));
+  const drift = `translate(${Math.sin(t * 0.4) * 5}px, ${Math.cos(t * 0.33) * 4}px)`;
+  ['s1', 's2', 's3', 's4', 's6', 's7', 's8'].forEach((id) => { if (id !== 's6' || true) $(id).style.transform = drift; });
+}
+window.setup = setup; window.render = render;
+</script>
+</body>
+</html>
