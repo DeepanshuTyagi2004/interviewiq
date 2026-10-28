@@ -149,7 +149,7 @@ def _assembled(round_type: str, level: str = "sde1"):
 def test_a_system_design_blueprint_carries_its_rules_block_and_pol2_without_change_language():
     pol, rules = _assembled("system-design")
     doc = {"rules": rules.model_dump(mode="json"), "policies": pol.model_dump(mode="json")}
-    assert doc["rules"]["pack"] == "system-design" and doc["rules"]["version"] == "rules1" and doc["rules"]["focus"] is None
+    assert doc["rules"]["pack"] == "system-design" and doc["rules"]["version"] == "rules2" and doc["rules"]["focus"] is None
     assert doc["policies"]["version"] == "pol2"
     assert "change_language" not in [r["kind"] for r in doc["policies"]["requests"]]
 

@@ -20,10 +20,23 @@ def test_blocks_reference_solution_code_in_speech_and_in_code_inserts():
     assert g.check_code("print(pair_sum([1, 2], 3))  # expect [0, 1]").ok
 
 
-def test_blocks_reading_the_current_examples_aloud():
+def test_blocks_reading_a_whole_test_case_aloud():
     g = guard()
-    assert g.check_sentence("For nums equal to [2, 7, 11, 15] the answer is clear.", current_slot="core-1").rule == "example_read_aloud"
-    assert g.check_sentence("For nums equal to [2, 7, 11, 15] the answer is clear.", current_slot=None).ok
+    for line in ("For nums equal to [2, 7, 11, 15] and target 9, the answer is [0, 1].",
+                 "Input nums = [3, 3], target = 6, output [0, 1].",
+                 "So [3, 3] with a target of 6 should return [0, 1]."):
+        assert g.check_sentence(line, current_slot="core-1").rule == "example_read_aloud", line
+    assert g.check_sentence("For nums equal to [2, 7, 11, 15] the answer is [0, 1].", current_slot=None).ok
+
+
+def test_points_to_an_example_or_names_one_input_to_ask_about_it():
+    """Decided 2026-10-28: the interviewer points to the examples on screen, and may name one input or part of one to ask a question."""
+    g = guard()
+    for line in ("Have a look at the second example on your screen.",
+                 "What does your code do for nums equal to [2, 7, 11, 15]?",
+                 "Walk me through [3, 3] with your approach.",
+                 "What would you return if the target were 9 and there were only two numbers?"):
+        assert g.check_sentence(line, current_slot="core-1").ok, line
 
 
 def test_blocks_problem_names_unless_the_candidate_said_them_first():
@@ -133,7 +146,8 @@ def test_a_boolean_or_null_example_result_does_not_make_the_words_true_false_or_
     for line in ("How would you change it to return the duplicate values rather than just true or false?",
                  "What does your function return when there is nothing, false or none?"):
         assert g.check_sentence(line, current_slot="core-1").ok, line
-    assert g.check_sentence("For nums equal to [1, 2, 3, 1] the answer is clear.", current_slot="core-1").rule == "example_read_aloud"
+    assert g.check_sentence("For nums equal to [1, 2, 3, 1] the answer is clear.", current_slot="core-1").ok
+    assert g.check_sentence("For nums equal to [1, 2, 3, 1] the answer is true.", current_slot="core-1").rule == "example_read_aloud"
 
 
 def test_everyday_interviewer_phrasing_in_a_prepared_opening_does_not_make_it_unspeakable():

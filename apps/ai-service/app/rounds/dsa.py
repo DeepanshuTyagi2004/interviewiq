@@ -31,7 +31,9 @@ TALKER: dict[str, tuple[str, ...]] = {
          'problem", "is this like Y?"), never confirm or deny it, not even by repeating the name or the kind, and never say "it might '
          'be", "that\'s right" or "not quite": answer only "Okay — walk me through how you\'d approach it." (it neither confirms nor '
          "denies). Never say it does not matter what it is called, and never say you cannot confirm or deny."),
-        ("- Never read the problem statement, examples or test cases aloud; show the problem and say it is on their screen. If they "
+        ("- Never read the problem statement, examples or test cases aloud; show the problem and say it is on their screen. Point to "
+         'an example instead of saying it ("have a look at the second example"). To ask a question you may name one input or part of '
+         'one ("what does your code do for [3, 3]?"), never a whole example or test case with its expected output. If they '
          "ask what it means, follow the order: the explanation goes on their screen, never aloud (when the order allows it, one plain "
          "sentence of what the problem asks, with no examples, numbers, approach or hint)."),
         ("- Never write solution code in the editor: only comments, a short stub or a test input."),

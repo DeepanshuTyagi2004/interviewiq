@@ -29,6 +29,14 @@ describe('TranscriptBubbles', () => {
   })
 })
 
+describe('TranscriptBubbles alignment', () => {
+  it('puts the interviewer on the left and the candidate on the right', () => {
+    render(<TranscriptBubbles interviewerName="Asha" segments={[seg('a', 'interviewer', 'Hi.'), seg('b', 'candidate', 'Hello.')]} />)
+    expect(screen.getByText('Hi.').closest('[data-speaker]')).toHaveClass('self-start', 'text-left')
+    expect(screen.getByText('Hello.').closest('[data-speaker]')).toHaveClass('self-end', 'text-right')
+  })
+})
+
 describe('TranscriptBubbles size', () => {
   it('sets the type larger when the conversation has the room to itself', () => {
     const { rerender } = render(<TranscriptBubbles segments={[seg('a', 'interviewer', 'Hi.')]} interviewerName="Asha" />)

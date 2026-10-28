@@ -3,10 +3,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { TranscriptSegment } from '../session/transcript'
 
-/** The conversation as a clean caption column: each run of lines under a small speaker label, the interviewer in
- * ink and the candidate in a softer ink behind a hairline, interim words dimmed until final, room notices as
- * centred pills. Follows the newest line. `comfortable` sets the type a little larger, for when the conversation
- * has the room to itself. (Name kept from the chat-bubble version.) */
+/** The conversation as a clean caption column: each run of lines under a small speaker label, the interviewer on the
+ * left in ink and the candidate on the right in a softer ink behind a hairline, interim words dimmed until final, room
+ * notices as centred pills. Follows the newest line. `comfortable` sets the type a little larger, for when the
+ * conversation has the room to itself. (Name kept from the chat-bubble version.) */
 export function TranscriptBubbles({ segments, interviewerName, comfortable = false }: { segments: TranscriptSegment[]; interviewerName: string; comfortable?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const last = segments[segments.length - 1]
@@ -46,7 +46,14 @@ export function TranscriptBubbles({ segments, interviewerName, comfortable = fal
           const mine = s.speaker === 'candidate'
           const runStart = i === 0 || segments[i - 1].speaker !== s.speaker
           return (
-            <div key={s.id} className={cn('flex flex-col', mine && 'border-l-2 border-line pl-3')}>
+            <div
+              key={s.id}
+              data-speaker={s.speaker}
+              className={cn(
+                'flex max-w-[85%] flex-col',
+                mine ? 'self-end border-r-2 border-line pr-3 text-right' : 'self-start text-left',
+              )}
+            >
               {runStart ? (
                 <span className="mb-0.5 mt-1.5 text-[11.5px] font-medium text-ink-3">{mine ? 'You' : interviewerName}</span>
               ) : null}

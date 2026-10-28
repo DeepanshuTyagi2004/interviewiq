@@ -72,6 +72,46 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", "", text.lower())
 
 
+def _literal(value: Any) -> str:
+    return _squash(json.dumps(value, ensure_ascii=False)).strip('"')
+
+
+def _distinctive(lit: str) -> bool:
+    """A literal that names one example when said: a list, or a value of four or more characters. "true", "false" and "null" are
+    ordinary words in any follow-up, never a giveaway."""
+    return lit not in _PLAIN_RESULTS and (len(lit) >= 4 or lit.startswith("["))
+
+
+# The words that state an expected output: "the answer is 2", "it should return [0, 1]", "the output would be true".
+_RESULT_WORDS = r"(?<![a-z])(?:output|outputs|answer|result|returns?|returned|returning|gives?|giving|get|gets|expected|expect|equals?|should be|would be|will be|->|\u2192)"
+
+
+def _says_result(text: str, flat: str, lit: str) -> bool:
+    """The expected output is said as one: a distinctive value anywhere, a short one ("2", "true") only right after a result word."""
+    if _distinctive(lit):
+        return lit in flat
+    if not lit:
+        return False
+    return re.search(rf"{_RESULT_WORDS}\W*(?:(?:is|be|would be|should be|will be|of|just|simply)\W+)*{re.escape(lit)}(?!\w|\.\d)",
+                     text.lower()) is not None
+
+
+def _reads_test_case(text: str, flat: str, cases: list[tuple[list[str], str]]) -> str | None:
+    """A whole test case read aloud: one example's input together with its expected output. Naming one input, or part of one, to ask
+    a question about it ("what does your code do for [3, 3]?") is how an interviewer points at an example and stays allowed (decided
+    2026-10-28: the interviewer points to the examples on screen and never reads a complete one out)."""
+    for inputs, expected in cases:
+        said = [lit for lit in inputs if lit in flat]
+        if not said:
+            continue
+        rest = flat
+        for lit in said:
+            rest = rest.replace(lit, " ")       # an output inside the input it came with is not the output said
+        if _says_result(text, rest, expected):
+            return f"{said[0]} -> {expected}"
+    return None
+
+
 _KIND = re.compile(
     r"\b(?:graph|search|binary search|dynamic programming|dp|tree|stack|heap|greedy|sorting|backtracking|recursion|two[- ]pointers?|"
     r"sliding window|linked list|matrix|string|array|queue|trie|bfs|dfs|topological|interval|bit(?:wise)?)\b", re.IGNORECASE)
@@ -155,7 +195,7 @@ def _complexity_terms(text: str) -> set[str]:
 class LeakGuard:
     def __init__(self, blueprint: dict[str, Any]) -> None:
         self.solutions: dict[str, set[tuple[str, ...]]] = {}
-        self.examples: dict[str, list[str]] = {}
+        self.examples: dict[str, list[tuple[list[str], str]]] = {}   # per problem: each example's input literals and its expected output
         self.titles: list[str] = []
         self.names: list[tuple[str, re.Pattern[str]]] = []    # each problem's name as it may be spoken
         self.statements: dict[str, set[tuple[str, ...]]] = {}    # each problem's statement as runs of STATEMENT_GRAM words
@@ -169,15 +209,11 @@ class LeakGuard:
             key = (slot.get("answer_key") or {}).get("key") or {}
             self.solutions[sid] = _ngrams(((key.get("reference_solution") or {}).get("code")) or "")
             content = (slot.get("problem") or {}).get("content") or {}
-            literals: list[str] = []
+            cases: list[tuple[list[str], str]] = []
             for ex in (content.get("examples") or [])[:2]:
-                for value in [*(ex.get("args") or {}).values(), ex.get("expected")]:
-                    lit = _squash(json.dumps(value, ensure_ascii=False)).strip('"')
-                    if lit in _PLAIN_RESULTS:
-                        continue     # "true", "false" and "null" are ordinary words in any follow-up, never a giveaway
-                    if len(lit) >= 4 or lit.startswith("["):
-                        literals.append(lit)
-            self.examples[sid] = literals
+                inputs = [lit for value in (ex.get("args") or {}).values() if _distinctive(lit := _literal(value))]
+                cases.append((inputs, _literal(ex.get("expected"))))
+            self.examples[sid] = cases
             optimal = " ".join(str(a.get("idea") or "") for a in key.get("approaches") or [] if "brute" not in str(a.get("name") or "").lower())
             shown_text = (content.get("statement") or content.get("question") or "") + " " + ((slot.get("ask") or {}).get("opening") or "")
             self.insights[sid] = _stems(" ".join(str(i) for i in key.get("key_insights") or []) + " " + optimal) - _stems(shown_text) - _GENERIC_STEMS
@@ -212,9 +248,8 @@ class LeakGuard:
         if (v := self._solution(text)) is not None:
             return v
         flat = _squash(text)
-        for literal in self.examples.get(current_slot or "", []):
-            if literal in flat:
-                return Verdict(False, "example_read_aloud", literal)
+        if (case := _reads_test_case(text, flat, self.examples.get(current_slot or "", []))) is not None:
+            return Verdict(False, "example_read_aloud", case)
         if spoken and len(_PLAIN_WORD.findall(text.lower())) >= STATEMENT_MIN_WORDS:
             # Any problem of the round, shown yet or not: the interviewer never reads one out (screen text may quote it).
             grams = _word_grams(text)

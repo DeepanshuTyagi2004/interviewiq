@@ -16,7 +16,7 @@ One shared interviewer runs every round. What differs by round type is a **pack*
 3. **Level overlay**: one text per band (early: intern, fresher; mid: sde1, sde2; senior: sde3 and up; a missing level is mid).
 
 Per section the base lines come first, then the pack's; the overlay and the `log_turn` tail close the last section. The result is stored on the
-blueprint as the `rules` block (`version rules1`, `pack`, `band`, `talker`, `director`, `item_rules`, `flags`, `words`, `part_nouns`,
+blueprint as the `rules` block (`version rules2`, `pack`, `band`, `talker`, `director`, `item_rules`, `flags`, `words`, `part_nouns`,
 `banned_spoken`, `live_policies`, `focus`), so an interview keeps the rules it was prepared with. A blueprint without `rules` is composed at
 load from its round (`rules_of`), which for DSA gives the old text. `PREP_VERSION packs-1` makes the reconcile job re-prepare ready sessions.
 Policies are `pol2` (pol1 plus per-pack overrides in `live_policies`).
@@ -55,7 +55,7 @@ A behavioural (`culture-`) slot inside a dsa, lld or system-design round runs on
 
 ## Versions
 
-`RULES_VERSION rules1` · `POLICY_VERSION pol2` · `PREP_VERSION packs-1`.
+`RULES_VERSION rules2` (rules2, 2026-10-28: the DSA interviewer points to examples and never reads a whole test case aloud; prep was not re-run, stored blueprints keep their stricter rules1 text) · `POLICY_VERSION pol2` · `PREP_VERSION packs-1`.
 
 ## Owner follow-ups
 

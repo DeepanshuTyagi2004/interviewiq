@@ -100,7 +100,9 @@ describe('ProblemPanel', () => {
     await agent(SHOW)
     await agent({ type: 'panel.add_section', item_id: 'slot-1', section: { id: 'c', kind: 'constraints', title: 'Constraints', body: '1 <= n <= 10^5', author: 'interviewer' } })
     await agent({ type: 'panel.highlight', item_id: 'slot-1', highlight_id: 'h', quote: 'two distinct' })
-    expect(screen.getByRole('article', { name: 'Constraints' })).toHaveTextContent('1 <= n <= 10^5')
+    const constraints = screen.getByRole('article', { name: 'Constraints' })
+    expect(constraints).toHaveTextContent('1 ≤ n ≤ 10^5')
+    expect(constraints.querySelector('sup')).toHaveTextContent('5')
     const mark = document.querySelector('mark[data-author="interviewer"]')
     expect(mark).toHaveTextContent('two distinct')
   })
@@ -116,6 +118,26 @@ describe('ProblemPanel', () => {
     selectText(screen.getByTestId('statement-text'), 'at most')
     await userEvent.click(screen.getByRole('button', { name: 'Ask' }))
     expect(session.sentOf('ask.selection')[0]).toMatchObject({ surface: 'statement', quote: 'at most', item_id: 'slot-1' })
+  })
+
+  it('formats the statement and still quotes its source text when the candidate selects formatted text', async () => {
+    const { session, agent } = mount()
+    await agent({ ...SHOW, statement: 'Given `nums` with 1 <= n <= 10^5, return **the count**.' })
+    const text = screen.getByTestId('statement-text')
+    expect(text).toHaveTextContent('Given nums with 1 ≤ n ≤ 10^5, return the count.')
+    expect(text.querySelector('code')).toHaveTextContent('nums')
+    expect(text.querySelector('sup')).toHaveTextContent('5')
+    expect(text.querySelector('strong')).toHaveTextContent('the count')
+    const range = document.createRange()
+    range.setStart(text.querySelector('code')!.firstChild!.firstChild!, 0)
+    range.setEnd(text.querySelector('sup')!.firstChild!, 1)
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(range)
+    fireEvent.mouseUp(text)
+    await userEvent.click(screen.getByRole('button', { name: 'Highlight' }))
+    expect(session.sentOf('panel.highlight_added')[0]).toMatchObject({ quote: 'nums` with 1 <= n <= 10^5', occurrence: 0 })
+    const mark = document.querySelector('mark[data-author="candidate"]')!
+    expect(mark.querySelector('sup')).toHaveTextContent('5')
   })
 
   it('saves a candidate note', async () => {
@@ -156,7 +178,7 @@ describe('ProblemPanel activity', () => {
       statement: 'Find the pair. Return the indices.',
     })))
     const statement = screen.getByTestId('statement-text')
-    const text = statement.firstChild!.firstChild as Text
+    const text = document.createTreeWalker(statement, NodeFilter.SHOW_TEXT).nextNode() as Text
     const original = document.caretPositionFromPoint
     document.caretPositionFromPoint = (() => ({ offsetNode: text, offset: 18 })) as unknown as typeof document.caretPositionFromPoint
     try {
@@ -181,7 +203,7 @@ describe('ProblemPanel selection', () => {
       statement: 'Find the pair. Return the indices.',
     })))
     const statement = screen.getByTestId('statement-text')
-    const text = statement.firstChild!.firstChild as Text
+    const text = document.createTreeWalker(statement, NodeFilter.SHOW_TEXT).nextNode() as Text
     const range = document.createRange()
     range.setStart(text, 15)
     range.setEnd(text, 34)

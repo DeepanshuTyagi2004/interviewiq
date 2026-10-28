@@ -10,7 +10,7 @@ from app.rounds import behavioural, dsa, hiring_manager, lld, online_assessment,
 from app.rounds.base import BASE_DIRECTOR, BASE_DIRECTOR_HEAD, BASE_TALKER, BASE_TALKER_TAIL
 from app.rounds.pack import TALKER_HEADINGS, TALKER_SECTIONS, Band, RoundPack
 
-RULES_VERSION = "rules1"
+RULES_VERSION = "rules2"
 
 # Registered packs, keyed by round type or by family.
 PACKS: dict[str, RoundPack] = {"dsa": dsa.PACK, "system-design": system_design.PACK, "lld": lld.PACK, "behavioural": behavioural.PACK,

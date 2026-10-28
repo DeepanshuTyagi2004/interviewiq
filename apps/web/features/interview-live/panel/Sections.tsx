@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils/cn'
 import type { SectionKind } from '../protocol/messages'
 import type { ProblemCard } from '../workspace/panel'
 import { useWorkspace } from '../workspace/WorkspaceProvider'
+import { RichText } from './RichText'
 
 const KIND_LABEL: Record<SectionKind, string> = {
   constraints: 'Constraints',
@@ -41,7 +42,7 @@ export function Sections({ card }: { card: ProblemCard }) {
             />
           </div>
           {s.title !== KIND_LABEL[s.kind] ? <p className="m-0 mt-1.5 text-[13px] font-medium">{s.title}</p> : null}
-          <p className="m-0 mt-1 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-foreground">{s.body}</p>
+          <p className="m-0 mt-1 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-foreground"><RichText text={s.body} /></p>
         </article>
       ))}
       {draft === null ? (
