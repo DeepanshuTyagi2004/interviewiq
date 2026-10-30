@@ -38,3 +38,12 @@ def test_enrich_one_failure_keeps_raw_record():
     out = asyncio.run(enrich_one(_BoomLLM(), _rec()))
     assert out.enrichment_status == "enrich_failed"
     assert out.company_tags == []  # unchanged
+
+
+def test_enrich_keeps_reported_companies_and_marks_the_models_as_inferred():
+    rec = _rec().model_copy(update={"company_tags": ["flipkart"], "company_evidence": {"flipkart": "reported"}})
+    out = asyncio.run(enrich_one(_FakeLLM({"company_tags": ["Amazon"]}), rec))
+    assert out.company_tags == ["flipkart", "amazon"]
+    assert out.company_evidence == {"flipkart": "reported", "amazon": "inferred"}
+    plain = asyncio.run(enrich_one(_FakeLLM({"company_tags": ["Amazon"]}), _rec()))
+    assert plain.company_evidence == {"amazon": "inferred"}

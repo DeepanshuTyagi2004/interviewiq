@@ -1,0 +1,262 @@
+{
+ "source": "interviewiq-sd",
+ "url": "",
+ "note": "Our own list of common system design problems the public sources above miss, with Indian-market systems candidates are asked about. Titles only; no company tags.",
+ "problems": [
+  {
+   "title": "Design a UPI payments system"
+  },
+  {
+   "title": "Design a digital wallet like Paytm"
+  },
+  {
+   "title": "Design a double-entry ledger service for payments"
+  },
+  {
+   "title": "Design payment reconciliation with banks"
+  },
+  {
+   "title": "Design a fraud detection system for payments"
+  },
+  {
+   "title": "Design a KYC onboarding service"
+  },
+  {
+   "title": "Design a subscription billing and invoicing system"
+  },
+  {
+   "title": "Design a loan origination and EMI system"
+  },
+  {
+   "title": "Design a stock trading platform like Zerodha Kite"
+  },
+  {
+   "title": "Design a stock exchange order-matching engine"
+  },
+  {
+   "title": "Design a flash sale system for an e-commerce big sale day"
+  },
+  {
+   "title": "Design an e-commerce product catalogue and search"
+  },
+  {
+   "title": "Design a shopping cart and checkout service"
+  },
+  {
+   "title": "Design an inventory management system across warehouses"
+  },
+  {
+   "title": "Design an order management system with returns"
+  },
+  {
+   "title": "Design a coupon and offers engine"
+  },
+  {
+   "title": "Design a price drop alert service"
+  },
+  {
+   "title": "Design a product review and rating system"
+  },
+  {
+   "title": "Design a recommendation system for an e-commerce home page"
+  },
+  {
+   "title": "Design a hotel booking system like OYO"
+  },
+  {
+   "title": "Design a movie ticket booking system like BookMyShow"
+  },
+  {
+   "title": "Design a train ticket booking system like IRCTC with Tatkal"
+  },
+  {
+   "title": "Design a flight search and booking system"
+  },
+  {
+   "title": "Design a ride-hailing platform like Ola"
+  },
+  {
+   "title": "Design ETA prediction for rides and deliveries"
+  },
+  {
+   "title": "Design a geofencing service for delivery zones"
+  },
+  {
+   "title": "Design a nearby places service like Google Maps search"
+  },
+  {
+   "title": "Design live cricket score updates for millions of users"
+  },
+  {
+   "title": "Design live video streaming for a sports final (Hotstar scale)"
+  },
+  {
+   "title": "Design a short-video feed like Instagram Reels"
+  },
+  {
+   "title": "Design Instagram Stories"
+  },
+  {
+   "title": "Design a chat application like Slack"
+  },
+  {
+   "title": "Design a group video calling system like Zoom"
+  },
+  {
+   "title": "Design an email service like Gmail"
+  },
+  {
+   "title": "Design a cloud file storage service like Google Drive"
+  },
+  {
+   "title": "Design a photo storage service like Google Photos"
+  },
+  {
+   "title": "Design a collaborative whiteboard"
+  },
+  {
+   "title": "Design an online code judge like LeetCode"
+  },
+  {
+   "title": "Design an online code editor with real-time collaboration"
+  },
+  {
+   "title": "Design an online exam proctoring system"
+  },
+  {
+   "title": "Design an e-learning video platform for students"
+  },
+  {
+   "title": "Design a college placement portal"
+  },
+  {
+   "title": "Design a news aggregator"
+  },
+  {
+   "title": "Design Reddit"
+  },
+  {
+   "title": "Design Quora"
+  },
+  {
+   "title": "Design Stack Overflow"
+  },
+  {
+   "title": "Design LinkedIn connections and feed"
+  },
+  {
+   "title": "Design a dating app like Tinder"
+  },
+  {
+   "title": "Design Airbnb"
+  },
+  {
+   "title": "Design a hashtag and trending topics service"
+  },
+  {
+   "title": "Design a comments system for a news site"
+  },
+  {
+   "title": "Design an online presence (last seen) service"
+  },
+  {
+   "title": "Design an OTP and SMS delivery service"
+  },
+  {
+   "title": "Design a single sign-on authentication service"
+  },
+  {
+   "title": "Design an API gateway"
+  },
+  {
+   "title": "Design a distributed cache"
+  },
+  {
+   "title": "Design a distributed message queue like Kafka"
+  },
+  {
+   "title": "Design a distributed lock service"
+  },
+  {
+   "title": "Design a workflow orchestration engine"
+  },
+  {
+   "title": "Design a service discovery system"
+  },
+  {
+   "title": "Design a configuration management service"
+  },
+  {
+   "title": "Design a feature flag and A/B testing platform"
+  },
+  {
+   "title": "Design a CI/CD pipeline system"
+  },
+  {
+   "title": "Design a metrics monitoring and alerting system"
+  },
+  {
+   "title": "Design a centralized log search system"
+  },
+  {
+   "title": "Design distributed tracing"
+  },
+  {
+   "title": "Design an ad click aggregator"
+  },
+  {
+   "title": "Design a web analytics system like Google Analytics"
+  },
+  {
+   "title": "Design a YouTube view counter"
+  },
+  {
+   "title": "Design a like counter for viral posts"
+  },
+  {
+   "title": "Design a real-time gaming leaderboard"
+  },
+  {
+   "title": "Design a multiplayer online game backend"
+  },
+  {
+   "title": "Design a time-series database"
+  },
+  {
+   "title": "Design a search autocomplete for an e-commerce app"
+  },
+  {
+   "title": "Design an ETL pipeline for daily reports"
+  },
+  {
+   "title": "Design a data lake ingestion pipeline"
+  },
+  {
+   "title": "Design a calendar and meeting scheduling service"
+  },
+  {
+   "title": "Design a ticketing system for customer support"
+  },
+  {
+   "title": "Design a podcast streaming service"
+  },
+  {
+   "title": "Design a food menu and restaurant onboarding service"
+  },
+  {
+   "title": "Design a parking space reservation system"
+  },
+  {
+   "title": "Design an electric vehicle charging network"
+  },
+  {
+   "title": "Design a hospital appointment and records system"
+  },
+  {
+   "title": "Design a weather forecast service"
+  },
+  {
+   "title": "Design a reliable webhook delivery service (retries, idempotency, ordering)"
+  }
+ ]
+}

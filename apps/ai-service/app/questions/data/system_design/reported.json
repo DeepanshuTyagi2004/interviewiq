@@ -1,0 +1,50 @@
+{
+ "source": "reported-sd",
+ "url": "",
+ "note": "Domain system design questions that public guides report for Indian product companies; each has its own source.",
+ "problems": [
+  {
+   "title": "Design a food delivery platform end to end (orders, restaurants, delivery partners)",
+   "company_tags": [
+    "swiggy",
+    "zomato"
+   ],
+   "url": "https://jobrise.io/en/blog/swiggy-interview-questions-freshers-2026/"
+  },
+  {
+   "title": "Design restaurant search and ranking",
+   "company_tags": [
+    "zomato"
+   ],
+   "url": "https://www.placementpreparation.io/blog/zomato-interview-questions-and-experience/"
+  },
+  {
+   "title": "Design delivery partner assignment for food orders",
+   "company_tags": [
+    "zomato"
+   ],
+   "url": "https://www.placementpreparation.io/blog/zomato-interview-questions-and-experience/"
+  },
+  {
+   "title": "Design a quick-commerce grocery delivery system (10-minute delivery)",
+   "company_tags": [
+    "swiggy"
+   ],
+   "url": "https://jobrise.io/en/blog/swiggy-interview-questions-freshers-2026/"
+  },
+  {
+   "title": "Design a payment gateway",
+   "company_tags": [
+    "razorpay"
+   ],
+   "url": "https://spacecomplexity.ai/blog/razorpay-system-design-interview"
+  },
+  {
+   "title": "Design a cab booking system",
+   "company_tags": [
+    "flipkart"
+   ],
+   "url": "https://jobrise.io/en/blog/flipkart-meesho-zomato-interview-india/"
+  }
+ ]
+}

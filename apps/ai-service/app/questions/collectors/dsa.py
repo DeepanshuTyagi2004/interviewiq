@@ -1,5 +1,7 @@
-"""DSA collectors. Three structured sources merged later by leetcode slug:
+"""DSA collectors. Four structured sources merged later by leetcode slug:
   - snehasishroy/leetcode-companywise-interview-questions: company-folder CSVs (company_tags!)
+  - liquidslr/interview-company-wise-problems: the same shape for ~470 companies, with topics
+    (adds Indian companies the first lacks: Wipro, Meesho, CRED)
   - NeetCode 150: vendored JSON (topic patterns)
   - Kaggle leetcode dataset: vendored CSV (topics, acceptance, premium)
 All deterministic — no LLM. Headers are matched case-insensitively (sources vary slightly)."""
@@ -48,7 +50,8 @@ def _to_float(v: str | None) -> float | None:
         return None
 
 
-def parse_snehasishroy_csv(text: str, company: str) -> list[QuestionRecord]:
+def parse_snehasishroy_csv(text: str, company: str, source: str = "snehasishroy",
+                           with_acceptance: bool = True) -> list[QuestionRecord]:
     out: list[QuestionRecord] = []
     for row in csv.DictReader(io.StringIO(text)):
         link = _pick(row, "Link", "Leetcode Question Link", "url")
@@ -58,10 +61,11 @@ def parse_snehasishroy_csv(text: str, company: str) -> list[QuestionRecord]:
         out.append(QuestionRecord(
             slug=slug, round_type=RoundType.DSA,
             title=(_pick(row, "Title") or slug).strip(),
-            url=link, sources=["snehasishroy"], company_tags=[company],
+            url=link, sources=[source], company_tags=[company],
             difficulty=_pick(row, "Difficulty"),
             frequency_score=_to_float(_pick(row, "Frequency")),
-            acceptance_rate=_to_float(_pick(row, "Acceptance Rate", "Acceptance", "Acceptance %")),
+            acceptance_rate=_to_float(_pick(row, "Acceptance Rate", "Acceptance", "Acceptance %")) if with_acceptance else None,
+            topic_tags=[t.strip() for t in re.split(r"[;,]", _pick(row, "Topics") or "") if t.strip()],
         ))
     return out
 
@@ -70,20 +74,27 @@ def _is_all_window(path: str) -> bool:
     return "all" in path.rsplit("/", 1)[-1].lower()
 
 
-def parse_snehasishroy_tree(files: dict[str, bytes]) -> list[QuestionRecord]:
+def company_tag(folder: str) -> str:
+    """'Walmart Labs' -> 'walmart-labs', the shape snehasishroy's folders already have."""
+    return re.sub(r"[^a-z0-9]+", "-", folder.strip().lower()).strip("-")
+
+
+def parse_snehasishroy_tree(files: dict[str, bytes], source: str = "snehasishroy",
+                            with_acceptance: bool = True) -> list[QuestionRecord]:
     """Walk company folders; per company use the 'All'-window CSV (broadest), else any CSV."""
     by_company: dict[str, list[str]] = {}
     for path in files:
         if not path.lower().endswith(".csv") or "/" not in path:
             continue
-        company = path.split("/", 1)[0].strip().lower()
-        by_company.setdefault(company, []).append(path)
+        company = company_tag(path.split("/", 1)[0])
+        if company:
+            by_company.setdefault(company, []).append(path)
     out: list[QuestionRecord] = []
     for company, paths in by_company.items():
         chosen = next((p for p in paths if _is_all_window(p)), sorted(paths)[-1])
         text = files[chosen].decode("utf-8", errors="replace")
-        out.extend(parse_snehasishroy_csv(text, company))
-    logger.info("[questions] snehasishroy: %d companies, %d rows", len(by_company), len(out))
+        out.extend(parse_snehasishroy_csv(text, company, source, with_acceptance))
+    logger.info("[questions] %s: %d companies, %d rows", source, len(by_company), len(out))
     return out
 
 
@@ -91,6 +102,7 @@ from app.questions.github import GithubFetchError, fetch_repo_files  # noqa: E40
 from app.questions.kaggle import fetch_kaggle_csv  # noqa: E402
 
 _SNEHASISHROY = ("snehasishroy", "leetcode-companywise-interview-questions", "master")
+_LIQUIDSLR = ("liquidslr", "interview-company-wise-problems", "main")
 
 
 async def collect_snehasishroy(settings) -> list[QuestionRecord]:
@@ -99,6 +111,16 @@ async def collect_snehasishroy(settings) -> list[QuestionRecord]:
         return parse_snehasishroy_tree(files)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[questions] snehasishroy fetch failed (%s) — skipping", exc)
+        return []
+
+
+async def collect_liquidslr(settings) -> list[QuestionRecord]:
+    """Its acceptance column is not a percentage (Container With Most Water reads 0.006), so it is not kept."""
+    try:
+        files = await fetch_repo_files(*_LIQUIDSLR, settings)
+        return parse_snehasishroy_tree(files, "liquidslr", with_acceptance=False)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] liquidslr fetch failed (%s) — skipping", exc)
         return []
 
 

@@ -131,7 +131,8 @@ def test_collect_behavioural_all_behavioural_round_type(monkeypatch):
     monkeypatch.setattr(bh, "fetch_repo_files", _fake_files())
     recs = asyncio.run(collect_behavioural(_settings()))
     assert len(recs) > 50  # scraped + vendored
-    assert all(r.round_type == RoundType.BEHAVIOURAL for r in recs)
+    assert all(r.round_type in (RoundType.BEHAVIOURAL, RoundType.HIRING_MANAGER) for r in recs)
+    assert any(r.round_type == RoundType.HIRING_MANAGER for r in recs)
     assert len({r.slug for r in recs}) == len(recs)  # no dup slugs
 
 
@@ -143,4 +144,29 @@ def test_collect_behavioural_fail_safe_when_repos_404(monkeypatch):
     recs = asyncio.run(collect_behavioural(_settings()))
     assert len(recs) >= 50
     assert all(r.sources[0] in ("amazon-leadership-principles", "google-googleyness", "atlassian-values",
-                                "microsoft-culture") for r in recs)
+                                "microsoft-culture", "interviewiq-behavioural", "interviewiq-hiring-manager") for r in recs)
+
+
+def test_own_competency_and_hiring_manager_sets_fill_every_slot_category():
+    s = MagicMock()
+    s.questions_data_dir = _DATA_DIR
+    recs = bh._collect_vendored(s)
+    beh = [r for r in recs if r.sources == ["interviewiq-behavioural"]]
+    hm = [r for r in recs if r.sources == ["interviewiq-hiring-manager"]]
+    for category in ("conflict-teamwork", "failure-learning", "leadership-ownership", "strengths-weaknesses", "self-introduction"):
+        assert sum(r.category == category for r in beh) >= 8, category
+    assert all(r.round_type == RoundType.BEHAVIOURAL and not r.company_tags for r in beh)
+    assert all(r.round_type == RoundType.HIRING_MANAGER for r in hm)
+    assert {r.category for r in hm} == {"hr", "leadership-ownership", "strengths-weaknesses"}
+    # Nothing the intro phase already asks.
+    from app.blueprint.selection import _INTRO
+    assert not any(_INTRO.search(r.title) for r in beh + hm)
+
+
+def test_job_assuming_hiring_manager_questions_are_kept_from_freshers():
+    from app.blueprint.selection import _ASSUMES_A_JOB
+    for title in ("What is your notice period, and can it be shortened?",
+                  "Why are you looking for a change from your current role?",
+                  "What would your previous team say they miss about working with you?"):
+        assert _ASSUMES_A_JOB.search(title), title
+    assert not _ASSUMES_A_JOB.search("Are you open to relocating to another city for this role?")

@@ -18,6 +18,8 @@ from app.questions.collectors.behavioural import collect_behavioural
 from app.questions.collectors.briefs import collect_brief_problems
 from app.questions.collectors.lld import collect_lld
 from app.questions.collectors.system_design import collect_system_design
+from app.questions.collectors.vendored_design import collect_vendored_design
+from app.models.brief import RoundType
 from app.questions.enrich import enrich_one
 from app.questions.hashing import compute_source_hash
 from app.questions.merge import merge_dsa
@@ -56,6 +58,7 @@ async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
     # so write directly, skipping only items whose source_hash is unchanged.
     direct = merge_dsa([
         await dsa_collector.collect_snehasishroy(settings),
+        await dsa_collector.collect_liquidslr(settings),
         await dsa_collector.collect_neetcode(settings),
         await dsa_collector.collect_kaggle(settings),
     ])
@@ -71,7 +74,8 @@ async def collect_questions(settings: Settings, *, force: bool = False) -> dict:
         await _store(r, settings, stamp)
 
     # SD/LLD — stamp source hashes BEFORE gathering (plan: source_hash set before gather_capped).
-    seeds = [*await collect_system_design(settings), *await collect_lld(settings)]
+    seeds = [*await collect_system_design(settings), *collect_vendored_design(settings, RoundType.SYSTEM_DESIGN),
+             *await collect_lld(settings), *collect_vendored_design(settings, RoundType.LLD)]
     for s in seeds:
         s.source_hash = compute_source_hash(s)
         counts[s.round_type.value] += 1

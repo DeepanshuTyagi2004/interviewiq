@@ -9,7 +9,7 @@ Sources:
   - yangshun/tech-interview-handbook  → general + per-company behavioural (scraped md)
   - rohan-paul/Awesome-JavaScript-Interviews → Indian-company HR / soft questions (scraped md)
   - vendored JSON (<data_dir>/behavioural/*.json) → Amazon Leadership Principles, Google Googleyness,
-    Atlassian values, Microsoft culture
+    Atlassian values, Microsoft culture, our own competency set and a hiring-manager set
 """
 from __future__ import annotations
 
@@ -32,6 +32,8 @@ _PREFIX = {
     "google-googleyness": "ggl",
     "atlassian-values": "atl",
     "microsoft-culture": "msc",
+    "interviewiq-behavioural": "iqb",
+    "interviewiq-hiring-manager": "iqhm",
 }
 
 _TIH_FILE = "apps/website/contents/behavioral-interview-questions.md"
@@ -192,6 +194,7 @@ async def _collect_rohan(settings) -> list[QuestionRecord]:
 # --- vendored static JSON (Amazon LP, Googleyness, Atlassian values, Microsoft culture) ---
 
 def _collect_vendored(settings) -> list[QuestionRecord]:
+    """A file may set `round_type` (default behavioural) and each question its own `category`."""
     data_dir = os.path.join(settings.questions_data_dir, "behavioural")
     recs: list[QuestionRecord] = []
     for path in sorted(glob.glob(os.path.join(data_dir, "*.json"))):
@@ -199,15 +202,16 @@ def _collect_vendored(settings) -> list[QuestionRecord]:
             with open(path, encoding="utf-8") as f:
                 doc = json.load(f)
             source = doc["source"]
-            url = doc["url"]
+            url = doc.get("url") or ""
             company_tags = doc.get("company_tags", [])
             category = doc.get("category")
+            round_type = RoundType(doc.get("round_type", RoundType.BEHAVIOURAL.value))
             for q in doc["questions"]:
                 principle = q.get("principle")
                 recs.append(_make_record(
                     q["title"], url, source,
-                    company_tags=company_tags, category=category,
-                    topic_tags=[principle] if principle else None))
+                    company_tags=company_tags, category=q.get("category") or category,
+                    topic_tags=[principle] if principle else None, round_type=round_type))
         except Exception as exc:  # noqa: BLE001 — one bad seed file must not abort the run
             logger.warning("[questions] vendored behavioural %s failed (%s) — skipping", path, exc)
     logger.info("[questions] vendored behavioural: %d records", len(recs))
@@ -217,11 +221,12 @@ def _collect_vendored(settings) -> list[QuestionRecord]:
 # --- record + merge ---
 
 def _make_record(title: str, url: str, source: str, *, company_tags=None,
-                 category: str | None = None, topic_tags=None) -> QuestionRecord:
+                 category: str | None = None, topic_tags=None,
+                 round_type: RoundType = RoundType.BEHAVIOURAL) -> QuestionRecord:
     prefix = _PREFIX.get(source, source)
     return QuestionRecord(
         slug=f"{prefix}/{_slug(title)}",
-        round_type=RoundType.BEHAVIOURAL,
+        round_type=round_type,
         title=title,
         url=url,
         sources=[source],

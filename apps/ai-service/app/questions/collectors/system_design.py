@@ -1,4 +1,4 @@
-"""System-Design live collectors. Four repos, each independently fail-safe.
+"""System-Design live collectors. Six repos, each independently fail-safe.
 # ponytail: README parsing is brittle by nature; each repo is independently fail-safe so
 # an upstream restructure drops that source to 0, never breaks the run."""
 from __future__ import annotations
@@ -9,6 +9,7 @@ import re
 from app.models.brief import RoundType
 from app.questions.github import fetch_repo_files
 from app.questions.parse_md import extract_md_problems
+from app.questions.quality import is_design_problem
 from app.questions.models import QuestionRecord
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,8 @@ _PREFIX = {
     "system-design": "ksd",
     "awesome-system-design": "asd",
     "interviewready": "irsd",
+    "checkcheckzz": "ccz",
+    "grokking-sd": "gksd",
 }
 
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
@@ -187,10 +190,59 @@ async def _collect_interviewready(settings) -> list[QuestionRecord]:
         return []
 
 
+# --- checkcheckzz/system-design-interview ---
+
+def _parse_checkcheckzz_readme(text: str) -> list[dict]:
+    """Bold '**Design a CDN network**' lines in the 'Hot Questions and Reference' section."""
+    m = re.search(r"name='qs'>Hot Questions(.*?)(?:\n### |\Z)", text, re.DOTALL)
+    if not m:
+        return []
+    url = "https://github.com/checkcheckzz/system-design-interview#qs"
+    out, seen = [], set()
+    for t in re.findall(r"^\*\*(Design[^*]+)\*\*", m.group(1), re.MULTILINE):
+        title = t.strip()
+        if title.lower() not in seen:
+            seen.add(title.lower())
+            out.append({"title": title, "url": url})
+    return out
+
+
+async def _collect_checkcheckzz(settings) -> list[QuestionRecord]:
+    try:
+        files = await fetch_repo_files("checkcheckzz", "system-design-interview", "master", settings)
+        readme = files.get("README.md", b"").decode("utf-8", errors="replace")
+        return [_make_record(i["title"], i["url"], "checkcheckzz") for i in _parse_checkcheckzz_readme(readme)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] checkcheckzz fetch failed (%s) — skipping", exc)
+        return []
+
+
+# --- Jeevan-kumar-Raj/Grokking-System-Design ---
+
+def _parse_grokking_summary(text: str) -> list[dict]:
+    """The 'Designs' list in SUMMARY.md: '- [Short URL Service](designs/short-url.md)'."""
+    m = re.search(r"^\* Designs\s*$(.*?)(?:^\* |\Z)", text, re.DOTALL | re.MULTILINE)
+    if not m:
+        return []
+    base = "https://github.com/Jeevan-kumar-Raj/Grokking-System-Design/blob/master/"
+    return [{"title": f"Design {t.strip()}", "url": base + u.strip()}
+            for t, u in re.findall(r"\[([^\]]+)\]\((designs/[^)]+)\)", m.group(1))]
+
+
+async def _collect_grokking_sd(settings) -> list[QuestionRecord]:
+    try:
+        files = await fetch_repo_files("Jeevan-kumar-Raj", "Grokking-System-Design", "master", settings)
+        summary = files.get("SUMMARY.md", b"").decode("utf-8", errors="replace")
+        return [_make_record(i["title"], i["url"], "grokking-sd") for i in _parse_grokking_summary(summary)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] grokking-sd fetch failed (%s) — skipping", exc)
+        return []
+
+
 # --- main collector ---
 
 async def collect_system_design(settings) -> list[QuestionRecord]:
-    """Fetch all 4 SD repos (each fail-safe). Merge and de-dupe by slug."""
+    """Fetch all 6 SD repos (each fail-safe). Merge and de-dupe by slug."""
     results: list[QuestionRecord] = []
     seen_slugs: set[str] = set()
     for sub in [
@@ -198,10 +250,14 @@ async def collect_system_design(settings) -> list[QuestionRecord]:
         await _collect_karanpratapsingh(settings),
         await _collect_ashishps1(settings),
         await _collect_interviewready(settings),
+        await _collect_checkcheckzz(settings),
+        await _collect_grokking_sd(settings),
     ]:
         for r in sub:
+            if not is_design_problem(r.title):
+                continue          # a concept ("Caching") or a reading list, not a system to design
             if r.slug not in seen_slugs:
                 seen_slugs.add(r.slug)
                 results.append(r)
-    logger.info("[questions] system-design: %d records from 4 repos", len(results))
+    logger.info("[questions] system-design: %d records from 6 repos", len(results))
     return results

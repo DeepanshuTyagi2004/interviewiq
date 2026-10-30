@@ -1,0 +1,179 @@
+{
+ "source": "kumaransg-lld",
+ "url": "https://github.com/kumaransg/LLD",
+ "note": "Machine coding problems from kumaransg/LLD; a company tag only where the folder or its readme names the company.",
+ "problems": [
+  {
+   "title": "Design FoodKart, an online food ordering service",
+   "url": "https://github.com/kumaransg/LLD/tree/master/FoodKart",
+   "company_tags": [
+    "flipkart"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Coding Blox, an online coding contest platform",
+   "url": "https://leetcode.com/discuss/interview-question/object-oriented-design/1177601/Flipkart-or-Machine-Coding-or-Design-Online-Coding-Platform-CODING-BLOX-Leetcode-LLD",
+   "company_tags": [
+    "flipkart"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Bowling Alley scoring system",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/Bowling-Alley-Machine-Coding-Flipkart",
+   "company_tags": [
+    "flipkart"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design an Event Calendar",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Event_calendar_flipkart",
+   "company_tags": [
+    "flipkart"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Jira-like issue tracker",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/jira-fk",
+   "company_tags": [
+    "flipkart"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design an in-memory Pub-Sub message broker",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/pub-sub%20Phonepe",
+   "company_tags": [
+    "phonepe"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design delivery partner assignment for food orders",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/SwiggyDeliveryBoy",
+   "company_tags": [
+    "swiggy"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Cricket Match Dashboard (scorecard)",
+   "url": "https://leetcode.com/discuss/interview-question/990227/udaan-assignment-cricket-match-dashboard",
+   "company_tags": [
+    "udaan"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Ledger Co, a loan ledger with EMIs and lump-sum payments",
+   "url": "https://www.geektrust.in/coding-problem/backend/ledger-co",
+   "company_tags": [
+    "navi"
+   ],
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a stock exchange order-matching system",
+   "url": "https://github.com/kumaransg/LLD/tree/master/StockExchange",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design PropertyHunt, a property listing and search console app",
+   "url": "https://github.com/kumaransg/LLD/tree/master/PropertyHunt",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a multi-level cache",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/Multi-Level-Cache",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a hit counter",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/HitCounter",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a T9 dictionary",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/T9Dictionary",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a text editor with undo and redo",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/texteditor",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a file and directory system",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/FileAndDirectorySystem",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a coupon and discount engine",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/Coupon",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a country election system",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/CountryElectionSystem",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a rule matcher",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/RuleMatcher",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a flight tracking system",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/FlightTrackingSystem",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design an Othello game",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/OthelloGame",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Battleship game",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Problem_set_2/battleship",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Connect Four game",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Problem_set_2/connect4",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a custom thread pool executor",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Problem_set_2/customThreadPoolExecutor",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a multi-threaded message queue",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Problem_set_2/multiThreadedMessageQueue",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a task scheduler",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Problem_set_2/TaskSchedulerLLD",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a smart home controller",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/smartHome",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a robot vacuum cleaner",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/vacuumcleaner",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a single-writer multiple-reader lock",
+   "url": "https://github.com/kumaransg/LLD/tree/master/Low_level_Design_Problems/SingleWriteMultipleReadLock",
+   "is_machine_coding": true
+  }
+ ]
+}

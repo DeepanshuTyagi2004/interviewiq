@@ -1,0 +1,152 @@
+{
+ "source": "interviewiq-hiring-manager",
+ "url": "",
+ "round_type": "hiring-manager",
+ "note": "Our own hiring-manager and HR questions: motivation and logistics (hr), project deep-dives (leadership-ownership) and self-awareness. Questions that assume a current job are dropped for freshers by selection.",
+ "questions": [
+  {
+   "title": "Why do you want to join this company in particular?",
+   "category": "hr"
+  },
+  {
+   "title": "Why are you looking for a change from your current role?",
+   "category": "hr"
+  },
+  {
+   "title": "What are your salary expectations, and how did you arrive at them?",
+   "category": "hr"
+  },
+  {
+   "title": "What is your notice period, and can it be shortened?",
+   "category": "hr"
+  },
+  {
+   "title": "Are you open to relocating to another city for this role?",
+   "category": "hr"
+  },
+  {
+   "title": "Are you comfortable working in shifts or with teams in other time zones?",
+   "category": "hr"
+  },
+  {
+   "title": "Do you have other offers or interviews in progress?",
+   "category": "hr"
+  },
+  {
+   "title": "What do you know about what our team builds?",
+   "category": "hr"
+  },
+  {
+   "title": "What would make you leave a job within the first year?",
+   "category": "hr"
+  },
+  {
+   "title": "Are you comfortable with a service agreement or training bond?",
+   "category": "hr"
+  },
+  {
+   "title": "Would you prefer working on a product, a platform or client projects, and why?",
+   "category": "hr"
+  },
+  {
+   "title": "How do you decide between two job offers?",
+   "category": "hr"
+  },
+  {
+   "title": "What does a good manager do for you?",
+   "category": "hr"
+  },
+  {
+   "title": "Do you have any questions for me about the role or the team?",
+   "category": "hr"
+  },
+  {
+   "title": "Why should we hire you over other candidates with similar skills?",
+   "category": "hr"
+  },
+  {
+   "title": "How do you plan to grow in your first six months here?",
+   "category": "hr"
+  },
+  {
+   "title": "What kind of team culture do you work best in?",
+   "category": "hr"
+  },
+  {
+   "title": "Are you open to working in a different technology stack from the one you know?",
+   "category": "hr"
+  },
+  {
+   "title": "Walk me through the most significant project on your resume: the problem, your role and the result.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "In that project, which design decision would you change now, and why?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "What was the hardest trade-off you made in a project you owned?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "How did you measure whether your project succeeded?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a production issue or demo failure you owned. What happened next?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Which part of your project would break first if usage grew ten times?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "What did you build yourself in your project, and what came from libraries or teammates?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "How did you test your project, and what bugs did testing catch?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "If you had two more weeks on your best project, what would you add?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "How did you decide which technologies to use in your project?",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you had to explain your project's progress to a manager or professor.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe how you planned and tracked the work in your last project.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "What do you expect to find hardest in this role?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "Which skill from the job description are you least confident in, and how will you close the gap?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What feedback did your last manager, mentor or professor give you?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How do you handle being given work you find boring?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What would your previous team say they miss about working with you?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How do you react when priorities change suddenly?",
+   "category": "strengths-weaknesses"
+  }
+ ]
+}

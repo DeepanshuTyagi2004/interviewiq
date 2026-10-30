@@ -1,4 +1,4 @@
-"""LLD live collectors. Three repos, each independently fail-safe.
+"""LLD live collectors. Four repos, each independently fail-safe.
 # ponytail: README/solutions.md parsing is brittle; each repo is fail-safe."""
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from app.questions.models import QuestionRecord
 
 logger = logging.getLogger(__name__)
 
-_PREFIX = {"lld-primer": "lldp", "machine-coding": "mcq", "grokking-ood": "ood"}
+_PREFIX = {"lld-primer": "lldp", "machine-coding": "mcq", "grokking-ood": "ood", "awesome-lld": "alld"}
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
 _VIDEO_HOSTS = ('youtube.com', 'youtu.be')
 
@@ -179,20 +179,50 @@ async def _collect_grokking(settings) -> list[QuestionRecord]:
         return []
 
 
+# --- ashishps1/awesome-low-level-design ---
+
+_DESIGNING_RE = re.compile(r"^#\s+Designing\s+(.+?)(?:\s+in\s+(?:Java|Python|C\+\+))?\s*$", re.I)
+
+
+def enumerate_awesome_lld(files: dict[str, bytes]) -> list[dict]:
+    """problems/<name>.md, each opening '# Designing a Parking Lot System' (title: 'Design a Parking Lot System')."""
+    out = []
+    for path in sorted(files):
+        parts = path.split('/')
+        if len(parts) != 2 or parts[0] != 'problems' or not parts[1].endswith('.md'):
+            continue
+        first = next((l for l in files[path].decode("utf-8", errors="replace").splitlines() if l.strip()), "")
+        m = _DESIGNING_RE.match(first.strip())
+        name = m.group(1).strip() if m else _humanize(parts[1][:-3])   # keeps the source's own article
+        out.append({"title": f"Design {name}",
+                    "url": f"https://github.com/ashishps1/awesome-low-level-design/blob/main/{path}"})
+    return out
+
+
+async def _collect_awesome_lld(settings) -> list[QuestionRecord]:
+    try:
+        files = await fetch_repo_files("ashishps1", "awesome-low-level-design", "main", settings)
+        return [_make_record(i["title"], i["url"], "awesome-lld") for i in enumerate_awesome_lld(files)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[questions] awesome-lld fetch failed (%s) — skipping", exc)
+        return []
+
+
 # --- main collector ---
 
 async def collect_lld(settings) -> list[QuestionRecord]:
-    """Fetch all 3 LLD repos (each fail-safe). Returns merged records."""
+    """Fetch all 4 LLD repos (each fail-safe). Returns merged records."""
     results: list[QuestionRecord] = []
     seen_slugs: set[str] = set()
     for sub in [
         await _collect_lld_primer(settings),
         await _collect_machine_coding(settings),
         await _collect_grokking(settings),
+        await _collect_awesome_lld(settings),
     ]:
         for r in sub:
             if r.slug not in seen_slugs:
                 seen_slugs.add(r.slug)
                 results.append(r)
-    logger.info("[questions] lld: %d records from 3 repos", len(results))
+    logger.info("[questions] lld: %d records from 4 repos", len(results))
     return results

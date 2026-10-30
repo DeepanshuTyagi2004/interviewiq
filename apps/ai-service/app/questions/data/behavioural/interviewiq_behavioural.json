@@ -1,0 +1,327 @@
+{
+ "source": "interviewiq-behavioural",
+ "url": "",
+ "note": "Our own competency questions, worded so a fresher can answer from college projects, internships or hackathons. Selection drops job-assuming questions for interns and freshers, so none are needed here.",
+ "questions": [
+  {
+   "title": "Tell me about a time you disagreed with a teammate on a technical approach. How did you resolve it?",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a group project where one member was not contributing. What did you do?",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to work with someone you found difficult.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you changed your mind after hearing a teammate's argument.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time two people on your team were in conflict and you helped them move forward.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you had to give a peer feedback on their code or work.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you received criticism from a teammate. How did you respond?",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time your team missed a deadline. What was your role and what did you change?",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to collaborate with people from a different team or discipline.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you helped a teammate who was stuck, even though it delayed your own work.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to explain a technical idea to someone without a technical background.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you and a reviewer disagreed in a code review.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to work in a team where everyone was remote or in different places.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe how you divided work in your last group or team project, and what you would do differently.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to say no to a request from a teammate or senior.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you built trust with a new team quickly.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you had to compromise on your preferred solution for the team.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time a misunderstanding caused a problem in a team. How was it fixed?",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you mentored or taught a classmate or junior colleague.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Describe a time you had to rely on someone else to finish your part of the work.",
+   "category": "conflict-teamwork"
+  },
+  {
+   "title": "Tell me about a time you failed at something important. What did you learn?",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a bug you shipped or a mistake in a project. How did you find and fix it?",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a project that did not go as planned. What would you do differently?",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time you underestimated how long something would take.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you had to learn a new technology quickly to finish a task.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe the hardest technical problem you have debugged.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you got negative feedback. What did you change afterwards?",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time you made a wrong assumption about requirements.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you did not meet a goal you set for yourself.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time a test, exam or interview went badly and how you prepared differently next time.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you had to recover a project after a setback.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a decision you regret and what it taught you.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you had to admit you did not know something.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time you broke something in production or in a shared environment.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you persisted with a problem for a long time before solving it.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe something you taught yourself outside of class or work, and how you went about it.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you had to abandon an approach halfway through.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time you had too many things to do and something slipped.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a skill you were weak at and how you improved it.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Describe a time you asked for help later than you should have.",
+   "category": "failure-learning"
+  },
+  {
+   "title": "Tell me about a time you took ownership of a problem nobody else was handling.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a project you led from idea to finish.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you went beyond what was asked of you.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you had to make a decision with incomplete information.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you convinced others to adopt your idea.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you improved a process, tool or workflow for your team.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you had to prioritise between several urgent tasks.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you organised an event, club activity or hackathon team.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you set a high standard for your work when it would have been easier not to.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you noticed a risk early and acted on it.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you had to deliver under a tight deadline.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you simplified something complicated.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you took a calculated risk.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you had to influence someone senior to you.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you owned a mistake made by your team.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe the project you are proudest of and your specific contribution.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you used data to make a decision.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you had to keep a project moving when people lost interest.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Tell me about a time you took initiative to learn what users actually needed.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "Describe a time you balanced quality against speed and how you chose.",
+   "category": "leadership-ownership"
+  },
+  {
+   "title": "What is a strength that makes you a good engineer? Give an example of it in action.",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What is a weakness you are working on, and what are you doing about it?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What feedback do you hear most often from teammates or teachers?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "Which part of software engineering do you enjoy most, and which least?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How would a close teammate describe how you work?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What is something you do better than most of your peers?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What kind of work environment helps you do your best work?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How do you handle pressure and tight deadlines?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "What is one thing you would like to get much better at in the next year?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How do you keep your technical skills up to date?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "How do you approach a problem you have never seen before?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "Which of your skills is most underrated by others?",
+   "category": "strengths-weaknesses"
+  },
+  {
+   "title": "Why do you want to work as a software engineer?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "What are you looking for in your next role?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "Where do you see yourself in three to five years?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "What kind of problems excite you the most?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "Why are you interested in this company?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "What would make you a good fit for this team?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "Which technology or product do you admire, and why?",
+   "category": "self-introduction"
+  },
+  {
+   "title": "What motivates you to do your best work?",
+   "category": "self-introduction"
+  }
+ ]
+}

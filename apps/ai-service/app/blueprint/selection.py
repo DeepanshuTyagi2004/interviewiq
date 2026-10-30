@@ -18,6 +18,7 @@ from app.blueprint import store
 from app.blueprint import topics as T
 from app.blueprint.context import Context, coding_fit, core_minutes, has_problem_floor, norm_title, rank
 from app.models.engineering_levels import ENGINEERING_LEVELS
+from app.questions.quality import is_design_problem
 
 LEVEL_ORDER = list(ENGINEERING_LEVELS)
 from app.blueprint.trace import StageError
@@ -81,8 +82,8 @@ def mentions(text: str, terms: set[str]) -> set[str]:
 _INTRO = re.compile(r"tell me (something )?about (your ?self|yourself)|introduce yourself|walk me through your "
                     r"(resume|background)|general icebreaker", re.I)
 # Questions that assume a job the candidate doesn't have yet: not for intern and fresher rounds.
-_ASSUMES_A_JOB = re.compile(r"current (company|job|role|employer)|last company|previous (boss|manager|company|job|employer)"
-                            r"|leave your|your (manager|boss) say", re.I)
+_ASSUMES_A_JOB = re.compile(r"current (company|job|role|employer)|last company|previous (boss|manager|company|job|employer|team)"
+                            r"|leave your|your (manager|boss) say|notice period", re.I)
 _TITLE_STOP = frozenset("""a an the and or of in on at to for with as is are was were be been will would can could do did does
     have has had it this that me my i we us you your yourself tell about what which why how when where time give describe
     make makes want looking most so there design build implement system like ood lld hld""".split())
@@ -121,6 +122,8 @@ def unsuitable(doc: dict, ctx: Context) -> str | None:
     design what it is named after (otherwise the candidate never sees the title, so a drifted scenario is harmless)."""
     if _named_here(doc, ctx) and content_off_title(doc):
         return "named in the brief, but its content designs a different system"
+    if doc.get("round_type") == "system-design" and not is_design_problem(doc.get("title") or ""):
+        return "a concept, not a system to design"
     if doc.get("round_type") not in ("behavioural", "hiring-manager"):
         return None
     title = doc.get("title") or ""

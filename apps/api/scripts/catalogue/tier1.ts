@@ -13,6 +13,9 @@ const G = {
   ab: "https://ambitionbox.com/reviews/google-reviews",
   gd: "https://static.glassdoor.de/Reviews/Google-Reviews-E9079_P15892.htm",
   oyc: "https://www.ownyourcareer.in/companies/google",
+  l5Hired: "https://leetcode.com/discuss/post/6668243/google-india-sr-software-eng-l5-hired-in-ooe4/",
+  l5Jul24: "https://leetcode.com/discuss/interview-experience/5576037/Google-or-L5-or-Bangalore-or-July-2024-or-Offer",
+  l5Offer: "https://leetcode.com/discuss/post/5885342/",
 };
 const gCoding = (n: number, level: string) => ({
   name: `Onsite coding round ${n}`, type: "dsa" as const, minutes: 45, difficulty: (level === "L3" ? "medium" : "hard") as "medium" | "hard",
@@ -81,8 +84,10 @@ const google: CompanyIn = {
         {
           name: "System design", type: "system-design", minutes: 45, difficulty: "hard",
           topics: ["Scalability", "Storage and consistency", "Caching", "Queues and async processing", "Failure modes", "Trade-offs"],
-          guidance: "Open-ended design of a large-scale system. Clarify requirements, propose an architecture, drill into data model, APIs, scaling and failure handling, and defend trade-offs. Google reserves a dedicated system design round for L5 and above.",
-          src: [G.prep, G.igo],
+          questions: ["Image, GIF and video hosting platform without sign-up", "Image hosting system",
+            "Service that reads from Twitter and indexes a user's entire news feed"],
+          guidance: "Open-ended design of a large-scale system. Clarify requirements, propose an architecture, drill into data model, APIs, scaling and failure handling, and defend trade-offs. Google reserves a dedicated system design round for L5 and above, and L5 candidates report being expected to drive the whole discussion themselves.",
+          src: [G.prep, G.igo, G.l5Hired, G.l5Jul24, G.l5Offer],
         },
         gleyness([G.prep, G.igo]),
       ],
@@ -104,6 +109,14 @@ const A = {
   rehearsal: "https://tryrehearsal.ai/company-interviews/amazon-interview-guide",
   gd: "https://static.glassdoor.fr/Reviews/Amazon-Reviews-E6036_P5.htm",
   ab: "https://www.ambitionbox.com/reviews/amazon-reviews/software-development-engineer/bengaluru-location",
+  lcSde1: "https://leetcode.com/discuss/post/7280347/amazon-india-sde-1-interview-experience-2ogbw/",
+  lcSde2Jul: "https://leetcode.com/discuss/post/7009755/amazon-sde-2-bangalore-4-yoe-july-2025-o-o826/",
+  lcSde2Jun: "https://leetcode.com/discuss/post/6923887/amazon-sde-2-interview-experience-select-rwpm/",
+  taroMay: "https://www.jointaro.com/interviews/companies/amazon/experiences/sde2-backend-india-may-13-2025-declined-offer-positive-28ef8488/",
+  taroSep: "https://www.jointaro.com/interviews/companies/amazon/experiences/software-engineer-ii-sde2-india-september-13-2025-no-offer-positive-2cf0c8cf",
+  taroFeb: "https://www.jointaro.com/interviews/companies/amazon/experiences/software-development-engineer-sde-ii-bengaluru-february-16-2025-accepted-offer-positive-41729188",
+  gdSde2: "https://www.glassdoor.com/Interview/Amazon-Interview-E6036-RVW96175453.htm",
+  gdSde2b: "https://www.glassdoor.sg/Interview/Amazon-Interview-E6036-RVW101582604.htm",
 };
 const aLp = (src: string[]) => ({
   name: "Bar Raiser (Leadership Principles)", type: "behavioural" as const, minutes: 60, difficulty: "hard" as const,
@@ -142,9 +155,10 @@ const amazon: CompanyIn = {
         aOa([A.accio, A.prep, A.kick]),
         {
           name: "Loop 1: Coding + Leadership Principles", type: "dsa", minutes: 60, difficulty: "medium",
-          topics: ["Arrays and strings", "Trees and graphs", "Hashing", "Recursion", "Leadership Principles"],
-          guidance: "Each loop round is 45-60 minutes on Amazon Chime: a coding problem plus Leadership Principle questions. Rounds are eliminatory, so a weak round ends the loop.",
-          src: [A.accio, A.india, A.kick],
+          topics: ["Arrays and strings", "Trees and graphs", "Hashing", "Recursion", "Heaps", "Leadership Principles"],
+          questions: ["Diameter of Binary Tree", "Clone Graph"],
+          guidance: "Each loop round is 45-60 minutes on Amazon Chime: a coding problem plus Leadership Principle questions. Rounds are eliminatory, so a weak round ends the loop. One 2025 candidate got a variation of Diameter of Binary Tree and a heap-based matrix problem, then Clone Graph, and was asked to dry-run the idea before coding.",
+          src: [A.accio, A.india, A.kick, A.lcSde1],
         },
         {
           name: "Loop 2: Coding + Object-Oriented Design", type: "lld", minutes: 60, difficulty: "medium",
@@ -172,14 +186,17 @@ const amazon: CompanyIn = {
         {
           name: "Low-level design", type: "lld", minutes: 60, difficulty: "hard",
           topics: ["Object-oriented design", "Design patterns", "Class modelling", "Extensibility"],
-          guidance: "Model a real system with clear classes, interfaces and extensibility. Interviewers read your code and ask how it changes with new requirements.",
-          src: [A.jobsSde2, A.sde2],
+          questions: ["Hotel management system", "LRU cache with add and remove", "Meeting room reservation system",
+            "Meeting scheduling app", "Movie ticket booking system (BookMyShow)", "Package locker for delivery partners"],
+          guidance: "Model a real system with clear classes, interfaces and extensibility. Interviewers read your code and ask how it changes with new requirements. Some 2025 candidates report a design-only discussion with no code.",
+          src: [A.jobsSde2, A.sde2, A.taroMay, A.lcSde2Jul, A.taroSep, A.gdSde2],
         },
         {
           name: "High-level system design", type: "system-design", minutes: 60, difficulty: "hard",
           topics: ["Scalability", "Databases and caching", "Queues", "API design", "Availability"],
-          guidance: "Design a distributed system end to end, estimating scale, choosing storage, and discussing failure handling and operational concerns.",
-          src: [A.jobsSde2, A.sde2],
+          questions: ["Amazon notification system", "Database schema for a shout-out system", "Stock broker platform"],
+          guidance: "Design a distributed system end to end, estimating scale, choosing storage, and discussing failure handling and operational concerns. Leadership Principle questions are reported in this round as well.",
+          src: [A.jobsSde2, A.sde2, A.taroMay, A.taroFeb, A.lcSde2Jun, A.gdSde2b],
         },
         aLp([A.jobsSde2, A.sde2, A.rehearsal]),
       ],
@@ -232,6 +249,11 @@ const M = {
   six: "https://6figr.com/in/salary/microsoft--sde-ii-61",
   ab: "https://www.ambitionbox.com/reviews/microsoft-corporation-reviews/software-developer",
   faceprepElig: "https://faceprep.in/article/microsoft-eligibility-criteria-for-freshers-2026/",
+  lcHyd: "https://leetcode.com/discuss/post/7541629/interview-experience-microsoft-sde-2l61-qvanx/",
+  lc2026: "https://leetcode.com/discuss/post/7769548/",
+  lcList: "https://leetcode.com/discuss/interview-experience/6403987/",
+  lcSde2: "https://leetcode.com/discuss/post/7620569/microsoft-sde-ii-interview-experience-re-hqua/",
+  taroHyd: "https://www.jointaro.com/interviews/companies/microsoft/experiences/sde-2-backend-hyderabad-march-1-2025-no-offer-positive-3a135dbd/",
 };
 const mCoding = (n: number, level: "fresher" | "mid" | "senior") => ({
   name: `Technical round ${n}: coding`, type: "dsa" as const, minutes: 60, difficulty: (level === "fresher" ? "medium" : "hard") as "medium" | "hard",
@@ -291,10 +313,18 @@ const microsoft: CompanyIn = {
       rounds: [
         mCoding(1, "mid"), mCoding(2, "mid"),
         {
+          name: "Low-level design", type: "lld", minutes: 60, difficulty: "hard",
+          topics: ["Object-oriented design", "SOLID principles", "Design patterns (State, Strategy)", "Unit tests", "Constant-time operations"],
+          questions: ["Distributed LRU cache", "Vending machine", "Multi-floor parking lot", "In-memory key-value store with expiry", "Rate limiter"],
+          guidance: "Reported in recent SDE II loops: write working classes for a small system, sometimes test-first, then discuss how SOLID principles and patterns keep it extensible.",
+          src: [M.lcHyd, M.lc2026, M.lcList],
+        },
+        {
           name: "System design", type: "system-design", minutes: 60, difficulty: "hard",
-          topics: ["APIs", "Storage", "Caching", "Queues", "Failure modes"],
-          guidance: "Design a service with APIs, storage, caching and queues. Interviewers expect diagrams and explicit trade-offs, plus failure-mode discussion.",
-          src: [M.rehearsal, M.ignition],
+          topics: ["APIs", "Storage", "Caching", "Queues", "Failure modes", "Sharding and replication"],
+          questions: ["Distributed key-value store", "Flight booking system", "URL shortener", "Twitter-style news feed", "WhatsApp-style chat app"],
+          guidance: "Design a service with APIs, storage, caching and queues. Interviewers expect diagrams and explicit trade-offs, plus failure-mode discussion; a key-value store round went deep on sharding, replication and consistency versus availability.",
+          src: [M.rehearsal, M.ignition, M.lc2026, M.lcList, M.taroHyd, M.lcSde2],
         },
         mBehav([M.rehearsal, M.roundz]),
       ],
@@ -344,6 +374,10 @@ const F = {
   ab: "https://ambitionbox.com/reviews/flipkart-reviews",
   fy25: "https://www.business-standard.com/companies/news/flipkart-internet-fy25-revenue-rises-14-losses-narrow-ipo-prep-125091300087_1.html",
   ipo: "https://www.freepressjournal.in/business/flipkart-may-defer-ipo-as-walmart-instructs-to-focus-on-ebitda-breakeven-by-fy27",
+  lcJul25: "https://leetcode.com/discuss/post/7560534/flipkart-sde-2-interview-experience-by-a-tzl5/",
+  lcGhost: "https://leetcode.com/discuss/post/6737785/flipkart-interview-experience-sde-2-by-a-zsb1/",
+  taroApr: "https://www.jointaro.com/interviews/companies/flipkart/experiences/software-engineer-ii-sde2-bengaluru-april-1-2025-no-offer-positive-86519685/",
+  taroApr2: "https://www.jointaro.com/interviews/companies/flipkart/experiences/sde-2-bengaluru-april-1-2025-declined-offer-positive-38c52ed4",
 };
 const fOa = (): RoundIn => ({
   name: "Online assessment", type: "dsa", minutes: 90, difficulty: "medium",
@@ -355,13 +389,14 @@ const fMachine = (senior: boolean): RoundIn => ({
   name: "Machine coding round", type: "lld", minutes: 120, difficulty: senior ? "hard" : "medium",
   topics: ["Object-oriented design", "Modularity", "Extensibility", "In-memory data modelling", "Working code with command-line input and output"],
   questions: senior
-    ? ["Flipkart UPI backend", "Movie ticket booking system"]
+    ? ["Flipkart UPI backend", "Movie ticket booking system", "Airline ticket booking like Cleartrip with concurrent seat booking",
+      "Food ordering system", "Task scheduler that assigns tasks to free worker threads and queues the rest"]
     : ["Facebook-style feed with posts, upvotes, downvotes and ranking", "Conference room allocation across buildings and floors",
       "Splitwise with groups", "Library management system", "Flight management system", "Covid vaccination centre booking"],
   guidance: senior
     ? "A written spec to implement in about 90-120 minutes, then a separate evaluation where the interviewer asks you to explain the problem and walk through your code. Graded on clean, modular code that covers every requirement."
     : "Build a working application from a written spec in about 90-120 minutes, in any language, with command-line input and output and no database or UI. Reports say finishing all requirements with modular code matters: one candidate who left asks unfinished did not pass.",
-  src: senior ? [F.lcSde2, F.gfgSde2, F.taroSde2] : [F.lc2021, F.gfg1, F.code360, F.gdInt],
+  src: senior ? [F.lcSde2, F.gfgSde2, F.taroSde2, F.lcJul25, F.taroApr, F.taroApr2] : [F.lc2021, F.gfg1, F.code360, F.gdInt],
 });
 const fPsds = (n: number): RoundIn => ({
   name: `Problem solving and data structures (PSDS) ${n}`, type: "dsa", minutes: 60, difficulty: "medium",
@@ -371,9 +406,10 @@ const fPsds = (n: number): RoundIn => ({
 });
 const fDesign = (): RoundIn => ({
   name: "System design", type: "system-design", minutes: 60, difficulty: "hard",
-  topics: ["High-level design", "Scalability", "Data modelling", "Trade-offs"],
-  guidance: "Reported for SDE-2 loops after machine coding and PSDS; every round is eliminatory.",
-  src: [F.lcSde2, F.gdInt],
+  topics: ["High-level design", "Schema design", "API design", "Scalability", "Trade-offs"],
+  questions: ["Customer care issue resolution system with an audit trail for each phase", "BookMyShow", "Notification system"],
+  guidance: "Reported for SDE-2 loops after machine coding and PSDS; every round is eliminatory. 2025 reports describe it as LLD-leaning: schema design and API endpoints with some high-level design, about an hour.",
+  src: [F.lcSde2, F.gdInt, F.lcJul25, F.lcGhost, F.taroApr],
 });
 const fHm = (): RoundIn => ({
   name: "Hiring manager round", type: "hiring-manager", minutes: 45, difficulty: "medium",

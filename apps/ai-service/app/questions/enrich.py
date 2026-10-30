@@ -22,6 +22,13 @@ async def enrich_one(llm, record: QuestionRecord) -> QuestionRecord:
             ENRICH_SYSTEM,
             build_enrich_prompt(record), label=f"enrich:{record.slug}")
         patch = {k: data[k] for k in _FIELDS if k in data and data[k] not in (None, "", [])}
+        if "company_tags" in patch:
+            # A source's companies stay reported; the model only adds companies, and those are inferred.
+            raw = patch["company_tags"] if isinstance(patch["company_tags"], list) else [patch["company_tags"]]
+            guessed = [str(c).strip().lower() for c in raw if str(c).strip()]
+            patch["company_tags"] = record.company_tags + [c for c in guessed if c not in record.company_tags]
+            patch["company_evidence"] = {**{c: "inferred" for c in guessed}, **record.company_evidence,
+                                         **{c: "reported" for c in record.company_tags}}
         merged = {**record.model_dump(), **patch, "enrichment_status": "enriched"}
         return QuestionRecord.model_validate(merged)  # Validate new metadata before saving.
     except Exception as exc:  # noqa: BLE001 — one bad enrich must not abort the run

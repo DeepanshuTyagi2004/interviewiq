@@ -3,11 +3,11 @@
 The question bank (`interview_questions` in the AI service's Mongo) has two layers:
 
 1. **The index** — what has been asked. Collected from community datasets and our research briefs:
-   company-wise LeetCode lists (company tags, frequency), NeetCode 150 (patterns), the Kaggle LeetCode
-   dataset (topics, acceptance), system-design and LLD repos, behavioural sets (tech-interview-handbook,
-   Indian HR sets, and vendored company-values sets: Amazon Leadership Principles, Googleyness, Atlassian values,
-   Microsoft culture), and the named problems in our briefs'
-   rounds (`brief/<slug>` records, company tag `reported`): both this service's own briefs and the
+   company-wise LeetCode lists (snehasishroy and liquidslr: company tags, frequency, topics), NeetCode 150
+   (patterns), the Kaggle LeetCode dataset (topics, acceptance), system-design and LLD repos, behavioural sets
+   (tech-interview-handbook, Indian HR sets, and vendored company-values sets: Amazon Leadership Principles,
+   Googleyness, Atlassian values, Microsoft culture), vendored libraries (below), and the named problems in our
+   briefs' rounds (`brief/<slug>` records, company tag `reported`): both this service's own briefs and the
    API's admin-published ones, read over `GET /api/v1/internal/brief-problems`. Title, URL, tags, difficulty, sources,
    `source_hash`. No source text is ever stored.
 2. **The content** — our own problem. Generated per record from the index facts only (title, round,
@@ -84,6 +84,22 @@ Settings: `QUESTION_CONTENT_CONCURRENCY` (4), `QUESTION_CONTENT_MAX_OUTPUT_TOKEN
 `app/questions/content/prompts.py` is product IP: drafts for human review. Bump `CONTENT_VERSION`
 after a material change; every record's `content_hash` then goes stale and the next run regenerates
 it. The prompt must keep receiving index facts only.
+
+## Sources by round (2026-10-30)
+
+| Round | Live sources | Vendored (`app/questions/data/`) |
+| --- | --- | --- |
+| dsa, online-assessment | snehasishroy and liquidslr company-wise lists (~470 companies; liquidslr's acceptance column is not a percentage and is not kept), NeetCode 150, Kaggle | — |
+| system-design | system-design-primer, karanpratapsingh, awesome-system-design-resources, InterviewReady, checkcheckzz hot questions, Grokking-System-Design | `system_design/reported.json` (domain problems guides report for Indian companies, each with its source), `system_design/interviewiq.json` (our list) |
+| lld | low-level-design-primer, Machine-Coding-Round, grokking-the-object-oriented-design-interview, awesome-low-level-design | `lld/kumaransg.json` (machine coding, company only where the folder or readme names it), `lld/workat_tech.json`, `lld/interviewiq.json` (our list) |
+| behavioural | tech-interview-handbook, rohan-paul soft questions | company values sets, `interviewiq_behavioural.json` (competency questions a fresher can answer, per slot category) |
+| hiring-manager | — | `interviewiq_hiring_manager.json` (`hr`, project deep-dive and self-awareness questions; job-assuming ones are dropped for freshers) |
+
+The catalogue's reported round questions (`apps/api/scripts/catalogue`) reach the bank as `brief/` records once
+published. Quality rules: a system-design title that names a concept or reading list ("Caching", "System Design
+Resources") is dropped at collection and skipped by selection (`app/questions/quality.py`); enrichment only adds
+company tags, and the ones it adds are `inferred` (a source's stay `reported`; before 2026-10-30 an enriched record's
+companies replaced the source's and read as reported). Vendored lists name a company only where a source does.
 
 ## Company-values sets
 

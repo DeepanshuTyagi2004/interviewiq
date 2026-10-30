@@ -1,3 +1,4 @@
+from unittest.mock import AsyncMock
 """Tests for the GRANULAR incremental/resume orchestrator (Phase D8).
 
 Each test monkeypatches collectors, stored_states, upsert_question, build_llm_client,
@@ -48,6 +49,7 @@ def _setup(monkeypatch, *, dsa_records=None, sd_records=None, lld_records=None,
     async def fake_neetcode(s): return []
     async def fake_kaggle_collect(s): return []
     monkeypatch.setattr(qc.dsa_collector, "collect_snehasishroy", fake_snehasishroy)
+    monkeypatch.setattr(qc.dsa_collector, "collect_liquidslr", AsyncMock(return_value=[]))
     monkeypatch.setattr(qc.dsa_collector, "collect_neetcode", fake_neetcode)
     monkeypatch.setattr(qc.dsa_collector, "collect_kaggle", fake_kaggle_collect)
 
@@ -58,6 +60,7 @@ def _setup(monkeypatch, *, dsa_records=None, sd_records=None, lld_records=None,
     monkeypatch.setattr(qc, "collect_brief_problems", fake_collect_briefs)
     monkeypatch.setattr(qc, "collect_system_design", fake_collect_sd)
     monkeypatch.setattr(qc, "collect_lld", fake_collect_lld)
+    monkeypatch.setattr(qc, "collect_vendored_design", lambda settings, round_type: [])
     monkeypatch.setattr(qc, "collect_behavioural", fake_collect_behavioural)
 
     async def fake_stored(version): return stored
@@ -111,6 +114,7 @@ def test_sd_resume_skip(monkeypatch):
     async def fake_neetcode(s): return []
     async def fake_kaggle_c(s): return []
     monkeypatch.setattr(qc.dsa_collector, "collect_snehasishroy", fake_snehasishroy)
+    monkeypatch.setattr(qc.dsa_collector, "collect_liquidslr", AsyncMock(return_value=[]))
     monkeypatch.setattr(qc.dsa_collector, "collect_neetcode", fake_neetcode)
     monkeypatch.setattr(qc.dsa_collector, "collect_kaggle", fake_kaggle_c)
 
@@ -118,6 +122,7 @@ def test_sd_resume_skip(monkeypatch):
     async def fake_collect_lld(s): return []
     monkeypatch.setattr(qc, "collect_system_design", fake_collect_sd)
     monkeypatch.setattr(qc, "collect_lld", fake_collect_lld)
+    monkeypatch.setattr(qc, "collect_vendored_design", lambda settings, round_type: [])
 
     async def fake_stored(version): return stored
     monkeypatch.setattr(qc.repo, "stored_states", fake_stored)
@@ -182,6 +187,7 @@ def test_cancel_skips_enrich(monkeypatch):
     async def fake_neetcode(s): return []
     async def fake_kaggle_c(s): return []
     monkeypatch.setattr(qc.dsa_collector, "collect_snehasishroy", fake_snehasishroy)
+    monkeypatch.setattr(qc.dsa_collector, "collect_liquidslr", AsyncMock(return_value=[]))
     monkeypatch.setattr(qc.dsa_collector, "collect_neetcode", fake_neetcode)
     monkeypatch.setattr(qc.dsa_collector, "collect_kaggle", fake_kaggle_c)
 
@@ -189,6 +195,7 @@ def test_cancel_skips_enrich(monkeypatch):
     async def fake_collect_lld(s): return []
     monkeypatch.setattr(qc, "collect_system_design", fake_collect_sd)
     monkeypatch.setattr(qc, "collect_lld", fake_collect_lld)
+    monkeypatch.setattr(qc, "collect_vendored_design", lambda settings, round_type: [])
 
     async def fake_stored(version): return {}
     monkeypatch.setattr(qc.repo, "stored_states", fake_stored)

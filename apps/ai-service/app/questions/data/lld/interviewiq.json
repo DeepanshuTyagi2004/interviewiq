@@ -1,0 +1,139 @@
+{
+ "source": "interviewiq-lld",
+ "url": "",
+ "note": "Our own list of common LLD and machine-coding problems the public sources above miss. Titles only; no company tags (only a source can report one).",
+ "problems": [
+  {
+   "title": "Design an LFU Cache"
+  },
+  {
+   "title": "Design a Circuit Breaker"
+  },
+  {
+   "title": "Design a retry and backoff library"
+  },
+  {
+   "title": "Design an in-process Event Bus"
+  },
+  {
+   "title": "Design a Metrics Collector library"
+  },
+  {
+   "title": "Design a Feature Flag service"
+  },
+  {
+   "title": "Design a Notification Service with email, SMS and push channels"
+  },
+  {
+   "title": "Design a Meeting Room Booking system"
+  },
+  {
+   "title": "Design a Doctor Appointment Booking system"
+  },
+  {
+   "title": "Design an Online Quiz and Exam platform"
+  },
+  {
+   "title": "Design a Train Ticket Reservation system with waitlists"
+  },
+  {
+   "title": "Design a Flight Booking system"
+  },
+  {
+   "title": "Design a Shopping Cart with discounts and offers"
+  },
+  {
+   "title": "Design an Inventory Management system"
+  },
+  {
+   "title": "Design an Order Management system"
+  },
+  {
+   "title": "Design a Digital Wallet with peer-to-peer transfers"
+  },
+  {
+   "title": "Design a UPI payment flow"
+  },
+  {
+   "title": "Design a Double-entry Ledger"
+  },
+  {
+   "title": "Design an Expense Tracker"
+  },
+  {
+   "title": "Design a Bank Account system that is safe under concurrent transfers"
+  },
+  {
+   "title": "Design a Spreadsheet with formula cells"
+  },
+  {
+   "title": "Design a JSON Parser"
+  },
+  {
+   "title": "Design an Arithmetic Expression Evaluator"
+  },
+  {
+   "title": "Design a Minesweeper game"
+  },
+  {
+   "title": "Design a Sudoku Solver and Validator"
+  },
+  {
+   "title": "Design an UNO card game"
+  },
+  {
+   "title": "Design a Poker hand evaluator"
+  },
+  {
+   "title": "Design an IPL Player Auction system"
+  },
+  {
+   "title": "Design a Bike Rental system"
+  },
+  {
+   "title": "Design a Warehouse Robot path planner"
+  },
+  {
+   "title": "Design a Car Parking system with multiple floors and EV charging"
+  },
+  {
+   "title": "Design a Version Control system (mini Git)"
+  },
+  {
+   "title": "Design an LRU Cache with TTL expiry"
+  },
+  {
+   "title": "Design a URL Shortener (class design)"
+  },
+  {
+   "title": "Design a Producer-Consumer pipeline with bounded buffers"
+  },
+  {
+   "title": "Design a Leaderboard for an online game"
+  },
+  {
+   "title": "Design a Comment and Reply thread system"
+  },
+  {
+   "title": "Design a Polling and Voting app"
+  },
+  {
+   "title": "Design a Movie Recommendation module"
+  },
+  {
+   "title": "Design a Parking Fee calculator with tariffs"
+  },
+  {
+   "title": "Design a Stock Portfolio tracker"
+  },
+  {
+   "title": "Design a Subscription Billing system"
+  },
+  {
+   "title": "Design a Customer Support Ticketing system"
+  },
+  {
+   "title": "Design a Library for consistent hashing"
+  }
+ ]
+}

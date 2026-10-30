@@ -13,6 +13,9 @@ const R = {
   ab: "https://www.ambitionbox.com/reviews/razorpay-reviews/associate-manager",
   fin: "https://yespress.io/razorpay",
   ipo: "https://www.outlookbusiness.com/news/razorpay-kicks-off-ipo-preparations-for-4500cr-listing-invites-bank-pitches",
+  gd24a: "https://www.glassdoor.com/Interview/Razorpay-Interview-E1146550-RVW86702348.htm",
+  gd24b: "https://www.glassdoor.ca/Interview/Razorpay-Interview-E1146550-RVW87144782.htm",
+  gd24c: "https://www.glassdoor.com/Interview/Razorpay-Interview-E1146550-RVW85483249.htm",
 };
 const rOa = (): RoundIn => ({
   name: "Online assessment", type: "dsa", minutes: 75, difficulty: "medium",
@@ -31,15 +34,16 @@ const rDsa = (n: number, hard: boolean): RoundIn => ({
 const rMachine = (): RoundIn => ({
   name: "Machine coding / LLD", type: "lld", minutes: 105, difficulty: "hard",
   topics: ["SOLID principles", "Extensibility", "Clean code", "Concurrency basics"],
-  questions: ["Rate limiter", "Payment ledger", "Expense splitter"],
+  questions: ["Rate limiter", "Payment ledger", "Expense splitter", "Rating system", "In-memory SQL database"],
   guidance: "90-120 minute round to build a working system from a product spec. Graded on SOLID principles, extensibility, modularity and clean code.",
-  src: [R.fr, R.onsite, R.thita],
+  src: [R.fr, R.onsite, R.thita, R.gd24a, R.gd24b],
 });
 const rHld = (hardFlag = true): RoundIn => ({
   name: "System design (HLD)", type: "system-design", minutes: 75, difficulty: hardFlag ? "hard" : "medium",
   topics: ["Payment gateway design", "Rate limiting", "Fraud detection", "Distributed transactions", "Idempotency", "Monitoring and schema evolution"],
+  questions: ["Quick-commerce app like Zepto", "Scheduler service that runs tasks at a timestamp with callbacks, errors and retries"],
   guidance: "60-90 minute round that uses Razorpay's real domain: payment flows, rate limiting, fraud detection and distributed transactions. SDE-2 faces HLD and machine coding as independent gates; senior candidates add operational depth on monitoring and schema evolution.",
-  src: [R.hld, R.fr],
+  src: [R.hld, R.fr, R.gd24c, R.gd24a],
 });
 const rHm = (): RoundIn => ({
   name: "Hiring manager and HR", type: "hiring-manager", minutes: 45, difficulty: "medium",
@@ -107,6 +111,12 @@ const S = {
   abBlr: "https://www.ambitionbox.com/reviews/swiggy-reviews/bengaluru-location",
   fy25: "https://www.thepeoplesboard.com/news/swiggy-added-2000-employees-in-fy25/",
   ipo: "https://www.restaurantindia.in/news/swiggys-ipo-set-to-launch-expected-to-raise-rs-113274-cr.n11833",
+  lcFs: "https://leetcode.com/discuss/post/7143750/swiggy-interview-experience-full-stack-s-2d0c/",
+  lcRej: "https://leetcode.com/discuss/post/7383296/swiggy-sde-2-backend-interview-experienc-ic7h/",
+  lcSde2: "https://leetcode.com/discuss/post/8314817/swiggy-sde-2-by-anonymous_user-izkb/",
+  lc4y: "https://leetcode.com/discuss/post/7197132/swiggy-sde-2-interview-exp-4-yrs-exp-by-4wadv/",
+  gd26: "https://www.glassdoor.co.nz/Interview/Swiggy-Interview-E952680-RVW104022538.htm",
+  roundz: "https://roundz.substack.com/p/interview-experience-123-swiggy-sde3-l8",
 };
 const sOa = (): RoundIn => ({
   name: "Online assessment", type: "dsa", minutes: 90, difficulty: "medium",
@@ -129,9 +139,10 @@ const sDsa = (): RoundIn => ({
 });
 const sHld = (): RoundIn => ({
   name: "System design / HLD", type: "system-design", minutes: 75, difficulty: "hard",
-  topics: ["Kafka for async events", "Redis caching", "WebSockets for real-time tracking", "Order and delivery systems"],
-  guidance: "60-90 minute round on Swiggy's actual domain systems, with discussion of Kafka for async events, Redis for caching and WebSockets for real-time tracking.",
-  src: [S.accio, S.coding],
+  topics: ["Kafka for async events", "Redis caching", "WebSockets for real-time tracking", "Order and delivery systems", "Inventory consistency"],
+  questions: ["Instamart warehouse management system", "Book search", "Train ticket booking system", "BookMyShow", "Promotional notification system"],
+  guidance: "60-90 minute round on Swiggy's actual domain systems, with discussion of Kafka for async events, Redis for caching and WebSockets for real-time tracking. Candidates report APIs, database schemas and a high-level diagram, then deep dives on consistency and scale; some rounds combine HLD and LLD.",
+  src: [S.accio, S.coding, S.lcFs, S.lcRej, S.lcSde2, S.lc4y, S.gd26, S.roundz],
 });
 const sHm = (): RoundIn => ({
   name: "Hiring manager round", type: "hiring-manager", minutes: 45, difficulty: "medium",
@@ -201,6 +212,9 @@ const C = {
   fin: "https://entrackr.com/news/cred-reports-rs-2735-cr-revenue-in-fy25-operating-losses-fall-51-11058243",
   inc: "https://inc42.com/company/cred/financials/",
   down: "https://finder.techleap.nl/news/feed/cred-raises-75m-at-lower-valuation",
+  lcBe21: "https://leetcode.com/discuss/interview-experience/1627624/cred-backend-engineer-bengaluru-dec-2021-offer",
+  gd22: "https://www.glassdoor.com/Interview/CRED-Interview-E3050300-RVW51242161.htm",
+  gd22b: "https://www.glassdoor.com.hk/Interview/CRED-Interview-E3050300-RVW67636765.htm",
 };
 const cRounds = (level: "sde1" | "sde2" | "sde3"): RoundIn[] => [
   {
@@ -217,16 +231,18 @@ const cRounds = (level: "sde1" | "sde2" | "sde3"): RoundIn[] => [
   },
   {
     name: "Machine coding (LLD)", type: "lld", minutes: 150, difficulty: "hard",
-    topics: ["Object-oriented design", "Extensibility", "Clean code", "Working end-to-end implementation"],
-    guidance: "2.5-hour machine coding round, the most CRED-specific round and the one that separates most candidates. Judged on clean, modular, extensible code that runs.",
-    src: [C.guvi, C.lc1, C.lc2],
+    topics: ["Object-oriented design", "Extensibility", "Clean code", "Working end-to-end implementation", "In-memory data structures"],
+    questions: ["In-memory database with primary and secondary indexes", "Key-value cache", "Simulated microprocessor with registers (set, increment, decrement, move, add)"],
+    guidance: "2.5-hour machine coding round, the most CRED-specific round and the one that separates most candidates. Judged on clean, modular, extensible code that runs; one rejected candidate blamed code that did not fully follow OOP principles.",
+    src: [C.guvi, C.lc1, C.lc2, C.lcBe21, C.gd22, C.naukri],
   },
   {
     name: level === "sde1" ? "System design and managerial (Head of Engineering)" : "System design and managerial (Head of Engineering, deeper)",
     type: "system-design", minutes: 90, difficulty: "hard",
     topics: ["System design", "Ownership", "Past projects", "Managerial fit"],
+    questions: ["Distributed key-value cache"],
     guidance: "90-minute round with the Head of Engineering combining system design and a managerial conversation.",
-    src: [C.guvi, C.lc1],
+    src: [C.guvi, C.lc1, C.gd22b],
   },
 ];
 
@@ -369,6 +385,10 @@ const P = {
   fy25: "https://entrackr.com/fintrackr/phonepe-posts-rs-7115-cr-revenue-and-rs-630-cr-adjusted-pat-in-fy25-10487742",
   ipo: "https://www.medianama.com/2025/09/223-phonepe-confidential-1-3b-ipo-with-sebi-15b-valuation/",
   ab: "https://ambitionbox.com/reviews/phonepe-reviews",
+  roundz130: "https://roundz.substack.com/p/interview-experience-130-phonepe-sde2",
+  roundz174: "https://roundz.substack.com/p/interview-experience-174-phonepe-sde2",
+  lcSse: "https://leetcode.com/discuss/post/2614003/phonepe-sse-bengaluru-aug-offer",
+  lcDec24: "https://leetcode.com/discuss/interview-experience/6293258/",
 };
 const pMachine = (oa: boolean): RoundIn => ({
   name: oa ? "Machine coding (first round)" : "Machine coding round", type: "lld", minutes: 90, difficulty: "hard",
@@ -388,9 +408,11 @@ const pDsa = (senior: boolean): RoundIn => ({
 });
 const pDesign = (): RoundIn => ({
   name: "Design round", type: "system-design", minutes: 60, difficulty: "hard",
-  topics: ["High-level design", "Scalability", "Kafka and asynchronous processing", "REST API design"],
-  guidance: "Design round after DSA in the experienced loop; SDE-1 candidates were also advised to revise backend design, Kafka and REST.",
-  src: [P.roundz, P.lc57, P.lcSde1],
+  topics: ["High-level design", "Scalability", "Kafka and asynchronous processing", "REST API design", "Service decomposition", "Database design"],
+  questions: ["Shazam-style song recognition from a sound sample", "Seat booking platform", "Movie booking system like BookMyShow",
+    "Twitter (post tweet, follow, user timeline, profile)"],
+  guidance: "About 60-minute design round after DSA in the experienced loop; SDE-1 candidates were also advised to revise backend design, Kafka and REST.",
+  src: [P.roundz, P.lc57, P.lcSde1, P.roundz130, P.roundz174, P.lcSse, P.lcDec24],
 });
 const pHm = (): RoundIn => ({
   name: "Hiring manager round", type: "hiring-manager", minutes: 45, difficulty: "medium",

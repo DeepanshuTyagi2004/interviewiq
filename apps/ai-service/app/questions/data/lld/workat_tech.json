@@ -1,0 +1,57 @@
+{
+ "source": "workat-tech",
+ "url": "https://workat.tech/machine-coding/practice",
+ "note": "workat.tech's machine coding practice problems, which it frames as practice for Flipkart, Uber, Swiggy, Udaan, Razorpay and Gojek rounds (no per-company attribution, so no company tags).",
+ "problems": [
+  {
+   "title": "Design 2048 Game",
+   "url": "https://workat.tech/machine-coding/practice/design-2048-game-osycd22zpn1y",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Chess Validator",
+   "url": "https://workat.tech/machine-coding/practice/design-chess-validator-to77d8oqpx2h",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Distributed Queue",
+   "url": "https://workat.tech/machine-coding/practice/design-distributed-queue-cuudq0sk0v14",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design an In-Memory Key-Value Store",
+   "url": "https://workat.tech/machine-coding/practice/design-key-value-store-6gz6cq124k65",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Library Management System",
+   "url": "https://workat.tech/machine-coding/practice/design-library-management-system-jgjrv8q8b136",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design a Parking Lot",
+   "url": "https://workat.tech/machine-coding/practice/design-parking-lot-qm6hwq4wkhp8",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Tic-Tac-Toe",
+   "url": "https://workat.tech/machine-coding/practice/design-tic-tac-toe-smyfi9x064ry",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Snake and Ladder",
+   "url": "https://workat.tech/machine-coding/practice/snake-and-ladder-problem-zgtac9lxwntg",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Splitwise",
+   "url": "https://workat.tech/machine-coding/practice/splitwise-problem-0kp2yneec2q2",
+   "is_machine_coding": true
+  },
+  {
+   "title": "Design Trello",
+   "url": "https://workat.tech/machine-coding/practice/trello-problem-t0nwwqt61buz",
+   "is_machine_coding": true
+  }
+ ]
+}

@@ -319,3 +319,17 @@ def test_parse_neetcode_md_link_h1_plain_h1_still_works():
     assert two_sum is not None
     assert two_sum.slug == "two-sum"
     assert two_sum.url == "https://leetcode.com/problems/two-sum/"
+
+
+def test_liquidslr_tree_normalises_company_folders_and_keeps_topics_not_acceptance():
+    csv_all = ("Difficulty,Title,Frequency,Acceptance Rate,Link,Topics\n"
+               "MEDIUM,Container With Most Water,84.6,0.0061,https://leetcode.com/problems/container-with-most-water,"
+               "\"Array, Two Pointers, Greedy\"\n")
+    files = {"Walmart Labs/5. All.csv": csv_all.encode(),
+             "Walmart Labs/1. Thirty Days.csv": b"Difficulty,Title,Link\nEASY,A,https://leetcode.com/problems/a/\n"}
+    recs = parse_snehasishroy_tree(files, "liquidslr", with_acceptance=False)
+    assert [r.slug for r in recs] == ["container-with-most-water"]
+    r = recs[0]
+    assert r.company_tags == ["walmart-labs"] and r.sources == ["liquidslr"]
+    assert r.topic_tags == ["Array", "Two Pointers", "Greedy"]
+    assert r.acceptance_rate is None and r.frequency_score == 84.6
