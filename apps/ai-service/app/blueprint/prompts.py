@@ -14,7 +14,8 @@ PERSONALIZATION_VERSION = "z4"   # z2: round questions for what the round's note
 PLAYBOOK_VERSION = "b5"       # b2: condition meanings, company, candidate and level rules; b3: STAR stays the candidate's, no placeholders
 
 # Bank categories that belong to one company's culture; a key may name that company only for these.
-PRINCIPLE_CATEGORIES = {"amazon-lp": "Amazon", "googleyness": "Google"}
+PRINCIPLE_CATEGORIES = {"amazon-lp": "Amazon", "googleyness": "Google", "atlassian-values": "Atlassian",
+                        "microsoft-culture": "Microsoft"}
 
 
 # Non-DSA keys are cached per problem AND per level band: a strong answer differs by seniority.

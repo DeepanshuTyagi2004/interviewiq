@@ -56,6 +56,32 @@ def test_a_question_written_for_another_company_stays_with_that_company():
     assert S.written_for_another_company(google, _ctx("Accenture"))
 
 
+def test_atlassian_and_microsoft_values_stay_with_their_company():
+    atl = behavioural_doc("atl/bad-news", "atlassian-values", companies=("atlassian",))
+    ms = behavioural_doc("msc/failed", "microsoft-culture", companies=("microsoft",))
+    assert not S.written_for_another_company(atl, _ctx("Atlassian"))
+    assert not S.written_for_another_company(ms, _ctx("Microsoft"))
+    assert S.written_for_another_company(atl, _ctx("Microsoft")) and S.written_for_another_company(ms, _ctx("Atlassian"))
+
+
+def test_atlassian_mixed_round_asks_atlassian_values():
+    ctx = build_context(request(session={"company": "Atlassian"},
+                                round={"type": "dsa", "name": "Coding + values", "duration_mins": 60,
+                                       "topics": ["Arrays and strings", "Behavioural"], "problems": [],
+                                       "difficulty": "medium", "format": "A coding problem plus behavioural questions."}))
+    pool = [dsa_doc("arr-a", tags=("Array",), companies=("atlassian",)), dsa_doc("graph-a", tags=("Graph",), companies=("atlassian",)),
+            dsa_doc("hard-dp", tags=("Dynamic Programming",), difficulty="hard", companies=("atlassian",))]
+    for slug, principle in (("atl-a", "Play, as a team"), ("atl-b", "Be the change you seek"), ("atl-c", "Open company, no bullshit")):
+        doc = behavioural_doc(slug, "atlassian-values", companies=("atlassian",))
+        doc["content"]["principle"] = principle
+        pool.append(doc)
+    pool += [_lp("lp-a", "Ownership"), behavioural_doc("generic", "conflict-teamwork")]
+    assert ctx.culture
+    plans, _ = S.select(ctx, pool, W, "seed")
+    culture = [p.pick for p in plans if p.slot_id.startswith("culture") and p.pick]
+    assert culture and all(c.category == "atlassian-values" for c in culture)
+
+
 def test_selection_drops_other_companies_questions_and_counts_them():
     ctx = _ctx("Accenture")
     pool = [behavioural_doc(f"{cat}-{i}", cat) for cat in ("self-introduction", "conflict-teamwork", "failure-learning",

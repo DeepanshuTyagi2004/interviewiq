@@ -5,7 +5,8 @@ The question bank (`interview_questions` in the AI service's Mongo) has two laye
 1. **The index** — what has been asked. Collected from community datasets and our research briefs:
    company-wise LeetCode lists (company tags, frequency), NeetCode 150 (patterns), the Kaggle LeetCode
    dataset (topics, acceptance), system-design and LLD repos, behavioural sets (tech-interview-handbook,
-   Indian HR sets, Amazon Leadership Principles, Googleyness), and the named problems in our briefs'
+   Indian HR sets, and vendored company-values sets: Amazon Leadership Principles, Googleyness, Atlassian values,
+   Microsoft culture), and the named problems in our briefs'
    rounds (`brief/<slug>` records, company tag `reported`): both this service's own briefs and the
    API's admin-published ones, read over `GET /api/v1/internal/brief-problems`. Title, URL, tags, difficulty, sources,
    `source_hash`. No source text is ever stored.
@@ -83,6 +84,15 @@ Settings: `QUESTION_CONTENT_CONCURRENCY` (4), `QUESTION_CONTENT_MAX_OUTPUT_TOKEN
 `app/questions/content/prompts.py` is product IP: drafts for human review. Bump `CONTENT_VERSION`
 after a material change; every record's `content_hash` then goes stale and the next run regenerates
 it. The prompt must keep receiving index facts only.
+
+## Company-values sets
+
+A vendored JSON under `app/questions/data/behavioural/` (one question per line, written by us, tagged with the
+company and the value in `principle`) gets a `category`. A category listed in `PRINCIPLE_CATEGORY`
+(`app/blueprint/selection.py`) and `PRINCIPLE_CATEGORIES` (`app/blueprint/prompts.py`) is that company's own: it is
+preferred for that company's behavioural and culture parts and never used for another company. Today: `amazon-lp`,
+`googleyness`, `atlassian-values` (the five published values, added 2026-10-30) and `microsoft-culture` (added
+2026-10-30).
 
 ## Adding a source
 

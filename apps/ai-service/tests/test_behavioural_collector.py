@@ -95,6 +95,18 @@ def test_vendored_loads_amazon_and_googleyness():
     assert lp.topic_tags and lp.topic_tags[0]
 
 
+def test_vendored_loads_atlassian_values_and_microsoft_culture():
+    s = MagicMock()
+    s.questions_data_dir = _DATA_DIR
+    recs = bh._collect_vendored(s)
+    atl = [r for r in recs if r.category == "atlassian-values"]
+    ms = [r for r in recs if r.category == "microsoft-culture"]
+    assert atl and all(r.company_tags == ["atlassian"] and r.slug.startswith("atl/") for r in atl)
+    assert ms and all(r.company_tags == ["microsoft"] and r.slug.startswith("msc/") for r in ms)
+    # every value has questions on more than one principle, so a culture part can ask two different ones
+    assert len({r.topic_tags[0] for r in atl}) == 5 and len({r.topic_tags[0] for r in ms}) == 5
+
+
 # --- collect_behavioural: round type, dedupe, fail-safe ---
 
 def _fake_files(tih_text=_TIH, rohan_text=_ROHAN):
@@ -130,4 +142,5 @@ def test_collect_behavioural_fail_safe_when_repos_404(monkeypatch):
     # repos fail but vendored JSON still loads — never raises, never empty
     recs = asyncio.run(collect_behavioural(_settings()))
     assert len(recs) >= 50
-    assert all(r.sources[0] in ("amazon-leadership-principles", "google-googleyness") for r in recs)
+    assert all(r.sources[0] in ("amazon-leadership-principles", "google-googleyness", "atlassian-values",
+                                "microsoft-culture") for r in recs)

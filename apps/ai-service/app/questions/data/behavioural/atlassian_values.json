@@ -1,0 +1,94 @@
+{
+  "source": "atlassian-values",
+  "url": "https://www.atlassian.com/company/values",
+  "company_tags": [
+    "atlassian"
+  ],
+  "category": "atlassian-values",
+  "questions": [
+    {
+      "principle": "Open company, no bullshit",
+      "title": "Tell me about a time you shared bad news early instead of waiting until it was unavoidable."
+    },
+    {
+      "principle": "Open company, no bullshit",
+      "title": "Describe a time you gave a teammate honest feedback that was hard to hear."
+    },
+    {
+      "principle": "Open company, no bullshit",
+      "title": "Tell me about a decision you disagreed with. How did you say so, and what happened next?"
+    },
+    {
+      "principle": "Open company, no bullshit",
+      "title": "Describe a time you made information visible to people outside your team so they could decide better."
+    },
+    {
+      "principle": "Open company, no bullshit",
+      "title": "Tell me about a mistake you made at work or in a project and how you told others about it."
+    },
+    {
+      "principle": "Build with heart and balance",
+      "title": "Tell me about a time you had to balance shipping quickly against building something well."
+    },
+    {
+      "principle": "Build with heart and balance",
+      "title": "Describe a project you cared about deeply. What did you do that nobody asked you to?"
+    },
+    {
+      "principle": "Build with heart and balance",
+      "title": "Tell me about a time you pushed back on scope to protect quality or the team's workload."
+    },
+    {
+      "principle": "Build with heart and balance",
+      "title": "Describe a trade-off you made where the right answer was not obvious. How did you decide?"
+    },
+    {
+      "principle": "Don't #@!% the customer",
+      "title": "Tell me about a time you changed your plan because of what a user or customer told you."
+    },
+    {
+      "principle": "Don't #@!% the customer",
+      "title": "Describe a time you found a problem that would have hurt users and what you did about it."
+    },
+    {
+      "principle": "Don't #@!% the customer",
+      "title": "Tell me about a time the easiest technical choice was not the best one for the user."
+    },
+    {
+      "principle": "Don't #@!% the customer",
+      "title": "Describe how you have measured whether something you built actually helped the people using it."
+    },
+    {
+      "principle": "Play, as a team",
+      "title": "Tell me about a time you helped a teammate succeed at the cost of your own task."
+    },
+    {
+      "principle": "Play, as a team",
+      "title": "Describe a conflict within a team you were part of and how it was resolved."
+    },
+    {
+      "principle": "Play, as a team",
+      "title": "Tell me about a time you worked with people whose working style was very different from yours."
+    },
+    {
+      "principle": "Play, as a team",
+      "title": "Describe a time a team you were on failed to deliver. What was your part in it?"
+    },
+    {
+      "principle": "Be the change you seek",
+      "title": "Tell me about a process or tool you improved without being asked."
+    },
+    {
+      "principle": "Be the change you seek",
+      "title": "Describe a time you noticed something broken that wasn't your job to fix. What did you do?"
+    },
+    {
+      "principle": "Be the change you seek",
+      "title": "Tell me about a time you convinced others to try a new way of working."
+    },
+    {
+      "principle": "Be the change you seek",
+      "title": "Describe something you learned on your own because a project needed it."
+    }
+  ]
+}

@@ -32,7 +32,8 @@ DEFAULT_WEIGHTS = {
 TOP_K = 8
 TRACE_LIMIT = 60
 
-PRINCIPLE_CATEGORY = {"amazon": "amazon-lp", "google": "googleyness"}
+PRINCIPLE_CATEGORY = {"amazon": "amazon-lp", "google": "googleyness", "atlassian": "atlassian-values",
+                      "microsoft": "microsoft-culture"}
 
 # Words that tie text to one company's own culture, beyond its name.
 COMPANY_ALIASES = {

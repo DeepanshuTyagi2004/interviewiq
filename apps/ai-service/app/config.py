@@ -364,7 +364,8 @@ class Settings(BaseSettings):
     neetcode_ref: str = Field("main", alias="NEETCODE_REF")
     machine_coding_repo: str = Field("lavakumarThatisetti/Machine-Coding-Round", alias="MACHINE_CODING_REPO")
     machine_coding_ref: str = Field("master", alias="MACHINE_CODING_REF")
-    # Behavioural/HR scrape sources (Amazon LP + Googleyness are vendored JSON under <data_dir>/behavioural/).
+    # Behavioural/HR scrape sources (Amazon LP, Googleyness, Atlassian values and
+    # Microsoft culture are vendored JSON under <data_dir>/behavioural/).
     tih_repo: str = Field("yangshun/tech-interview-handbook", alias="TIH_REPO")
     tih_ref: str = Field("main", alias="TIH_REF")
     rohan_behavioural_repo: str = Field("rohan-paul/Awesome-JavaScript-Interviews", alias="ROHAN_BEHAVIOURAL_REPO")

@@ -8,7 +8,8 @@ its own content (one line, no copyright), so `title` holds the full question tex
 Sources:
   - yangshun/tech-interview-handbook  → general + per-company behavioural (scraped md)
   - rohan-paul/Awesome-JavaScript-Interviews → Indian-company HR / soft questions (scraped md)
-  - vendored JSON (<data_dir>/behavioural/*.json) → Amazon Leadership Principles, Google Googleyness
+  - vendored JSON (<data_dir>/behavioural/*.json) → Amazon Leadership Principles, Google Googleyness,
+    Atlassian values, Microsoft culture
 """
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ _PREFIX = {
     "rohan-soft": "rhn",
     "amazon-leadership-principles": "alp",
     "google-googleyness": "ggl",
+    "atlassian-values": "atl",
+    "microsoft-culture": "msc",
 }
 
 _TIH_FILE = "apps/website/contents/behavioral-interview-questions.md"
@@ -186,7 +189,7 @@ async def _collect_rohan(settings) -> list[QuestionRecord]:
         return []
 
 
-# --- vendored static JSON (Amazon LP, Googleyness) ---
+# --- vendored static JSON (Amazon LP, Googleyness, Atlassian values, Microsoft culture) ---
 
 def _collect_vendored(settings) -> list[QuestionRecord]:
     data_dir = os.path.join(settings.questions_data_dir, "behavioural")

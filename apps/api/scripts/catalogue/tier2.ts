@@ -350,4 +350,100 @@ const zerodha: CompanyIn = {
   ],
 };
 
-export const TIER2: CompanyIn[] = [razorpay, swiggy, cred, zerodha];
+// ---- PhonePe ----
+const P = {
+  lcSde1: "https://leetcode.com/discuss/post/6437867/my-phonepe-sde-1-interview-experience-by-gha9/",
+  lcPune: "https://leetcode.com/discuss/post/6680307/phonepe-interview-for-sde1-backend-0-3-y-i9lr/",
+  lcSe13: "https://leetcode.com/discuss/post/7286629/phonepe-se-1-3y-interview-experience-by-qdo0q/",
+  lc35: "https://leetcode.com/discuss/post/7539137/phonepe-backend-software-engineer-3-5-ye-n5mi/",
+  lc57: "https://leetcode.com/discuss/post/7770543/phonepe-software-engineer-5-7-years-bang-tppy/",
+  lcCampus: "https://leetcode.com/discuss/interview-experience/5601966/PhonePe-2024-On-Campus-SDE-Interview-Experience/",
+  roundz: "https://roundz.substack.com/p/interview-experience-101-phonepe-sde2",
+  taroJul: "https://www.jointaro.com/interviews/companies/phonepe/experiences/software-development-engineer-sde-bengaluru-july-1-2025-declined-offer-positive-716ebb73",
+  taroSep: "https://www.jointaro.com/interviews/companies/phonepe/experiences/software-engineer-bengaluru-karnataka-september-1-2025-no-offer-neutral-f435d5c3",
+  gd1: "https://www.glassdoor.co.in/Interview/PhonePe-Interview-E2289138-RVW92916632.htm",
+  gd2: "https://www.glassdoor.com/Interview/PhonePe-Interview-E2289138-RVW103053712.htm",
+  offer1: "https://leetcode.com/discuss/compensation/2031858/phonepe-sde-2-bangalore",
+  offer2: "https://leetcode.com/discuss/compensation/2874180/PhonePe-or-Software-Engineer-or-Bengaluru",
+  abSal: "https://ambitionbox.com/salaries/phonepe-salaries/software-engineer2",
+  fy25: "https://entrackr.com/fintrackr/phonepe-posts-rs-7115-cr-revenue-and-rs-630-cr-adjusted-pat-in-fy25-10487742",
+  ipo: "https://www.medianama.com/2025/09/223-phonepe-confidential-1-3b-ipo-with-sebi-15b-valuation/",
+  ab: "https://ambitionbox.com/reviews/phonepe-reviews",
+};
+const pMachine = (oa: boolean): RoundIn => ({
+  name: oa ? "Machine coding (first round)" : "Machine coding round", type: "lld", minutes: 90, difficulty: "hard",
+  topics: ["Modular design", "Exception handling and validation", "Concurrency control", "Testable code", "Extensibility"],
+  questions: ["Battleship", "Vehicle rental system", "BookMyShow-style booking system", "Issue management system", "Customer issue resolution system"],
+  guidance: "About 90 minutes to build a working system with a modular structure, exception handling, validations and concurrency control; some candidates then have a follow-up on scalability and extensibility. Reports describe PhonePe interviews as code-heavy with a strong focus on modular, testable code.",
+  src: [P.roundz, P.taroJul, P.lc35, P.gd1],
+});
+const pDsa = (senior: boolean): RoundIn => ({
+  name: "DSA round", type: "dsa", minutes: 60, difficulty: senior ? "hard" : "medium",
+  topics: senior ? ["Stacks", "Graphs", "Dynamic programming", "Disjoint set union"] : ["Arrays", "Strings", "Trees", "Two pointers"],
+  questions: senior ? ["Min stack"] : ["Dutch National Flag sorting", "Palindrome check in O(1) space"],
+  guidance: senior
+    ? "Medium-to-hard problems; campus and experienced reports mention graphs, DP and DSU."
+    : "Medium problems on arrays, strings and trees, with an optimal solution and its complexity expected.",
+  src: senior ? [P.lcSe13, P.lcCampus, P.gd2] : [P.lcSde1, P.lcPune],
+});
+const pDesign = (): RoundIn => ({
+  name: "Design round", type: "system-design", minutes: 60, difficulty: "hard",
+  topics: ["High-level design", "Scalability", "Kafka and asynchronous processing", "REST API design"],
+  guidance: "Design round after DSA in the experienced loop; SDE-1 candidates were also advised to revise backend design, Kafka and REST.",
+  src: [P.roundz, P.lc57, P.lcSde1],
+});
+const pHm = (): RoundIn => ({
+  name: "Hiring manager round", type: "hiring-manager", minutes: 45, difficulty: "medium",
+  topics: ["Project deep-dive", "Ownership", "Team fit"],
+  guidance: "Final round with the hiring manager on past projects and fit.",
+  src: [P.roundz, P.lc57],
+});
+
+const phonepe: CompanyIn = {
+  name: "PhonePe", slug: "phonepe", tier: 2,
+  tierRationale: "Self-reported Bengaluru software-engineer offers show ₹48 LPA fixed and above for experienced hires, but fresher pay data is sparse and inconsistent, so it is placed with other Indian fintech product companies in Tier 2. The loop is code-heavy, with machine coding as a gate.",
+  hq: "Bengaluru, India", size: "About 12,300 employees (one source)",
+  website: "https://www.phonepe.com/careers/", aliases: ["PhonePe Private Limited", "PhonePe Pvt Ltd"],
+  sector: "fintech", businessModel: "product", headcountBand: "About 12,300 (one source)",
+  revenueBand: "FY25 ₹7,115 crore (+40%)", fundingStage: "subsidiary",
+  wlbRating: null, wlbReviewCount: null,
+  reviewSummary: "Rated 4.0/5 on AmbitionBox from about 2,200 reviews. Engineers describe strong backend learning at scale, while others mention ad hoc tasks crowding out planned work and unclear growth; no separate work-life balance score was found.",
+  reviewQuotes: [],
+  overview: "PhonePe is a Walmart-owned UPI payments and financial-services company. FY25 revenue rose about 40% to ₹7,115 crore with adjusted PAT (excluding ESOP costs) of about ₹630 crore; it filed confidential IPO papers with SEBI in September 2025.",
+  culture: "Engineering-led culture with code-heavy hiring: machine coding, DSA, design and hiring manager rounds, where modular, testable code is the main signal.",
+  benefits: "Self-reported offers list fixed pay plus joining and retention bonuses and ESOPs.",
+  src: [P.fy25, P.ipo, P.ab],
+  roles: [
+    {
+      key: "sde1", title: "Software Engineer (SDE-1, Backend)", level: "sde1", spec: "backend",
+      description: "Backend Software Engineer at PhonePe (0-3 years). Build payment and platform services in Java, with Kafka and REST APIs. Reports describe an online assessment of four mixed-difficulty problems, then DSA rounds on arrays and trees and a final round on projects and design. Public pay data for this level is inconsistent, so no range is shown.",
+      stack: ["Java", "Kafka", "REST APIs", "MySQL", "Data Structures"],
+      yoe: [0, 3], ctc: null, src: [P.lcPune, P.lcSde1, P.abSal],
+      rounds: [
+        {
+          name: "Online assessment", type: "dsa", minutes: 90, difficulty: "medium",
+          topics: ["Arrays", "Strings", "Trees", "Graphs"],
+          guidance: "Reported on CodeSignal with four problems of mixed difficulty.",
+          src: [P.lcPune, P.lcSe13],
+        },
+        pDsa(false), { ...pDsa(false), name: "DSA round 2", questions: [] }, pHm(),
+      ],
+    },
+    {
+      key: "se2", title: "Software Engineer II (Backend)", level: "sde2", spec: "backend",
+      description: "Backend Software Engineer at PhonePe (about 3-5 years). Own services in the payments stack end to end. The reported loop is machine coding, DSA, design and a hiring manager round; a round may be repeated.",
+      stack: ["Java", "Kafka", "REST APIs", "MySQL", "System Design"],
+      yoe: [3, 5], ctc: [48, 70], src: [P.offer1, P.offer2, P.lc35, P.roundz],
+      rounds: [pMachine(true), pDsa(true), pDesign(), pHm()],
+    },
+    {
+      key: "sse", title: "Senior Software Engineer (Backend)", level: "sde3", spec: "backend",
+      description: "Senior backend engineer at PhonePe (about 5-7 years), leading design of high-throughput payment services. A Bangalore candidate who was selected describes the same code-heavy loop with a deeper design discussion.",
+      stack: ["Java", "Distributed Systems", "Kafka", "System Design", "Observability"],
+      yoe: [5, 7], ctc: null, src: [P.lc57],
+      rounds: [pMachine(false), pDsa(true), { ...pDesign(), name: "System design" }, pHm()],
+    },
+  ],
+};
+
+export const TIER2: CompanyIn[] = [razorpay, swiggy, cred, zerodha, phonepe];

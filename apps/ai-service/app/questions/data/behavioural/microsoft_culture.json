@@ -1,0 +1,78 @@
+{
+  "source": "microsoft-culture",
+  "url": "https://careers.microsoft.com/v2/global/en/culture",
+  "company_tags": [
+    "microsoft"
+  ],
+  "category": "microsoft-culture",
+  "questions": [
+    {
+      "principle": "Growth mindset",
+      "title": "Tell me about a time you failed at something and what you changed afterwards."
+    },
+    {
+      "principle": "Growth mindset",
+      "title": "Describe a skill you were weak at and how you got better at it."
+    },
+    {
+      "principle": "Growth mindset",
+      "title": "Tell me about feedback that changed how you work."
+    },
+    {
+      "principle": "Growth mindset",
+      "title": "Describe a time you had to learn a new technology quickly to deliver something."
+    },
+    {
+      "principle": "Growth mindset",
+      "title": "Tell me about a time you were wrong about a technical approach. How did you find out?"
+    },
+    {
+      "principle": "Customer obsessed",
+      "title": "Tell me about a time you learned what users needed before building something."
+    },
+    {
+      "principle": "Customer obsessed",
+      "title": "Describe a time you went beyond the requirements because of how the feature would be used."
+    },
+    {
+      "principle": "Customer obsessed",
+      "title": "Tell me about a bug or outage that affected users and how you handled it."
+    },
+    {
+      "principle": "Diverse and inclusive",
+      "title": "Tell me about a time you made sure a quieter team member's idea was heard."
+    },
+    {
+      "principle": "Diverse and inclusive",
+      "title": "Describe working with someone from a very different background. What did you learn from them?"
+    },
+    {
+      "principle": "Diverse and inclusive",
+      "title": "Tell me about a time you changed something you built so that more people could use it."
+    },
+    {
+      "principle": "One Microsoft",
+      "title": "Tell me about a time you worked with another team to deliver something neither could do alone."
+    },
+    {
+      "principle": "One Microsoft",
+      "title": "Describe a time two teams wanted different things from you. How did you resolve it?"
+    },
+    {
+      "principle": "One Microsoft",
+      "title": "Tell me about a time you shared your work or knowledge so another team could reuse it."
+    },
+    {
+      "principle": "Making a difference",
+      "title": "Tell me about the project you are proudest of and the impact it had."
+    },
+    {
+      "principle": "Making a difference",
+      "title": "Describe a time you took ownership of a problem that was blocking others."
+    },
+    {
+      "principle": "Making a difference",
+      "title": "Tell me about a time you had to influence a decision without having authority over it."
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import type { CompanyIn } from "./types.js";
+import type { CompanyIn, RoundIn } from "./types.js";
 
 // ---- Google ----
 const G = {
@@ -324,4 +324,200 @@ const microsoft: CompanyIn = {
   ],
 };
 
-export const TIER1: CompanyIn[] = [google, amazon, microsoft];
+// ---- Flipkart ----
+const F = {
+  lc1: "https://leetcode.com/discuss/post/7691468/flipkart-interview-experience-for-sde-1-bgs2k/",
+  lcBlr: "https://leetcode.com/discuss/interview-experience/1354371/flipkart-sde-1-bangalore-india",
+  lc2021: "https://leetcode.com/discuss/interview-experience/1269487/flipkart-interview-experience-for-sde-1",
+  lcSde2: "https://leetcode.com/discuss/post/7591327/flipkart-sde-2-interview-experience-by-a-cqjk/",
+  taro: "https://www.jointaro.com/interviews/companies/flipkart/experiences/software-development-engineer-sde1-bengaluru-may-1-2025-no-offer-positive-77c09c76/",
+  taroSde2: "https://www.jointaro.com/interviews/companies/flipkart/work-experiences/sde-2-backend-february-27-2022-4-d9eb1218",
+  gfg1: "https://www.geeksforgeeks.org/flipkart-interview-experience-for-sde-i-1-year-experienced/",
+  gfgSde2: "https://www.geeksforgeeks.org/?p=1156850",
+  code360: "https://www.naukri.com/code360/interview-experiences/flipkart/flipkart-interview-experience-on-campus-nov-2021",
+  gdInt: "https://www.glassdoor.co.in/Interview/Flipkart-Interview-E300494-RVW99267708.htm",
+  glich: "https://hw.glich.co/resources/companies/flipkart/interview-process/sde-1-software-engineer",
+  levels: "https://www.levels.fyi/companies/flipkart/salaries/software-engineer",
+  prepSal: "https://prepinsta.com/flipkart/salary/",
+  abSde2: "https://ambitionbox.com/salaries/flipkart-salaries/sde-2",
+  lcOffer: "https://leetcode.com/discuss/post/6486054/flipkart-sde2-bangalore-feb-2025-by-anon-kmtf/",
+  ab: "https://ambitionbox.com/reviews/flipkart-reviews",
+  fy25: "https://www.business-standard.com/companies/news/flipkart-internet-fy25-revenue-rises-14-losses-narrow-ipo-prep-125091300087_1.html",
+  ipo: "https://www.freepressjournal.in/business/flipkart-may-defer-ipo-as-walmart-instructs-to-focus-on-ebitda-breakeven-by-fy27",
+};
+const fOa = (): RoundIn => ({
+  name: "Online assessment", type: "dsa", minutes: 90, difficulty: "medium",
+  topics: ["Arrays", "Strings", "Graphs", "Dynamic programming"],
+  guidance: "Reported as a 90-minute online assessment with two or three DSA problems before the interview loop.",
+  src: [F.lc1, F.glich],
+});
+const fMachine = (senior: boolean): RoundIn => ({
+  name: "Machine coding round", type: "lld", minutes: 120, difficulty: senior ? "hard" : "medium",
+  topics: ["Object-oriented design", "Modularity", "Extensibility", "In-memory data modelling", "Working code with command-line input and output"],
+  questions: senior
+    ? ["Flipkart UPI backend", "Movie ticket booking system"]
+    : ["Facebook-style feed with posts, upvotes, downvotes and ranking", "Conference room allocation across buildings and floors",
+      "Splitwise with groups", "Library management system", "Flight management system", "Covid vaccination centre booking"],
+  guidance: senior
+    ? "A written spec to implement in about 90-120 minutes, then a separate evaluation where the interviewer asks you to explain the problem and walk through your code. Graded on clean, modular code that covers every requirement."
+    : "Build a working application from a written spec in about 90-120 minutes, in any language, with command-line input and output and no database or UI. Reports say finishing all requirements with modular code matters: one candidate who left asks unfinished did not pass.",
+  src: senior ? [F.lcSde2, F.gfgSde2, F.taroSde2] : [F.lc2021, F.gfg1, F.code360, F.gdInt],
+});
+const fPsds = (n: number): RoundIn => ({
+  name: `Problem solving and data structures (PSDS) ${n}`, type: "dsa", minutes: 60, difficulty: "medium",
+  topics: ["Arrays", "Trees", "Graphs", "Dynamic programming", "Complexity analysis"],
+  guidance: "Eliminatory DSA round with one or two problems; candidates report being asked for the optimal approach, a dry run and clean code.",
+  src: [F.lc1, F.taro, F.lcBlr],
+});
+const fDesign = (): RoundIn => ({
+  name: "System design", type: "system-design", minutes: 60, difficulty: "hard",
+  topics: ["High-level design", "Scalability", "Data modelling", "Trade-offs"],
+  guidance: "Reported for SDE-2 loops after machine coding and PSDS; every round is eliminatory.",
+  src: [F.lcSde2, F.gdInt],
+});
+const fHm = (): RoundIn => ({
+  name: "Hiring manager round", type: "hiring-manager", minutes: 45, difficulty: "medium",
+  topics: ["Project deep-dive", "Ownership", "Why Flipkart", "Behavioural"],
+  guidance: "The last eliminatory round: a resume and project discussion with behavioural questions.",
+  src: [F.lc1, F.taro],
+});
+
+const flipkart: CompanyIn = {
+  name: "Flipkart", slug: "flipkart", tier: 1,
+  tierRationale: "SDE-1 total compensation reported at about ₹20-28 LPA (levels.fyi ~₹23.6 LPA), at and above the ₹20 LPA Tier 1 line, with an eliminatory loop built around machine coding and PSDS rounds.",
+  hq: "Bengaluru, India", size: "Not publicly disclosed",
+  website: "https://www.flipkartcareers.com", aliases: ["Flipkart Internet", "Flipkart Group"],
+  sector: "e-commerce", businessModel: "product", headcountBand: "Not disclosed",
+  revenueBand: "FY25 ₹20,493 cr (marketplace)", fundingStage: "subsidiary",
+  wlbRating: 3.7, wlbReviewCount: 10800,
+  reviewSummary: "Rated 4.0/5 on AmbitionBox from about 10,800 reviews, with work-life balance at 3.7/5, slightly below culture and job security (3.8/5 each). The review base includes large operations and supply-chain teams, not only engineering.",
+  reviewQuotes: [],
+  overview: "Flipkart is a Bengaluru e-commerce marketplace majority-owned by Walmart. The marketplace arm, Flipkart Internet, reported FY25 revenue of about ₹20,493 crore (+14%) and cut its loss to about ₹1,494 crore; a planned IPO has been reported as deferred while it targets EBITDA breakeven.",
+  culture: "Engineering hiring is known for machine coding: candidates build a working application from a spec under time pressure, then face eliminatory DSA and hiring manager rounds.",
+  benefits: "Base salary plus performance bonus and stock; fresher SDE-1 offers are reported at about ₹18 LPA fixed and ₹21-22 LPA total.",
+  src: [F.ab, F.fy25, F.ipo, F.levels],
+  roles: [
+    {
+      key: "sde1", title: "Software Development Engineer I (SDE-1)", level: "fresher", spec: "backend",
+      description: "SDE-1 at Flipkart (0-2 years). Build and ship backend services for the marketplace, write modular, tested code and learn to run high-traffic systems. The loop is an online assessment followed by machine coding, PSDS and hiring manager rounds, all eliminatory.",
+      stack: ["Java", "Data Structures", "Algorithms", "Object-oriented design", "SQL"],
+      yoe: [0, 2], ctc: [20, 28], src: [F.levels, F.prepSal, F.lc1, F.taro],
+      rounds: [fOa(), fMachine(false), fPsds(1), fPsds(2), fHm()],
+    },
+    {
+      key: "sde2", title: "Software Development Engineer II (SDE-2)", level: "sde2", spec: "backend",
+      description: "SDE-2 at Flipkart (2-5 years). Own backend services end to end, design for scale and mentor SDE-1s. Reported loops cover machine coding with a code-walkthrough evaluation, PSDS, system design and a hiring manager round.",
+      stack: ["Java", "Distributed Systems", "System Design", "Kafka", "SQL", "NoSQL"],
+      yoe: [2, 5], ctc: [30, 45], src: [F.levels, F.abSde2, F.lcOffer, F.lcSde2],
+      rounds: [fMachine(true), fPsds(1), fDesign(), fHm()],
+    },
+  ],
+};
+
+// ---- Atlassian ----
+const AT = {
+  blind: "https://www.teamblind.com/post/atlassian-p40-chances-sde-2-sumrcd57",
+  lcP40: "https://leetcode.com/discuss/post/7196860/atlassian-p40-bangalore-interview-exp-of-xgp4/",
+  lcP40b: "https://leetcode.com/discuss/post/7495920/atlassian-interview-experience-p40-5-yoe-4epp/",
+  lcP40c: "https://leetcode.com/discuss/interview-experience/7057047",
+  lcSde2: "https://leetcode.com/discuss/interview-experience/1102488/atlassian-software-development-engineer-ii-bengaluru-25-yoe-reject",
+  lcP5: "https://leetcode.com/discuss/interview-experience/1271435/",
+  gdCode: "https://fr.glassdoor.ch/Entretien/Atlassian-Entretien-E115699-RVW47980511.htm",
+  taroFe: "https://www.jointaro.com/interviews/companies/atlassian/experiences/software-development-engineer-sde-india-november-22-2024-no-offer-positive-9c478468/",
+  taroSde2: "https://www.jointaro.com/interviews/companies/atlassian/experiences/software-development-engineer-sde-ii-india-december-29-2020-accepted-offer-positive-346be1de/",
+  taroVal: "https://www.jointaro.com/interviews/companies/atlassian/experiences/software-developer-bengaluru-april-1-2019-declined-offer-positive-b47b7b0e/",
+  levels: "https://www.levels.fyi/en-gb/companies/atlassian/salaries/software-engineer/title/backend-software-engineer",
+  abSal: "https://www.ambitionbox.com/salaries/atlassian-salaries/software-engineer/bengaluru-location",
+  abBlr: "https://ambitionbox.com/reviews/atlassian-reviews/bengaluru-location",
+  values: "https://www.atlassian.com/company/values",
+  india: "https://atlassian.com/company/careers/india",
+  fy25: "https://www.businesswire.com/news/home/20250807057757/en",
+};
+const atKarat = (): RoundIn => ({
+  name: "Karat coding screen", type: "dsa", minutes: 60, difficulty: "medium",
+  topics: ["Arrays", "Hashing", "Strings", "Problem solving"],
+  guidance: "Recent India P40 candidates report an outsourced Karat screen before the onsite loop.",
+  src: [AT.blind, AT.lcP40b],
+});
+const atDsa = (): RoundIn => ({
+  name: "Data structures round", type: "dsa", minutes: 60, difficulty: "medium",
+  topics: ["Hashing", "Sorting", "Heaps", "Graphs"],
+  questions: ["Group files by tags and rank tags by total file size"],
+  guidance: "One DSA round in the loop. Its feedback alone has been used to down-level candidates (for example P40 to P30), so it counts on its own.",
+  src: [AT.blind, AT.lcP40c, AT.gdCode],
+});
+const atCodeDesign = (): RoundIn => ({
+  name: "Code design", type: "lld", minutes: 60, difficulty: "medium",
+  topics: ["Object design", "Code organisation", "Extensibility", "Rate limiting algorithms (token bucket, sliding window)"],
+  questions: ["API rate limiter", "Snake game where the snake grows on every nth food"],
+  guidance: "Write working, well-organised code for a small system, then extend it when the interviewer changes a requirement. Rate limiters are reported most often; one interviewer pushed a candidate from sliding window to token bucket.",
+  src: [AT.lcP40, AT.lcSde2, AT.gdCode],
+});
+const atSd = (): RoundIn => ({
+  name: "System design", type: "system-design", minutes: 60, difficulty: "hard",
+  topics: ["Tagging system", "Leaderboard", "Jira-style issue tracking", "Scalability", "Trade-offs"],
+  guidance: "High-level design round in the P40 and P50 loops. Candidates report preparing tagging, leaderboard and Jira-like systems for it.",
+  src: [AT.blind, AT.lcP40, AT.lcP5],
+});
+const atMgr = (): RoundIn => ({
+  name: "Management round", type: "hiring-manager", minutes: 45, difficulty: "medium",
+  topics: ["Past projects", "Ownership", "Collaboration", "Handling ambiguity"],
+  guidance: "Manager-led discussion of past projects and how you work.",
+  src: [AT.blind, AT.taroSde2],
+});
+const atValues = (): RoundIn => ({
+  name: "Values interview", type: "behavioural", minutes: 45, difficulty: "medium",
+  topics: ["Open company, no bullshit", "Build with heart and balance", "Don't #@!% the customer", "Play, as a team", "Be the change you seek"],
+  guidance: "Behavioural round on Atlassian's five published values. Candidates say it needs preparation: bring specific stories for each value.",
+  src: [AT.values, AT.blind, AT.taroVal],
+});
+
+const atlassian: CompanyIn = {
+  name: "Atlassian", slug: "atlassian", tier: 1,
+  tierRationale: "levels.fyi reports backend engineers in India at about ₹42 LPA total at P30, ₹70 LPA at P40 and ₹111 LPA at P50, well above the ₹20 LPA Tier 1 line, with a six-round loop including a separate values interview.",
+  hq: "Sydney, Australia (India: Bengaluru)", size: "13,813 employees worldwide (FY25)",
+  website: "https://www.atlassian.com/company/careers", aliases: ["Atlassian India", "Atlassian Corporation", "TEAM"],
+  sector: "enterprise-software", businessModel: "product", headcountBand: "13,813 (FY25, global)",
+  revenueBand: "FY25 $5.2B (+20%)", fundingStage: "public",
+  wlbRating: 3.6, wlbReviewCount: 32,
+  reviewSummary: "Bengaluru reviews on AmbitionBox average 3.5/5 from a small sample of 32, with work-life balance 3.6/5 and salary 4.1/5. Opinions on work-life balance are split between excellent and bad.",
+  reviewQuotes: [],
+  overview: "Atlassian builds team collaboration and work-management software including Jira, Confluence and Trello. Fiscal 2025 revenue was $5.2 billion, up 20%; its Bengaluru engineering centre hires at P30 through P60.",
+  culture: "Remote-friendly culture shaped by five published values; hiring includes a dedicated values interview, and individual round feedback can change the level offered.",
+  benefits: "Base salary plus RSUs; P-level total compensation figures in India are self-reported on levels.fyi and AmbitionBox.",
+  src: [AT.fy25, AT.abBlr, AT.values, AT.india],
+  roles: [
+    {
+      key: "p40", title: "Software Engineer (P40)", level: "sde2", spec: "backend",
+      description: "P40 backend engineer at Atlassian Bengaluru (about 3-6 years). Build and run services behind Jira, Confluence and the cloud platform. The reported loop has six rounds: a Karat screen, DSA, code design, system design, a management round and a values round.",
+      stack: ["Java", "Kotlin", "AWS", "Microservices", "System Design", "Data Structures"],
+      yoe: [3, 6], ctc: [60, 80], src: [AT.levels, AT.blind, AT.lcP40, AT.lcP40b],
+      rounds: [atKarat(), atDsa(), atCodeDesign(), atSd(), atMgr(), atValues()],
+    },
+    {
+      key: "p40-frontend", title: "Frontend Software Engineer (P40)", level: "sde2", spec: "frontend",
+      description: "P40 frontend engineer at Atlassian (about 3-6 years), building product UI in React. One candidate reports the frontend loop focuses on React and JavaScript knowledge rather than LeetCode-style DSA.",
+      stack: ["React", "JavaScript", "TypeScript", "CSS", "Web performance"],
+      yoe: [3, 6], ctc: [60, 80], src: [AT.taroFe, AT.levels],
+      rounds: [
+        {
+          name: "Frontend coding", type: "lld", minutes: 60, difficulty: "medium",
+          topics: ["React components and state", "JavaScript fundamentals", "DOM and events", "Asynchronous JavaScript"],
+          guidance: "Hands-on React and JavaScript coding instead of LeetCode-style data structures.",
+          src: [AT.taroFe],
+        },
+        { ...atSd(), name: "Frontend system design", topics: ["Component architecture", "State management", "Rendering performance", "API design for the UI"] },
+        atMgr(), atValues(),
+      ],
+    },
+    {
+      key: "p50", title: "Senior Software Engineer (P50)", level: "sde3", spec: "backend",
+      description: "Senior backend engineer at Atlassian (about 6-10 years), leading design for a product or platform area. The loop mirrors P40 with a higher design bar; candidates report being levelled per round (for example coding at P40 and everything else at P50).",
+      stack: ["Java", "Kotlin", "AWS", "Distributed Systems", "System Design", "Observability"],
+      yoe: [6, 10], ctc: [95, 125], src: [AT.levels, AT.lcP5, AT.blind],
+      rounds: [atKarat(), atDsa(), atCodeDesign(), { ...atSd(), difficulty: "hard" }, atMgr(), atValues()],
+    },
+  ],
+};
+
+export const TIER1: CompanyIn[] = [google, amazon, microsoft, flipkart, atlassian];

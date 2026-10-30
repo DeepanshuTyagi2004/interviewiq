@@ -273,4 +273,167 @@ const accenture: CompanyIn = {
   ],
 };
 
-export const TIER3: CompanyIn[] = [tcs, infosys, accenture];
+// ---- Wipro ----
+const W = {
+  ppProc: "https://www.placementpreparation.io/blog/wipro-elite-nth-recruitment-process/",
+  ppExp: "https://placementpreparation.io/blog/wipro-elite-nth-interview-experience",
+  turbo: "https://prepinsta.com/?p=1612860",
+  diff: "https://prepinsta.com/?p=1612812",
+  nth: "https://prepinsta.com/wipro-nlth/recruitment-process",
+  weekday: "https://www.weekday.works/post/wipro-interview-questions",
+  offCampus: "https://www.weekday.works/post/wipro-off-campus-drive-2026",
+  gfg22: "https://www.geeksforgeeks.org/?p=682891",
+  gfg22b: "https://www.geeksforgeeks.org/?p=720390",
+  faceprep: "https://www.faceprep.in/article/wipro-interview-questions/",
+  ab: "https://ambitionbox.com/overview/wipro-overview",
+  fy25: "https://indiacsr.in/wipro-fy25-results-r-89088-cr-revenue-rs-13135-cr-net-profit-up-19/",
+  hc: "https://www.storyboard18.com/how-it-works/wipro-adds-10000-freshers-in-fy25-remains-cautious-on-wage-hikes-amid-global-uncertainity-62561.htm",
+};
+const wTest = (turbo: boolean): RoundIn => ({
+  name: turbo ? "Online assessment (Turbo): aptitude, essay and coding" : "Online assessment (Elite NTH): aptitude, essay and coding", type: "dsa",
+  minutes: 120, difficulty: turbo ? "medium" : "easy",
+  topics: ["Quantitative aptitude", "Logical reasoning", "Verbal ability", "Essay writing", "Coding"],
+  guidance: turbo
+    ? "Quant, logical reasoning, English, essay writing and coding sections. High scorers are invited to an extra coding round for the Turbo package; it cannot be applied for separately."
+    : "Aptitude, essay writing and coding sections; sources disagree on whether the full process is three or four rounds. Commonly cited eligibility is 60%+ throughout academics with no active backlogs.",
+  src: turbo ? [W.turbo, W.diff, W.ppProc] : [W.ppProc, W.nth, W.offCampus],
+});
+const wTech = (turbo: boolean): RoundIn => ({
+  name: "Technical interview", type: "lld", minutes: turbo ? 45 : 30, difficulty: turbo ? "medium" : "easy",
+  topics: ["Four pillars of OOP with real-world examples", "Encapsulation vs data hiding", "Tables vs views", "Types of joins",
+    "Primary and foreign keys", "SQL (for example the second highest salary)", "Resume projects"],
+  guidance: "Resume-driven technical interview, reported at 15-45 minutes. Candidates stress preparing your own projects in depth alongside OOP and DBMS basics.",
+  src: [W.gfg22, W.gfg22b, W.ppExp, W.weekday],
+});
+const wHr = (): RoundIn => ({
+  name: "HR interview", type: "behavioural", minutes: 15, difficulty: "easy",
+  topics: ["Projects", "Why Wipro", "Relocation", "Service agreement"],
+  guidance: "Short online HR round (about 10-15 minutes); HR is reported to ask about your projects as well.",
+  src: [W.ppExp, W.gfg22b],
+});
+
+const wipro: CompanyIn = {
+  name: "Wipro", slug: "wipro", tier: 3,
+  tierRationale: "Fresher packages of about ₹3.5 LPA (Elite NTH) and up to ₹6.5 LPA (Turbo) at a mass recruiter that hired about 10,000 freshers in FY25; an assessment-led process typical of Tier 3 IT services.",
+  hq: "Bengaluru, India", size: "232,346 employees (31 March 2025)",
+  website: "https://careers.wipro.com", aliases: ["Wipro Limited", "Wipro Technologies", "Wipro Elite NTH", "Wipro Turbo"],
+  sector: "it-services", businessModel: "service", headcountBand: "232,346 (FY25 end)",
+  revenueBand: "FY25 revenue ₹89,088 crore", fundingStage: "public",
+  wlbRating: 3.7, wlbReviewCount: 53400,
+  reviewSummary: "Rated 3.7/5 on AmbitionBox from about 53,400 reviews, with work-life balance 3.7/5 and job security 3.8/5. Reviews describe flexible, manageable hours on many teams and long hours on some client projects.",
+  reviewQuotes: [],
+  overview: "Wipro is a Bengaluru IT-services company with about 232,000 employees and FY25 revenue of about ₹89,088 crore (IT services about $10.5 billion, down 2.7%). Freshers join through Elite NTH or the higher-paid Turbo track; attrition was 15% at the end of FY25.",
+  culture: "Large services culture with mandatory pre-skilling before the final offer and project-dependent workload.",
+  benefits: "Elite NTH about ₹3.5 LPA; Turbo reported at up to ₹6.5 LPA (one source lists ₹5.5 LPA plus a ₹1 lakh retention bonus).",
+  src: [W.ab, W.fy25, W.hc],
+  roles: [
+    {
+      key: "elite-nth", title: "Project Engineer (Wipro Elite NTH)", level: "fresher", spec: "elite-nth",
+      description: "Entry-level Project Engineer hired through Wipro's Elite National Talent Hunt. After pre-skilling, work on development, testing or support for client projects. Expect an online assessment, a resume-driven technical interview on OOP, DBMS and SQL, and a short HR round.",
+      stack: ["Java", "Python", "C", "SQL", "OOP", "Aptitude"],
+      yoe: [0, 1], ctc: [3.5, 3.5], src: [W.ppProc, W.offCampus, W.diff],
+      rounds: [wTest(false), wTech(false), wHr()],
+    },
+    {
+      key: "turbo", title: "Project Engineer (Wipro Turbo)", level: "fresher", spec: "turbo",
+      description: "Higher-band fresher track for strong online-assessment scorers, adding an extra coding round and a voice assessment of communication skills. Reported packages differ between ₹5.5 LPA plus a retention bonus and ₹6.5 LPA.",
+      stack: ["Java", "Python", "Data Structures", "SQL", "OOP"],
+      yoe: [0, 1], ctc: [5.5, 6.5], src: [W.turbo, W.diff, W.ppProc],
+      rounds: [
+        wTest(true),
+        {
+          name: "Additional coding round", type: "dsa", minutes: 60, difficulty: "medium",
+          topics: ["Arrays", "Strings", "Basic data structures"],
+          guidance: "Extra coding round for high scorers that decides the Turbo package.",
+          src: [W.diff, W.ppProc],
+        },
+        {
+          name: "Voice assessment", type: "behavioural", minutes: 20, difficulty: "easy",
+          topics: ["Spoken English", "Communication"],
+          guidance: "Communication assessment specific to the Turbo track.",
+          src: [W.turbo],
+        },
+        wTech(true), wHr(),
+      ],
+    },
+  ],
+};
+
+// ---- Cognizant ----
+const CG = {
+  drive: "https://www.talentd.in/articles/cognizant-2025-fresher-recruitment-drive-full-details-for-genc-genc-pro-genc-next-eligibility-salary-apply-link",
+  reg: "https://www.talentd.in/articles/cognizant-freshers-hiring-2025-genc-registration-eligibility-and-deadline-details",
+  campus: "https://offcampusjobs4u.com/cognizant-genc-campus-drive-2025/",
+  ptu: "https://ptu.ac.in/wp-content/uploads/2024/10/Letter-Cognizant-GenC-campus-hiring-2025.pdf",
+  ib: "https://www.interviewbit.com/genc-interview-questions/",
+  lcNext: "https://leetcode.com/discuss/post/7323172/cognizant-genc-genc-pro-genc-next-interv-oxmt/",
+  lcNext2: "https://leetcode.com/discuss/interview-experience/7328207",
+  gdJava: "https://www.glassdoor.com/Interview/Cognizant-Interview-E8014-RVW53913521.htm",
+  gdOop: "https://www.glassdoor.ie/Interview/Cognizant-Interview-E8014-RVW72131842.htm",
+  gdSql: "https://www.glassdoor.com/Interview/Cognizant-Interview-E8014-RVW56937328.htm",
+  ab: "https://ambitionbox.com/overview/cognizant-overview",
+  fy25: "https://news.cognizant.com/2026-02-04-Cognizant-Reports-Fourth-Quarter-and-Full-Year-2025-Results?asPDF=1",
+  hire: "https://www.outlookbusiness.com/corporate/cognizant-to-hire-20000-freshers-in-2025-after-q1-earnings-beat-estimates",
+};
+const cgScreen = (): RoundIn => ({
+  name: "Communication, aptitude and technical assessment", type: "dsa", minutes: 120, difficulty: "easy",
+  topics: ["Spoken and written English", "Quantitative aptitude", "Logical reasoning", "Programming basics"],
+  guidance: "Online screening after one-stop registration: a communication and aptitude test followed by a technical assessment. Shortlisted candidates are told which track (GenC, GenC Pro or GenC Next) they will be interviewed for.",
+  src: [CG.campus, CG.ptu, CG.drive],
+});
+const cgTech = (next: boolean): RoundIn => ({
+  name: next ? "Technical interview 1 (GenC Next)" : "Technical / SME interview", type: "lld", minutes: next ? 45 : 30, difficulty: next ? "medium" : "easy",
+  topics: ["OOP", "Programming logic", "Java (JDBC, Spring basics) or Python (memory management)", "SQL queries",
+    "Small coding tasks (pattern printing, string reversal)", "Resume projects", ...(next ? ["Data structures", "Cloud fundamentals"] : [])],
+  guidance: "Online technical interview (reported on the Superset platform) of about 30-45 minutes on computer fundamentals, your resume projects and small coding problems. Candidate reports list Java, OOP, SQL, data structures and cloud basics.",
+  src: next ? [CG.ib, CG.gdSql, CG.gdOop, CG.lcNext] : [CG.gdJava, CG.gdOop, CG.gdSql, CG.ib],
+});
+
+const cognizant: CompanyIn = {
+  name: "Cognizant", slug: "cognizant", tier: 3,
+  tierRationale: "Fresher packages of about ₹4.0 LPA (GenC), ₹5.4 LPA (GenC Pro) and ₹6.75 LPA (GenC Next) at a mass recruiter that planned 20,000 fresher hires in 2025: Tier 3 IT services.",
+  hq: "Teaneck, New Jersey, USA (large India delivery centres)", size: "351,600 employees (31 December 2025)",
+  website: "https://careers.cognizant.com", aliases: ["Cognizant Technology Solutions", "CTS", "Cognizant GenC"],
+  sector: "it-services", businessModel: "service", headcountBand: "351,600 (Dec 2025)",
+  revenueBand: "2025 revenue $21.1B (+7%)", fundingStage: "public",
+  wlbRating: null, wlbReviewCount: null,
+  reviewSummary: "Rated 3.8/5 on AmbitionBox from about 49,900 reviews. Work-life balance reviews vary by project: many call it good, while others report long hours near project deadlines; no separate category score was found.",
+  reviewQuotes: [],
+  overview: "Cognizant is a US-headquartered IT-services company with most of its workforce in India. 2025 revenue was $21.1 billion (+7%) and year-end headcount 351,600. Freshers are hired into GenC, GenC Pro (enterprise platforms such as Salesforce, SAP and Pega) and GenC Next (advanced coding and full-stack) tracks.",
+  culture: "Large services organisation where workload depends on the project; freshers go through structured training before project allocation.",
+  benefits: "GenC (Programmer Analyst Trainee) about ₹4.0 LPA, GenC Pro about ₹5.4 LPA and GenC Next about ₹6.75 LPA; GenC Next is reported to include a paid three-month internship before the differential package.",
+  src: [CG.ab, CG.fy25, CG.hire],
+  roles: [
+    {
+      key: "genc", title: "Programmer Analyst Trainee (GenC)", level: "fresher", spec: "genc",
+      description: "Entry-level Programmer Analyst Trainee in Cognizant delivery teams. After training, work on development, testing or support for client projects. The process is online screening followed by a technical or SME interview.",
+      stack: ["Java", "Python", "SQL", "OOP", "Aptitude"],
+      yoe: [0, 1], ctc: [4.0, 4.0], src: [CG.drive, CG.campus, CG.reg],
+      rounds: [cgScreen(), cgTech(false)],
+    },
+    {
+      key: "genc-pro", title: "Programmer Analyst (GenC Pro)", level: "fresher", spec: "genc-pro",
+      description: "Fresher track for candidates with enterprise-platform skills such as Salesforce, SAP or Pega, at about ₹5.4 LPA.",
+      stack: ["Salesforce", "SAP", "Pega", "SQL", "Java"],
+      yoe: [0, 1], ctc: [5.4, 5.5], src: [CG.drive, CG.reg],
+      rounds: [cgScreen(), { ...cgTech(false), topics: ["Enterprise platform basics", "OOP", "SQL", "Resume projects"] }],
+    },
+    {
+      key: "genc-next", title: "Programmer Analyst (GenC Next)", level: "fresher", spec: "genc-next",
+      description: "Top fresher track for advanced coders with full-stack skills, at about ₹6.75 LPA after a paid three-month internship. Candidates report two technical interviews, the second covering web basics.",
+      stack: ["Java", "Python", "Data Structures", "HTML", "CSS", "JavaScript", "SQL"],
+      yoe: [0, 1], ctc: [6.75, 6.75], src: [CG.drive, CG.lcNext, CG.lcNext2],
+      rounds: [
+        cgScreen(), cgTech(true),
+        {
+          name: "Technical interview 2 (GenC Next)", type: "lld", minutes: 30, difficulty: "medium",
+          topics: ["HTML basics", "CSS basics", "JavaScript basics", "Resume projects"],
+          guidance: "A second technical round of about 30 minutes, reported in November 2025, with web-fundamentals questions.",
+          src: [CG.lcNext2, CG.lcNext],
+        },
+      ],
+    },
+  ],
+};
+
+export const TIER3: CompanyIn[] = [tcs, infosys, accenture, wipro, cognizant];
